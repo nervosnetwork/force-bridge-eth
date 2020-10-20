@@ -1,5 +1,5 @@
 [workspace]
-members = ["tests", "contracts/eth-bridge-typescript"]
+members = ["tests", "contracts/eth-bridge-typescript", "contracts/eth-light-client-typescript", "contracts/eth-bridge-lockscript"]
 
 [profile.release]
 overflow-checks = true
