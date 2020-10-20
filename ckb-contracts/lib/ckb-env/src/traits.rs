@@ -3,7 +3,6 @@ use ckb_std::error::SysError;
 cfg_if::cfg_if! {
     if #[cfg(feature = "std")] {
     } else {
-        use alloc::string::String;
     }
 }
 

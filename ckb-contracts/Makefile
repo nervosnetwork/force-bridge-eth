@@ -6,6 +6,6 @@ build:
 	capsule test
 
 test-contract-lib:
-	cd lib/eth-bridge-typescript-lib && cargo test
+	cd lib/eth-bridge-typescript-lib && cargo test -- --nocapture
 
 .PHONY: build
