@@ -9,5 +9,5 @@ version = "0.4.1 "
 deployment = "deployment.toml"
 
 [[contracts]]
-name = "ckb-contracts"
+name = "eth-bridge-typescript"
 template_type = "Rust"

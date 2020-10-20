@@ -1,5 +1,5 @@
 [package]
-name = "ckb-contracts"
+name = "eth-bridge-typescript"
 version = "0.1.0"
 edition = "2018"
 
@@ -7,3 +7,5 @@ edition = "2018"
 
 [dependencies]
 ckb-std = "0.6.3"
+eth-bridge-typescript-lib = { path = "../../lib/eth-bridge-typescript-lib", default_features = false }
+ckb-env = { path = "../../lib/ckb-env", default_features = false }

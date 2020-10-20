@@ -1,4 +1,4 @@
-# ckb-contracts
+# eth-bridge-typescript
 
 Build contracts:
 

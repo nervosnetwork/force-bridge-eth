@@ -318,13 +318,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ckb-contracts"
-version = "0.1.0"
-dependencies = [
- "ckb-std",
-]
-
-[[package]]
 name = "ckb-crypto"
 version = "0.37.0-pre"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -378,6 +371,14 @@ dependencies = [
  "ckb-rocksdb",
  "libc",
  "tempfile",
+]
+
+[[package]]
+name = "ckb-env"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "ckb-std",
 ]
 
 [[package]]
@@ -1031,6 +1032,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d2f06b9cac1506ece98fe3231e3cc9c4410ec3d5b1f24ae1c8946f0742cdefc"
 dependencies = [
  "version_check",
+]
+
+[[package]]
+name = "eth-bridge-typescript"
+version = "0.1.0"
+dependencies = [
+ "ckb-env",
+ "ckb-std",
+ "eth-bridge-typescript-lib",
+]
+
+[[package]]
+name = "eth-bridge-typescript-lib"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "ckb-env",
+ "ckb-std",
 ]
 
 [[package]]
