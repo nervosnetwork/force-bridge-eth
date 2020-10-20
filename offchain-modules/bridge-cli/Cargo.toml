@@ -1,0 +1,14 @@
+[package]
+name = "bridge-cli"
+version = "0.1.0"
+authors = ["LeonLi000 <matrix.skygirl@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bridge-lib = { path = "../bridge-lib" }
+clap = "3.0.0-beta.1"
+int-enum = "0.4"
+anyhow = "1.0"
+log = "0.4"
