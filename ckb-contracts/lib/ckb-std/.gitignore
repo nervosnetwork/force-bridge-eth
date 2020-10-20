@@ -1,0 +1,10 @@
+/target
+**/*.rs.bk
+Cargo.lock
+*.so
+*.debug
+docs/*
+!docs/riscv64imac-unknown-none-elf/
+docs/riscv64imac-unknown-none-elf/*
+!docs/riscv64imac-unknown-none-elf/doc/
+

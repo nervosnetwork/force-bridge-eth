@@ -1,0 +1,11 @@
+[package]
+name = "ckb-rust-demo"
+version = "0.1.0"
+authors = ["jjy <jjyruby@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ckb-tool = { git = "https://github.com/jjyr/ckb-tool.git", tag = "v0.1.1" }
+ckb-testtool = { git = "https://github.com/jjyr/ckb-tool.git", tag = "v0.1.1" }

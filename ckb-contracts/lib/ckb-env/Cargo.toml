@@ -16,4 +16,5 @@ std = []
 #molecule = { version = "0.6", default-features = false }
 #int-enum = { version = "0.4", default-features = false }
 cfg-if = "0.1"
-ckb-std = "0.6.3"
+#ckb-std = "0.6.3"
+ckb-std = { path = "../ckb-std" }

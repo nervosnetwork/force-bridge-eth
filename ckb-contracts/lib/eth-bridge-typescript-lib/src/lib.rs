@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use ckb_env::CkbChainInterface;
+use ckb_env::traits::CkbChainInterface;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "std")] {
@@ -25,7 +25,7 @@ pub fn verify<T: CkbChainInterface>(chain: T) -> i8 {
 
 #[cfg(test)]
 mod tests {
-    use ckb_env::MockCKBChain;
+    use ckb_env::mock::MockCKBChain;
     use super::verify;
 
     #[test]

@@ -1,0 +1,4 @@
+[build]
+target = "riscv64imac-unknown-none-elf"
+[target.riscv64imac-unknown-none-elf]
+rustflags = [ "-Zpre-link-arg=-zseparate-code", "-Zpre-link-arg=-zseparate-loadable-segments"]

@@ -17,4 +17,5 @@ std = ["ckb-env/std"]
 #int-enum = { version = "0.4", default-features = false }
 cfg-if = "0.1"
 ckb-env = { path = "../ckb-env", default-features = false }
-ckb-std = "0.6.3"
+#ckb-std = "0.6.3"
+ckb-std = { path = "../ckb-std" }

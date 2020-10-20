@@ -154,9 +154,9 @@ checksum = "476e9cd489f9e121e02ffa6014a8ef220ecb15c05ed23fc34cca13925dc283fb"
 
 [[package]]
 name = "buddy-alloc"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efba9eaa9fdf9fddf408904e3dc3dc414411053ef48c06edd3aac53d2d919e0e"
+checksum = "5a85bb0d631cbf2478b64e3b0fcfe5d9128475403ef5107eabe59f37404c5f91"
 
 [[package]]
 name = "bumpalo"
@@ -229,15 +229,6 @@ dependencies = [
  "serde",
  "time",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "ckb-allocator"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "572ce0405d93e105d547f6d362c70c4b744e5e0984f9b9877c81afd070c8e2cc"
-dependencies = [
- "buddy-alloc",
 ]
 
 [[package]]
@@ -625,12 +616,10 @@ dependencies = [
 
 [[package]]
 name = "ckb-std"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f40fb1a5a0049abb71ff043629517089ef256b8e63c403b9359f73b7040ac9c6"
+version = "0.7.0"
 dependencies = [
+ "buddy-alloc",
  "cc",
- "ckb-allocator",
  "ckb-standalone-types",
 ]
 
