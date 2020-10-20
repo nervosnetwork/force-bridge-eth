@@ -1,13 +1,12 @@
 # eth-bridge-typescript
 
-Build contracts:
+## development
 
-``` sh
-capsule build
+```bash
+# install capsule 0.4.1
+cargo install capsule --git https://github.com/nervosnetwork/capsule.git --tag 0.4.1
+
+# test
+make
 ```
 
-Run tests:
-
-``` sh
-capsule test
-```
