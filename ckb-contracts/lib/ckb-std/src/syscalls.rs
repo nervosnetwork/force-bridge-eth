@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+#![allow(unused_unsafe)]
 use crate::ckb_constants::*;
 // re-export to maintain compatible with old versions
 pub use crate::error::SysError;
