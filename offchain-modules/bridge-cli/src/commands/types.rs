@@ -13,14 +13,10 @@ pub enum SubCommand {
     Approve(ApproveArgs),
     Lock(LockArgs),
     ParseEthProof(ParseEthProofArgs),
-    WaitEthBlockSafe(WaitEthBlockSafeArgs),
     VerifyEthSpvProof(VerifyEthSpvProofArgs),
-    Mint(MintArgs),
     TransferFromCkb(TransferFromCkbArgs),
     Burn(BurnArgs),
     ParseCkbProof(ParseCkbProofArgs),
-    WaitCkbBlockSafe(WaitCkbBlockSafeArgs),
-    VerifyCkbSpvProof(VerifyCkbSpvProofArgs),
     Unlock(UnlockArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
@@ -33,12 +29,22 @@ pub struct TransferToCkbArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct ApproveArgs {
-
+    #[clap(short, long)]
+    pub from: String,
+    #[clap(short, long)]
+    pub to: String,
+    #[clap(long, default_value = "https://localhost:8545")]
+    pub rpc_url: String,
 }
 
 #[derive(Clap, Clone, Debug)]
 pub struct LockArgs {
-
+    #[clap(short, long)]
+    pub from: String,
+    #[clap(short, long)]
+    pub to: String,
+    #[clap(long, default_value = "https://localhost:8545")]
+    pub rpc_url: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -47,17 +53,7 @@ pub struct ParseEthProofArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct WaitEthBlockSafeArgs {
-
-}
-
-#[derive(Clap, Clone, Debug)]
 pub struct VerifyEthSpvProofArgs {
-
-}
-
-#[derive(Clap, Clone, Debug)]
-pub struct MintArgs {
 
 }
 
@@ -68,21 +64,14 @@ pub struct TransferFromCkbArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct BurnArgs {
-
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long, default_value = "https://localhost:8114")]
+    pub rpc_url: String,
 }
 
 #[derive(Clap, Clone, Debug)]
 pub struct ParseCkbProofArgs {
-
-}
-
-#[derive(Clap, Clone, Debug)]
-pub struct WaitCkbBlockSafeArgs {
-
-}
-
-#[derive(Clap, Clone, Debug)]
-pub struct VerifyCkbSpvProofArgs {
 
 }
 

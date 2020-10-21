@@ -3,22 +3,25 @@ pub mod types;
 use anyhow::{Result};
 use types::*;
 use bridge_lib::transfer::to_ckb::{approve, lock};
+use web3::types::H160;
+use bridge_lib::transfer::to_eth::burn;
 
 pub fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         // transfer erc20 to ckb
         SubCommand::Approve(args) => approve_handler(args),
+        // lock erc20 token && wait the tx is commit.
         SubCommand::Lock(args) => lock_handler(args),
+        // parse eth receipt proof from tx_hash.
         SubCommand::ParseEthProof(args)=> parse_eth_proof_handler(args),
-        SubCommand::WaitEthBlockSafe(args)=> wait_eth_block_safe_handler(args),
+        // verify eth receipt proof && mint new token
         SubCommand::VerifyEthSpvProof(args) => verify_eth_spv_proof_handler(args),
         SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args),
-        SubCommand::Mint(args) => mint_handler(args),
         // transfer erc20 from ckb
         SubCommand::Burn(args) => burn_handler(args),
+        // parse ckb spv proof from tx_hash.
         SubCommand::ParseCkbProof(args) => parse_ckb_proof_handler(args),
-        SubCommand::WaitCkbBlockSafe(args) => wait_ckb_block_safe_handler(args),
-        SubCommand::VerifyCkbSpvProof(args) => verify_ckb_spv_proof_handler(args),
+        // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args),
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
 
@@ -29,13 +32,18 @@ pub fn handler(opt: Opts) -> Result<()> {
 
 pub fn approve_handler(args: ApproveArgs) -> Result<()> {
     println!("approve_handler args: {:?}", &args);
-    approve();
+    let from: H160 = H160::from_slice(args.from.as_ref());
+    let to = H160::from_slice(args.to.as_ref());
+    let hash = approve(from, to, args.rpc_url);
+    log::info!("approve tx_hash: {:?}", &hash);
     Ok(())
 }
 
 pub fn lock_handler(args: LockArgs) -> Result<()> {
     println!("lock_handler args: {:?}", &args);
-    let hash = lock();
+    let from: H160 = H160::from_slice(args.from.as_ref());
+    let to = H160::from_slice(args.to.as_ref());
+    let hash = lock(from, to, args.rpc_url);
     log::info!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -45,18 +53,8 @@ pub fn parse_eth_proof_handler(args: ParseEthProofArgs) -> Result<()> {
     todo!()
 }
 
-pub fn wait_eth_block_safe_handler(args: WaitEthBlockSafeArgs) -> Result<()> {
-    println!("wait_eth_block_safe_handler args: {:?}", &args);
-    todo!()
-}
-
 pub fn verify_eth_spv_proof_handler(args: VerifyEthSpvProofArgs) -> Result<()> {
     println!("verify_eth_spv_proof_handler args: {:?}", &args);
-    todo!()
-}
-
-pub fn mint_handler(args: MintArgs) -> Result<()> {
-    println!("mint_handler args: {:?}", &args);
     todo!()
 }
 
@@ -67,21 +65,13 @@ pub fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
 
 pub fn burn_handler(args: BurnArgs) -> Result<()> {
     println!("burn_handler args: {:?}", &args);
+    let ckb_tx_hash = burn(args.private_key_path, args.rpc_url).unwrap();
+    log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
     todo!()
 }
 
 pub fn parse_ckb_proof_handler(args: ParseCkbProofArgs) -> Result<()> {
     println!("parse_ckb_proof_handler args: {:?}", &args);
-    todo!()
-}
-
-pub fn wait_ckb_block_safe_handler(args: WaitCkbBlockSafeArgs) -> Result<()> {
-    println!("wait_ckb_block_safe_handler args: {:?}", &args);
-    todo!()
-}
-
-pub fn verify_ckb_spv_proof_handler(args: VerifyCkbSpvProofArgs) -> Result<()> {
-    println!("verify_ckb_spv_proof_handler args: {:?}", &args);
     todo!()
 }
 
