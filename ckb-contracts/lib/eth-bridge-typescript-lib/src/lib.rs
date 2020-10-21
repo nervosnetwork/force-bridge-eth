@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod debug;
 pub mod adapter;
+pub mod debug;
 
 pub use adapter::Adapter;
 
@@ -14,7 +14,7 @@ cfg_if::cfg_if! {
 
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
-    let chain = adapter::chain::ChainAdapter{};
+    let chain = adapter::chain::ChainAdapter {};
     _verify(chain)
 }
 
