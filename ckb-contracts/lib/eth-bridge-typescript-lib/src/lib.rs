@@ -19,7 +19,7 @@ pub fn verify() -> i8 {
 }
 
 pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
-    let tx = data_loader.load_tx_hash();
+    let tx = data_loader.load_tx_hash().expect("load tx hash failed");
     debug!("tx: {:?}", &tx);
     return 0;
 }
@@ -27,12 +27,27 @@ pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
 #[cfg(test)]
 mod tests {
     use super::_verify;
-    use crate::adapter::mock::MockAdapter;
+    use crate::adapter::*;
+    use ckb_std::error::SysError;
 
     #[test]
-    fn it_works() {
-        let mock_adapter = MockAdapter::default();
-        let return_code = _verify(mock_adapter);
+    fn mock_return_ok() {
+        let mut mock = MockAdapter::new();
+        mock.expect_load_tx_hash()
+            .times(1)
+            .returning(|| Ok([0u8; 32]));
+        let return_code = _verify(mock);
+        assert_eq!(return_code, 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn mock_return_err() {
+        let mut mock = MockAdapter::new();
+        mock.expect_load_tx_hash()
+            .times(1)
+            .returning(|| Err(SysError::Encoding));
+        let return_code = _verify(mock);
         assert_eq!(return_code, 0);
     }
 }

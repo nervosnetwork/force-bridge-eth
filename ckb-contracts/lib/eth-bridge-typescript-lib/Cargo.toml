@@ -8,7 +8,7 @@ edition = "2018"
 
 [features]
 default = ["std"]
-std = []
+std = ["mockall"]
 #std = ["ckb-env/std"]
 #std = ["molecule/std", "int-enum/std", "ckb-server"]
 #contract = ["ckb-std", "bitcoin-spv"]
@@ -19,3 +19,4 @@ std = []
 cfg-if = "0.1"
 #ckb-std = { path = "../../lib/ckb-std" }
 ckb-std = { path = "../ckb-std" }
+mockall = { version = "0.8", optional = true }
