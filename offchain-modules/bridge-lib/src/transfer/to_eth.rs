@@ -3,8 +3,8 @@ use ckb_types::packed::Script;
 use crate::util::ckb_util::make_ckb_transaction;
 use ckb_types::prelude::Entity;
 use anyhow::Result;
-use bridge_ckb_sdk::util::{parse_privkey_path, send_tx_sync};
-use bridge_ckb_sdk::tx_helper::sign;
+use sdk::util::{parse_privkey_path, send_tx_sync};
+use sdk::tx_helper::sign;
 
 pub fn burn(private_key: String, rpc_url: String) -> Result<String>{
     let mut rpc_client = HttpRpcClient::new(rpc_url.clone());

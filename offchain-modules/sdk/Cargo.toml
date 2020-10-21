@@ -1,5 +1,5 @@
 [package]
-name = "bridge_ckb_sdk"
+name = "sdk"
 version = "0.1.0"
 authors = ["huwenchao <me@huwenchao.com>"]
 edition = "2018"
@@ -31,5 +31,5 @@ serde_json = "1.0"
 env_logger = "0.7.1"
 
 [lib]
-name = "bridge_ckb_sdk"
+name = "sdk"
 path = "src/lib.rs"

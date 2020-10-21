@@ -234,7 +234,6 @@ name = "bridge-lib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bridge_ckb_sdk",
  "ckb-jsonrpc-types",
  "ckb-sdk",
  "ckb-types",
@@ -243,34 +242,10 @@ dependencies = [
  "hex",
  "log 0.4.11",
  "rlp",
+ "sdk",
  "secp256k1",
  "serde_json",
  "web3",
-]
-
-[[package]]
-name = "bridge_ckb_sdk"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ckb-crypto",
- "ckb-hash",
- "ckb-jsonrpc-types",
- "ckb-sdk",
- "ckb-types",
- "config",
- "failure",
- "hex",
- "int-enum",
- "jsonrpc-core 14.2.0",
- "log 0.4.11",
- "molecule",
- "reqwest",
- "secp256k1",
- "serde 1.0.117",
- "serde_derive",
- "serde_json",
- "toml",
 ]
 
 [[package]]
@@ -2545,6 +2520,31 @@ dependencies = [
  "rand 0.5.6",
  "sha2",
  "subtle",
+]
+
+[[package]]
+name = "sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ckb-crypto",
+ "ckb-hash",
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
+ "config",
+ "failure",
+ "hex",
+ "int-enum",
+ "jsonrpc-core 14.2.0",
+ "log 0.4.11",
+ "molecule",
+ "reqwest",
+ "secp256k1",
+ "serde 1.0.117",
+ "serde_derive",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]

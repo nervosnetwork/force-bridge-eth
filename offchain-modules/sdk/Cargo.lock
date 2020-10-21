@@ -193,32 +193,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bridge_ckb_sdk"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ckb-crypto",
- "ckb-hash",
- "ckb-jsonrpc-types",
- "ckb-sdk",
- "ckb-types",
- "config",
- "env_logger",
- "failure",
- "hex",
- "int-enum",
- "jsonrpc-core",
- "log",
- "molecule",
- "reqwest",
- "secp256k1",
- "serde 1.0.117",
- "serde_derive",
- "serde_json",
- "toml",
-]
-
-[[package]]
 name = "byte-tools"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2104,6 +2078,32 @@ dependencies = [
  "rand 0.5.6",
  "sha2",
  "subtle",
+]
+
+[[package]]
+name = "sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ckb-crypto",
+ "ckb-hash",
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
+ "config",
+ "env_logger",
+ "failure",
+ "hex",
+ "int-enum",
+ "jsonrpc-core",
+ "log",
+ "molecule",
+ "reqwest",
+ "secp256k1",
+ "serde 1.0.117",
+ "serde_derive",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]
