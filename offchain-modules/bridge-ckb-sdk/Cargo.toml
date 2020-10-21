@@ -33,7 +33,3 @@ env_logger = "0.7.1"
 [lib]
 name = "bridge_ckb_sdk"
 path = "src/lib.rs"
-
-[[example]]
-name = "demo"
-path = "examples/demo.rs"
