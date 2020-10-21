@@ -1,8 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod debug;
+pub mod adapter;
 
-use ckb_env::traits::CkbChainInterface;
+pub use adapter::Adapter;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "std")] {
@@ -11,22 +12,27 @@ cfg_if::cfg_if! {
     }
 }
 
-pub fn verify<T: CkbChainInterface>(chain: T) -> i8 {
-    let tx = chain.load_tx_hash();
+#[cfg(target_arch = "riscv64")]
+pub fn verify() -> i8 {
+    let chain = adapter::chain::ChainAdapter{};
+    _verify(chain)
+}
+
+pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
+    let tx = data_loader.load_tx_hash();
     debug!("tx: {:?}", &tx);
     return 0;
 }
 
 #[cfg(test)]
 mod tests {
-    use ckb_env::mock::MockCKBChain;
-    use super::verify;
+    use super::_verify;
+    use crate::adapter::mock::MockAdapter;
 
     #[test]
-    // #[should_panic(expected = "hello")]
     fn it_works() {
-        let mock_chain = MockCKBChain::default();
-        let return_code = verify(mock_chain);
+        let mock_adapter = MockAdapter::default();
+        let return_code = _verify(mock_adapter);
         assert_eq!(return_code, 0);
     }
 }

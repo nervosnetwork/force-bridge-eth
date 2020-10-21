@@ -1034,7 +1034,6 @@ dependencies = [
 name = "eth-bridge-typescript"
 version = "0.1.0"
 dependencies = [
- "ckb-env",
  "ckb-std",
  "eth-bridge-typescript-lib",
 ]

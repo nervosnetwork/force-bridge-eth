@@ -15,6 +15,7 @@ extern crate alloc;
 use ckb_std::{
     default_alloc,
 };
+use eth_bridge_typescript_lib::verify;
 
 default_alloc!();
 
@@ -25,7 +26,7 @@ fn oom_handler(_layout: alloc::alloc::Layout) -> ! {
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    let f: fn() -> i8 = program_entry;
+    let f: fn() -> i8 = verify;
     ckb_std::syscalls::exit(f())
 }
 
@@ -67,12 +68,4 @@ fn panic_handler(panic_info: &core::panic::PanicInfo) -> ! {
     ckb_std::syscalls::exit(-1)
 }
 
-use ckb_env::chain::CKBChain;
-use eth_bridge_typescript_lib::verify;
 
-/// program entry
-fn program_entry() -> i8 {
-    // Call main function and return error code
-    let chain = CKBChain {};
-    verify(chain)
-}

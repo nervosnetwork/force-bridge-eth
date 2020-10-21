@@ -8,5 +8,5 @@ edition = "2018"
 [dependencies]
 #ckb-std = { path = "../../lib/ckb-std" }
 eth-bridge-typescript-lib = { path = "../../lib/eth-bridge-typescript-lib", default_features = false }
-ckb-env = { path = "../../lib/ckb-env", default_features = false }
+#ckb-env = { path = "../../lib/ckb-env", default_features = false }
 ckb-std = { path = "../../lib/ckb-std" }
