@@ -21,7 +21,7 @@ contract("TokenLocker", () => {
 
             // lockETH
             const amount = ethers.utils.parseEther("1.2")
-            await tokenLocker.lockETH([0], 0, {value: amount});
+            await tokenLocker.lockETH(0, {value: amount});
 
             // asset expected amount == balance of contract delta
             const delta = await defaultProvider.getBalance(tokenLocker.address) - contractBalance

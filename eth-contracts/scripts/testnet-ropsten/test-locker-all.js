@@ -32,7 +32,7 @@ async function main() {
 
     // lockETH 0.123
     let amount = ethers.utils.parseEther("0.123");
-    let res = await locker.lockETH(amount, "0.123 ether just for lockETH test", {value: amount})
+    let res = await locker.lockETH("0.123 ether just for lockETH test", {value: amount})
     console.log("lockETH res: ", res)
     console.log("waiting for block confirmations, about 1 minute")
     await sleep(60 * 1000);

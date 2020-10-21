@@ -65,7 +65,7 @@ contract TokenLocker {
         emit Locked(token, msg.sender, amount, ckbAddress);
     }
 
-    function lockETH(uint256 amount, string memory ckbAddress) public payable {
+    function lockETH(string memory ckbAddress) public payable {
         emit Locked(address(0), msg.sender, msg.value, ckbAddress);
     }
 
