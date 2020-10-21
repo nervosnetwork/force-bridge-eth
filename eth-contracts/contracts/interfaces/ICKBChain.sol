@@ -11,5 +11,5 @@ interface ICKBChain {
         bytes32 blockHash
     );
 
-    function addHeader(bytes calldata data) external;
+    function addHeaders(bytes calldata data) external;
 }
