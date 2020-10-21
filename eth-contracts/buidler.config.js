@@ -28,8 +28,8 @@ module.exports = {
     networks: {
         buidlerevm: {},
         ropsten: {
-            url: process.env.ROPSTEN_API,
-            accounts: [process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY]
+            url: `${process.env ? process.env.ROPSTEN_API : ""}`,
+            accounts: [`${process.env ? process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY : ""}`]
         }
     },
 
