@@ -214,6 +214,7 @@ dependencies = [
  "ckb-jsonrpc-types",
  "ckb-sdk",
  "ckb-types",
+ "config",
  "ethereum-types 0.9.2",
  "futures",
  "hex",
@@ -221,7 +222,10 @@ dependencies = [
  "rlp",
  "sdk",
  "secp256k1",
+ "serde 1.0.117",
+ "serde_derive",
  "serde_json",
+ "toml",
  "web3",
 ]
 

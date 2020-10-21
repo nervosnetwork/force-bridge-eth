@@ -1,5 +1,6 @@
 .idea/
 target/
-*/bridge-lib/Cargo.lock
-*/sdk/Cargo.lock
+**/bridge-lib/Cargo.lock
+**/sdk/Cargo.lock
+**.DS_Store
 
