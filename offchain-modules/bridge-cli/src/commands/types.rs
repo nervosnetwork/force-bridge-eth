@@ -12,11 +12,11 @@ pub enum SubCommand {
     TransferToCkb(TransferToCkbArgs),
     Approve(ApproveArgs),
     Lock(LockArgs),
-    ParseEthProof(ParseEthProofArgs),
+    GenerateEthProof(GenerateEthProofArgs),
     VerifyEthSpvProof(VerifyEthSpvProofArgs),
     TransferFromCkb(TransferFromCkbArgs),
     Burn(BurnArgs),
-    ParseCkbProof(ParseCkbProofArgs),
+    GenerateCkbProof(GenerateCkbProofArgs),
     Unlock(UnlockArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
@@ -48,7 +48,7 @@ pub struct LockArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct ParseEthProofArgs {
+pub struct GenerateEthProofArgs {
 
 }
 
@@ -71,7 +71,7 @@ pub struct BurnArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct ParseCkbProofArgs {
+pub struct GenerateCkbProofArgs {
 
 }
 

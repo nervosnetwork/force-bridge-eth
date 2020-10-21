@@ -13,14 +13,14 @@ pub fn handler(opt: Opts) -> Result<()> {
         // lock erc20 token && wait the tx is commit.
         SubCommand::Lock(args) => lock_handler(args),
         // parse eth receipt proof from tx_hash.
-        SubCommand::ParseEthProof(args)=> parse_eth_proof_handler(args),
+        SubCommand::GenerateEthProof(args)=> generate_eth_proof_handler(args),
         // verify eth receipt proof && mint new token
         SubCommand::VerifyEthSpvProof(args) => verify_eth_spv_proof_handler(args),
         SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args),
         // transfer erc20 from ckb
         SubCommand::Burn(args) => burn_handler(args),
         // parse ckb spv proof from tx_hash.
-        SubCommand::ParseCkbProof(args) => parse_ckb_proof_handler(args),
+        SubCommand::GenerateCkbProof(args) => generate_ckb_proof_handler(args),
         // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args),
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
@@ -48,8 +48,8 @@ pub fn lock_handler(args: LockArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn parse_eth_proof_handler(args: ParseEthProofArgs) -> Result<()> {
-    println!("parse_eth_proof_handler args: {:?}", &args);
+pub fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()> {
+    println!("generate_eth_proof_handler args: {:?}", &args);
     todo!()
 }
 
@@ -70,8 +70,8 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
     todo!()
 }
 
-pub fn parse_ckb_proof_handler(args: ParseCkbProofArgs) -> Result<()> {
-    println!("parse_ckb_proof_handler args: {:?}", &args);
+pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
+    println!("generate_ckb_proof_handler args: {:?}", &args);
     todo!()
 }
 

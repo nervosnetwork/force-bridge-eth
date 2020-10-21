@@ -1,10 +1,3 @@
-use crate::cell_collector::get_live_cell_by_typescript;
-use crate::indexer::IndexerRpcClient;
-use crate::settings::{OutpointConf, Settings};
-use crate::tx_helper::TxHelper;
-use crate::util::{
-     get_live_cell,
-};
 use ckb_sdk::{
     GenesisInfo, HttpRpcClient,
 };
@@ -15,6 +8,11 @@ use ckb_types::{
     packed::{self, Byte32, CellDep, CellOutput, OutPoint, Script},
     prelude::{Builder, Entity},
 };
+use sdk::indexer::IndexerRpcClient;
+use sdk::settings::{Settings, OutpointConf};
+use sdk::tx_helper::TxHelper;
+use sdk::cell_collector::get_live_cell_by_typescript;
+use sdk::util::get_live_cell;
 
 
 pub struct Generator {
