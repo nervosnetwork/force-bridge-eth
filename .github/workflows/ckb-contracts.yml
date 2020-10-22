@@ -27,7 +27,7 @@ jobs:
         with:
           toolchain: 1.47.0
           override: true
-          components: rustfmt clippy
+          components: rustfmt, clippy
       - name: format-typescript
         run: |
           cd ckb-contracts
