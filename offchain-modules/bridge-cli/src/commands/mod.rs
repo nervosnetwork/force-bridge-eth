@@ -15,7 +15,7 @@ pub fn handler(opt: Opts) -> Result<()> {
         // parse eth receipt proof from tx_hash.
         SubCommand::GenerateEthProof(args)=> generate_eth_proof_handler(args),
         // verify eth receipt proof && mint new token
-        SubCommand::VerifyEthSpvProof(args) => verify_eth_spv_proof_handler(args),
+        SubCommand::Mint(args) => mint_handler(args),
         SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args),
         // transfer erc20 from ckb
         SubCommand::Burn(args) => burn_handler(args),
@@ -53,8 +53,8 @@ pub fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()> {
     todo!()
 }
 
-pub fn verify_eth_spv_proof_handler(args: VerifyEthSpvProofArgs) -> Result<()> {
-    println!("verify_eth_spv_proof_handler args: {:?}", &args);
+pub fn mint_handler(args: MintArgs) -> Result<()> {
+    println!("mint_handler args: {:?}", &args);
     todo!()
 }
 

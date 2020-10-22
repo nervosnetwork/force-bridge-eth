@@ -13,7 +13,7 @@ pub enum SubCommand {
     Approve(ApproveArgs),
     Lock(LockArgs),
     GenerateEthProof(GenerateEthProofArgs),
-    VerifyEthSpvProof(VerifyEthSpvProofArgs),
+    Mint(MintArgs),
     TransferFromCkb(TransferFromCkbArgs),
     Burn(BurnArgs),
     GenerateCkbProof(GenerateCkbProofArgs),
@@ -53,7 +53,7 @@ pub struct GenerateEthProofArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct VerifyEthSpvProofArgs {
+pub struct MintArgs {
 
 }
 
