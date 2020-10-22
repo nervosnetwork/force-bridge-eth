@@ -1,0 +1,38 @@
+{
+  "name": "@cosinlink/ckb-spv",
+  "version": "0.0.1",
+  "description": "CKB SPV proofs in Solidity",
+  "scripts": {
+    "compile": "npx buidler compile",
+    "test": "npx buidler test",
+    "test:coverage": "npx solidity-coverage",
+    "lint": "solium -d contracts/ && eslint ./test",
+    "lint:fix": "solium --fix -d contracts/ && eslint --fix ./test"
+  },
+  "author": "",
+  "devDependencies": {
+    "@nomiclabs/buidler": "^1.4.7",
+    "@nomiclabs/buidler-ethers": "^2.0.2",
+    "@nomiclabs/buidler-truffle5": "^1.3.4",
+    "@nomiclabs/buidler-waffle": "^2.1.0",
+    "@nomiclabs/buidler-web3": "^1.3.4",
+    "bn.js": "^5.0.0",
+    "chai": "^4.2.0",
+    "dotenv": "^8.2.0",
+    "eslint": "^5.16.0",
+    "eslint-config-airbnb-base": "^13.2.0",
+    "eslint-plugin-import": "^2.18.0",
+    "eth-gas-reporter": "^0.2.8",
+    "ethereum-waffle": "^3.1.1",
+    "ethers": "^5.0.18",
+    "solc": "^0.5.16",
+    "solidity-coverage": "^0.6.3",
+    "solidity-docgen": "^0.3.0-beta.4",
+    "solium": "^1.2.4",
+    "truffle": "^5.1.43",
+    "web3": "^1.3.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^3.2.0"
+  }
+}
