@@ -48,6 +48,8 @@ jobs:
         with:
           path: ckb-contracts/target
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
+      - uses: satackey/action-docker-layer-caching@v0.0.8
+        continue-on-error: true
       - name: install-capsule
         run: |
           cd ckb-contracts
