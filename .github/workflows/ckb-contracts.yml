@@ -1,24 +1,23 @@
 name: ckb-contracts-ci
 
-on: push
-#on:
-#  push:
-#    branches: [ main ]
-#    paths:
-#      - .github/workflows/ckb-contracts.yml
-#      - 'ckb-contracts/**.rs'
-#      - 'ckb-contracts/**/Cargo.toml'
-#      - 'ckb-contracts/**/Cargo.lock'
-#  pull_request:
-#    branches: [ main ]
-#    paths:
-#      - .github/workflows/ckb-contracts.yml
-#      - 'ckb-contracts/**.rs'
-#      - 'ckb-contracts/**/Cargo.toml'
-#      - 'ckb-contracts/**/Cargo.lock'
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - .github/workflows/ckb-contracts.yml
+      - 'ckb-contracts/**.rs'
+      - 'ckb-contracts/**/Cargo.toml'
+      - 'ckb-contracts/**/Cargo.lock'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - .github/workflows/ckb-contracts.yml
+      - 'ckb-contracts/**.rs'
+      - 'ckb-contracts/**/Cargo.toml'
+      - 'ckb-contracts/**/Cargo.lock'
 
 jobs:
-  check-format-and-clippy:
+  contract-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -36,6 +35,11 @@ jobs:
         run: |
           cd ckb-contracts/lib/eth-bridge-typescript-lib
           cargo fmt --all -- --check
+      - name: test-libs
+        run: |
+          cd ckb-contracts/lib/eth-bridge-typescript-lib
+          cargo test -- --nocapture
+
   contract-build-test:
     runs-on: ubuntu-latest
     steps:
@@ -45,6 +49,10 @@ jobs:
           cd ckb-contracts
           wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.4.1/capsule_v0.4.1_x86_64-linux.tar.gz
           tar -zxvf capsule_v0.4.1_x86_64-linux.tar.gz
+      - name: check-capsule
+        run: |
+          cd ckb-contracts
+          ./capsule_v0.4.1_x86_64-linux/capsule check
       - name: build contract
         run: |
           cd ckb-contracts
