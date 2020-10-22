@@ -48,17 +48,17 @@ jobs:
       - name: install-capsule
         run: |
           cd ckb-contracts
-          wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.4.1/capsule_v0.4.1_x86_64-linux.tar.gz
-          tar -zxvf capsule_v0.4.1_x86_64-linux.tar.gz
+          wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.4.2/capsule_v0.4.2_x86_64-linux.tar.gz
+          tar -zxvf capsule_v0.4.2_x86_64-linux.tar.gz
       - name: check-capsule
         run: |
           cd ckb-contracts
-          ./capsule_v0.4.1_x86_64-linux/capsule check
+          ./capsule_v0.4.2_x86_64-linux/capsule check
       - name: build contract
         run: |
           cd ckb-contracts
-          ./capsule_v0.4.1_x86_64-linux/capsule build
+          ./capsule_v0.4.2_x86_64-linux/capsule build
       - name: test contract
         run: |
           cd ckb-contracts
-          ./capsule_v0.4.1_x86_64-linux/capsule test
+          ./capsule_v0.4.2_x86_64-linux/capsule test
