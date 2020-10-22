@@ -21,7 +21,7 @@ pub fn verify() -> i8 {
 pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
     let tx = data_loader.load_tx_hash().expect("load tx hash failed");
     debug!("tx: {:?}", &tx);
-    return 0;
+    0
 }
 
 #[cfg(test)]
