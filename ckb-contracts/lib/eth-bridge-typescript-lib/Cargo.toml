@@ -15,5 +15,5 @@ std = ["mockall"]
 #molecule = { version = "0.6", default-features = false }
 #int-enum = { version = "0.4", default-features = false }
 cfg-if = "0.1"
-ckb-std = { path = "../ckb-std" }
+ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
 mockall = { version = "0.8", optional = true }

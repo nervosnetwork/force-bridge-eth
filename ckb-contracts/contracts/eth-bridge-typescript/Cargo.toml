@@ -7,4 +7,4 @@ edition = "2018"
 
 [dependencies]
 eth-bridge-typescript-lib = { path = "../../lib/eth-bridge-typescript-lib", default_features = false }
-ckb-std = { path = "../../lib/ckb-std" }
+ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
