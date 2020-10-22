@@ -23,7 +23,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ckb-contracts/target
-          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
