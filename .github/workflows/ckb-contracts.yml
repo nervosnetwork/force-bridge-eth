@@ -28,11 +28,11 @@ jobs:
           toolchain: 1.47.0
           override: true
           components: rustfmt, clippy
-      - name: format-typescript
+      - name: format-contracts
         run: |
           cd ckb-contracts
           cargo fmt --all -- --check
-      - name: format-lockscript
+      - name: format-libs
         run: |
           cd ckb-contracts/lib/eth-bridge-typescript-lib
           cargo fmt --all -- --check
