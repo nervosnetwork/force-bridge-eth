@@ -1,0 +1,31 @@
+name: eth-contracts-ci
+
+on:
+  push:
+    paths:
+      - .github/workflows/eth-contracts.yml
+      - 'eth-contracts/**.js'
+      - 'eth-contracts/**.json'
+      - 'eth-contracts/**.sol'
+  pull_request:
+    paths:
+      - .github/workflows/eth-contracts.yml
+      - 'eth-contracts/**.js'
+      - 'eth-contracts/**.json'
+      - 'eth-contracts/**.sol'
+
+jobs:
+  eth-contracts-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+      - name: test and check format
+        run: |
+          cd eth-contracts
+          yarn
+          yarn test
+          yarn lint
