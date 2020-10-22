@@ -6,3 +6,4 @@
 **/build
 artifacts
 cache
+package-lock.json
