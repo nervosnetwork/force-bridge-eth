@@ -2,14 +2,14 @@ name: ckb-contracts-ci
 
 on:
   push:
-    branches: [ main ]
+#    branches: [ main ]
     paths:
       - .github/workflows/ckb-contracts.yml
       - 'ckb-contracts/**.rs'
       - 'ckb-contracts/**/Cargo.toml'
       - 'ckb-contracts/**/Cargo.lock'
   pull_request:
-    branches: [ main ]
+#    branches: [ main ]
     paths:
       - .github/workflows/ckb-contracts.yml
       - 'ckb-contracts/**.rs'
