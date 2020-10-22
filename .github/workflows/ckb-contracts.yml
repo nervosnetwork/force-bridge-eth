@@ -24,7 +24,7 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.47.0-nightly
+          toolchain: nightly
           override: true
           components: rustfmt, clippy
       - name: format-contracts
