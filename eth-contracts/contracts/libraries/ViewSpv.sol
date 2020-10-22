@@ -10,9 +10,9 @@ library ViewSpv {
 
     enum SpvTypes {
         Unknown,                // 0x0
-        TransactionProof,
-        WitnessesRoot,
-        JsonMerkleProof
+        CKBTxProof,
+        H256,
+        H256Array
     }
 
     /// @notice             requires `memView` to be of a specified type
@@ -24,17 +24,38 @@ library ViewSpv {
         _;
     }
 
-    function blockHash(bytes29 _input) internal pure typeAssert(_input, SpvTypes.TransactionProof) returns (bytes32) {
+    function txMerkleIndex(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (uint16) {
         uint256 startIndex = _input.indexLEUint(4, 4);
-        return _input.index(startIndex, 32);
+        return uint16(_input.indexLEUint(startIndex, 2));
     }
 
-    function witnessedRoot(bytes29 _input) internal pure typeAssert(_input, SpvTypes.WitnessesRoot) returns (bytes32) {
+    function blockNumber(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (uint64) {
         uint256 startIndex = _input.indexLEUint(8, 4);
+        return uint64(_input.indexLEUint(startIndex, 8));
+    }
+
+    function blockHash(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (bytes32) {
+        uint256 startIndex = _input.indexLEUint(12, 4);
         return _input.index(startIndex, 32);
     }
 
-    function mockTxHash(bytes29 _input) internal pure typeAssert(_input, SpvTypes.TransactionProof) returns (bytes32) {
+    function txHash(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (bytes32) {
+        uint256 startIndex = _input.indexLEUint(16, 4);
+        return _input.index(startIndex, 32);
+    }
+
+    function mockTxHash(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (bytes32) {
         return bytes32(0);
+    }
+
+    function witnessesRoot(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (bytes32) {
+        uint256 startIndex = _input.indexLEUint(20, 4);
+        return _input.index(startIndex, 32);
+    }
+
+    function lemmas(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (bytes29) {
+        uint256 startIndex = _input.indexLEUint(24, 4) + 4;
+        uint256 inputLength = _input.len();
+        return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.H256Array));
     }
 }

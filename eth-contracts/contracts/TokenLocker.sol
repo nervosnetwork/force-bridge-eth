@@ -48,10 +48,10 @@ contract TokenLocker {
         numConfirmations_ = numConfirmations;
     }
 
-    function _decodeBurnResult(bytes memory proofData) internal pure returns (BurnResult memory result) {
+    function _decodeBurnResult(bytes memory txInfo) internal pure returns (BurnResult memory result) {
         // TODO
-        // 1. verify burn tx
-        // 2. _decodeBurnResult from proofData
+        // 1. check if txInfo matches  ckbTxProof.txHash
+        // 2. _decodeBurnResult from txInfo
         uint128 mockAmount = 111100000000000000;
         address mockToken = address(0);
         address mockRecipient = address(0);
@@ -69,18 +69,18 @@ contract TokenLocker {
         emit Locked(address(0), msg.sender, msg.value, ckbAddress);
     }
 
-    function unlockToken(bytes memory proofData) public {
-        require(ckbSpv_.proveTxExist(proofData, numConfirmations_), "tx from proofData should exist");
+    function unlockToken(bytes memory ckbTxProof, bytes memory txInfo) public {
+        require(ckbSpv_.proveTxExist(ckbTxProof, numConfirmations_), "tx from proofData should exist");
 
         // Unpack the proof and extract the execution outcome.
-        bytes29 proof = proofData.ref(uint40(ViewSpv.SpvTypes.TransactionProof));
+        bytes29 proof = ckbTxProof.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
 
         // TODO modify `mockTxHash` to `txHash`
         bytes32 txHash = proof.mockTxHash();
         require(!usedTx_[txHash], "The burn tx cannot be reused");
         usedTx_[txHash] = true;
 
-        BurnResult memory result = _decodeBurnResult(proofData);
+        BurnResult memory result = _decodeBurnResult(txInfo);
         // TODO modify `transfer` to `safeTransfer`
         if (result.token == address(0)) {
             // it means token == Eth

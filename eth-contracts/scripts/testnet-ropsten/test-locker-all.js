@@ -38,7 +38,7 @@ async function main() {
     await sleep(60 * 1000);
 
     // unlockETH
-    res = await locker.unlockToken([0])
+    res = await locker.unlockToken([0], [0])
     console.log("unlockETH res: ", res)
 
 }
