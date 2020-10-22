@@ -1,0 +1,55 @@
+name: ckb-contracts-ci
+
+on: push
+#on:
+#  push:
+#    branches: [ main ]
+#    paths:
+#      - .github/workflows/ckb-contracts.yml
+#      - 'ckb-contracts/**.rs'
+#      - 'ckb-contracts/**/Cargo.toml'
+#      - 'ckb-contracts/**/Cargo.lock'
+#  pull_request:
+#    branches: [ main ]
+#    paths:
+#      - .github/workflows/ckb-contracts.yml
+#      - 'ckb-contracts/**.rs'
+#      - 'ckb-contracts/**/Cargo.toml'
+#      - 'ckb-contracts/**/Cargo.lock'
+
+jobs:
+  check-format-and-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.47.0
+          override: true
+          components: rustfmt clippy
+      - name: format-typescript
+        run: |
+          cd ckb-contracts
+          cargo fmt --all -- --check
+      - name: format-lockscript
+        run: |
+          cd ckb-contracts/lib/eth-bridge-typescript-lib
+          cargo fmt --all -- --check
+  contract-build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: install-capsule
+        run: |
+          cd ckb-contracts
+          wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.4.1/capsule_v0.4.1_x86_64-linux.tar.gz
+          tar -zxvf capsule_v0.4.1_x86_64-linux.tar.gz
+      - name: build contract
+        run: |
+          cd ckb-contracts
+          ./capsule_v0.4.1_x86_64-linux/capsule build
+      - name: test contract
+        run: |
+          cd ckb-contracts
+          ./capsule_v0.4.1_x86_64-linux/capsule test
