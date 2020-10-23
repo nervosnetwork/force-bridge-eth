@@ -1,13 +1,9 @@
+use crate::constants::UDT_LEN;
 use crate::indexer::{Cell, IndexerRpcClient, Order, Pagination, ScriptType, SearchKey};
 use crate::util::is_mature;
 use anyhow::Result;
-use ckb_jsonrpc_types::{
-    Uint32,
-};
-use ckb_types::{
-    packed::{self, Script},
-};
-use crate::constants::UDT_LEN;
+use ckb_jsonrpc_types::Uint32;
+use ckb_types::packed::{self, Script};
 
 /// get live cell by typescript
 /// it assumes there is at most 1 cell found

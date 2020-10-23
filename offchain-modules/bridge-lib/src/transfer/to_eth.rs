@@ -1,12 +1,12 @@
-use ckb_sdk::{ AddressPayload, HttpRpcClient, SECP256K1 };
-use ckb_types::packed::Script;
 use crate::util::ckb_util::make_ckb_transaction;
-use ckb_types::prelude::Entity;
 use anyhow::Result;
-use sdk::util::{parse_privkey_path, send_tx_sync};
+use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1};
+use ckb_types::packed::Script;
+use ckb_types::prelude::Entity;
 use sdk::tx_helper::sign;
+use sdk::util::{parse_privkey_path, send_tx_sync};
 
-pub fn burn(private_key: String, rpc_url: String) -> Result<String>{
+pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     let mut rpc_client = HttpRpcClient::new(rpc_url.clone());
     let from_privkey = parse_privkey_path(private_key.as_str())?;
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
@@ -33,11 +33,10 @@ pub fn burn(private_key: String, rpc_url: String) -> Result<String>{
     Ok(hex::encode(tx.hash().as_slice()))
 }
 
-pub fn parse_ckb_proof() -> Result<()>{
+pub fn parse_ckb_proof() -> Result<()> {
     todo!()
 }
 
 pub fn unlock() -> Result<()> {
     todo!()
 }
-

@@ -23,9 +23,7 @@ pub enum SubCommand {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct TransferToCkbArgs {
-
-}
+pub struct TransferToCkbArgs {}
 
 #[derive(Clap, Clone, Debug)]
 pub struct ApproveArgs {
@@ -56,19 +54,13 @@ pub struct LockArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct GenerateEthProofArgs {
-
-}
+pub struct GenerateEthProofArgs {}
 
 #[derive(Clap, Clone, Debug)]
-pub struct MintArgs {
-
-}
+pub struct MintArgs {}
 
 #[derive(Clap, Clone, Debug)]
-pub struct TransferFromCkbArgs {
-
-}
+pub struct TransferFromCkbArgs {}
 
 #[derive(Clap, Clone, Debug)]
 pub struct BurnArgs {
@@ -79,21 +71,13 @@ pub struct BurnArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct GenerateCkbProofArgs {
-
-}
+pub struct GenerateCkbProofArgs {}
 
 #[derive(Clap, Clone, Debug)]
-pub struct UnlockArgs {
-
-}
+pub struct UnlockArgs {}
 
 #[derive(Clap, Clone, Debug)]
-pub struct EthRelayArgs {
-
-}
+pub struct EthRelayArgs {}
 
 #[derive(Clap, Clone, Debug)]
-pub struct CkbRelayArgs {
-
-}
+pub struct CkbRelayArgs {}

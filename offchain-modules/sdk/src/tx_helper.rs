@@ -12,6 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 
 use crate::cell_collector::{collect_sudt_cells_by_amout, get_live_cells_by_lock_and_capacity};
+use crate::constants::XT_CELL_CAPACITY;
 use crate::indexer::IndexerRpcClient;
 use crate::util::{get_live_cell_with_cache, get_privkey_signer};
 use ckb_sdk::constants::{
@@ -21,7 +22,6 @@ use ckb_sdk::HttpRpcClient;
 use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since, SECP256K1};
 use ckb_types::core::BlockView;
 use secp256k1::SecretKey;
-use crate::constants::XT_CELL_CAPACITY;
 
 pub fn deploy(
     rpc_client: &mut HttpRpcClient,

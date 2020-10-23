@@ -2,20 +2,17 @@ use crate::indexer::{Cell, IndexerRpcClient, Order, Pagination, ScriptType, Sear
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types as rpc_types;
-use ckb_jsonrpc_types::{
-     Script as JsonScript, Uint32,
-};
+use ckb_jsonrpc_types::{Script as JsonScript, Uint32};
 use ckb_sdk::{
     calc_max_mature_number,
     constants::{CELLBASE_MATURITY, MIN_SECP_CELL_CAPACITY, ONE_CKB},
-    HttpRpcClient, SignerFn,
-    SECP256K1,
+    HttpRpcClient, SignerFn, SECP256K1,
 };
 use ckb_types::{
     bytes::Bytes,
     core::{EpochNumberWithFraction, TransactionView},
     h256,
-    packed::{ CellOutput, OutPoint, Script},
+    packed::{CellOutput, OutPoint, Script},
     prelude::*,
     H160, H256,
 };

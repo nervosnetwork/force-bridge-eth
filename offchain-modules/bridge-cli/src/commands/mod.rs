@@ -1,10 +1,10 @@
 pub mod types;
 
-use anyhow::{Result};
-use types::*;
+use anyhow::Result;
 use bridge_lib::transfer::to_ckb::{approve, lock};
-use web3::types::H160;
 use bridge_lib::transfer::to_eth::burn;
+use types::*;
+use web3::types::H160;
 
 pub fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
@@ -13,7 +13,7 @@ pub fn handler(opt: Opts) -> Result<()> {
         // lock erc20 token && wait the tx is commit.
         SubCommand::Lock(args) => lock_handler(args),
         // parse eth receipt proof from tx_hash.
-        SubCommand::GenerateEthProof(args)=> generate_eth_proof_handler(args),
+        SubCommand::GenerateEthProof(args) => generate_eth_proof_handler(args),
         // verify eth receipt proof && mint new token
         SubCommand::Mint(args) => mint_handler(args),
         SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args),

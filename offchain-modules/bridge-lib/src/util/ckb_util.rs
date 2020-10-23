@@ -1,21 +1,20 @@
-use ckb_types::core::{TransactionView, BlockView, DepType};
+use crate::util::settings::{OutpointConf, Settings};
 use anyhow::Result;
+use ckb_sdk::{GenesisInfo, HttpRpcClient};
+use ckb_types::core::{BlockView, DepType, TransactionView};
+use ckb_types::prelude::{Builder, Entity, Pack};
 use ckb_types::{
     bytes::Bytes,
-    packed::{self, Script, OutPoint, Byte32, CellDep, CellOutput}
+    packed::{self, Byte32, CellDep, CellOutput, OutPoint, Script},
 };
-use ckb_sdk::{HttpRpcClient, GenesisInfo};
-use sdk::indexer::IndexerRpcClient;
-use crate::util::settings::{Settings, OutpointConf};
-use sdk::tx_helper::TxHelper;
-use ckb_types::prelude::{Pack, Entity, Builder};
 use sdk::cell_collector::get_live_cell_by_typescript;
+use sdk::indexer::IndexerRpcClient;
+use sdk::tx_helper::TxHelper;
 use sdk::util::get_live_cell;
 
 pub fn make_ckb_transaction(_from_lockscript: Script) -> Result<TransactionView> {
     todo!()
 }
-
 
 pub struct Generator {
     pub rpc_client: HttpRpcClient,
@@ -41,8 +40,6 @@ impl Generator {
         })
     }
 
-
-
     fn _add_cell_deps(
         &mut self,
         helper: &mut TxHelper,
@@ -56,7 +53,7 @@ impl Generator {
                         &hex::decode(conf.tx_hash)
                             .map_err(|e| format!("invalid OutpointConf config. err: {}", e))?,
                     )
-                        .map_err(|e| format!("invalid OutpointConf config. err: {}", e))?,
+                    .map_err(|e| format!("invalid OutpointConf config. err: {}", e))?,
                 )
                 .index(conf.index.pack())
                 .build();
@@ -70,8 +67,6 @@ impl Generator {
         helper.transaction = builder.build();
         Ok(())
     }
-
-
 
     fn _get_ckb_cell(
         &mut self,
