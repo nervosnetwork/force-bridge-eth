@@ -1,5 +1,5 @@
 [package]
-name = "sdk"
+name = "force-sdk"
 version = "0.1.0"
 authors = ["huwenchao <me@huwenchao.com>"]
 edition = "2018"

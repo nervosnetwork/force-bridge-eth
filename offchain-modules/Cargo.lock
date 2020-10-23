@@ -218,43 +218,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bridge-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bridge-lib",
- "clap",
- "int-enum",
- "log 0.4.11",
- "web3",
-]
-
-[[package]]
-name = "bridge-lib"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ckb-jsonrpc-types",
- "ckb-sdk",
- "ckb-types",
- "config",
- "ethabi",
- "ethereum-tx-sign",
- "ethereum-types 0.9.2",
- "futures",
- "hex",
- "log 0.4.11",
- "rlp",
- "sdk",
- "secp256k1",
- "serde 1.0.117",
- "serde_derive",
- "serde_json",
- "toml",
- "web3",
-]
-
-[[package]]
 name = "byte-slice-cast"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1100,6 +1063,69 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
+name = "force-eth-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "force-eth-lib",
+ "int-enum",
+ "log 0.4.11",
+ "web3",
+]
+
+[[package]]
+name = "force-eth-lib"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
+ "config",
+ "ethabi",
+ "ethereum-tx-sign",
+ "ethereum-types 0.9.2",
+ "force-sdk",
+ "futures",
+ "hex",
+ "log 0.4.11",
+ "rlp",
+ "secp256k1",
+ "serde 1.0.117",
+ "serde_derive",
+ "serde_json",
+ "toml",
+ "web3",
+]
+
+[[package]]
+name = "force-sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ckb-crypto",
+ "ckb-hash",
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
+ "config",
+ "env_logger",
+ "failure",
+ "hex",
+ "int-enum",
+ "jsonrpc-core 14.2.0",
+ "log 0.4.11",
+ "molecule",
+ "reqwest",
+ "secp256k1",
+ "serde 1.0.117",
+ "serde_derive",
+ "serde_json",
+ "toml",
+]
 
 [[package]]
 name = "foreign-types"
@@ -2570,32 +2596,6 @@ dependencies = [
  "rand 0.5.6",
  "sha2",
  "subtle",
-]
-
-[[package]]
-name = "sdk"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ckb-crypto",
- "ckb-hash",
- "ckb-jsonrpc-types",
- "ckb-sdk",
- "ckb-types",
- "config",
- "env_logger",
- "failure",
- "hex",
- "int-enum",
- "jsonrpc-core 14.2.0",
- "log 0.4.11",
- "molecule",
- "reqwest",
- "secp256k1",
- "serde 1.0.117",
- "serde_derive",
- "serde_json",
- "toml",
 ]
 
 [[package]]

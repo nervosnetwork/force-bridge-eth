@@ -3,8 +3,8 @@ use anyhow::Result;
 use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1};
 use ckb_types::packed::Script;
 use ckb_types::prelude::Entity;
-use sdk::tx_helper::sign;
-use sdk::util::{parse_privkey_path, send_tx_sync};
+use force_sdk::tx_helper::sign;
+use force_sdk::util::{parse_privkey_path, send_tx_sync};
 
 pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     let mut rpc_client = HttpRpcClient::new(rpc_url.clone());

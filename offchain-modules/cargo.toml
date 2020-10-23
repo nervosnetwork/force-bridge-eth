@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "bridge-cli",
-    "bridge-lib",
+    "cli",
+    "lib",
     "sdk",
 ]

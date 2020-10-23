@@ -1,8 +1,8 @@
 pub mod types;
 
 use anyhow::Result;
-use bridge_lib::transfer::to_ckb::{approve, lock};
-use bridge_lib::transfer::to_eth::burn;
+use force_eth_lib::transfer::to_ckb::{approve, lock};
+use force_eth_lib::transfer::to_eth::burn;
 use types::*;
 use web3::types::H160;
 
