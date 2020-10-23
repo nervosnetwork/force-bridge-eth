@@ -8,9 +8,9 @@ use alloc::{vec, vec::Vec};
 // Import CKB syscalls and structures
 // https://nervosnetwork.github.io/ckb-std/riscv64imac-unknown-none-elf/doc/ckb_std/index.html
 use ckb_std::{
+    ckb_types::{bytes::Bytes, prelude::*},
     debug,
     high_level::{load_script, load_tx_hash},
-    ckb_types::{bytes::Bytes, prelude::*},
 };
 
 use crate::error::Error;
@@ -29,4 +29,3 @@ pub fn main() -> Result<(), Error> {
 
     Ok(())
 }
-

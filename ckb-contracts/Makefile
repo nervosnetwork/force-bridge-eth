@@ -1,7 +1,11 @@
 
-all: test-contract-lib build
+all: test-contract-lib test-contract
 
-build:
+fmt:
+	cd lib/eth-bridge-typescript-lib && cargo fmt
+	cd contracts/eth-bridge-typescript && cargo fmt
+
+test-contract:
 	capsule build
 	capsule test
 
