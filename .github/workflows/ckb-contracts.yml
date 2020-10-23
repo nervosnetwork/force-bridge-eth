@@ -22,7 +22,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: nightly-2020-10-22
           override: true
           components: rustfmt, clippy
       - name: format-contracts
@@ -37,7 +37,7 @@ jobs:
         run: |
           cd ckb-contracts/lib/eth-bridge-typescript-lib
           cargo test -- --nocapture
-          cargo clippy
+          cargo clippy -- -D warnings
 
   contract-build-test:
     runs-on: ubuntu-latest
