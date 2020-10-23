@@ -29,7 +29,7 @@ library ViewSpv {
         return uint16(_input.indexLEUint(startIndex, 2));
     }
 
-    function blockNumber(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (uint64) {
+    function spvBlockNumber(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (uint64) {
         uint256 startIndex = _input.indexLEUint(8, 4);
         return uint64(_input.indexLEUint(startIndex, 8));
     }
@@ -58,4 +58,15 @@ library ViewSpv {
         uint256 inputLength = _input.len();
         return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.H256Array));
     }
+
+    /// @notice         Index a H256 array.
+    /// @dev            Errors on overruns
+    /// @param _arr     The H256 array
+    /// @param index    The 0-indexed location of the H256 to get
+    /// @return         the typed H256 at `index`
+    function indexH256Array(bytes29 _arr, uint256 index) internal pure typeAssert(_arr, SpvTypes.H256Array) returns (bytes32) {
+        uint256 _start = index.mul(32);
+        return _arr.index(_start, 32);
+    }
+
 }

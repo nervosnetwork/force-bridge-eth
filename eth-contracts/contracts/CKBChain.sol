@@ -8,7 +8,11 @@ import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {ICKBChain} from "./interfaces/ICKBChain.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
+// tools below just for test, they will be removed before production ready
+import "@nomiclabs/buidler/console.sol";
+
 contract CKBChain is ICKBChain, ICKBSpv {
+    using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
@@ -69,6 +73,30 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     /// #ICKBSpv
     function proveTxExist(bytes calldata txProofData, uint64 numConfirmations) external view returns (bool){
+        bytes29 proofView = txProofData.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
+        require(proofView.spvBlockNumber() + numConfirmations <= lastBlockNumber, "blockNumber is too ahead");
+        require(canonicalTransactionRoots[proofView.blockHash()] != bytes32(0), "blockHash invalid or too old");
+        uint16 index = proofView.txMerkleIndex();
+        uint16 sibling;
+        uint256 lemmasIndex = 0;
+        bytes29 lemmas = proofView.lemmas();
+        uint256 length = lemmas.len() / 32;
+        bytes32 res = proofView.txHash();
+
+        while (lemmasIndex < length && index > 0) {
+            sibling = ((index + 1) ^ 1) - 1;
+            if (index < sibling) {
+                res = CKBCrypto.digest(abi.encodePacked(res, lemmas.indexH256Array(lemmasIndex), new bytes(64)), 64);
+            } else {
+                res = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), res, new bytes(64)), 64);
+            }
+
+            lemmasIndex++;
+            // index = parent(index)
+            index = (index - 1) >> 1;
+        }
+        res = CKBCrypto.digest(abi.encodePacked(res, proofView.witnessesRoot(), new bytes(64)), 64);
+        require(res == canonicalTransactionRoots[res], "proof not passed");
         return true;
     }
 
@@ -84,5 +112,11 @@ contract CKBChain is ICKBChain, ICKBSpv {
     /// #Verify header
     function verifyHeader(bytes29 header) internal view typeAssert(header, ViewCKB.CKBTypes.Header) returns (bool){
         return true;
+    }
+
+    // mock for test
+    function mockForProveTxExist(uint64 _lastBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
+        lastBlockNumber = _lastBlockNumber;
+        canonicalTransactionRoots[blockHash] = transactionsRoot;
     }
 }
