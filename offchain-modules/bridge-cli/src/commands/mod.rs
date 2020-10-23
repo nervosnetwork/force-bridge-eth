@@ -34,7 +34,7 @@ pub fn approve_handler(args: ApproveArgs) -> Result<()> {
     println!("approve_handler args: {:?}", &args);
     let from: H160 = H160::from_slice(args.from.as_ref());
     let to = H160::from_slice(args.to.as_ref());
-    let hash = approve(from, to, args.rpc_url, args.chain_id);
+    let hash = approve(from, to, args.rpc_url, args.chain_id, args.private_key_path);
     log::info!("approve tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -43,7 +43,7 @@ pub fn lock_handler(args: LockArgs) -> Result<()> {
     println!("lock_handler args: {:?}", &args);
     let from: H160 = H160::from_slice(args.from.as_ref());
     let to = H160::from_slice(args.to.as_ref());
-    let hash = lock(from, to, args.rpc_url, args.chain_id);
+    let hash = lock(from, to, args.rpc_url, args.chain_id, args.private_key_path);
     log::info!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }

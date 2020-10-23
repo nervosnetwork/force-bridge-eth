@@ -8,6 +8,7 @@ use web3::Web3;
 use ethereum_tx_sign::RawTransaction;
 use ethabi::{Function, Token};
 use futures::Future;
+use anyhow::{anyhow, Result};
 
 pub struct Web3Client {
     url: String,
@@ -36,10 +37,10 @@ impl Web3Client {
     }
     pub fn chain_id(&mut self) -> &u32 {& self.chain_id}
 
-    pub fn send_transaction(&mut self, from: H160, to: H160, data: Vec<u8>) -> H256 {
+    pub fn send_transaction(&mut self, from: H160, to: H160, key_path: String, data: Vec<u8>) -> H256 {
         let nonce = self.client().eth().transaction_count(from.clone(), None).wait().unwrap();
         let tx = make_transaction(to, nonce, data);
-        let signed_tx = tx.sign(&get_private_key(), &self.chain_id);
+        let signed_tx = tx.sign(&parse_private_key(key_path.as_str()).unwrap(), &self.chain_id);
         let tx_hash = self.client().eth().send_raw_transaction(Bytes::from(signed_tx)).wait().unwrap();
         println!("tx hash: {:?}", tx_hash);
         tx_hash
@@ -92,11 +93,13 @@ pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>) -> RawTransaction 
     }
 }
 
-pub fn get_private_key() -> ethereum_types::H256 {
-    let private_key = hex::decode(
-        "2a3526dd05ad2ebba87673f711ef8c336115254ef8fcd38c4d8166db9a8120e4").unwrap();
-
-    return ethereum_types::H256::from_slice(private_key.as_slice());
+pub fn parse_private_key(path: &str) -> Result<ethereum_types::H256> {
+    let content = std::fs::read_to_string(path)?;
+    let private_key_string = content
+        .split_whitespace()
+        .next()
+        .ok_or_else(|| anyhow!("File is empty"))?;
+    return Ok(ethereum_types::H256::from_slice(hex::decode(private_key_string).expect("invalid private_key_string.").as_slice()));
 }
 
 fn convert_u256(value: web3::types::U256) -> ethereum_types::U256 {

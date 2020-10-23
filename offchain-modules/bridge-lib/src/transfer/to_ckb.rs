@@ -4,7 +4,7 @@ use web3::types::{H160, H256};
 use crate::util::eth_util::{Web3Client, function_encode};
 use ethabi::{Function, Param, ParamType};
 
-pub fn approve(from: H160, to: H160, url: String, chain_id: u32) -> H256{
+pub fn approve(from: H160, to: H160, url: String, chain_id: u32, key_path: String) -> H256{
     let mut rpc_client = Web3Client::new(url, chain_id);
     let function = Function {
         name: "approve".to_owned(),
@@ -24,10 +24,10 @@ pub fn approve(from: H160, to: H160, url: String, chain_id: u32) -> H256{
         constant: false,
     };
     let data = function_encode(function);
-    rpc_client.send_transaction(from, to, data)
+    rpc_client.send_transaction(from, to, key_path, data)
 }
 
-pub fn lock(from: H160, to: H160, url: String, chain_id: u32) -> H256 {
+pub fn lock(from: H160, to: H160, url: String, chain_id: u32, key_path: String) -> H256 {
     let mut rpc_client = Web3Client::new(url, chain_id);
     let function = Function {
         name: "lock".to_owned(),
@@ -45,7 +45,7 @@ pub fn lock(from: H160, to: H160, url: String, chain_id: u32) -> H256 {
         constant: false,
     };
     let data = function_encode(function);
-    rpc_client.send_transaction(from, to, data)
+    rpc_client.send_transaction(from, to, key_path, data)
 }
 
 pub fn parse_eth_proof() -> Result<()> {

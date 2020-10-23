@@ -37,6 +37,8 @@ pub struct ApproveArgs {
     pub rpc_url: String,
     #[clap(long, default_value = "1")]
     pub chain_id: u32,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -49,6 +51,8 @@ pub struct LockArgs {
     pub rpc_url: String,
     #[clap(long, default_value = "1")]
     pub chain_id: u32,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
