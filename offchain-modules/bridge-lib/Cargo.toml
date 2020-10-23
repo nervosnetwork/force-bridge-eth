@@ -24,3 +24,5 @@ serde = { version = "1.0", features = ["rc"] }
 serde_derive = "1.0"
 config = "0.10"
 toml = "0.5"
+ethereum-tx-sign = "3.0.3"
+ethabi = "8.0.1"

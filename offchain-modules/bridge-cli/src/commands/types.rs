@@ -35,6 +35,8 @@ pub struct ApproveArgs {
     pub to: String,
     #[clap(long, default_value = "https://localhost:8545")]
     pub rpc_url: String,
+    #[clap(long, default_value = "1")]
+    pub chain_id: u32,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -45,6 +47,8 @@ pub struct LockArgs {
     pub to: String,
     #[clap(long, default_value = "https://localhost:8545")]
     pub rpc_url: String,
+    #[clap(long, default_value = "1")]
+    pub chain_id: u32,
 }
 
 #[derive(Clap, Clone, Debug)]

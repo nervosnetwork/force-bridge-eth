@@ -238,6 +238,8 @@ dependencies = [
  "ckb-sdk",
  "ckb-types",
  "config",
+ "ethabi",
+ "ethereum-tx-sign",
  "ethereum-types 0.9.2",
  "futures",
  "hex",
@@ -956,6 +958,22 @@ dependencies = [
  "fixed-hash 0.6.1",
  "impl-rlp",
  "impl-serde 0.3.1",
+ "tiny-keccak 2.0.2",
+]
+
+[[package]]
+name = "ethereum-tx-sign"
+version = "3.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bad75bd5547ae8e8086776ffdff546ac4bf1e20de589ba1dd4a860f69ea21189"
+dependencies = [
+ "ethereum-types 0.9.2",
+ "num-traits 0.2.12",
+ "rlp",
+ "secp256k1",
+ "serde 1.0.117",
+ "serde_derive",
+ "serde_json",
  "tiny-keccak 2.0.2",
 ]
 
