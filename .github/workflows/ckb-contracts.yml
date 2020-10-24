@@ -22,10 +22,10 @@ jobs:
       - name: Cache cargo crate and target
         uses: actions/cache@v2
         with:
-          path:
-            - ckb-contracts/target
-            - ~/.cargo/registry
-            - ~/.cargo/git
+          path: |
+            ckb-contracts/target
+            ~/.cargo/registry
+            ~/.cargo/git
           key: cargo-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
           restore-keys: |
             cargo-target-
