@@ -50,8 +50,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Cache cargo target
+      - name: Cache cargo target and crate
         uses: actions/cache@v2
+        id: cache-contract-target
         with:
           path: |
             ckb-contracts/target
@@ -60,7 +61,14 @@ jobs:
           restore-keys: |
             capsule-target-
       - name: install-capsule
-        run: cargo install ckb-capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.4.2
+        if: steps.cache-contract-target.outputs.cache-hit != 'true'
+        # Too slow to install capsule from source, replace it with download binary directly.
+        # run: cargo install ckb-capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.4.2
+        run: |
+          cd ckb-contracts
+          wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.4.2/capsule_v0.4.2_x86_64-linux.tar.gz
+          tar -zxvf capsule_v0.4.2_x86_64-linux.tar.gz
+          cp capsule_v0.4.2_x86_64-linux/capsule ~/.cargo/bin
       - name: check-capsule
         run: |
           cd ckb-contracts
