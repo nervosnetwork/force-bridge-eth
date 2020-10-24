@@ -76,3 +76,6 @@ jobs:
           capsule check
           capsule build
           capsule test
+      - name: find-capsule-cache
+        run: find / -name capsule-cache
+
