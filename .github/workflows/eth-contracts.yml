@@ -14,6 +14,10 @@ on:
       - 'eth-contracts/**.json'
       - 'eth-contracts/**.sol'
 
+defaults:
+  run:
+    working-directory: eth-contracts
+
 jobs:
   eth-contracts-check:
     runs-on: ubuntu-latest
@@ -32,7 +36,6 @@ jobs:
           node-version: '12.x'
       - name: test and check format
         run: |
-          cd eth-contracts
           yarn --frozen-lockfile
           yarn test
           yarn lint

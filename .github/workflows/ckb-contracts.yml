@@ -28,11 +28,11 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ckb-contracts/**/target
+            **/target
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin
-          key: cargo-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
+          key: cargo-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             cargo-target-
       - name: install-capsule
