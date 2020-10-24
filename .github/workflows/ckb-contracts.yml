@@ -75,7 +75,7 @@ jobs:
           cd ckb-contracts
           capsule check
           capsule build
-          capsule test
+#          capsule test
       - name: find-capsule-cache
         run: find / -name capsule-cache
 
