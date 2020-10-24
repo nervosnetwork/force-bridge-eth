@@ -60,7 +60,7 @@ jobs:
           restore-keys: |
             capsule-target-
       - name: install-capsule
-        run: cargo install capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.4.2
+        run: cargo install ckb-capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.4.2
       - name: check-capsule
         run: |
           cd ckb-contracts
