@@ -56,6 +56,7 @@ jobs:
         with:
           path: |
             ckb-contracts/target
+            ckb-contracts/capsule-cache
             ~/.cargo/bin
           key: capsule-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
           restore-keys: |
@@ -75,4 +76,3 @@ jobs:
           capsule check
           capsule build
           capsule test
-
