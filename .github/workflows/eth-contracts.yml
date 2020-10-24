@@ -14,6 +14,7 @@ on:
       - 'eth-contracts/**.json'
       - 'eth-contracts/**.sol'
 
+
 jobs:
   eth-contracts-check:
     runs-on: ubuntu-latest
