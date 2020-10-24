@@ -23,7 +23,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: eth-contracts/node_modules
-          key: ${{ runner.os }}-${{ hashFiles('eth-contracts/**/yarn.lock') }}
+          key: eth-contracts-${{ hashFiles('eth-contracts/yarn.lock') }}
+          restore-keys: |
+            eth-contracts-
       - name: Use Node.js
         uses: actions/setup-node@v1
         with:
@@ -31,6 +33,6 @@ jobs:
       - name: test and check format
         run: |
           cd eth-contracts
-          yarn
+          yarn --frozen-lockfile
           yarn test
           yarn lint
