@@ -44,7 +44,7 @@ jobs:
           cd ckb-contracts/lib/eth-bridge-typescript-lib
           cargo fmt --all -- --check
           cargo test -- --nocapture
-          cargo clippy
+          cargo clippy -- -D warnings
 
   contract-build-test:
     runs-on: ubuntu-latest
@@ -54,9 +54,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ckb-contracts/target
-          key: cargo-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
+          key: capsule-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
           restore-keys: |
-            cargo-target-
+            capsule-target-
       - name: install-capsule
         run: |
           cd ckb-contracts
