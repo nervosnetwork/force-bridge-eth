@@ -20,60 +20,71 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Cache cargo crate and target
+        id: cache-contract-target
         uses: actions/cache@v2
         with:
           path: |
-            ckb-contracts/target
+            **/target
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin
           key: cargo-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
           restore-keys: |
             cargo-target-
+      - name: install-capsule
+        if: steps.cache-contract-target.outputs.cache-hit != 'true'
+        # Too slow to install capsule from source, replace it with download binary directly.
+        # run: cargo install ckb-capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.2.3
+        run: |
+          cd ckb-contracts
+          wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.2.3/capsule_v0.2.3_x86_64-linux.tar.gz
+          tar -zxvf capsule_v0.2.3_x86_64-linux.tar.gz
+          cp capsule_v0.2.3_x86_64-linux/capsule ~/.cargo/bin
+      - name: build-contract
+        run: |
+          cd ckb-contracts
+          capsule build
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
           override: true
           components: rustfmt, clippy
-      - name: format-contracts
-        run: |
-          cd ckb-contracts
-          cargo fmt --all -- --check
       - name: check-and-test-libs
         run: |
-          cd ckb-contracts/lib/eth-bridge-typescript-lib
+          cd ckb-contracts
           cargo fmt --all -- --check
           cargo test -- --nocapture
           cargo clippy -- -D warnings
 
-  contract-build-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Cache cargo target and crate
-        uses: actions/cache@v2
-        id: cache-contract-target
-        with:
-          path: |
-            ckb-contracts/target
-            ckb-contracts/capsule-cache
-            ~/.cargo/bin
-            /var/lib/docker/volumes/capsule-cache
-          key: capsule-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
-          restore-keys: |
-            capsule-target-
-      - name: install-capsule
-        if: steps.cache-contract-target.outputs.cache-hit != 'true'
-        # Too slow to install capsule from source, replace it with download binary directly.
-        # run: cargo install ckb-capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.4.2
-        run: |
-          cd ckb-contracts
-          wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.4.2/capsule_v0.4.2_x86_64-linux.tar.gz
-          tar -zxvf capsule_v0.4.2_x86_64-linux.tar.gz
-          cp capsule_v0.4.2_x86_64-linux/capsule ~/.cargo/bin
-      - name: check-capsule
-        run: |
-          cd ckb-contracts
-          capsule check
-          capsule build
-          capsule test
+#  contract-build-test:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Cache cargo target and crate
+#        uses: actions/cache@v2
+#        id: cache-contract-target
+#        with:
+#          path: |
+#            ckb-contracts/target
+#            ckb-contracts/capsule-cache
+#            ~/.cargo/bin
+#            /var/lib/docker/volumes/capsule-cache
+#          key: capsule-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
+#          restore-keys: |
+#            capsule-target-
+#      - name: install-capsule
+#        if: steps.cache-contract-target.outputs.cache-hit != 'true'
+#        # Too slow to install capsule from source, replace it with download binary directly.
+#        # run: cargo install ckb-capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.4.2
+#        run: |
+#          cd ckb-contracts
+#          wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.4.2/capsule_v0.4.2_x86_64-linux.tar.gz
+#          tar -zxvf capsule_v0.4.2_x86_64-linux.tar.gz
+#          cp capsule_v0.4.2_x86_64-linux/capsule ~/.cargo/bin
+#      - name: check-capsule
+#        run: |
+#          cd ckb-contracts
+#          capsule check
+#          capsule build
+#          capsule test

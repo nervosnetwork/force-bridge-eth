@@ -1,13 +1,19 @@
 
-all: check-contract-lib test-capsule
+all: test-contract
+#all: check-contract-lib test-capsule
 
 fmt:
 	cd lib/eth-bridge-typescript-lib && cargo fmt
 	cd contracts/eth-bridge-typescript && cargo fmt
 
-test-capsule:
+build-contract:
 	capsule build
-	capsule test
+
+#test-capsule:
+#	capsule build
+#	capsule test
+test-contract: build-contract
+	cargo test -- --nocapture
 
 test-contract-lib:
 	cd lib/eth-bridge-typescript-lib && cargo test -- --nocapture
