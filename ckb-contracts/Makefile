@@ -1,6 +1,7 @@
 
-all: test-contract
-#all: check-contract-lib test-capsule
+ci: test-contract
+	cargo fmt -- --check
+	cargo clippy -- -D warnings
 
 fmt:
 	cd lib/eth-bridge-typescript-lib && cargo fmt
@@ -9,9 +10,6 @@ fmt:
 build-contract:
 	capsule build
 
-#test-capsule:
-#	capsule build
-#	capsule test
 test-contract: build-contract
 	cargo test -- --nocapture
 
@@ -21,4 +19,4 @@ test-contract-lib:
 check-contract-lib: test-contract-lib
 	cd lib/eth-bridge-typescript-lib && cargo fmt -- --check && cargo clippy -- -D warnings
 
-.PHONY: build
+.PHONY: ci
