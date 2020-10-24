@@ -58,6 +58,7 @@ jobs:
             ckb-contracts/target
             ckb-contracts/capsule-cache
             ~/.cargo/bin
+            /var/lib/docker/volumes/capsule-cache
           key: capsule-target-${{ hashFiles('ckb-contracts/**/Cargo.lock') }}
           restore-keys: |
             capsule-target-
@@ -75,7 +76,4 @@ jobs:
           cd ckb-contracts
           capsule check
           capsule build
-#          capsule test
-      - name: find-capsule-cache
-        run: docker volume inspect capsule-cache
-
+          capsule test
