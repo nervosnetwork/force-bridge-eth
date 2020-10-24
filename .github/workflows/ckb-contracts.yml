@@ -77,5 +77,5 @@ jobs:
           capsule build
 #          capsule test
       - name: find-capsule-cache
-        run: find / -name capsule-cache
+        run: sudo find / -name capsule-cache
 
