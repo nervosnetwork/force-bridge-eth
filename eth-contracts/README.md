@@ -39,5 +39,5 @@ $ npx buidler run scripts/testnet-ropsten/test-proveTxExist.js --network ropsten
 # after installed
 $ geth init test/data/geth-genesis.json --datadir=/tmp/geth
 $ geth --datadir=/tmp/geth --port 4321 --networkid 1234 --rpc --rpcport 8543 --rpcaddr 127.0.0.1  --rpcapi "eth,net,web3,personal,miner" --gasprice 0 --etherbase 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 --mine --miner.threads=1
-$ npx buidler run scripts/testnet-ropsten/test-proveTxExist.js --network geth
+$ npx buidler test --network geth
 ```
