@@ -86,6 +86,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint256 length = lemmas.len() / 32;
         bytes32 res = proofView.txHash();
 
+        // calc the rawTransactionsRoot to res
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
             if (index < sibling) {
@@ -98,6 +99,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
             // index = parent(index)
             index = (index - 1) >> 1;
         }
+
+        // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
         res = CKBCrypto.digest(abi.encodePacked(res, proofView.witnessesRoot(), new bytes(64)), 64);
         require(res == canonicalTransactionRoots[res], "proof not passed");
         return true;
