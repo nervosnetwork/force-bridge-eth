@@ -1029,34 +1029,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "eth-bridge-lockscript"
-version = "0.1.0"
-dependencies = [
- "ckb-std",
-]
-
-[[package]]
-name = "eth-bridge-typescript"
-version = "0.1.0"
-dependencies = [
- "ckb-std",
- "eth-bridge-typescript-lib",
-]
-
-[[package]]
 name = "eth-bridge-typescript-lib"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
  "ckb-std",
  "mockall",
-]
-
-[[package]]
-name = "eth-light-client-typescript"
-version = "0.1.0"
-dependencies = [
- "ckb-std",
 ]
 
 [[package]]

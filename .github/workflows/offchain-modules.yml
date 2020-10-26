@@ -14,20 +14,32 @@ on:
       - 'offchain-modules/**/Cargo.toml'
       - 'offchain-modules/**/Cargo.lock'
 
+defaults:
+  run:
+    working-directory: offchain-modules
+
 jobs:
   contract-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Cache cargo crate and target
+        uses: actions/cache@v2
+        with:
+          path: |
+            **/target
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+          key: cargo-target-offchain-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-target-offchain-
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly-2020-10-22
           override: true
           components: rustfmt, clippy
-      - name: format-contracts
-        run: |
-          cd offchain-modules
-          cargo fmt -- --check
-          cargo test -- --nocapture
-          cargo clippy -- -D warnings
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy -- -D warnings
+      - run: cargo test -- --nocapture
