@@ -38,7 +38,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     // Whether the contract was initialized.
     bool public initialized;
-    uint64 public lastBlockNumber;
+    uint64 public latestBlockNumber;
 
     /// Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
     /// entries.
@@ -76,7 +76,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         bytes29 proofView = txProofData.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
-        require(blockNumber + numConfirmations <= lastBlockNumber, "blockNumber is too ahead");
+        require(blockNumber + numConfirmations <= latestBlockNumber, "blockNumber from txProofData is too ahead of the latestBlockNumber from CKBChain light client");
         require(canonicalHeaderHashes[blockNumber] == blockHash, "blockNumber and blockHash mismatch");
         require(canonicalTransactionRoots[blockHash] != bytes32(0), "blockHash invalid or too old");
         uint16 index = proofView.txMerkleIndex();
@@ -118,8 +118,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     // mock for test
-    function mockForProveTxExist(uint64 _lastBlockNumber, uint64 spvBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
-        lastBlockNumber = _lastBlockNumber;
+    function mockForProveTxExist(uint64 _latestBlockNumber, uint64 spvBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
+        latestBlockNumber = _latestBlockNumber;
         canonicalHeaderHashes[spvBlockNumber] = blockHash;
         canonicalTransactionRoots[blockHash] = transactionsRoot;
     }
