@@ -26,8 +26,10 @@ $ npx hardhat run scripts/testnet-ropsten/test-proveTxExist.js --network ropsten
 ## Test on Testnet
 ```bash
 # create .env file for testnet-ropsten, make sure you have enough ethers in your Ropsten account for delopying the contract
+# 
+# replace `0x0000000000000000000000000000000000000000000000000000000000000000` to your own private key
 $ echo ROPSTEN_DEPLOYER_PRIVATE_KEY=\"0x0000000000000000000000000000000000000000000000000000000000000000\"\\r\\n\
-  ROPSTEN_API=\"https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb\" >> .env
+ROPSTEN_API=\"https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb\" >> .env
 $ npx buidler run scripts/testnet-ropsten/test-proveTxExist.js --network ropsten
 ```
 
