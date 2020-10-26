@@ -54,6 +54,7 @@ pub fn deploy(
     sign(tx, rpc_client, privkey)
 }
 
+#[allow(clippy::mutable_key_type)]
 pub fn sign(
     tx: TransactionView,
     rpc_client: &mut HttpRpcClient,
@@ -104,6 +105,7 @@ impl TxHelper {
     pub fn multisig_configs(&self) -> &HashMap<H160, MultisigConfig> {
         &self.multisig_configs
     }
+    #[allow(clippy::mutable_key_type)]
     pub fn signatures(&self) -> &HashMap<Bytes, HashSet<Bytes>> {
         &self.signatures
     }
@@ -159,7 +161,7 @@ impl TxHelper {
             .since(since.pack())
             .build();
 
-        let outpoint_cell: CellOutput = get_live_cell(out_point.clone(), skip_check)?;
+        let outpoint_cell: CellOutput = get_live_cell(out_point, skip_check)?;
         let code_hash: H256 = outpoint_cell.lock().code_hash().unpack();
         let cell_dep = if code_hash == SIGHASH_TYPE_HASH {
             Some(genesis_info.sighash_dep())
@@ -171,12 +173,12 @@ impl TxHelper {
 
         let mut tx_builder = self.transaction.as_advanced_builder().input(input);
         if cell_dep.is_some() {
-            let cell_dep = cell_dep.unwrap();
+            let cell_dep = cell_dep.expect("invalid cell dep");
             if self
                 .transaction
                 .cell_deps()
                 .into_iter()
-                .all(|d| &d != &cell_dep)
+                .all(|d| d != cell_dep)
             {
                 tx_builder = tx_builder.cell_dep(cell_dep);
             }
@@ -230,6 +232,7 @@ impl TxHelper {
         self.multisig_configs.insert(config.hash160(), config);
     }
 
+    #[allow(clippy::mutable_key_type)]
     pub fn input_group<F: FnMut(OutPoint, bool) -> Result<CellOutput, String>>(
         &self,
         mut get_live_cell: F,
@@ -269,6 +272,7 @@ impl TxHelper {
         witnesses
     }
 
+    #[allow(clippy::mutable_key_type)]
     pub fn sign_inputs<C>(
         &self,
         mut signer: SignerFn,
@@ -322,6 +326,7 @@ impl TxHelper {
         Ok(signatures)
     }
 
+    #[allow(clippy::mutable_key_type)]
     pub fn build_tx<F: FnMut(OutPoint, bool) -> Result<CellOutput, String>>(
         &self,
         get_live_cell: F,
@@ -393,6 +398,7 @@ impl TxHelper {
             .build())
     }
 
+    #[allow(clippy::mutable_key_type)]
     pub fn supply_sudt(
         &mut self,
         rpc_client: &mut HttpRpcClient,
@@ -445,6 +451,7 @@ impl TxHelper {
         Ok(self.transaction.clone())
     }
 
+    #[allow(clippy::mutable_key_type)]
     pub fn supply_capacity(
         &mut self,
         rpc_client: &mut HttpRpcClient,
@@ -550,6 +557,7 @@ pub struct MultisigConfig {
     threshold: u8,
 }
 
+#[allow(clippy::mutable_key_type)]
 impl MultisigConfig {
     pub fn new_with(
         sighash_addresses: Vec<AddressPayload>,

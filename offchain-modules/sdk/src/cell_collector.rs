@@ -19,7 +19,7 @@ pub fn get_live_cell_by_typescript(
     let cells = get_live_cells(indexer_client, search_key, |_, _| (true, true))?;
     let len = cells.len();
     if len > 1 {
-        return Err(format!("expected zero or one cell"));
+        return Err("expected zero or one cell".to_string());
     }
     if len == 1 {
         Ok(Some(cells[0].clone()))
@@ -41,7 +41,7 @@ pub fn get_live_cells_by_lock_and_capacity(
         if accumulated_capacity >= capacity {
             (true, false)
         } else if cell.output.type_.is_none()
-            && cell.output_data.len() == 0
+            && cell.output_data.is_empty()
             && max_mature_number
                 .map(|n| is_mature(cell, n))
                 .unwrap_or(true)
@@ -71,7 +71,7 @@ pub fn get_live_cells<F: FnMut(usize, &Cell) -> (bool, bool)>(
     loop {
         let live_cells: Pagination<Cell> =
             indexer_client.get_cells(search_key.clone(), Order::Asc, limit, cursor)?;
-        if live_cells.objects.len() == 0 {
+        if live_cells.objects.is_empty() {
             break;
         }
         cursor = Some(live_cells.last_cursor);

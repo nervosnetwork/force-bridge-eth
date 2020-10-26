@@ -7,7 +7,7 @@ use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 
 pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
-    let mut rpc_client = HttpRpcClient::new(rpc_url.clone());
+    let mut rpc_client = HttpRpcClient::new(rpc_url);
     let from_privkey = parse_privkey_path(private_key.as_str())?;
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);

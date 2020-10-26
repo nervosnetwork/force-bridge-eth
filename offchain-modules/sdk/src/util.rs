@@ -101,6 +101,7 @@ pub fn get_live_cell(
         })
 }
 
+#[allow(clippy::mutable_key_type)]
 pub fn get_live_cell_with_cache(
     cache: &mut HashMap<(OutPoint, bool), (CellOutput, Bytes)>,
     client: &mut HttpRpcClient,
@@ -123,7 +124,7 @@ pub fn get_live_cells_by_lockscript(
 ) -> Result<(Vec<Cell>, u64)> {
     let rpc_lock: JsonScript = lockscript.into();
     let _search_key = SearchKey {
-        script: rpc_lock.clone(),
+        script: rpc_lock,
         script_type: ScriptType::Lock,
         args_len: None,
     };
@@ -141,7 +142,7 @@ pub fn get_live_cells<F: FnMut(usize, &Cell) -> (bool, bool)>(
     loop {
         let live_cells: Pagination<Cell> =
             indexer_client.get_cells(search_key.clone(), Order::Asc, limit, None)?;
-        if live_cells.objects.len() == 0 {
+        if live_cells.objects.is_empty() {
             break;
         }
         _cursor = Some(live_cells.last_cursor);
@@ -229,7 +230,7 @@ pub fn send_tx_sync(
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
-    return Err(format!("tx {} not commited", &tx_hash));
+    Err(format!("tx {} not commited", &tx_hash))
 }
 
 pub fn ensure_indexer_sync(

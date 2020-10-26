@@ -76,7 +76,7 @@ impl Generator {
     ) -> Result<(CellOutput, Bytes), String> {
         let genesis_info = self._genesis_info.clone();
         let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_typescript)?
-            .ok_or(format!("cell not found"))?;
+            .ok_or("cell not found")?;
         let ckb_cell = CellOutput::from(cell.output);
         let ckb_cell_data = packed::Bytes::from(cell.output_data).raw_data();
         if add_to_input {

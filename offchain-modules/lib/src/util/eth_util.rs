@@ -3,7 +3,6 @@ use ethabi::{Function, Token};
 use ethereum_tx_sign::RawTransaction;
 use futures::future::join_all;
 use futures::Future;
-use hex;
 use rlp::RlpStream;
 use web3::transports::Http;
 use web3::types::{Block, Bytes, H160, H256, U256};
@@ -49,7 +48,7 @@ impl Web3Client {
         let nonce = self
             .client()
             .eth()
-            .transaction_count(from.clone(), None)
+            .transaction_count(from, None)
             .wait()
             .unwrap();
         let tx = make_transaction(to, nonce, data);
@@ -79,10 +78,10 @@ impl Web3Client {
             let mut stream = RlpStream::new();
             rlp_append(&block_header.clone().unwrap(), &mut stream);
             blocks.push(stream.out());
-            hashes.push(H256(block_header.clone().unwrap().hash.unwrap().0.into()));
+            hashes.push(H256(block_header.clone().unwrap().hash.unwrap().0));
         }
-        for i in 0..blocks.len() {
-            println!("header rlp: {:?}", hex::encode(blocks[i].clone()));
+        for item in &blocks {
+            println!("header rlp: {:?}", hex::encode(item.clone()));
         }
 
         (blocks, hashes)
@@ -90,10 +89,10 @@ impl Web3Client {
 }
 
 pub fn function_encode(function: Function) -> Vec<u8> {
-    let func = Function::from(function);
     let mut uint = [0u8; 32];
     uint[31] = 69;
-    func.encode_input(&[Token::Uint(uint.into()), Token::Bool(true)])
+    function
+        .encode_input(&[Token::Uint(uint.into()), Token::Bool(true)])
         .unwrap()
 }
 
