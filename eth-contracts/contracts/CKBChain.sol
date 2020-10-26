@@ -74,8 +74,11 @@ contract CKBChain is ICKBChain, ICKBSpv {
     /// #ICKBSpv
     function proveTxExist(bytes calldata txProofData, uint64 numConfirmations) external view returns (bool){
         bytes29 proofView = txProofData.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
-        require(proofView.spvBlockNumber() + numConfirmations <= lastBlockNumber, "blockNumber is too ahead");
-        require(canonicalTransactionRoots[proofView.blockHash()] != bytes32(0), "blockHash invalid or too old");
+        uint64 blockNumber = proofView.spvBlockNumber();
+        bytes32 blockHash = proofView.blockHash();
+        require(blockNumber + numConfirmations <= lastBlockNumber, "blockNumber is too ahead");
+        require(canonicalHeaderHashes[blockNumber] == blockHash, "blockNumber and blockHash mismatch");
+        require(canonicalTransactionRoots[blockHash] != bytes32(0), "blockHash invalid or too old");
         uint16 index = proofView.txMerkleIndex();
         uint16 sibling;
         uint256 lemmasIndex = 0;
@@ -115,8 +118,9 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     // mock for test
-    function mockForProveTxExist(uint64 _lastBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
+    function mockForProveTxExist(uint64 _lastBlockNumber, uint64 spvBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
         lastBlockNumber = _lastBlockNumber;
+        canonicalHeaderHashes[spvBlockNumber] = blockHash;
         canonicalTransactionRoots[blockHash] = transactionsRoot;
     }
 }
