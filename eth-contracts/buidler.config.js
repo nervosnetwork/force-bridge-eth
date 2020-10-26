@@ -31,12 +31,15 @@ module.exports = {
             url: `${process.env ? process.env.ROPSTEN_API : ""}`,
             accounts: [`${process.env ? process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY : ""}`]
         },
+        kovan: {
+            url: `${process.env ? process.env.KOVAN_API : ""}`,
+            accounts: [`${process.env ? process.env.KOVAN_DEPLOYER_PRIVATE_KEY : ""}`]
+        },
         geth: {
             url: `http://127.0.0.1:8543`,
             // address [`0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2`]
             // Mnemonic [`dignity vehicle fuel siren cool machine video spice oppose olympic polar discover`]
             accounts: [`0xc4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a`],
-            gas: 1000000,
         }
     },
 

@@ -1,5 +1,11 @@
 const { expect } = require('chai');
 
+const WAITING_SECONDS = 10
+async function sleep(seconds) {
+  console.log(`waiting for block confirmations, about ${seconds}s`)
+  await new Promise(resolve => setTimeout(resolve, seconds * 1000))
+}
+
 contract('TokenLocker', () => {
   let tokenLocker;
 
@@ -7,10 +13,12 @@ contract('TokenLocker', () => {
     let factory = await ethers.getContractFactory('MockCKBSpv');
     const mockSpv = await factory.deploy();
     await mockSpv.deployed();
+    await sleep(WAITING_SECONDS);
 
     factory = await ethers.getContractFactory('TokenLocker');
     tokenLocker = await factory.deploy(mockSpv.address, 123);
     await tokenLocker.deployed();
+    await sleep(WAITING_SECONDS);
   });
 
   describe('lockETH', async () => {
@@ -22,6 +30,8 @@ contract('TokenLocker', () => {
       // lockETH
       const amount = ethers.utils.parseEther('1.2');
       await tokenLocker.lockETH(0, { value: amount });
+
+      await sleep(WAITING_SECONDS);
 
       // asset expected amount == balance of contract delta
       const delta = await defaultProvider.getBalance(tokenLocker.address) - contractBalance;
@@ -38,6 +48,7 @@ contract('TokenLocker', () => {
 
       // unlockETH
       await tokenLocker.unlockToken([0], [0]);
+      await sleep(WAITING_SECONDS)
 
       // asset expected amount == balance of contract delta
       const delta = await defaultProvider.getBalance(tokenLocker.address) - contractBalance;

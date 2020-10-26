@@ -3,10 +3,11 @@
 // When running the script with `buidler run <script>` you'll find the Buidler
 // Runtime Environment's members available in the global scope.
 const bre = require("@nomiclabs/buidler");
-const WAITING_SECONDS = 5
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+const WAITING_SECONDS = 5
+async function sleep(seconds) {
+    console.log(`waiting for block confirmations, about ${seconds}s`)
+    await new Promise(resolve => setTimeout(resolve, seconds * 1000))
 }
 
 async function main() {
@@ -20,8 +21,8 @@ async function main() {
     const ckbChain = await factory.deploy()
     await ckbChain.deployed()
     console.log("ckbChain deployed to:", ckbChain.address);
-    console.log(`waiting for block confirmations, about ${WAITING_SECONDS}s`)
-    await sleep(WAITING_SECONDS * 1000);
+
+    await sleep(WAITING_SECONDS);
 
     // mock state data to CKBChain
     const blockHash = "0x1b1c39558cc783206d8dbf89ee6887abed8912125a48860b2bc70cbf586011bd";
@@ -29,8 +30,8 @@ async function main() {
     const blockNumber = 3028129
     let res = await ckbChain.mockForProveTxExist(blockNumber + 100, blockNumber, blockHash, transactionsRoot)
     console.log("mockForProveTxExist txHash: ", res.hash)
-    console.log(`waiting for block confirmations, about ${WAITING_SECONDS}s`)
-    await sleep(WAITING_SECONDS * 1000);
+
+    await sleep(WAITING_SECONDS);
 
     // proveTxExist
     const txProof = "0x0a0100001c0000001e000000260000004600000066000000860000001100a1342e00000000001b1c39558cc783206d8dbf89ee6887abed8912125a48860b2bc70cbf586011bd39e33c8ad2e7e4eb71610d2bcdfbb0cb0fde2f96418256914ad2f5be1d6e933145b4b9ade6d9429c6d7c8709bb56634b486f167e86cc5ea972356e2f25f6aab104000000385dfb0153a0e3aec760120c4e333a4a6bec91eeaca359ef714709588d23ca16e60708f897ac89126126bc246cc30ccb8e66c4158167560eb3329ed9f40f676e4e2b18dab3b90798b333312dea4cee0b8c148fc51c599687a881a36b4a4a42d1a8b2c004891cb36f6f7ec24cc30327391ff1b338ab2d623070389f31b67d720e"
