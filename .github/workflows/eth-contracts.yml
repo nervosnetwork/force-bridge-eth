@@ -34,8 +34,7 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: '12.x'
-      - name: test and check format
-        run: |
-          yarn --frozen-lockfile
-          yarn test
-          yarn lint
+      - name: install dependencies
+        run: yarn --frozen-lockfile
+      - run: yarn test
+      - run: yarn lint

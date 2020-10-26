@@ -32,9 +32,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin
-          key: cargo-target-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-target-contract-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            cargo-target-
+            cargo-target-contract-
       - name: install-capsule
         if: steps.cache-contract-target.outputs.cache-hit != 'true'
         # Too slow to install capsule from source, replace it with download binary directly.
@@ -49,7 +49,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: nightly-2020-10-22
           override: true
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
