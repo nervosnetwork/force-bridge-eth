@@ -1,6 +1,6 @@
-BRIDGE_CLI := ./target/debug/bridge-cli
+BRIDGE_CLI := ./target/debug/force-eth-cli
 
-test-bridge-cli:
+test-force-eth-cli:
 
 fmt:
 	cargo fmt --all -- --check
