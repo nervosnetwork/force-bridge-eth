@@ -1070,6 +1070,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "ethabi",
  "force-eth-lib",
  "int-enum",
  "log 0.4.11",

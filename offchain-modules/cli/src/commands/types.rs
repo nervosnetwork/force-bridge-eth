@@ -51,6 +51,12 @@ pub struct LockArgs {
     pub chain_id: u32,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
+    #[clap(short, long)]
+    pub token: String,
+    #[clap(short, long)]
+    pub amount: u128,
+    #[clap(short, long)]
+    pub ckb_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]

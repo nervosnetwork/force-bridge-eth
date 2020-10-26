@@ -88,11 +88,11 @@ impl Web3Client {
     }
 }
 
-pub fn function_encode(function: Function) -> Vec<u8> {
+pub fn function_encode(function: Function, tokens: &[Token]) -> Vec<u8> {
     let mut uint = [0u8; 32];
     uint[31] = 69;
     function
-        .encode_input(&[Token::Uint(uint.into()), Token::Bool(true)])
+        .encode_input(tokens)
         .unwrap()
 }
 
