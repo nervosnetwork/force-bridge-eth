@@ -22,8 +22,8 @@ async function main() {
     console.log("TestBlake2b deployed to:", contractAddr);
 
     // calc blake2b
-    console.log("waiting for block confirmations, about 1 minute")
-    await sleep(60 * 1000);
+    console.log("waiting for block confirmations, about 10s")
+    await sleep(10 * 1000);
     let res = await contract.ckbBlake2b("0x39e33c8ad2e7e4eb71610d2bcdfbb0cb0fde2f96418256914ad2f5be1d6e9331", "0x385dfb0153a0e3aec760120c4e333a4a6bec91eeaca359ef714709588d23ca16")
     assert(res === "0x93a9faceb827e8a431217f0e5fc6068c14cc62ac4cf73752ed4e9135adc364c8", `${res} !== 0x93a9faceb827e8a431217f0e5fc6068c14cc62ac4cf73752ed4e9135adc364c8`)
     console.log("ckbBlake2b res: ", res)

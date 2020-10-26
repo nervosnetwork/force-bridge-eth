@@ -84,15 +84,15 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint256 lemmasIndex = 0;
         bytes29 lemmas = proofView.lemmas();
         uint256 length = lemmas.len() / 32;
-        bytes32 res = proofView.txHash();
 
-        // calc the rawTransactionsRoot to res
+        // calc the rawTransactionsRoot
+        bytes32 rawTxRoot = proofView.txHash();
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
             if (index < sibling) {
-                res = CKBCrypto.digest(abi.encodePacked(res, lemmas.indexH256Array(lemmasIndex), new bytes(64)), 64);
+                rawTxRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, lemmas.indexH256Array(lemmasIndex), new bytes(64)), 64);
             } else {
-                res = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), res, new bytes(64)), 64);
+                rawTxRoot = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), rawTxRoot, new bytes(64)), 64);
             }
 
             lemmasIndex++;
@@ -101,8 +101,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
 
         // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
-        res = CKBCrypto.digest(abi.encodePacked(res, proofView.witnessesRoot(), new bytes(64)), 64);
-        require(res == canonicalTransactionRoots[res], "proof not passed");
+        bytes32 transactionsRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, proofView.witnessesRoot(), new bytes(64)), 64);
+        require(transactionsRoot == canonicalTransactionRoots[blockHash], "proof not passed");
         return true;
     }
 
