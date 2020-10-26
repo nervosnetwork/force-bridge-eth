@@ -43,9 +43,6 @@ jobs:
           wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.2.3/capsule_v0.2.3_x86_64-linux.tar.gz
           tar -zxvf capsule_v0.2.3_x86_64-linux.tar.gz
           cp capsule_v0.2.3_x86_64-linux/capsule ~/.cargo/bin
-      - name: build-contract
-        run: |
-          capsule build
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -53,5 +50,6 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
-      - run: cargo test -- --nocapture
       - run: cargo clippy -- -D warnings
+      - run: capsule build
+      - run: cargo test -- --nocapture
