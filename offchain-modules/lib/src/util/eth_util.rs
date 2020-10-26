@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Error, Result};
 use ethereum_tx_sign::RawTransaction;
 use rlp::RlpStream;
+use web3::contract::Contract;
 use web3::transports::Http;
 use web3::types::{Block, BlockId, BlockNumber, Bytes, H160, H256, U256};
 use web3::Web3;

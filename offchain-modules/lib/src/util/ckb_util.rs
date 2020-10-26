@@ -1,5 +1,6 @@
 use crate::util::settings::OutpointConf;
 use anyhow::Result;
+use ckb_sdk::rpc::Header;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, DepType, TransactionView};
 use ckb_types::packed::HeaderVec;
@@ -14,7 +15,6 @@ use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::TxHelper;
 use force_sdk::util::get_live_cell;
-use serde::export::Clone;
 
 pub fn make_ckb_transaction(_from_lockscript: Script) -> Result<TransactionView> {
     todo!()
@@ -24,11 +24,11 @@ pub struct Generator {
     pub rpc_client: HttpRpcClient,
     pub indexer_client: IndexerRpcClient,
     _genesis_info: GenesisInfo,
-    // _settings: Settings,
+    _settings: Settings,
 }
 
 impl Generator {
-    pub fn new(rpc_url: String, indexer_url: String) -> Result<Self, String> {
+    pub fn new(rpc_url: String, indexer_url: String, settings: Settings) -> Result<Self, String> {
         let mut rpc_client = HttpRpcClient::new(rpc_url);
         let indexer_client = IndexerRpcClient::new(indexer_url);
         let genesis_block: BlockView = rpc_client
@@ -40,7 +40,7 @@ impl Generator {
             rpc_client,
             indexer_client,
             _genesis_info: genesis_info,
-            // _settings: settings,
+            _settings: settings,
         })
     }
 

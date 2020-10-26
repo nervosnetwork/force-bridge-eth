@@ -1,5 +1,6 @@
 pub mod types;
-use anyhow::{Error, Result};
+
+use anyhow::Result;
 use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::transfer::to_ckb::{approve, get_header_rlp, lock_eth, lock_token};
