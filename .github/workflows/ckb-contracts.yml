@@ -31,11 +31,11 @@ jobs:
           cargo fmt --all -- --check
       - name: format-libs
         run: |
-          cd ckb-contracts/lib/eth-bridge-typescript-lib
+          cd ckb-contracts/lib/eth-bridge-lockscript-lib
           cargo fmt --all -- --check
       - name: check-and-test-libs
         run: |
-          cd ckb-contracts/lib/eth-bridge-typescript-lib
+          cd ckb-contracts/lib/eth-bridge-lockscript-lib
           cargo test -- --nocapture
           cargo clippy
 

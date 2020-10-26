@@ -9,10 +9,6 @@ version = "0.4.2 dcfac5b"
 deployment = "deployment.toml"
 
 [[contracts]]
-name = "eth-bridge-typescript"
-template_type = "Rust"
-
-[[contracts]]
 name = "eth-light-client-typescript"
 template_type = "Rust"
 
