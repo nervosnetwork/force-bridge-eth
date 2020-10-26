@@ -1,8 +1,9 @@
 pub mod types;
 
 use anyhow::Result;
+use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::transfer::to_ckb::{approve, lock};
-use force_eth_lib::transfer::to_eth::burn;
+use force_eth_lib::transfer::to_eth::{burn, parse_ckb_proof};
 use types::*;
 use ethabi::Token;
 use web3::types::{H160, U256};
@@ -75,7 +76,9 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
 
 pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     println!("generate_ckb_proof_handler args: {:?}", &args);
-    todo!()
+    let proof = parse_ckb_proof(args.tx_hash.as_str(), args.ckb_rpc_url).unwrap();
+    print!("{:?}", proof);
+    Ok(())
 }
 
 pub fn unlock_handler(args: UnlockArgs) -> Result<()> {
@@ -95,5 +98,7 @@ pub fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     println!("ckb_relay_handler args: {:?}", &args);
-    todo!()
+    let mut ckb_relayer = CKBRelayer::new(args.ckb_rpc_url, args.indexer_rpc_url);
+    ckb_relayer.start();
+    Ok(())
 }

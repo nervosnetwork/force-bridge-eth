@@ -4,6 +4,7 @@ use ethereum_tx_sign::RawTransaction;
 use futures::future::join_all;
 use futures::Future;
 use rlp::RlpStream;
+use web3::contract::Contract;
 use web3::transports::Http;
 use web3::types::{Block, Bytes, H160, H256, U256};
 use web3::Web3;
