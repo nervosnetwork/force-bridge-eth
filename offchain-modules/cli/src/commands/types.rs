@@ -95,7 +95,12 @@ pub struct BurnArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct GenerateCkbProofArgs {}
+pub struct GenerateCkbProofArgs {
+    #[clap(short, long)]
+    pub tx_hash: String,
+    #[clap(long, default_value = "http://localhost:8114")]
+    pub ckb_rpc_url: String,
+}
 
 #[derive(Clap, Clone, Debug)]
 pub struct UnlockArgs {}
@@ -104,4 +109,11 @@ pub struct UnlockArgs {}
 pub struct EthRelayArgs {}
 
 #[derive(Clap, Clone, Debug)]
-pub struct CkbRelayArgs {}
+pub struct CkbRelayArgs {
+    #[clap(long, default_value = "http://localhost:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8545")]
+    pub eth_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8116")]
+    pub indexer_rpc_url: String,
+}

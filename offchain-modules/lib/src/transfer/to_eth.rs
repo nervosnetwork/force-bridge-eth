@@ -1,10 +1,17 @@
-use crate::util::ckb_util::make_ckb_transaction;
+use crate::util::ckb_util::{covert_to_h256, make_ckb_transaction};
 use anyhow::Result;
+use ckb_sdk::rpc::{BlockView, TransactionView};
 use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1};
-use ckb_types::packed::Script;
-use ckb_types::prelude::Entity;
+use ckb_types::packed::{Byte32, Script};
+use ckb_types::prelude::{Entity, Pack, Unpack};
+use ckb_types::utilities::CBMT;
+use ckb_types::{packed, H256};
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
+use serde::export::Clone;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::str::FromStr;
 
 pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
@@ -33,10 +40,91 @@ pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     Ok(hex::encode(tx.hash().as_slice()))
 }
 
-pub fn parse_ckb_proof() -> Result<()> {
-    todo!()
+pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof, String> {
+    let tx_hash = covert_to_h256(tx_hash_str)?;
+    let mut rpc_client = HttpRpcClient::new(rpc_url);
+    let mut retrieved_block_hash = None;
+    let mut retrieved_block = Default::default();
+    let mut tx_indices = HashSet::new();
+    let mut tx_index = 0;
+    match rpc_client.get_transaction(tx_hash.clone())? {
+        Some(tx_with_status) => {
+            retrieved_block_hash = tx_with_status.tx_status.block_hash;
+            retrieved_block = rpc_client
+                .get_block(retrieved_block_hash.clone().expect("tx_block_hash is none"))?
+                .expect("block is none");
+
+            tx_index = get_tx_index(&tx_hash, &retrieved_block)
+                .expect("tx_hash not in retrieved_block") as u32;
+            dbg!(tx_index);
+            if !tx_indices.insert(tx_index) {
+                return Err(format!("Duplicated tx_hash {:#x}", tx_hash));
+            }
+        }
+        None => {
+            return Err(format!(
+                "Transaction {:#x} not yet in block",
+                tx_hash.clone()
+            ));
+        }
+    }
+
+    let tx_num = retrieved_block.transactions.len();
+    let retrieved_block_hash = retrieved_block_hash.expect("checked len");
+    dbg!(format!("{:#x}", retrieved_block_hash));
+    dbg!(format!("{:#x}", retrieved_block.header.hash));
+
+    let proof = CBMT::build_merkle_proof(
+        &retrieved_block
+            .transactions
+            .iter()
+            .map(|tx| tx.hash.pack())
+            .collect::<Vec<_>>(),
+        &tx_indices.into_iter().collect::<Vec<_>>(),
+    )
+    .expect("build proof with verified inputs should be OK");
+
+    // tx_merkle_index means the tx index in transactions merkle tree of the block
+    Ok(CkbTxProof {
+        block_hash: retrieved_block_hash,
+        block_number: retrieved_block.header.inner.number,
+        tx_hash: tx_hash.clone(),
+        tx_merkle_index: (tx_index + tx_num as u32 - 1) as u16,
+        witnesses_root: calc_witnesses_root(retrieved_block.transactions).unpack(),
+        lemmas: proof
+            .lemmas()
+            .iter()
+            .map(|lemma| Unpack::<H256>::unpack(lemma))
+            .collect(),
+    })
 }
 
 pub fn unlock() -> Result<()> {
     todo!()
+}
+
+// tx_merkle_index == index in transactions merkle tree of the block
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct CkbTxProof {
+    pub tx_merkle_index: u16,
+    pub block_number: u64,
+    pub block_hash: H256,
+    pub tx_hash: H256,
+    pub witnesses_root: H256,
+    pub lemmas: Vec<H256>,
+}
+
+pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
+    let leaves = transactions
+        .iter()
+        .map(|tx| {
+            let tx: packed::Transaction = tx.clone().inner.into();
+            tx.calc_witness_hash()
+        })
+        .collect::<Vec<Byte32>>();
+
+    CBMT::build_merkle_root(leaves.as_ref())
+}
+pub fn get_tx_index(tx_hash: &H256, block: &BlockView) -> Option<usize> {
+    block.transactions.iter().position(|tx| &tx.hash == tx_hash)
 }
