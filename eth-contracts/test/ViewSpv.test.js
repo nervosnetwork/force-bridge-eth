@@ -13,12 +13,14 @@ const {
   extractTxHash,
   extractWitnessesRoot,
   extractLemmas,
-} = vectors;
+} = vectors
 
 
 contract('ViewSpv', () => {
   let instance;
-  before(async () => {
+  before(async function () {
+    // disable timeout
+    this.timeout(0)
     instance = await ViewSpv.new()
   })
 

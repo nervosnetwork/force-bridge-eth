@@ -30,7 +30,9 @@ const {
 
 contract('ViewCKB', () => {
   let instance
-  before(async () => {
+  before(async function () {
+    // disable timeout
+    this.timeout(0)
     instance = await ViewCKB.new()
   })
 

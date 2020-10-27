@@ -10,7 +10,7 @@ async function waitingForGasUsed(provider, res) {
 
   const txHash = res.hash
   let txReceipt
-  while (true) {
+  while (!txReceipt) {
     txReceipt = await provider.getTransactionReceipt(txHash)
     if (txReceipt && txReceipt.blockHash) {
       break
@@ -20,6 +20,6 @@ async function waitingForGasUsed(provider, res) {
   return txReceipt.gasUsed
 }
 
-const log = console.log
+const { log } = console
 
 module.exports = { sleep, log, waitingForGasUsed }

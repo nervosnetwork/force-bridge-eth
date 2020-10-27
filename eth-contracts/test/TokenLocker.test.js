@@ -36,7 +36,9 @@ contract('TokenLocker', () => {
     })
   })
 
-  describe('unlockETH', async () => {
+  describe('unlockETH', async function () {
+    // disable timeout
+    this.timeout(0)
     it('Should ', async () => {
       // let defaultProvider = ethers.getDefaultProvider()
       const defaultProvider = tokenLocker.signer.provider
