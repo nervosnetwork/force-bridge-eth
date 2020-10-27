@@ -2,7 +2,7 @@
 
 pub mod adapter;
 pub mod debug;
-pub mod action;
+mod actions;
 
 pub use adapter::Adapter;
 
@@ -20,9 +20,9 @@ pub fn verify() -> i8 {
 }
 
 pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
-    let input_output_data = data_loader.load_input_output_cell_data().expect("input or output length invalid");
-    match input_output_data {
-        (Some(input_data), Some(output_data)) => action::verify_mint_token(input_data, output_data),
+    let input_output_num = data_loader.load_input_output_cell_num();
+    match input_output_num {
+        (1, 1) => actions::verify_mint_token(data_loader),
         _ => panic!("input and output should not be none")
     }
 }
@@ -36,9 +36,12 @@ mod tests {
     #[test]
     fn mock_return_ok() {
         let mut mock = MockAdapter::new();
-        mock.expect_load_tx_hash()
+        mock.expect_load_input_output_cell_num()
             .times(1)
-            .returning(|| Ok([0u8; 32]));
+            .returning(|| (1, 1));
+        mock.expect_load_input_output_data()
+            .times(1)
+            .returning(|| Ok((Some([0].to_vec()), Some([0].to_vec()))));
         let return_code = _verify(mock);
         assert_eq!(return_code, 0);
     }
@@ -47,9 +50,9 @@ mod tests {
     #[should_panic]
     fn mock_return_err() {
         let mut mock = MockAdapter::new();
-        mock.expect_load_tx_hash()
+        mock.expect_load_input_output_cell_num()
             .times(1)
-            .returning(|| Err(SysError::Encoding));
+            .returning(|| (0, 1));
         let return_code = _verify(mock);
         assert_eq!(return_code, 0);
     }
