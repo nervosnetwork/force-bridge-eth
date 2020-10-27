@@ -18,4 +18,4 @@ COPY --from=ckb-indexer-builder \
 
 EXPOSE 8116
 
-CMD RUST_LOG=info ckb-indexer -s /tmp/ckb-indexer-test -c http://ckb:8114
+CMD RUST_LOG=info ckb-indexer -s /tmp/ckb-indexer-test

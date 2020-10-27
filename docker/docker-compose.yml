@@ -1,7 +1,7 @@
 version: "3.0"
 services:
   ckb:
-    image: tockb/ckb-dev
+    image: tockb/ckb-dev:v0.36.0
     ports:
       - "8114:8114"
   ckb-indexer:
@@ -14,6 +14,11 @@ services:
     depends_on:
       - ckb
   geth:
-    image: tockb/geth-priv
+    image: tockb/geth-priv:v1.9.23
+    volumes:
+    - geth-dag:/root/.ethash
     ports:
       - "8545:8545"
+
+volumes:
+  geth-dag:
