@@ -8,7 +8,7 @@ const MAX_CYCLES: u64 = 10_000_000;
 fn test_basic() {
     // deploy contract
     let mut context = Context::default();
-    let contract_bin: Bytes = Loader::default().load_binary("eth-bridge-typescript");
+    let contract_bin: Bytes = Loader::default().load_binary("eth-bridge-lockscript");
     let out_point = context.deploy_cell(contract_bin);
 
     // prepare scripts
