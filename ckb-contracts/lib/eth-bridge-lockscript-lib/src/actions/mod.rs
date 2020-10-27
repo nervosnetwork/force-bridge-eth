@@ -1,7 +1,9 @@
 use crate::adapter::Adapter;
 
 pub fn verify_mint_token<T: Adapter>(data_loader: T) -> i8 {
-    let data_list = data_loader.load_input_output_data().expect("inputs or outputs length invalid");
+    let data_list = data_loader
+        .load_input_output_data()
+        .expect("inputs or outputs length invalid");
     if data_list.0 != data_list.1 {
         panic!("data changed")
     }

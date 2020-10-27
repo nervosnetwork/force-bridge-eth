@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod actions;
 pub mod adapter;
 pub mod debug;
-mod actions;
 
 pub use adapter::Adapter;
 
@@ -23,7 +23,7 @@ pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
     let input_output_num = data_loader.load_input_output_cell_num();
     match input_output_num {
         (1, 1) => actions::verify_mint_token(data_loader),
-        _ => panic!("input and output should not be none")
+        _ => panic!("input and output should not be none"),
     }
 }
 
