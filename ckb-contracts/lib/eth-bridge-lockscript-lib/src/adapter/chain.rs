@@ -13,16 +13,6 @@ impl Adapter for ChainAdapter {
         load_tx_hash()
     }
 
-    fn load_input_output_cell_num(&self) -> (usize, usize) {
-        fn load_cell_num_from_source(source: Source) -> usize {
-            QueryIter::new(load_cell_data, source).count()
-        }
-        (
-            load_cell_num_from_source(Source::GroupInput),
-            load_cell_num_from_source(Source::GroupOutput),
-        )
-    }
-
     fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError> {
         fn load_data_from_source(source: Source) -> Result<Option<Vec<u8>>, SysError> {
             let data_list = QueryIter::new(load_cell_data, source).collect::<Vec<Vec<u8>>>();
