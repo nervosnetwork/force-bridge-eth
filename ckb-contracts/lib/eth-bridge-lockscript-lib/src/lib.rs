@@ -6,6 +6,8 @@ pub mod debug;
 
 pub use adapter::Adapter;
 
+use adapter::BridgeCellDataTuple;
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "std")] {
     } else {
@@ -20,9 +22,9 @@ pub fn verify() -> i8 {
 }
 
 pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
-    let input_output_num = data_loader.load_input_output_cell_num();
-    match input_output_num {
-        (1, 1) => actions::verify_mint_token(data_loader),
+    let cell_data_tuple = data_loader.load_input_output_data().expect("inputs or outputs cell num invalid");
+    match cell_data_tuple {
+        BridgeCellDataTuple(Some(input_data), Some(output_data)) => actions::verify_mint_token(data_loader, input_data.as_slice(), output_data.as_slice()),
         _ => panic!("input and output should not be none"),
     }
 }
@@ -36,23 +38,31 @@ mod tests {
     #[test]
     fn mock_return_ok() {
         let mut mock = MockAdapter::new();
-        mock.expect_load_input_output_cell_num()
-            .times(1)
-            .returning(|| (1, 1));
         mock.expect_load_input_output_data()
             .times(1)
-            .returning(|| Ok((Some([0].to_vec()), Some([0].to_vec()))));
+            .returning(|| Ok(BridgeCellDataTuple(Some([0].to_vec()), Some([0].to_vec()))));
         let return_code = _verify(mock);
         assert_eq!(return_code, 0);
     }
 
     #[test]
     #[should_panic]
-    fn mock_return_err() {
+    fn mock_return_err_when_input_is_none() {
         let mut mock = MockAdapter::new();
-        mock.expect_load_input_output_cell_num()
+        mock.expect_load_input_output_data()
             .times(1)
-            .returning(|| (0, 1));
+            .returning(|| Ok(BridgeCellDataTuple(None, Some([0].to_vec()))));
+        let return_code = _verify(mock);
+        assert_eq!(return_code, 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn mock_return_err_when_data_changed() {
+        let mut mock = MockAdapter::new();
+        mock.expect_load_input_output_data()
+            .times(1)
+            .returning(|| Ok(BridgeCellDataTuple(Some([0].to_vec()), Some([1].to_vec()))));
         let return_code = _verify(mock);
         assert_eq!(return_code, 0);
     }
