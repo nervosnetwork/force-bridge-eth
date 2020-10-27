@@ -13,6 +13,7 @@ use alloc::vec::Vec;
 #[derive(Default, Clone)]
 pub struct ComplexData {}
 
+#[derive(Debug, Clone)]
 pub struct BridgeCellDataTuple(pub Option<Vec<u8>>, pub Option<Vec<u8>>);
 
 #[cfg_attr(feature = "std", automock)]

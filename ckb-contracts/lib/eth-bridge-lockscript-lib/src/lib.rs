@@ -25,6 +25,9 @@ pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
     let cell_data_tuple = data_loader
         .load_input_output_data()
         .expect("inputs or outputs cell num invalid");
+
+    debug!("cell_data_tuple {:?}", cell_data_tuple);
+
     match cell_data_tuple {
         BridgeCellDataTuple(Some(input_data), Some(output_data)) => {
             actions::verify_mint_token(data_loader, input_data.as_slice(), output_data.as_slice())
@@ -37,7 +40,6 @@ pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
 mod tests {
     use super::_verify;
     use crate::adapter::*;
-    use ckb_std::error::SysError;
 
     #[test]
     fn mock_return_ok() {

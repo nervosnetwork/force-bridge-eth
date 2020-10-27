@@ -33,10 +33,7 @@ fn test_basic() {
             .capacity(500u64.pack())
             .lock(lock_script.clone())
             .build(),
-        CellOutput::new_builder()
-            .capacity(500u64.pack())
-            .lock(lock_script)
-            .build(),
+        CellOutput::new_builder().capacity(500u64.pack()).build(),
     ];
 
     let outputs_data = vec![Bytes::new(); 2];
