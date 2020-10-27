@@ -76,6 +76,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
         bytes29 proofView = txProofData.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
+
+        // TODO use safeMath for blockNumber + numConfirmations calc
         require(blockNumber + numConfirmations <= latestBlockNumber, "blockNumber from txProofData is too ahead of the latestBlockNumber");
         require(canonicalHeaderHashes[blockNumber] == blockHash, "blockNumber and blockHash mismatch");
         require(canonicalTransactionRoots[blockHash] != bytes32(0), "blockHash invalid or too old");
