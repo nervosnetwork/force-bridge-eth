@@ -86,6 +86,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
+        // TODO optimize rawTxRoot calculation with assembly code
         bytes32 rawTxRoot = proofView.txHash();
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
