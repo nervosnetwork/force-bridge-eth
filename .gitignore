@@ -1,2 +1,6 @@
 .idea/
 target/
+offchain-modules/lib/Cargo.lock
+**/sdk/Cargo.lock
+**.DS_Store
+
