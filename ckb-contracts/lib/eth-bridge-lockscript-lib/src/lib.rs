@@ -22,9 +22,13 @@ pub fn verify() -> i8 {
 }
 
 pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
-    let cell_data_tuple = data_loader.load_input_output_data().expect("inputs or outputs cell num invalid");
+    let cell_data_tuple = data_loader
+        .load_input_output_data()
+        .expect("inputs or outputs cell num invalid");
     match cell_data_tuple {
-        BridgeCellDataTuple(Some(input_data), Some(output_data)) => actions::verify_mint_token(data_loader, input_data.as_slice(), output_data.as_slice()),
+        BridgeCellDataTuple(Some(input_data), Some(output_data)) => {
+            actions::verify_mint_token(data_loader, input_data.as_slice(), output_data.as_slice())
+        }
         _ => panic!("input and output should not be none"),
     }
 }

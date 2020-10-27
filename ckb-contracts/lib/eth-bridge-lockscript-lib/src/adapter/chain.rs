@@ -1,4 +1,4 @@
-use super::{Adapter, ComplexData, BridgeCellDataTuple};
+use super::{Adapter, BridgeCellDataTuple, ComplexData};
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::high_level::{load_cell_data, load_tx_hash, QueryIter};
@@ -22,7 +22,10 @@ impl Adapter for ChainAdapter {
                 _ => Err(SysError::Unknown(100)),
             }
         }
-        let tuple = BridgeCellDataTuple(load_data_from_source(Source::GroupInput)?, load_data_from_source(Source::GroupOutput)?);
+        let tuple = BridgeCellDataTuple(
+            load_data_from_source(Source::GroupInput)?,
+            load_data_from_source(Source::GroupOutput)?,
+        );
         Ok(tuple)
     }
 
