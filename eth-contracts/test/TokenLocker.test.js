@@ -1,60 +1,57 @@
-const { expect } = require('chai');
-
-const WAITING_SECONDS = 10
-async function sleep(seconds) {
-  console.log(`waiting for block confirmations, about ${seconds}s`)
-  await new Promise(resolve => setTimeout(resolve, seconds * 1000))
-}
+const { expect } = require('chai')
+const { log, waitingForGasUsed } = require('./utils')
 
 contract('TokenLocker', () => {
-  let tokenLocker;
+  let tokenLocker, provider
 
-  before(async () => {
-    let factory = await ethers.getContractFactory('MockCKBSpv');
-    const mockSpv = await factory.deploy();
-    await mockSpv.deployed();
-    await sleep(WAITING_SECONDS);
+  before(async function () {
+    // disable timeout
+    this.timeout(0);
+    let factory = await ethers.getContractFactory('MockCKBSpv')
+    const mockSpv = await factory.deploy()
+    await mockSpv.deployed()
 
-    factory = await ethers.getContractFactory('TokenLocker');
-    tokenLocker = await factory.deploy(mockSpv.address, 123);
-    await tokenLocker.deployed();
-    await sleep(WAITING_SECONDS);
-  });
+    factory = await ethers.getContractFactory('TokenLocker')
+    tokenLocker = await factory.deploy(mockSpv.address, 123)
+    await tokenLocker.deployed()
+    provider = tokenLocker.provider
+  })
 
   describe('lockETH', async () => {
     it('Should ', async () => {
-      // let defaultProvider = ethers.getDefaultProvider();
-      const defaultProvider = tokenLocker.signer.provider;
-      const contractBalance = await defaultProvider.getBalance(tokenLocker.address);
+      // let defaultProvider = ethers.getDefaultProvider()
+      const defaultProvider = tokenLocker.signer.provider
+      const contractBalance = await defaultProvider.getBalance(tokenLocker.address)
 
       // lockETH
-      const amount = ethers.utils.parseEther('1.2');
-      await tokenLocker.lockETH(0, { value: amount });
-
-      await sleep(WAITING_SECONDS);
+      const amount = ethers.utils.parseEther('1.2')
+      let res = await tokenLocker.lockETH(0, { value: amount })
+      const gasUsed = await waitingForGasUsed(provider, res)
+      log(`gasUsed: ${gasUsed.toString()}`)
 
       // asset expected amount == balance of contract delta
-      const delta = await defaultProvider.getBalance(tokenLocker.address) - contractBalance;
-      const actualDelta = ethers.BigNumber.from(delta.toString());
-      expect(actualDelta).to.equal(amount);
-    });
-  });
+      const delta = await defaultProvider.getBalance(tokenLocker.address) - contractBalance
+      const actualDelta = ethers.BigNumber.from(delta.toString())
+      expect(actualDelta).to.equal(amount)
+    })
+  })
 
   describe('unlockETH', async () => {
     it('Should ', async () => {
-      // let defaultProvider = ethers.getDefaultProvider();
-      const defaultProvider = tokenLocker.signer.provider;
-      const contractBalance = await defaultProvider.getBalance(tokenLocker.address);
+      // let defaultProvider = ethers.getDefaultProvider()
+      const defaultProvider = tokenLocker.signer.provider
+      const contractBalance = await defaultProvider.getBalance(tokenLocker.address)
 
       // unlockETH
-      await tokenLocker.unlockToken([0], [0]);
-      await sleep(WAITING_SECONDS)
+      let res = await tokenLocker.unlockToken([0], [0])
+      const gasUsed = await waitingForGasUsed(provider, res)
+      log(`gasUsed: ${gasUsed.toString()}`)
 
       // asset expected amount == balance of contract delta
-      const delta = await defaultProvider.getBalance(tokenLocker.address) - contractBalance;
-      const actualDelta = ethers.BigNumber.from(delta.toString());
-      const expected = ethers.BigNumber.from('-111100000000000000');
-      expect(actualDelta).to.equal(expected);
-    });
-  });
-});
+      const delta = await defaultProvider.getBalance(tokenLocker.address) - contractBalance
+      const actualDelta = ethers.BigNumber.from(delta.toString())
+      const expected = ethers.BigNumber.from('-111100000000000000')
+      expect(actualDelta).to.equal(expected)
+    })
+  })
+})
