@@ -60,7 +60,10 @@ pub struct LockArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct GenerateEthProofArgs {}
+pub struct GenerateEthProofArgs {
+    #[clap(short, long)]
+    pub hash: String,
+}
 
 #[derive(Clap, Clone, Debug)]
 pub struct MintArgs {}

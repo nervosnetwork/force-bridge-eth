@@ -5,7 +5,8 @@ use force_eth_lib::transfer::to_ckb::{approve, lock};
 use force_eth_lib::transfer::to_eth::burn;
 use types::*;
 use ethabi::Token;
-use web3::types::{H160, U256};
+// use rusty_receipt_proof_maker;
+use web3::types::{ H160, U256 };
 
 pub fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
@@ -53,7 +54,9 @@ pub fn lock_handler(args: LockArgs) -> Result<()> {
 
 pub fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()> {
     println!("generate_eth_proof_handler args: {:?}", &args);
-    todo!()
+    let proof = rusty_receipt_proof_maker::get_hex_proof(args.hash.clone()).expect("invalid receipt proof");
+    log::info!("generate eth proof with hash: {:?}, proof: {:?}", args.hash, proof);
+    Ok(())
 }
 
 pub fn mint_handler(args: MintArgs) -> Result<()> {

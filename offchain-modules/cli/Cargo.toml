@@ -12,5 +12,6 @@ clap = "3.0.0-beta.1"
 int-enum = "0.4"
 anyhow = "1.0"
 log = "0.4"
-web3 = "0.8.0"
-ethabi = "8.0.1"
+web3 = "0.13.0"
+ethabi = "12.0.0"
+rusty-receipt-proof-maker = { git = "https://github.com/LeonLi000/ethereum-receipt-proof-maker.git" }
