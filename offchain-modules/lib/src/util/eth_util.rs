@@ -138,7 +138,7 @@ fn test_get_block() {
     let mut client = Web3Client::new(String::from(
         "https://mainnet.infura.io/v3/9c7178cede9f4a8a84a151d058bd609c",
     ));
-    let f = client.get_block(10);
+    let f = client.get_block_with_number(10);
     let mut rt = Runtime::new().unwrap();
     rt.block_on(f);
 }
