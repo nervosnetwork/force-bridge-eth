@@ -69,10 +69,13 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     /// #ICKBChain
     function addHeaders(bytes calldata data) external {
+        // 1. view decode from data to
+
+
     }
 
     /// #ICKBSpv
-    function proveTxExist(bytes calldata txProofData, uint64 numConfirmations) external view returns (bool){
+    function proveTxExist(bytes calldata txProofData, uint64 numConfirmations) external view returns (bool) {
         bytes29 proofView = txProofData.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
@@ -119,7 +122,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     /// #Verify header
-    function verifyHeader(bytes29 header) internal view typeAssert(header, ViewCKB.CKBTypes.Header) returns (bool){
+    function verifyHeader(bytes29 header) internal view typeAssert(header, ViewCKB.CKBTypes.Header) returns (bool) {
         return true;
     }
 

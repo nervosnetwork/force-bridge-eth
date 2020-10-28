@@ -7,7 +7,7 @@ const vectors = require('./data/testVectors.json')
 const ViewCKB = artifacts.require('ViewCKBTest')
 
 const {
-  extractTxMerkleIndex,
+  extractSince,
   extractPreviousOutput,
   extractCodeHash,
   extractHashType,
@@ -24,7 +24,8 @@ const {
   extractParentHash,
   extractTransactionsRoot,
   extractUnclesHash,
-  extractDao
+  extractDao,
+  indexHeaderVec
 } = vectors
 
 
@@ -38,9 +39,9 @@ contract('ViewCKB', () => {
 
   describe('#since', async () => {
     it('extracts the since from a CellInput', async () => {
-      for (let i = 0; i < extractTxMerkleIndex.length; i += 1) {
-        const res = await instance.since(extractTxMerkleIndex[i].input)
-        const expected = new BN(extractTxMerkleIndex[i].output, 10)
+      for (let i = 0; i < extractSince.length; i += 1) {
+        const res = await instance.since(extractSince[i].input)
+        const expected = new BN(extractSince[i].output, 10)
         assert(res.eq(expected))
       }
     })
@@ -192,6 +193,21 @@ contract('ViewCKB', () => {
       for (let i = 0; i < extractDao.length; i += 1) {
         const res = await instance.dao(extractDao[i].input)
         assert.strictEqual(extractDao[i].output, res)
+      }
+    })
+  })
+
+  // get a header view from headerVec
+  describe('#getHeader', async () => {
+    it('get a header view from a HeaderVec', async () => {
+      for (let i = 0; i < indexHeaderVec.length; i += 1) {
+        const headerVec = indexHeaderVec[i].output
+
+        for (let index = 0; index < headerVec.length; index++) {
+          console.log('index = ', index)
+          const res = await instance.indexHeaderVec(indexHeaderVec[i].input, index)
+          assert.strictEqual(headerVec[index], res)
+        }
       }
     })
   })

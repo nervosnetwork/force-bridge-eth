@@ -2,7 +2,8 @@ const { expect } = require('chai')
 const { log, waitingForGasUsed } = require('./utils')
 
 contract('TokenLocker', () => {
-  let tokenLocker, provider
+  let tokenLocker; let
+    provider
 
   before(async function () {
     // disable timeout
@@ -25,7 +26,7 @@ contract('TokenLocker', () => {
 
       // lockETH
       const amount = ethers.utils.parseEther('1.2')
-      let res = await tokenLocker.lockETH(0, { value: amount })
+      const res = await tokenLocker.lockETH(0, { value: amount })
       const gasUsed = await waitingForGasUsed(provider, res)
       log(`gasUsed: ${gasUsed.toString()}`)
 
@@ -45,7 +46,7 @@ contract('TokenLocker', () => {
       const contractBalance = await defaultProvider.getBalance(tokenLocker.address)
 
       // unlockETH
-      let res = await tokenLocker.unlockToken([0], [0])
+      const res = await tokenLocker.unlockToken([0], [0])
       const gasUsed = await waitingForGasUsed(provider, res)
       log(`gasUsed: ${gasUsed.toString()}`)
 

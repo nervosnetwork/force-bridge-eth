@@ -10,7 +10,8 @@ const {
 
 
 contract('CKBSpv', () => {
-  let ckbChain, provider
+  let ckbChain; let
+    provider
 
   before(async function () {
     // disable timeout
