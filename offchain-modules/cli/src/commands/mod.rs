@@ -2,10 +2,9 @@ pub mod types;
 
 use anyhow::Result;
 use ethabi::Token;
-use force_eth_lib::transfer::to_ckb::{approve, lock};
+use force_eth_lib::transfer::to_ckb::{approve, lock_token, lock_eth};
 use force_eth_lib::transfer::to_eth::burn;
 use types::*;
-// use rusty_receipt_proof_maker;
 use web3::types::{H160, U256};
 
 pub fn handler(opt: Opts) -> Result<()> {
@@ -13,7 +12,9 @@ pub fn handler(opt: Opts) -> Result<()> {
         // transfer erc20 to ckb
         SubCommand::Approve(args) => approve_handler(args),
         // lock erc20 token && wait the tx is commit.
-        SubCommand::Lock(args) => lock_handler(args),
+        SubCommand::LockToken(args) => lock_token_handler(args),
+
+        SubCommand::LockEth(args) => lock_eth_handler(args),
         // parse eth receipt proof from tx_hash.
         SubCommand::GenerateEthProof(args) => generate_eth_proof_handler(args),
         // verify eth receipt proof && mint new token
@@ -41,16 +42,28 @@ pub fn approve_handler(args: ApproveArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn lock_handler(args: LockArgs) -> Result<()> {
+pub fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     println!("lock_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice(args.from.as_ref());
+    let from: H160 = H160::from_slice( args.from.as_ref());
     let to = H160::from_slice(args.to.as_ref());
     let data = [
         Token::Address(H160::from_slice(args.token.as_ref())),
         Token::Uint(U256::from(args.amount)),
         Token::String(args.ckb_address),
     ];
-    let hash = lock(from, to, args.rpc_url, args.private_key_path, &data);
+    let hash = lock_token(from, to, args.rpc_url, args.private_key_path, &data);
+    log::info!("lock erc20 token tx_hash: {:?}", &hash);
+    Ok(())
+}
+
+pub fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
+    println!("lock_handler args: {:?}", &args);
+    let from: H160 = H160::from_slice( hex::decode(args.from).unwrap().as_slice());
+    let to = H160::from_slice(hex::decode(args.to).unwrap().as_slice());
+    let data = [
+        Token::String(args.ckb_address),
+    ];
+    let hash = lock_eth(from, to, args.rpc_url, args.private_key_path, &data, U256::from(args.amount));
     log::info!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }

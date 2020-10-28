@@ -11,7 +11,8 @@ pub struct Opts {
 pub enum SubCommand {
     TransferToCkb(TransferToCkbArgs),
     Approve(ApproveArgs),
-    Lock(LockArgs),
+    LockToken(LockTokenArgs),
+    LockEth(LockEthArgs),
     GenerateEthProof(GenerateEthProofArgs),
     Mint(MintArgs),
     TransferFromCkb(TransferFromCkbArgs),
@@ -31,24 +32,40 @@ pub struct ApproveArgs {
     pub from: String,
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "https://localhost:8545")]
+    #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct LockArgs {
+pub struct LockTokenArgs {
     #[clap(short, long)]
     pub from: String,
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "https://localhost:8545")]
+    #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(short, long)]
     pub token: String,
+    #[clap(short, long)]
+    pub amount: u128,
+    #[clap(short, long)]
+    pub ckb_address: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct LockEthArgs {
+    #[clap(short, long)]
+    pub from: String,
+    #[clap(short, long)]
+    pub to: String,
+    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    pub rpc_url: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
     #[clap(short, long)]
     pub amount: u128,
     #[clap(short, long)]

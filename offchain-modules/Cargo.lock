@@ -1336,6 +1336,7 @@ dependencies = [
  "clap",
  "ethabi",
  "force-eth-lib",
+ "hex 0.4.2",
  "int-enum",
  "log",
  "rusty-receipt-proof-maker",

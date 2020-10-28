@@ -35,10 +35,13 @@ impl Web3Client {
         to: H160,
         key_path: String,
         data: Vec<u8>,
+        eth_amount: U256,
     ) -> Result<H256> {
         let nonce = self.client().eth().transaction_count(from, None).await?;
+        dbg!(&nonce);
         let chain_id = self.client().eth().chain_id().await?;
-        let tx = make_transaction(to, nonce, data);
+        dbg!(&chain_id);
+        let tx = make_transaction(to, nonce, data, eth_amount);
         let signed_tx = tx.sign(&parse_private_key(key_path.as_str()).unwrap(), &chain_id.as_u32());
         let tx_hash = self
             .client()
@@ -64,13 +67,13 @@ impl Web3Client {
     }
 }
 
-pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>) -> RawTransaction {
+pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>, eth_amount: U256,) -> RawTransaction {
     RawTransaction {
         nonce: convert_u256(nonce),
         to: Some(convert_account(to)),
-        value: U256::from(10000),
+        value: eth_amount,
         gas_price: U256::from(1000000000),
-        gas: U256::from(21000),
+        gas: U256::from(2100000),
         data,
     }
 }
