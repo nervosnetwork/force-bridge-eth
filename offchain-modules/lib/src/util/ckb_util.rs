@@ -1,4 +1,4 @@
-use crate::util::settings::OutpointConf;
+use crate::util::settings::{OutpointConf, Settings};
 use anyhow::Result;
 use ckb_sdk::rpc::Header;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
