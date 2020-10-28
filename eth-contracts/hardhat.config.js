@@ -28,12 +28,12 @@ module.exports = {
     networks: {
         hardhat: {},
         ropsten: {
-            url: `${process.env ? process.env.ROPSTEN_API : ""}`,
-            accounts: [`${process.env ? process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY : ""}`]
+            url: `${process.env.ROPSTEN_API ? process.env.ROPSTEN_API : "https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb"}`,
+            accounts: [`${process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY ? process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY : "0xc4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a"}`]
         },
         kovan: {
-            url: `${process.env ? process.env.KOVAN_API : ""}`,
-            accounts: [`${process.env ? process.env.KOVAN_DEPLOYER_PRIVATE_KEY : ""}`]
+            url: `${process.env.KOVAN_API ? process.env.KOVAN_API : "https://kovan.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb"}`,
+            accounts: [`${process.env.KOVAN_DEPLOYER_PRIVATE_KEY ? process.env.KOVAN_DEPLOYER_PRIVATE_KEY : "0xc4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a"}`]
         },
         geth: {
             url: `http://127.0.0.1:8543`,
