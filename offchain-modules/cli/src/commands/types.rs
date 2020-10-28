@@ -76,6 +76,8 @@ pub struct LockEthArgs {
 pub struct GenerateEthProofArgs {
     #[clap(short, long)]
     pub hash: String,
+    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    pub rpc_url: String,
 }
 
 #[derive(Clap, Clone, Debug)]

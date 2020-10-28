@@ -16,10 +16,7 @@ impl Web3Client {
             let transport = web3::transports::Http::new(url.as_str()).unwrap();
             web3::Web3::new(transport)
         };
-        Web3Client {
-            url,
-            client,
-        }
+        Web3Client { url, client }
     }
 
     pub fn url(&self) -> &str {
@@ -35,24 +32,37 @@ impl Web3Client {
         to: H160,
         key_path: String,
         data: Vec<u8>,
-        eth_amount: U256,
+        eth_value: U256,
     ) -> Result<H256> {
         let nonce = self.client().eth().transaction_count(from, None).await?;
         dbg!(&nonce);
         let chain_id = self.client().eth().chain_id().await?;
         dbg!(&chain_id);
-        let tx = make_transaction(to, nonce, data, eth_amount);
-        let signed_tx = tx.sign(&parse_private_key(key_path.as_str()).unwrap(), &chain_id.as_u32());
+        let tx = make_transaction(to, nonce, data, eth_value);
+        let signed_tx = tx.sign(
+            &parse_private_key(key_path.as_str()).unwrap(),
+            &chain_id.as_u32(),
+        );
         let tx_hash = self
             .client()
             .eth()
+            // .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(5, 100), 10)
             .send_raw_transaction(Bytes::from(signed_tx))
             .await?;
         println!("tx hash: {:?}", tx_hash);
         Ok(tx_hash)
     }
 
-    pub async fn get_block(&mut self, number: usize) -> (Vec<u8>, H256) {
+    pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> String {
+        let block_header = self.client.eth().block(BlockId::Hash(hash)).await;
+        let header = block_header.expect("invalid header");
+        let mut stream = RlpStream::new();
+        rlp_append(&header.unwrap(), &mut stream);
+        let header_vec = stream.out();
+        hex::encode(header_vec)
+    }
+
+    pub async fn get_block_with_number(&mut self, number: usize) -> (Vec<u8>, H256) {
         let block_header = self
             .client
             .eth()
@@ -67,11 +77,11 @@ impl Web3Client {
     }
 }
 
-pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>, eth_amount: U256,) -> RawTransaction {
+pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>, eth_value: U256) -> RawTransaction {
     RawTransaction {
         nonce: convert_u256(nonce),
         to: Some(convert_account(to)),
-        value: eth_amount,
+        value: eth_value,
         gas_price: U256::from(1000000000),
         gas: U256::from(2100000),
         data,
@@ -125,9 +135,9 @@ fn rlp_append<TX>(header: &Block<TX>, stream: &mut RlpStream) {
 #[test]
 fn test_get_block() {
     use tokio::runtime::Runtime;
-    let mut client = Web3Client::new(
-        String::from("https://mainnet.infura.io/v3/9c7178cede9f4a8a84a151d058bd609c"),
-    );
+    let mut client = Web3Client::new(String::from(
+        "https://mainnet.infura.io/v3/9c7178cede9f4a8a84a151d058bd609c",
+    ));
     let f = client.get_block(10);
     let mut rt = Runtime::new().unwrap();
     rt.block_on(f);

@@ -2,10 +2,10 @@ pub mod types;
 
 use anyhow::Result;
 use ethabi::Token;
-use force_eth_lib::transfer::to_ckb::{approve, lock_token, lock_eth};
+use force_eth_lib::transfer::to_ckb::{approve, get_header_rlp, lock_eth, lock_token};
 use force_eth_lib::transfer::to_eth::burn;
 use types::*;
-use web3::types::{H160, U256};
+use web3::types::{H160, H256, U256};
 
 pub fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
@@ -35,47 +35,62 @@ pub fn handler(opt: Opts) -> Result<()> {
 
 pub fn approve_handler(args: ApproveArgs) -> Result<()> {
     println!("approve_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice(args.from.as_ref());
-    let to = H160::from_slice(args.to.as_ref());
+    let from: H160 = H160::from_slice(hex::decode(args.from).unwrap().as_slice());
+    let to = H160::from_slice(hex::decode(args.to).unwrap().as_slice());
     let hash = approve(from, to, args.rpc_url, args.private_key_path);
-    log::info!("approve tx_hash: {:?}", &hash);
+    println!("approve tx_hash: {:?}", &hash);
     Ok(())
 }
 
 pub fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     println!("lock_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice( args.from.as_ref());
-    let to = H160::from_slice(args.to.as_ref());
+    let from: H160 = H160::from_slice(hex::decode(args.from).unwrap().as_slice());
+    let to = H160::from_slice(hex::decode(args.to).unwrap().as_slice());
     let data = [
-        Token::Address(H160::from_slice(args.token.as_ref())),
+        Token::Address(H160::from_slice(
+            hex::decode(args.token).unwrap().as_slice(),
+        )),
         Token::Uint(U256::from(args.amount)),
         Token::String(args.ckb_address),
     ];
     let hash = lock_token(from, to, args.rpc_url, args.private_key_path, &data);
-    log::info!("lock erc20 token tx_hash: {:?}", &hash);
+    println!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }
 
 pub fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     println!("lock_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice( hex::decode(args.from).unwrap().as_slice());
+    let from: H160 = H160::from_slice(hex::decode(args.from).unwrap().as_slice());
     let to = H160::from_slice(hex::decode(args.to).unwrap().as_slice());
-    let data = [
-        Token::String(args.ckb_address),
-    ];
-    let hash = lock_eth(from, to, args.rpc_url, args.private_key_path, &data, U256::from(args.amount));
-    log::info!("lock erc20 token tx_hash: {:?}", &hash);
+    let data = [Token::String(args.ckb_address)];
+    let hash = lock_eth(
+        from,
+        to,
+        args.rpc_url,
+        args.private_key_path,
+        &data,
+        U256::from(args.amount),
+    );
+    println!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }
 
 pub fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()> {
     println!("generate_eth_proof_handler args: {:?}", &args);
-    let proof =
-        rusty_receipt_proof_maker::get_hex_proof(args.hash.clone()).expect("invalid receipt proof");
-    log::info!(
-        "generate eth proof with hash: {:?}, proof: {:?}",
-        args.hash,
-        proof
+    let (proof, receipt_data, log_data) =
+        rusty_receipt_proof_maker::generate_eth_proof(args.hash.clone(), args.rpc_url.clone())
+            .expect("invalid receipt proof");
+    println!(
+        "generate eth proof with hash: {:?}, proof: {:?}, receipt_data: {:?}, log_data: {:?}",
+        args.hash, proof, receipt_data, log_data
+    );
+    let header_rlp = get_header_rlp(
+        args.rpc_url,
+        H256::from_slice(hex::decode(args.hash.clone()).unwrap().as_slice()),
+    );
+    println!(
+        "generate eth proof with hash: {:?}, header_rlp: {:?}",
+        args.hash, header_rlp
     );
     Ok(())
 }

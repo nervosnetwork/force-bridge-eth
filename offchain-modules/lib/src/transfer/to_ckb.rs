@@ -1,9 +1,7 @@
-use anyhow::Result;
-
 use crate::util::eth_util::Web3Client;
 use ethabi::{Function, Param, ParamType, Token};
-use web3::types::{H160, H256, U256};
 use tokio::runtime::Runtime;
+use web3::types::{H160, H256, U256};
 
 pub fn approve(from: H160, to: H160, url: String, key_path: String) -> H256 {
     let mut rpc_client = Web3Client::new(url);
@@ -59,27 +57,35 @@ pub fn lock_token(from: H160, to: H160, url: String, key_path: String, data: &[T
     rt.block_on(f).expect("invalid tx hash")
 }
 
-pub fn lock_eth(from: H160, to: H160, url: String, key_path: String, data: &[Token], eth_amount: U256) -> H256 {
+pub fn lock_eth(
+    from: H160,
+    to: H160,
+    url: String,
+    key_path: String,
+    data: &[Token],
+    eth_value: U256,
+) -> H256 {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lockETH".to_owned(),
-        inputs: vec![
-            Param {
-                name: "ckbAddress".to_owned(),
-                kind: ParamType::String,
-            },
-        ],
+        inputs: vec![Param {
+            name: "ckbAddress".to_owned(),
+            kind: ParamType::String,
+        }],
         outputs: vec![],
         constant: false,
     };
     let input_data = function.encode_input(data).expect("invalid input data");
-    let f = rpc_client.send_transaction(from, to, key_path, input_data, eth_amount);
+    let f = rpc_client.send_transaction(from, to, key_path, input_data, eth_value);
     let mut rt = Runtime::new().unwrap();
     rt.block_on(f).expect("invalid tx hash")
 }
 
-pub fn parse_eth_proof() -> Result<()> {
-    todo!()
+pub fn get_header_rlp(url: String, hash: H256) -> String {
+    let mut rpc_client = Web3Client::new(url);
+    let f = rpc_client.get_header_rlp_with_hash(hash);
+    let mut rt = Runtime::new().unwrap();
+    rt.block_on(f)
 }
 
 pub fn verify_eth_spv_proof() -> bool {
