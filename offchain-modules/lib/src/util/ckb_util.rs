@@ -1,6 +1,5 @@
 use crate::util::settings::{OutpointConf, Settings};
 use anyhow::Result;
-use ckb_sdk::rpc::Header;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, DepType, TransactionView};
 use ckb_types::packed::HeaderVec;
@@ -16,8 +15,6 @@ use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::TxHelper;
 use force_sdk::util::get_live_cell;
 use serde::export::Clone;
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 pub fn make_ckb_transaction(_from_lockscript: Script) -> Result<TransactionView> {
     todo!()
@@ -101,48 +98,17 @@ impl Generator {
         }
         Ok((ckb_cell, ckb_cell_data))
     }
-    pub fn get_ckb_headers(&mut self, block_numbers: Vec<u64>) -> Bytes {
-        // let mut ckb_headers: CKBRPCHeader = Default::default();
-        let mut hs_headers = HashSet::new();
+    pub fn get_ckb_headers(&mut self, block_numbers: Vec<u64>) -> Vec<u8> {
         let mut mol_header_vec: Vec<packed::Header> = Default::default();
         for number in block_numbers {
             match self.rpc_client.get_block_by_number(number).unwrap() {
-                Some(block) => {
-                    hs_headers.insert(block.clone().header.inner);
-                    mol_header_vec.push(block.clone().header.inner.into())
-                }
+                Some(block) => mol_header_vec.push(block.header.inner.into()),
                 None => continue,
             }
         }
 
         let mol_headers = HeaderVec::new_builder().set(mol_header_vec).build();
-        mol_headers.as_bytes()
-
-        // let mut headers: Vec<Header> = hs_headers.into_iter().collect();
-        //
-        // let mut mol_he_vec: Vec<packed::Header> = Default::default();
-        // for header in headers {
-        //     let mol_header: packed::Header = header.clone().into();
-        //     // let mol_raw_header = mol_header.raw();
-        //     mol_he_vec.push(mol_header);
-        //     // let mol_header_hex = format!("0x{}", hex::encode(mol_header.as_bytes().as_ref()));
-        //     // let mol_raw_header_hex =
-        //     //     format!("0x{}", hex::encode(mol_raw_header.as_bytes().as_ref()));
-        //     //
-        //     // ckb_headers.extract_raw_header.push(HeaderCase {
-        //     //     input: mol_header_hex.clone(),
-        //     //     output: mol_raw_header_hex.clone(),
-        //     // });
-        //     //
-        //     // let nonce: u128 = header.nonce.into();
-        //     // ckb_headers.extract_nonce.push(HeaderCase {
-        //     //     input: mol_header_hex,
-        //     //     output: format!("{}", nonce),
-        //     // });
-        // }
-        // let mol_hea = HeaderVec::new_builder().set(mol_he_vec).build();
-        // print!("data 2  : {:?} \n", mol_hea.as_bytes());
-        // ckb_headers
+        Vec::from(mol_headers.as_slice())
     }
 }
 

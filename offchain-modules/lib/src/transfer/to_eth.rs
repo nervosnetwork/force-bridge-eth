@@ -1,17 +1,20 @@
 use crate::util::ckb_util::{covert_to_h256, make_ckb_transaction};
+use crate::util::eth_util::Web3Client;
 use anyhow::Result;
 use ckb_sdk::rpc::{BlockView, TransactionView};
 use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1};
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Entity, Pack, Unpack};
 use ckb_types::utilities::CBMT;
-use ckb_types::{packed, H256};
+use ckb_types::{packed, H256 as ckb_H256};
+use ethabi::{Function, Param, ParamType, Token};
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use serde::export::Clone;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::str::FromStr;
+use tokio::runtime::Runtime;
+use web3::types::{H160, H256 as web3_H256, U256};
 
 pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
@@ -38,6 +41,34 @@ pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     });
     println!("{}", serde_json::to_string_pretty(&print_res).unwrap());
     Ok(hex::encode(tx.hash().as_slice()))
+}
+
+pub fn unlock() -> Result<()> {
+    todo!()
+}
+
+pub fn relay_ckb_headers(
+    from: H160,
+    to: H160,
+    url: String,
+    key_path: String,
+    headers: Vec<u8>,
+) -> web3_H256 {
+    let mut rpc_client = Web3Client::new(url);
+    let function = Function {
+        name: "addHeader".to_owned(),
+        inputs: vec![Param {
+            name: "_data".to_owned(),
+            kind: ParamType::Bytes,
+        }],
+        outputs: vec![],
+        constant: false,
+    };
+    let data = function.encode_input(&[Token::Bytes(headers)]).unwrap();
+    print!("data : {:?}\n", hex::encode(data.as_slice()));
+    let f = rpc_client.send_transaction(from, to, key_path, data, U256::from(0));
+    let mut rt = Runtime::new().unwrap();
+    rt.block_on(f).expect("invalid tx hash")
 }
 
 pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof, String> {
@@ -94,13 +125,9 @@ pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof,
         lemmas: proof
             .lemmas()
             .iter()
-            .map(|lemma| Unpack::<H256>::unpack(lemma))
+            .map(|lemma| Unpack::<ckb_H256>::unpack(lemma))
             .collect(),
     })
-}
-
-pub fn unlock() -> Result<()> {
-    todo!()
 }
 
 // tx_merkle_index == index in transactions merkle tree of the block
@@ -108,10 +135,10 @@ pub fn unlock() -> Result<()> {
 pub struct CkbTxProof {
     pub tx_merkle_index: u16,
     pub block_number: u64,
-    pub block_hash: H256,
-    pub tx_hash: H256,
-    pub witnesses_root: H256,
-    pub lemmas: Vec<H256>,
+    pub block_hash: ckb_H256,
+    pub tx_hash: ckb_H256,
+    pub witnesses_root: ckb_H256,
+    pub lemmas: Vec<ckb_H256>,
 }
 
 pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
@@ -125,6 +152,6 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
 
     CBMT::build_merkle_root(leaves.as_ref())
 }
-pub fn get_tx_index(tx_hash: &H256, block: &BlockView) -> Option<usize> {
+pub fn get_tx_index(tx_hash: &ckb_H256, block: &BlockView) -> Option<usize> {
     block.transactions.iter().position(|tx| &tx.hash == tx_hash)
 }
