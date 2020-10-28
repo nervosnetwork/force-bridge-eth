@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "description": "CKB SPV proofs in Solidity",
   "scripts": {
-    "compile": "npx buidler compile",
-    "test": "npx buidler test",
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
     "test:coverage": "npx solidity-coverage",
     "lint": "solium -d contracts/ && eslint ./test",
     "lint:fix": "solium --fix -d contracts/ && eslint --fix ./test"
