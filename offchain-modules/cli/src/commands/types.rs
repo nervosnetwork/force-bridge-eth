@@ -108,6 +108,12 @@ pub struct EthRelayArgs {}
 
 #[derive(Clap, Clone, Debug)]
 pub struct CkbRelayArgs {
+    #[clap(short, long)]
+    pub from: String,
+    #[clap(short, long)]
+    pub to: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
     #[clap(long, default_value = "http://localhost:8114")]
     pub ckb_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8545")]

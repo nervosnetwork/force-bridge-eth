@@ -3,8 +3,7 @@ use anyhow::Result;
 use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::transfer::to_ckb::{approve, get_header_rlp, lock_eth, lock_token};
-use force_eth_lib::transfer::to_eth::burn;
-use log::debug;
+use force_eth_lib::transfer::to_eth::{burn, parse_ckb_proof};
 use types::*;
 use web3::types::{H160, H256, U256};
 
@@ -157,7 +156,16 @@ pub fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
-    let mut ckb_relayer = CKBRelayer::new(args.ckb_rpc_url, args.indexer_rpc_url);
+    let from = H160::from_slice(hex::decode(args.from).unwrap().as_slice());
+    let to = H160::from_slice(hex::decode(args.to).unwrap().as_slice());
+    let mut ckb_relayer = CKBRelayer::new(
+        args.ckb_rpc_url,
+        args.indexer_rpc_url,
+        args.eth_rpc_url,
+        from,
+        to,
+        args.private_key_path,
+    );
     ckb_relayer.start();
     Ok(())
 }
