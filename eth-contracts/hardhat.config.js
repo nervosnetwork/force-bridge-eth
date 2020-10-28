@@ -1,5 +1,5 @@
-usePlugin("@nomiclabs/buidler-truffle5");
-usePlugin("@nomiclabs/buidler-waffle");
+require("@nomiclabs/hardhat-truffle5");
+require("@nomiclabs/hardhat-waffle");
 
 require('dotenv').config()
 
@@ -19,14 +19,14 @@ task("accounts", "Prints the list of accounts", async () => {
 // Go to https://buidler.dev/config/ to learn more
 module.exports = {
     // This is a sample solc configuration that specifies which version of solc to use
-    solc: {
-        version: "0.5.16",
+    solidity: {
+        version: "0.5.10",
     },
 
-    defaultNetwork: "buidlerevm",
+    defaultNetwork: "hardhat",
 
     networks: {
-        buidlerevm: {},
+        hardhat: {},
         ropsten: {
             url: `${process.env ? process.env.ROPSTEN_API : ""}`,
             accounts: [`${process.env ? process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY : ""}`]

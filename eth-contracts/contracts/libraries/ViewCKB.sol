@@ -170,5 +170,13 @@ library ViewCKB {
         uint256 _start = 4 + index.mul(208);
         return _headers.slice(_start, 208, uint40(CKBTypes.Header));
     }
+
+    /// @notice         return length of a header vector.
+    /// @dev            Errors on overruns
+    /// @param _headers The header vector
+    /// @return         the length of a header vector.
+    function lengthHeaderVec(bytes29 _headers) internal pure typeAssert(_headers, CKBTypes.HeaderVec) returns (uint32) {
+        return uint32(_headers.indexLEUint(0, 4));
+    }
 }
 

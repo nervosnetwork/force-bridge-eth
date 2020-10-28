@@ -16,7 +16,7 @@ contract('CKBSpv', () => {
   before(async function () {
     // disable timeout
     this.timeout(0)
-    const factory = await ethers.getContractFactory('CKBChain')
+    const factory = await ethers.getContractFactory("contracts/CKBChain.sol:CKBChain")
     ckbChain = await factory.deploy()
     await ckbChain.deployed()
     provider = ckbChain.provider

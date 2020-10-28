@@ -8,11 +8,11 @@ contract('TokenLocker', () => {
   before(async function () {
     // disable timeout
     this.timeout(0)
-    let factory = await ethers.getContractFactory('MockCKBSpv')
+    let factory = await ethers.getContractFactory("contracts/MockCKBSpv.sol:MockCKBSpv")
     const mockSpv = await factory.deploy()
     await mockSpv.deployed()
 
-    factory = await ethers.getContractFactory('TokenLocker')
+    factory = await ethers.getContractFactory("contracts/TokenLocker.sol:TokenLocker")
     tokenLocker = await factory.deploy(mockSpv.address, 123)
     await tokenLocker.deployed()
     provider = tokenLocker.provider

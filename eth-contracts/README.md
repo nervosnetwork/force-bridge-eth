@@ -8,7 +8,7 @@ The ethereum contracts component of `forece-bridge-eth`, mainly contains `CKBCha
 $ git clone https://github.com/nervosnetwork/force-bridge-eth.git
 $ cd force-bridge-eth/eth-contracts
 $ npm install
-$ npx buidler test
+$ npx hardhat test
 ```
 
 ## Test on Testnet
@@ -17,7 +17,7 @@ $ npx buidler test
 # replace `0x0000000000000000000000000000000000000000000000000000000000000000` with your own private key
 $ echo ROPSTEN_DEPLOYER_PRIVATE_KEY=\"0x0000000000000000000000000000000000000000000000000000000000000000\"\\r\\n\
 ROPSTEN_API=\"https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb\" >> .env
-$ npx buidler run scripts/testnet-ropsten/test-proveTxExist.js --network ropsten
+$ npx hardhat run scripts/testnet-ropsten/test-proveTxExist.js --network ropsten
 ```
 
 ## Test on Geth private chain
@@ -26,5 +26,5 @@ $ npx buidler run scripts/testnet-ropsten/test-proveTxExist.js --network ropsten
 # after installed
 $ geth init test/data/geth-genesis.json --datadir=/tmp/geth
 $ geth --datadir=/tmp/geth --port 4321 --networkid 1234 --rpc --rpcport 8543 --rpcaddr 127.0.0.1  --rpcapi "eth,net,web3,personal,miner" --gasprice 0 --etherbase 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 --mine --miner.threads=1 --nodiscover
-$ npx buidler test --network geth
+$ npx hardhat test --network geth
 ```
