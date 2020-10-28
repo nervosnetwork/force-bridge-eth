@@ -1,4 +1,4 @@
-ame: ckb-contracts-ci
+name: ckb-contracts-ci
 
 on:
   push:
