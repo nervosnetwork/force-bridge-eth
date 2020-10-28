@@ -25,12 +25,21 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> H25
     };
     let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
     let input_data = function.encode_input(&tokens).expect("invalid input data");
-    rpc_client.send_transaction(from, to, key_path, input_data, U256::from(0)).await.expect("invalid tx_hash")
+    rpc_client
+        .send_transaction(from, to, key_path, input_data, U256::from(0))
+        .await
+        .expect("invalid tx_hash")
     // let mut rt = Runtime::new().unwrap();
     // rt.block_on(f).expect("invalid tx hash")
 }
 
-pub async fn lock_token(from: H160, to: H160, url: String, key_path: String, data: &[Token]) -> H256 {
+pub async fn lock_token(
+    from: H160,
+    to: H160,
+    url: String,
+    key_path: String,
+    data: &[Token],
+) -> H256 {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lock".to_owned(),
@@ -52,7 +61,10 @@ pub async fn lock_token(from: H160, to: H160, url: String, key_path: String, dat
         constant: false,
     };
     let input_data = function.encode_input(data).expect("invalid input data");
-    rpc_client.send_transaction(from, to, key_path, input_data, U256::from(0)).await.expect("invalid tx hash")
+    rpc_client
+        .send_transaction(from, to, key_path, input_data, U256::from(0))
+        .await
+        .expect("invalid tx hash")
     // let mut rt = Runtime::new().unwrap();
     // rt.block_on(f).expect("invalid tx hash")
 }
@@ -76,7 +88,10 @@ pub async fn lock_eth(
         constant: false,
     };
     let input_data = function.encode_input(data).expect("invalid input data");
-    rpc_client.send_transaction(from, to, key_path, input_data, eth_value).await.expect("invalid tx hash")
+    rpc_client
+        .send_transaction(from, to, key_path, input_data, eth_value)
+        .await
+        .expect("invalid tx hash")
     // let mut rt = Runtime::new().unwrap();
     // rt.block_on(f).expect("invalid tx hash")
 }

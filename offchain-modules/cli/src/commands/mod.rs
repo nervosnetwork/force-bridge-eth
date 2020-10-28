@@ -1,9 +1,9 @@
 pub mod types;
-use log::debug;
 use anyhow::Result;
 use ethabi::Token;
 use force_eth_lib::transfer::to_ckb::{approve, get_header_rlp, lock_eth, lock_token};
 use force_eth_lib::transfer::to_eth::burn;
+use log::debug;
 use types::*;
 use web3::types::{H160, H256, U256};
 
@@ -32,7 +32,11 @@ pub async fn handler(opt: Opts) -> Result<()> {
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice(hex::decode(args.from).expect("invalid from args").as_slice());
+    let from: H160 = H160::from_slice(
+        hex::decode(args.from)
+            .expect("invalid from args")
+            .as_slice(),
+    );
     let to = H160::from_slice(hex::decode(args.to).expect("invalid to args").as_slice());
     let hash = approve(from, to, args.rpc_url, args.private_key_path).await;
     println!("approve tx_hash: {:?}", &hash);
@@ -41,11 +45,17 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice(hex::decode(args.from).expect("invalid from args").as_slice());
+    let from: H160 = H160::from_slice(
+        hex::decode(args.from)
+            .expect("invalid from args")
+            .as_slice(),
+    );
     let to = H160::from_slice(hex::decode(args.to).expect("invalid to args").as_slice());
     let data = [
         Token::Address(H160::from_slice(
-            hex::decode(args.token).expect("invalid token args").as_slice(),
+            hex::decode(args.token)
+                .expect("invalid token args")
+                .as_slice(),
         )),
         Token::Uint(U256::from(args.amount)),
         Token::String(args.ckb_address),
@@ -57,7 +67,11 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice(hex::decode(args.from).expect("invalid from args").as_slice());
+    let from: H160 = H160::from_slice(
+        hex::decode(args.from)
+            .expect("invalid from args")
+            .as_slice(),
+    );
     let to = H160::from_slice(hex::decode(args.to).expect("invalid to args").as_slice());
     let data = [Token::String(args.ckb_address)];
     let hash = lock_eth(
@@ -67,7 +81,8 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
         args.private_key_path,
         &data,
         U256::from(args.amount),
-    ).await;
+    )
+    .await;
     println!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -83,8 +98,13 @@ pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()
     );
     let header_rlp = get_header_rlp(
         args.rpc_url,
-        H256::from_slice(hex::decode(args.hash.clone()).expect("invalid hash args").as_slice()),
-    ).await;
+        H256::from_slice(
+            hex::decode(args.hash.clone())
+                .expect("invalid hash args")
+                .as_slice(),
+        ),
+    )
+    .await;
     println!(
         "generate eth proof with hash: {:?}, header_rlp: {:?}",
         args.hash, header_rlp

@@ -54,7 +54,12 @@ impl Web3Client {
     }
 
     pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> String {
-        let block_header = self.client.eth().block(BlockId::Hash(hash)).await.expect("invalid header");
+        let block_header = self
+            .client
+            .eth()
+            .block(BlockId::Hash(hash))
+            .await
+            .expect("invalid header");
         let mut stream = RlpStream::new();
         rlp_append(&block_header.unwrap(), &mut stream);
         let header_vec = stream.out();
@@ -66,7 +71,8 @@ impl Web3Client {
             .client
             .eth()
             .block(BlockId::Number(BlockNumber::Number((number as u64).into())))
-            .await.expect("invalid header");
+            .await
+            .expect("invalid header");
         let mut stream = RlpStream::new();
         rlp_append(&block_header.clone().unwrap(), &mut stream);
         let header_vec = stream.out();
