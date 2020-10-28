@@ -50,6 +50,12 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
+      - name: check contract format
+        run: |
+          for c in `ls -d contracts/*`; do
+            cd $c
+            cargo fmt -- --check
+          done
       - run: cargo clippy -- -D warnings
       - run: capsule build
       - run: cargo test -- --nocapture
