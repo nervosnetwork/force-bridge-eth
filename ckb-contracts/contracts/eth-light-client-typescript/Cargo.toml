@@ -7,3 +7,10 @@ edition = "2018"
 
 [dependencies]
 ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
+
+[profile.release]
+overflow-checks = true
+opt-level = 's'
+lto = true
+codegen-units = 1
+panic = 'abort'

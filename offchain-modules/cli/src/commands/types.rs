@@ -19,8 +19,6 @@ pub enum SubCommand {
     Burn(BurnArgs),
     GenerateCkbProof(GenerateCkbProofArgs),
     Unlock(UnlockArgs),
-    EthRelay(EthRelayArgs),
-    CkbRelay(CkbRelayArgs),
 }
 
 #[derive(Clap, Clone, Debug)]

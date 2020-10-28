@@ -27,9 +27,6 @@ pub fn handler(opt: Opts) -> Result<()> {
         // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args),
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
-
-        SubCommand::EthRelay(args) => eth_relay_handler(args),
-        SubCommand::CkbRelay(args) => ckb_relay_handler(args),
     }
 }
 
@@ -124,15 +121,5 @@ pub fn unlock_handler(args: UnlockArgs) -> Result<()> {
 
 pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     println!("transfer_from_ckb_handler args: {:?}", &args);
-    todo!()
-}
-
-pub fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
-    println!("eth_relay_handler args: {:?}", &args);
-    todo!()
-}
-
-pub fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
-    println!("ckb_relay_handler args: {:?}", &args);
     todo!()
 }

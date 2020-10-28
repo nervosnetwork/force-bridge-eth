@@ -1,9 +1,11 @@
 [workspace]
-members = ["tests", "contracts/eth-bridge-typescript", "contracts/eth-light-client-typescript", "contracts/eth-bridge-lockscript"]
+members = [
+    "tests",
+    "lib/eth-bridge-typescript-lib",
+]
 
-[profile.release]
-overflow-checks = true
-opt-level = 's'
-lto = true
-codegen-units = 1
-panic = 'abort'
+exclude = [
+    "contracts/eth-bridge-typescript",
+    "contracts/eth-light-client-typescript",
+    "contracts/eth-bridge-lockscript",
+]
