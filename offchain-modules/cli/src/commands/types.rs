@@ -33,8 +33,6 @@ pub struct ApproveArgs {
     pub to: String,
     #[clap(long, default_value = "https://localhost:8545")]
     pub rpc_url: String,
-    #[clap(long, default_value = "1")]
-    pub chain_id: u32,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
 }
@@ -47,8 +45,6 @@ pub struct LockArgs {
     pub to: String,
     #[clap(long, default_value = "https://localhost:8545")]
     pub rpc_url: String,
-    #[clap(long, default_value = "1")]
-    pub chain_id: u32,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(short, long)]

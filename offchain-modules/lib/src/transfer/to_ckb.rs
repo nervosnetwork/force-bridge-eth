@@ -1,13 +1,12 @@
 use anyhow::Result;
 
-use crate::util::eth_util::{function_encode, Web3Client};
+use crate::util::eth_util::Web3Client;
 use ethabi::{Function, Param, ParamType, Token};
-use web3::types::{H160, H256, U256};
 use futures::executor;
+use web3::types::{H160, H256, U256};
 
-
-pub fn approve(from: H160, to: H160, url: String, chain_id: u32, key_path: String) -> H256 {
-    let mut rpc_client = Web3Client::new(url, chain_id);
+pub fn approve(from: H160, to: H160, url: String, key_path: String) -> H256 {
+    let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "approve".to_owned(),
         inputs: vec![
@@ -27,14 +26,14 @@ pub fn approve(from: H160, to: H160, url: String, chain_id: u32, key_path: Strin
         constant: false,
     };
     let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
-    let data = function_encode(function, &tokens);
-    let f = rpc_client.send_transaction(from, to, key_path, data);
+    let input_data = function.encode_input(&tokens).expect("invalid input data");
+    let f = rpc_client.send_transaction(from, to, key_path, input_data);
     executor::block_on(f).expect("invalid tx hash")
     // let res = rpc_client.send_transaction(from, to, key_path, data)
 }
 
-pub fn lock(from: H160, to: H160, url: String, chain_id: u32, key_path: String, data: &[Token]) -> H256 {
-    let mut rpc_client = Web3Client::new(url, chain_id);
+pub fn lock(from: H160, to: H160, url: String, key_path: String, data: &[Token]) -> H256 {
+    let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lock".to_owned(),
         inputs: vec![
@@ -54,9 +53,9 @@ pub fn lock(from: H160, to: H160, url: String, chain_id: u32, key_path: String, 
         outputs: vec![],
         constant: false,
     };
-    let data = function_encode(function, data);
+    let input_data = function.encode_input(data).expect("invalid input data");
     // rpc_client.send_transaction(from, to, key_path, data)
-    let f = rpc_client.send_transaction(from, to, key_path, data);
+    let f = rpc_client.send_transaction(from, to, key_path, input_data);
     executor::block_on(f).expect("invalid tx hash")
 }
 
