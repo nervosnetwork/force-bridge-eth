@@ -49,15 +49,14 @@ impl Web3Client {
             // .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(5, 100), 10)
             .send_raw_transaction(Bytes::from(signed_tx))
             .await?;
-        println!("tx hash: {:?}", tx_hash);
+        log::debug!("tx hash: {:?}", tx_hash);
         Ok(tx_hash)
     }
 
     pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> String {
-        let block_header = self.client.eth().block(BlockId::Hash(hash)).await;
-        let header = block_header.expect("invalid header");
+        let block_header = self.client.eth().block(BlockId::Hash(hash)).await.expect("invalid header");
         let mut stream = RlpStream::new();
-        rlp_append(&header.unwrap(), &mut stream);
+        rlp_append(&block_header.unwrap(), &mut stream);
         let header_vec = stream.out();
         hex::encode(header_vec)
     }
@@ -67,13 +66,12 @@ impl Web3Client {
             .client
             .eth()
             .block(BlockId::Number(BlockNumber::Number((number as u64).into())))
-            .await;
-        let header = block_header.expect("invalid header");
+            .await.expect("invalid header");
         let mut stream = RlpStream::new();
-        rlp_append(&header.clone().unwrap(), &mut stream);
+        rlp_append(&block_header.clone().unwrap(), &mut stream);
         let header_vec = stream.out();
-        println!("header rlp: {:?}", hex::encode(header_vec.clone()));
-        (header_vec, H256(header.unwrap().hash.unwrap().0))
+        log::debug!("header rlp: {:?}", hex::encode(header_vec.clone()));
+        (header_vec, H256(block_header.unwrap().hash.unwrap().0))
     }
 }
 
@@ -132,13 +130,10 @@ fn rlp_append<TX>(header: &Block<TX>, stream: &mut RlpStream) {
     stream.append(&header.nonce.unwrap());
 }
 
-#[test]
-fn test_get_block() {
-    use tokio::runtime::Runtime;
+#[tokio::test]
+async fn test_get_block() {
     let mut client = Web3Client::new(String::from(
         "https://mainnet.infura.io/v3/9c7178cede9f4a8a84a151d058bd609c",
     ));
-    let f = client.get_block_with_number(10);
-    let mut rt = Runtime::new().unwrap();
-    rt.block_on(f);
+    client.get_block_with_number(10).await;
 }
