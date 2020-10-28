@@ -69,7 +69,30 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     /// #ICKBChain
     function addHeaders(bytes calldata data) external {
-        // TODO addHeaders
+        // 1. view decode from data to headers view
+        bytes29 headerVecView = data.ref(uint40(ViewCKB.CKBTypes.HeaderVec));
+
+        // 2. iter headers
+        uint32 length = headerVecView.lengthHeaderVec();
+        uint32 index = 0;
+        while (index < length) {
+            bytes29 headerView = headerVecView.indexHeaderVec(index);
+            _addHeader(headerView);
+            index++;
+        }
+    }
+
+    function _addHeader(bytes29 headerView) private {
+        if (!verifyHeader(headerView)) {
+            return;
+        }
+
+        // 1. insert to allHeaderHashes
+
+        // 2. insert to blockHeaders
+
+        // 3.
+
     }
 
     /// #ICKBSpv
