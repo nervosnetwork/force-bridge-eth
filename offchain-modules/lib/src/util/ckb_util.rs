@@ -1,4 +1,4 @@
-use crate::util::settings::{OutpointConf, Settings};
+use crate::util::settings::OutpointConf;
 use anyhow::Result;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, DepType, TransactionView};

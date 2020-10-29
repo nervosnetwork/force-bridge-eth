@@ -10,10 +10,10 @@ use ckb_types::{packed, H256 as ckb_H256};
 use ethabi::{Function, Param, ParamType, Token};
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
+use log::debug;
 use serde::export::Clone;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use tokio::runtime::Runtime;
 use web3::types::{H160, H256 as web3_H256, U256};
 
 pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
@@ -39,7 +39,7 @@ pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
         "tx_hash": hex::encode(tx.hash().as_slice()),
         "cell_typescript": cell_script,
     });
-    println!("{}", serde_json::to_string_pretty(&print_res).unwrap());
+    debug!("{}", serde_json::to_string_pretty(&print_res).unwrap());
     Ok(hex::encode(tx.hash().as_slice()))
 }
 
@@ -47,7 +47,7 @@ pub fn unlock() -> Result<()> {
     todo!()
 }
 
-pub fn relay_ckb_headers(
+pub async fn relay_ckb_headers(
     from: H160,
     to: H160,
     url: String,
@@ -65,19 +65,20 @@ pub fn relay_ckb_headers(
         constant: false,
     };
     let data = function.encode_input(&[Token::Bytes(headers)]).unwrap();
-    print!("data : {:?}\n", hex::encode(data.as_slice()));
-    let f = rpc_client.send_transaction(from, to, key_path, data, U256::from(0));
-    let mut rt = Runtime::new().unwrap();
-    rt.block_on(f).expect("invalid tx hash")
+    debug!("data : {:?}", hex::encode(data.as_slice()));
+    rpc_client
+        .send_transaction(from, to, key_path, data, U256::from(0))
+        .await
+        .expect("invalid tx hash")
 }
 
 pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof, String> {
     let tx_hash = covert_to_h256(tx_hash_str)?;
     let mut rpc_client = HttpRpcClient::new(rpc_url);
-    let mut retrieved_block_hash = None;
-    let mut retrieved_block = Default::default();
+    let retrieved_block_hash;
+    let retrieved_block;
     let mut tx_indices = HashSet::new();
-    let mut tx_index = 0;
+    let tx_index;
     match rpc_client.get_transaction(tx_hash.clone())? {
         Some(tx_with_status) => {
             retrieved_block_hash = tx_with_status.tx_status.block_hash;
@@ -93,10 +94,7 @@ pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof,
             }
         }
         None => {
-            return Err(format!(
-                "Transaction {:#x} not yet in block",
-                tx_hash.clone()
-            ));
+            return Err(format!("Transaction {:#x} not yet in block", tx_hash));
         }
     }
 
@@ -119,7 +117,7 @@ pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof,
     Ok(CkbTxProof {
         block_hash: retrieved_block_hash,
         block_number: retrieved_block.header.inner.number,
-        tx_hash: tx_hash.clone(),
+        tx_hash,
         tx_merkle_index: (tx_index + tx_num as u32 - 1) as u16,
         witnesses_root: calc_witnesses_root(retrieved_block.transactions).unpack(),
         lemmas: proof
