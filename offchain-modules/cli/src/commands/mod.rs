@@ -7,6 +7,8 @@ use log::debug;
 use types::*;
 use web3::types::{H160, H256, U256};
 
+pub const ETH_ADDRESS_LENGTH: usize = 40;
+
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         // transfer erc20 to ckb
@@ -32,10 +34,10 @@ pub async fn handler(opt: Opts) -> Result<()> {
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
-    if args.from.len() != 40 {
+    if args.from.len() != ETH_ADDRESS_LENGTH {
         return Err(Error::msg("invalid from address"));
     }
-    if args.to.len() != 40 {
+    if args.to.len() != ETH_ADDRESS_LENGTH {
         return Err(Error::msg("invalid to address"));
     }
     let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
@@ -49,13 +51,13 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    if args.from.len() != 40 {
+    if args.from.len() != ETH_ADDRESS_LENGTH {
         return Err(Error::msg("invalid from address"));
     }
-    if args.to.len() != 40 {
+    if args.to.len() != ETH_ADDRESS_LENGTH {
         return Err(Error::msg("invalid to address"));
     }
-    if args.token.len() != 40 {
+    if args.token.len() != ETH_ADDRESS_LENGTH {
         return Err(Error::msg("invalid token address"));
     }
     let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
@@ -74,10 +76,10 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    if args.from.len() != 40 {
+    if args.from.len() != ETH_ADDRESS_LENGTH {
         return Err(Error::msg("invalid from address"));
     }
-    if args.to.len() != 40 {
+    if args.to.len() != ETH_ADDRESS_LENGTH {
         return Err(Error::msg("invalid to address"));
     }
     let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
