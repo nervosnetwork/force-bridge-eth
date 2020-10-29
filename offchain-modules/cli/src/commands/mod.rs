@@ -34,11 +34,17 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
     let from: H160 = H160::from_slice(
         hex::decode(args.from)
-            .expect("invalid from args")
+            .map_err(|e| anyhow::anyhow!("invalid cmd args `from`. FromHexError: {:?}", e))?
             .as_slice(),
     );
-    let to = H160::from_slice(hex::decode(args.to).expect("invalid to args").as_slice());
-    let hash = approve(from, to, args.rpc_url, args.private_key_path).await;
+    let to = H160::from_slice(
+        hex::decode(args.to)
+            .map_err(|e| anyhow::anyhow!("invalid cmd args `to`. FromHexError: {:?}", e))?
+            .as_slice(),
+    );
+    let hash = approve(from, to, args.rpc_url, args.private_key_path)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to call approve. {:?}", e))?;
     println!("approve tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -47,20 +53,26 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
     let from: H160 = H160::from_slice(
         hex::decode(args.from)
-            .expect("invalid from args")
+            .map_err(|e| anyhow::anyhow!("invalid cmd args `from`. FromHexError: {:?}", e))?
             .as_slice(),
     );
-    let to = H160::from_slice(hex::decode(args.to).expect("invalid to args").as_slice());
+    let to = H160::from_slice(
+        hex::decode(args.to)
+            .map_err(|e| anyhow::anyhow!("invalid cmd args `to`. FromHexError: {:?}", e))?
+            .as_slice(),
+    );
     let data = [
         Token::Address(H160::from_slice(
             hex::decode(args.token)
-                .expect("invalid token args")
+                .map_err(|e| anyhow::anyhow!("invalid cmd args `token`. FromHexError: {:?}", e))?
                 .as_slice(),
         )),
         Token::Uint(U256::from(args.amount)),
         Token::String(args.ckb_address),
     ];
-    let hash = lock_token(from, to, args.rpc_url, args.private_key_path, &data).await;
+    let hash = lock_token(from, to, args.rpc_url, args.private_key_path, &data)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to call lock_token. {:?}", e))?;
     println!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -69,10 +81,14 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
     let from: H160 = H160::from_slice(
         hex::decode(args.from)
-            .expect("invalid from args")
+            .map_err(|e| anyhow::anyhow!("invalid cmd args `from`. FromHexError: {:?}", e))?
             .as_slice(),
     );
-    let to = H160::from_slice(hex::decode(args.to).expect("invalid to args").as_slice());
+    let to = H160::from_slice(
+        hex::decode(args.to)
+            .map_err(|e| anyhow::anyhow!("invalid cmd args `to`. FromHexError: {:?}", e))?
+            .as_slice(),
+    );
     let data = [Token::String(args.ckb_address)];
     let hash = lock_eth(
         from,
@@ -82,7 +98,8 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
         &data,
         U256::from(args.amount),
     )
-    .await;
+    .await
+    .map_err(|e| anyhow::anyhow!("Failed to call lock_eth. {:?}", e))?;
     println!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -91,7 +108,7 @@ pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()
     debug!("generate_eth_proof_handler args: {:?}", &args);
     let (proof, receipt_data, log_data) =
         rusty_receipt_proof_maker::generate_eth_proof(args.hash.clone(), args.rpc_url.clone())
-            .expect("invalid receipt proof");
+            .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
     println!(
         "generate eth proof with hash: {:?}, proof: {:?}, receipt_data: {:?}, log_data: {:?}",
         args.hash, proof, receipt_data, log_data
@@ -100,11 +117,12 @@ pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()
         args.rpc_url,
         H256::from_slice(
             hex::decode(args.hash.clone())
-                .expect("invalid hash args")
+                .map_err(|e| anyhow::anyhow!("invalid cmd args `hash`. FromHexError: {:?}", e))?
                 .as_slice(),
         ),
     )
-    .await;
+    .await
+    .map_err(|e| anyhow::anyhow!("Failed to get header_rlp. {:?}", e))?;
     println!(
         "generate eth proof with hash: {:?}, header_rlp: {:?}",
         args.hash, header_rlp

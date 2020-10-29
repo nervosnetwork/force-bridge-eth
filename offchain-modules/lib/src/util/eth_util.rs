@@ -53,20 +53,15 @@ impl Web3Client {
         Ok(tx_hash)
     }
 
-    pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> String {
-        let block_header = self
-            .client
-            .eth()
-            .block(BlockId::Hash(hash))
-            .await
-            .expect("invalid header");
+    pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> Result<String> {
+        let block_header = self.client.eth().block(BlockId::Hash(hash)).await?;
         let mut stream = RlpStream::new();
-        rlp_append(&block_header.unwrap(), &mut stream);
+        rlp_append(&block_header.expect("invalid header"), &mut stream);
         let header_vec = stream.out();
-        hex::encode(header_vec)
+        Ok(hex::encode(header_vec))
     }
 
-    pub async fn get_block_with_number(&mut self, number: usize) -> (Vec<u8>, H256) {
+    pub async fn get_block_with_number(&mut self, number: usize) -> Result<(Vec<u8>, H256)> {
         let block_header = self
             .client
             .eth()
@@ -77,7 +72,7 @@ impl Web3Client {
         rlp_append(&block_header.clone().unwrap(), &mut stream);
         let header_vec = stream.out();
         log::debug!("header rlp: {:?}", hex::encode(header_vec.clone()));
-        (header_vec, H256(block_header.unwrap().hash.unwrap().0))
+        Ok((header_vec, H256(block_header.unwrap().hash.unwrap().0)))
     }
 }
 
