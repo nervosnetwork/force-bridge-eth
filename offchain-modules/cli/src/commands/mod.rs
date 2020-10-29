@@ -1,5 +1,5 @@
 pub mod types;
-use anyhow::Result;
+use anyhow::{Error, Result};
 use ethabi::Token;
 use force_eth_lib::transfer::to_ckb::{approve, get_header_rlp, lock_eth, lock_token};
 use force_eth_lib::transfer::to_eth::burn;
@@ -32,16 +32,14 @@ pub async fn handler(opt: Opts) -> Result<()> {
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice(
-        hex::decode(args.from)
-            .map_err(|e| anyhow::anyhow!("invalid cmd args `from`. FromHexError: {:?}", e))?
-            .as_slice(),
-    );
-    let to = H160::from_slice(
-        hex::decode(args.to)
-            .map_err(|e| anyhow::anyhow!("invalid cmd args `to`. FromHexError: {:?}", e))?
-            .as_slice(),
-    );
+    if args.from.len() != 40 {
+        return Err(Error::msg("invalid from address"));
+    }
+    if args.to.len() != 40 {
+        return Err(Error::msg("invalid to address"));
+    }
+    let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
+    let to = H160::from_slice(hex::decode(args.to)?.as_slice());
     let hash = approve(from, to, args.rpc_url, args.private_key_path)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to call approve. {:?}", e))?;
@@ -51,22 +49,19 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice(
-        hex::decode(args.from)
-            .map_err(|e| anyhow::anyhow!("invalid cmd args `from`. FromHexError: {:?}", e))?
-            .as_slice(),
-    );
-    let to = H160::from_slice(
-        hex::decode(args.to)
-            .map_err(|e| anyhow::anyhow!("invalid cmd args `to`. FromHexError: {:?}", e))?
-            .as_slice(),
-    );
+    if args.from.len() != 40 {
+        return Err(Error::msg("invalid from address"));
+    }
+    if args.to.len() != 40 {
+        return Err(Error::msg("invalid to address"));
+    }
+    if args.token.len() != 40 {
+        return Err(Error::msg("invalid token address"));
+    }
+    let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
+    let to = H160::from_slice(hex::decode(args.to)?.as_slice());
     let data = [
-        Token::Address(H160::from_slice(
-            hex::decode(args.token)
-                .map_err(|e| anyhow::anyhow!("invalid cmd args `token`. FromHexError: {:?}", e))?
-                .as_slice(),
-        )),
+        Token::Address(H160::from_slice(hex::decode(args.token)?.as_slice())),
         Token::Uint(U256::from(args.amount)),
         Token::String(args.ckb_address),
     ];
@@ -79,16 +74,14 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let from: H160 = H160::from_slice(
-        hex::decode(args.from)
-            .map_err(|e| anyhow::anyhow!("invalid cmd args `from`. FromHexError: {:?}", e))?
-            .as_slice(),
-    );
-    let to = H160::from_slice(
-        hex::decode(args.to)
-            .map_err(|e| anyhow::anyhow!("invalid cmd args `to`. FromHexError: {:?}", e))?
-            .as_slice(),
-    );
+    if args.from.len() != 40 {
+        return Err(Error::msg("invalid from address"));
+    }
+    if args.to.len() != 40 {
+        return Err(Error::msg("invalid to address"));
+    }
+    let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
+    let to = H160::from_slice(hex::decode(args.to)?.as_slice());
     let data = [Token::String(args.ckb_address)];
     let hash = lock_eth(
         from,
