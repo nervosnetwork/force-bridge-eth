@@ -13,7 +13,7 @@ pub struct Web3Client {
 impl Web3Client {
     pub fn new(url: String) -> Web3Client {
         let client = {
-            let transport = web3::transports::Http::new(url.as_str()).unwrap();
+            let transport = web3::transports::Http::new(url.as_str()).expect("new transport");
             web3::Web3::new(transport)
         };
         Web3Client { url, client }
