@@ -4,6 +4,7 @@ use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::transfer::to_ckb::{approve, get_header_rlp, lock_eth, lock_token};
 use force_eth_lib::transfer::to_eth::{burn, parse_ckb_proof};
+use log::debug;
 use types::*;
 use web3::types::{H160, H256, U256};
 
@@ -29,7 +30,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
 
         SubCommand::EthRelay(args) => eth_relay_handler(args),
-        SubCommand::CkbRelay(args) => ckb_relay_handler(args),
+        SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
     }
 }
 
@@ -154,7 +155,7 @@ pub fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     todo!()
 }
 
-pub fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
+pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
     let from = H160::from_slice(hex::decode(args.from).unwrap().as_slice());
     let to = H160::from_slice(hex::decode(args.to).unwrap().as_slice());
@@ -166,6 +167,5 @@ pub fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         to,
         args.private_key_path,
     );
-    ckb_relayer.start();
-    Ok(())
+    ckb_relayer.start().await
 }

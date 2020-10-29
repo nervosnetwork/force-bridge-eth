@@ -1,5 +1,7 @@
 use crate::transfer::to_eth::relay_ckb_headers;
 use crate::util::ckb_util::Generator;
+use anyhow::Result;
+use log::debug;
 use web3::types::H160;
 
 pub struct CKBRelayer {
@@ -29,11 +31,11 @@ impl CKBRelayer {
             priv_key_path,
         }
     }
-    pub fn start(&mut self) {
+    pub async fn start(&mut self) -> Result<()> {
         let mut ckb_relay =
             Generator::new(self.ckb_rpc_url.clone(), self.indexer_url.clone()).unwrap();
         let headers = ckb_relay.get_ckb_headers(vec![36]);
-        print!("headers : {:?} \n", hex::encode(headers.as_slice()));
+        debug!("headers : {:?} \n", hex::encode(headers.as_slice()));
 
         let result = relay_ckb_headers(
             self.from,
@@ -41,7 +43,9 @@ impl CKBRelayer {
             self.eth_rpc_url.clone(),
             self.priv_key_path.clone(),
             headers,
-        );
-        print!("{:?}\n", hex::encode(result));
+        )
+        .await;
+        debug!("tx_hash : {:?}", hex::encode(result));
+        Ok(())
     }
 }
