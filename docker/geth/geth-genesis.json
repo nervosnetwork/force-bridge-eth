@@ -12,8 +12,9 @@
     "istanbulBlock":0
   },
   "alloc":{
-    "0x627306090abab3a6e1400e9345bc60c78a8bef57": { "balance": "0x20000000000000" },
-    "0xefde3a66ae8a51dffd02fd6e3dff4d0513f9dcbc": { "balance": "0x90000000000000" },
+    "0x627306090abab3a6e1400e9345bc60c78a8bef57": { "balance": "0x99999999999999999999" },
+    "0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2": { "balance": "0x99999999999999999999" },
+    "0xefde3a66ae8a51dffd02fd6e3dff4d0513f9dcbc": { "balance": "0x99999999999999999999" },
     "0x0000000000000000000000000000000000000009": { "balance": "0x01" }
   },
   "difficulty":"42",
