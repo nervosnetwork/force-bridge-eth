@@ -4,7 +4,7 @@
   "description": "CKB SPV proofs in Solidity",
   "scripts": {
     "compile": "npx hardhat compile",
-    "test": "npx hardhat test",
+    "test": "make test",
     "test:coverage": "npx solidity-coverage",
     "lint": "solium -d contracts/ && eslint ./test",
     "lint:fix": "solium --fix -d contracts/ && eslint --fix ./test"

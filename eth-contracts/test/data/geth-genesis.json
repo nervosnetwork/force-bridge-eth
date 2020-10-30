@@ -13,7 +13,7 @@
   },
   "alloc":{
     "0xefde3a66ae8a51dffd02fd6e3dff4d0513f9dcbc": { "balance": "0x90000000000000" },
-    "0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2": { "balance": "0x99999999999999" },
+    "0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2": { "balance": "0x99999999999999999999" },
     "0x0000000000000000000000000000000000000009": { "balance": "0x01" }
   },
   "difficulty":"2",
