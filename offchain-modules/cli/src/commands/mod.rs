@@ -88,7 +88,7 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     let hash = lock_eth(
         from,
         to,
-        args.rpc_url,
+        args.rpc_url.clone(),
         args.private_key_path,
         &data,
         U256::from(args.amount),
@@ -96,17 +96,27 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     .await
     .map_err(|e| anyhow::anyhow!("Failed to call lock_eth. {:?}", e))?;
     println!("lock erc20 token tx_hash: {:?}", &hash);
+    let (proof, receipt_data, log_data, receipt_index, log_index) =
+        rusty_receipt_proof_maker::generate_eth_proof(
+            format!("0x{}", hex::encode(hash.0)),
+            args.rpc_url.clone(),
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
+    println!(
+        "generate eth proof with hash: {:?}, proof: {:?}, receipt_data: {:?}, log_data: {:?}, receipt_index: {:?}, log_index:{:?}",
+        hash.clone(), proof, receipt_data, log_data, receipt_index, log_index
+    );
     Ok(())
 }
 
 pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()> {
     debug!("generate_eth_proof_handler args: {:?}", &args);
-    let (proof, receipt_data, log_data) =
+    let (proof, receipt_data, log_data, receipt_index, log_index) =
         rusty_receipt_proof_maker::generate_eth_proof(args.hash.clone(), args.rpc_url.clone())
             .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
     println!(
-        "generate eth proof with hash: {:?}, proof: {:?}, receipt_data: {:?}, log_data: {:?}",
-        args.hash, proof, receipt_data, log_data
+        "generate eth proof with hash: {:?}, proof: {:?}, receipt_data: {:?}, log_data: {:?}, receipt_index: {:?}, log_index:{:?}",
+        args.hash, proof, receipt_data, log_data, receipt_index, log_index
     );
     let header_rlp = get_header_rlp(
         args.rpc_url,
