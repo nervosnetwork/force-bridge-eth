@@ -7,7 +7,7 @@ check-fmt:
 	cargo fmt -- --check
 
 test-cli:
-	sh test-cli.sh
+	sh test.sh
 
 build:
 	cargo build

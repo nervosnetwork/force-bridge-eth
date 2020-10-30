@@ -38,7 +38,7 @@ echo "Starting our own ganache instance"
 start_ganache
 
 truffle version
-cd ../eth-contracts && truffle migrate > /tmp/deploy_log
+cd ../eth-contracts && truffle migrate --reset
 cd ../offchain-modules
-target/debug/force-eth-cli lock-eth --from 848582DCe45547981B29957A9C6Fe390386476D2 --to 03DB4063d05cD29A7588cC8ed4b4cFbBf192D77D --amount 10000 --ckb-address djfkdjfdjf --private-key-path cli/privkeys/key
+target/debug/force-eth-cli lock-eth --from 848582DCe45547981B29957A9C6Fe390386476D2 --to 0Ef621E386a0F30CBFa3AbDC6363bc4219627162 --amount 10000 --ckb-address djfkdjfdjf --private-key-path cli/privkeys/key
 
