@@ -106,7 +106,6 @@ impl Generator {
                 None => continue,
             }
         }
-
         let mol_headers = HeaderVec::new_builder().set(mol_header_vec).build();
         Vec::from(mol_headers.as_slice())
     }

@@ -1,20 +1,18 @@
 use crate::util::ckb_util::{covert_to_h256, make_ckb_transaction};
-use crate::util::eth_util::Web3Client;
 use anyhow::Result;
 use ckb_sdk::rpc::{BlockView, TransactionView};
 use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1};
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Entity, Pack, Unpack};
 use ckb_types::utilities::CBMT;
-use ckb_types::{packed, H256 as ckb_H256};
-use ethabi::{Function, Param, ParamType, Token};
+use ckb_types::{packed, H256};
+use ethabi::{Bytes, Function, Param, ParamType, Token};
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use log::debug;
 use serde::export::Clone;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use web3::types::{H160, H256 as web3_H256, U256};
 
 pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
@@ -47,14 +45,8 @@ pub fn unlock() -> Result<()> {
     todo!()
 }
 
-pub async fn relay_ckb_headers(
-    from: H160,
-    to: H160,
-    url: String,
-    key_path: String,
-    headers: Vec<u8>,
-) -> web3_H256 {
-    let mut rpc_client = Web3Client::new(url);
+pub fn get_add_ckb_headers_abi(headers: Vec<u8>) -> Bytes {
+    //TODO : addHeader is mock function for test feature which set header data in eth contract
     let function = Function {
         name: "addHeader".to_owned(),
         inputs: vec![Param {
@@ -64,12 +56,7 @@ pub async fn relay_ckb_headers(
         outputs: vec![],
         constant: false,
     };
-    let data = function.encode_input(&[Token::Bytes(headers)]).unwrap();
-    debug!("data : {:?}", hex::encode(data.as_slice()));
-    rpc_client
-        .send_transaction(from, to, key_path, data, U256::from(0))
-        .await
-        .expect("invalid tx hash")
+    function.encode_input(&[Token::Bytes(headers)]).unwrap()
 }
 
 pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof, String> {
@@ -123,7 +110,7 @@ pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof,
         lemmas: proof
             .lemmas()
             .iter()
-            .map(|lemma| Unpack::<ckb_H256>::unpack(lemma))
+            .map(|lemma| Unpack::<H256>::unpack(lemma))
             .collect(),
     })
 }
@@ -133,10 +120,10 @@ pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof,
 pub struct CkbTxProof {
     pub tx_merkle_index: u16,
     pub block_number: u64,
-    pub block_hash: ckb_H256,
-    pub tx_hash: ckb_H256,
-    pub witnesses_root: ckb_H256,
-    pub lemmas: Vec<ckb_H256>,
+    pub block_hash: H256,
+    pub tx_hash: H256,
+    pub witnesses_root: H256,
+    pub lemmas: Vec<H256>,
 }
 
 pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
@@ -150,6 +137,6 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
 
     CBMT::build_merkle_root(leaves.as_ref())
 }
-pub fn get_tx_index(tx_hash: &ckb_H256, block: &BlockView) -> Option<usize> {
+pub fn get_tx_index(tx_hash: &H256, block: &BlockView) -> Option<usize> {
     block.transactions.iter().position(|tx| &tx.hash == tx_hash)
 }
