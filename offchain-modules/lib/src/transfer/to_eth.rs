@@ -25,6 +25,17 @@ pub struct CkbTxProof {
     pub lemmas: Vec<H256>,
 }
 
+// tx_merkle_index == index in transactions merkle tree of the block
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct CkbTxProof {
+    pub tx_merkle_index: u16,
+    pub block_number: u64,
+    pub block_hash: H256,
+    pub tx_hash: H256,
+    pub witnesses_root: H256,
+    pub lemmas: Vec<H256>,
+}
+
 pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let from_privkey = parse_privkey_path(&private_key)?;
