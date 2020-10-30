@@ -2,11 +2,14 @@ use crate::util::settings::{OutpointConf, Settings};
 use anyhow::Result;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, DepType, TransactionView};
+use ckb_types::packed::HeaderVec;
 use ckb_types::prelude::{Builder, Entity, Pack};
 use ckb_types::{
     bytes::Bytes,
     packed::{self, Byte32, CellDep, CellOutput, OutPoint, Script},
+    H256,
 };
+use faster_hex::hex_decode;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::TxHelper;
@@ -94,4 +97,28 @@ impl Generator {
         }
         Ok((ckb_cell, ckb_cell_data))
     }
+    pub fn get_ckb_headers(&mut self, block_numbers: Vec<u64>) -> Vec<u8> {
+        let mut mol_header_vec: Vec<packed::Header> = Default::default();
+        for number in block_numbers {
+            match self.rpc_client.get_block_by_number(number).unwrap() {
+                Some(block) => mol_header_vec.push(block.header.inner.into()),
+                None => continue,
+            }
+        }
+        let mol_headers = HeaderVec::new_builder().set(mol_header_vec).build();
+        Vec::from(mol_headers.as_slice())
+    }
+}
+
+pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256, String> {
+    if tx_hash.starts_with("0x") || tx_hash.starts_with("0X") {
+        tx_hash = &tx_hash[2..];
+    }
+    if tx_hash.len() % 2 != 0 {
+        return Err(format!("Invalid hex string lenth: {}", tx_hash.len()));
+    }
+    let mut bytes = vec![0u8; tx_hash.len() / 2];
+    hex_decode(tx_hash.as_bytes(), &mut bytes)
+        .map_err(|err| format!("parse hex string failed: {:?}", err))?;
+    H256::from_slice(&bytes).map_err(|err| err.to_string())
 }

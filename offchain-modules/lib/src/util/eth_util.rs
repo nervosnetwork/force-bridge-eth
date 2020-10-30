@@ -1,9 +1,12 @@
 use anyhow::{anyhow, Error, Result};
 use ethereum_tx_sign::RawTransaction;
 use rlp::RlpStream;
+use web3::contract::{Contract, Options};
 use web3::transports::Http;
-use web3::types::{Block, BlockId, BlockNumber, Bytes, H160, H256, U256};
+use web3::types::{Address, Block, BlockId, BlockNumber, Bytes, H160, H256, U256};
 use web3::Web3;
+
+pub const ETH_ADDRESS_LENGTH: usize = 40;
 
 pub struct Web3Client {
     url: String,
@@ -83,6 +86,18 @@ impl Web3Client {
             None => Err(Error::msg("the block is not exist.")),
         }
     }
+
+    pub async fn get_light_client_current_height(&mut self, contract_addr: Address) -> u64 {
+        let contract = Contract::from_json(
+            self.client.eth(),
+            contract_addr,
+            include_bytes!("ckb_chain_abi.json"),
+        )
+        .unwrap();
+        let result = contract.query("latestBlockNumber", (), None, Options::default(), None);
+        let latest_block_number: u64 = result.await.unwrap();
+        latest_block_number
+    }
 }
 
 pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>, eth_value: U256) -> RawTransaction {
@@ -138,6 +153,16 @@ fn rlp_append<TX>(header: &Block<TX>, stream: &mut RlpStream) {
     stream.append(&header.extra_data.0);
     stream.append(&header.mix_hash.unwrap());
     stream.append(&header.nonce.unwrap());
+}
+
+pub fn convert_eth_address(mut address: &str) -> Result<H160> {
+    if address.starts_with("0x") || address.starts_with("0X") {
+        address = &address[2..];
+    }
+    if address.len() != ETH_ADDRESS_LENGTH {
+        return Err(Error::msg(format!("invalid eth address: {:?}", address)));
+    }
+    Ok(H160::from_slice(hex::decode(address)?.as_slice()))
 }
 
 #[tokio::test]

@@ -1,13 +1,13 @@
 pub mod types;
-use anyhow::{Error, Result};
+use anyhow::Result;
 use ethabi::Token;
+use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::transfer::to_ckb::{approve, get_header_rlp, lock_eth, lock_token};
-use force_eth_lib::transfer::to_eth::burn;
+use force_eth_lib::transfer::to_eth::{burn, parse_ckb_proof};
+use force_eth_lib::util::eth_util::convert_eth_address;
 use log::debug;
 use types::*;
-use web3::types::{H160, H256, U256};
-
-pub const ETH_ADDRESS_LENGTH: usize = 40;
+use web3::types::{H256, U256};
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
@@ -29,19 +29,16 @@ pub async fn handler(opt: Opts) -> Result<()> {
         // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args),
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
+
+        SubCommand::EthRelay(args) => eth_relay_handler(args),
+        SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
     }
 }
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
-    if args.from.len() != ETH_ADDRESS_LENGTH {
-        return Err(Error::msg("invalid from address"));
-    }
-    if args.to.len() != ETH_ADDRESS_LENGTH {
-        return Err(Error::msg("invalid to address"));
-    }
-    let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
-    let to = H160::from_slice(hex::decode(args.to)?.as_slice());
+    let from = convert_eth_address(args.from.as_str())?;
+    let to = convert_eth_address(args.to.as_str())?;
     let hash = approve(from, to, args.rpc_url, args.private_key_path)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to call approve. {:?}", e))?;
@@ -51,19 +48,11 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    if args.from.len() != ETH_ADDRESS_LENGTH {
-        return Err(Error::msg("invalid from address"));
-    }
-    if args.to.len() != ETH_ADDRESS_LENGTH {
-        return Err(Error::msg("invalid to address"));
-    }
-    if args.token.len() != ETH_ADDRESS_LENGTH {
-        return Err(Error::msg("invalid token address"));
-    }
-    let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
-    let to = H160::from_slice(hex::decode(args.to)?.as_slice());
+    let from = convert_eth_address(args.from.as_str())?;
+    let to = convert_eth_address(args.to.as_str())?;
+    let token_addr = convert_eth_address(args.token.as_str())?;
     let data = [
-        Token::Address(H160::from_slice(hex::decode(args.token)?.as_slice())),
+        Token::Address(token_addr),
         Token::Uint(U256::from(args.amount)),
         Token::String(args.ckb_address),
     ];
@@ -76,14 +65,8 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    if args.from.len() != ETH_ADDRESS_LENGTH {
-        return Err(Error::msg("invalid from address"));
-    }
-    if args.to.len() != ETH_ADDRESS_LENGTH {
-        return Err(Error::msg("invalid to address"));
-    }
-    let from: H160 = H160::from_slice(hex::decode(args.from)?.as_slice());
-    let to = H160::from_slice(hex::decode(args.to)?.as_slice());
+    let from = convert_eth_address(args.from.as_str())?;
+    let to = convert_eth_address(args.to.as_str())?;
     let data = [Token::String(args.ckb_address)];
     let hash = lock_eth(
         from,
@@ -154,7 +137,9 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
 
 pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     debug!("generate_ckb_proof_handler args: {:?}", &args);
-    todo!()
+    let proof = parse_ckb_proof(args.tx_hash.as_str(), args.ckb_rpc_url).unwrap();
+    log::info!("ckb tx proof: {:?}", proof);
+    Ok(())
 }
 
 pub fn unlock_handler(args: UnlockArgs) -> Result<()> {
@@ -165,4 +150,24 @@ pub fn unlock_handler(args: UnlockArgs) -> Result<()> {
 pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
     todo!()
+}
+
+pub fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
+    debug!("eth_relay_handler args: {:?}", &args);
+    todo!()
+}
+
+pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
+    debug!("ckb_relay_handler args: {:?}", &args);
+    let from = convert_eth_address(args.from.as_str())?;
+    let to = convert_eth_address(args.to.as_str())?;
+    let mut ckb_relayer = CKBRelayer::new(
+        args.ckb_rpc_url,
+        args.indexer_rpc_url,
+        args.eth_rpc_url,
+        from,
+        to,
+        args.private_key_path,
+    );
+    ckb_relayer.start().await
 }
