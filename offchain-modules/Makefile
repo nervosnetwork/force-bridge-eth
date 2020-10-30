@@ -12,8 +12,5 @@ test-cli:
 build:
 	cargo build
 
-build:
-	cargo build
-
 clippy:
 	cargo clippy -- -D warnings

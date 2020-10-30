@@ -14,6 +14,17 @@ use serde::export::Clone;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+// tx_merkle_index == index in transactions merkle tree of the block
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct CkbTxProof {
+    pub tx_merkle_index: u16,
+    pub block_number: u64,
+    pub block_hash: H256,
+    pub tx_hash: H256,
+    pub witnesses_root: H256,
+    pub lemmas: Vec<H256>,
+}
+
 pub fn burn(private_key: String, rpc_url: String) -> Result<String> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let from_privkey = parse_privkey_path(private_key.as_str())?;
@@ -115,15 +126,8 @@ pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof,
     })
 }
 
-// tx_merkle_index == index in transactions merkle tree of the block
-#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
-pub struct CkbTxProof {
-    pub tx_merkle_index: u16,
-    pub block_number: u64,
-    pub block_hash: H256,
-    pub tx_hash: H256,
-    pub witnesses_root: H256,
-    pub lemmas: Vec<H256>,
+pub fn get_tx_index(tx_hash: &H256, block: &BlockView) -> Option<usize> {
+    block.transactions.iter().position(|tx| &tx.hash == tx_hash)
 }
 
 pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
@@ -136,7 +140,4 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
         .collect::<Vec<Byte32>>();
 
     CBMT::build_merkle_root(leaves.as_ref())
-}
-pub fn get_tx_index(tx_hash: &H256, block: &BlockView) -> Option<usize> {
-    block.transactions.iter().position(|tx| &tx.hash == tx_hash)
 }
