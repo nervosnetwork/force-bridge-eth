@@ -17,8 +17,8 @@ pub enum SubCommand {
     Mint(MintArgs),
     TransferFromCkb(TransferFromCkbArgs),
     Burn(BurnArgs),
-    Unlock(UnlockArgs),
     GenerateCkbProof(GenerateCkbProofArgs),
+    Unlock(UnlockArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
 }
@@ -48,7 +48,7 @@ pub struct LockTokenArgs {
     pub rpc_url: String,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
-    #[clap(short, long)]
+    #[clap(long)]
     pub token: String,
     #[clap(short, long)]
     pub amount: u128,

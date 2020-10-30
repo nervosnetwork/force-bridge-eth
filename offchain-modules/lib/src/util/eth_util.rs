@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Error, Result};
 use ethereum_tx_sign::RawTransaction;
 use rlp::RlpStream;
 use web3::transports::Http;
@@ -13,7 +13,7 @@ pub struct Web3Client {
 impl Web3Client {
     pub fn new(url: String) -> Web3Client {
         let client = {
-            let transport = web3::transports::Http::new(url.as_str()).unwrap();
+            let transport = web3::transports::Http::new(url.as_str()).expect("new transport");
             web3::Web3::new(transport)
         };
         Web3Client { url, client }
@@ -53,31 +53,35 @@ impl Web3Client {
         Ok(tx_hash)
     }
 
-    pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> String {
-        let block_header = self
-            .client
-            .eth()
-            .block(BlockId::Hash(hash))
-            .await
-            .expect("invalid header");
-        let mut stream = RlpStream::new();
-        rlp_append(&block_header.unwrap(), &mut stream);
-        let header_vec = stream.out();
-        hex::encode(header_vec)
+    pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> Result<String> {
+        let block_header = self.client.eth().block(BlockId::Hash(hash)).await?;
+        match block_header {
+            Some(header) => {
+                let mut stream = RlpStream::new();
+                rlp_append(&header, &mut stream);
+                let header_vec = stream.out();
+                Ok(hex::encode(header_vec))
+            }
+            None => Err(Error::msg("the block is not exist.")),
+        }
     }
 
-    pub async fn get_block_with_number(&mut self, number: usize) -> (Vec<u8>, H256) {
+    pub async fn get_block_with_number(&mut self, number: usize) -> Result<(Vec<u8>, H256)> {
         let block_header = self
             .client
             .eth()
             .block(BlockId::Number(BlockNumber::Number((number as u64).into())))
-            .await
-            .expect("invalid header");
-        let mut stream = RlpStream::new();
-        rlp_append(&block_header.clone().unwrap(), &mut stream);
-        let header_vec = stream.out();
-        log::debug!("header rlp: {:?}", hex::encode(header_vec.clone()));
-        (header_vec, H256(block_header.unwrap().hash.unwrap().0))
+            .await?;
+        match block_header {
+            Some(header) => {
+                let mut stream = RlpStream::new();
+                rlp_append(&header, &mut stream);
+                let header_vec = stream.out();
+                log::debug!("header rlp: {:?}", hex::encode(header_vec.clone()));
+                Ok((header_vec, H256(header.hash.unwrap().0)))
+            }
+            None => Err(Error::msg("the block is not exist.")),
+        }
     }
 }
 
@@ -141,5 +145,6 @@ async fn test_get_block() {
     let mut client = Web3Client::new(String::from(
         "https://mainnet.infura.io/v3/9c7178cede9f4a8a84a151d058bd609c",
     ));
-    client.get_block_with_number(10).await;
+    let res = client.get_block_with_number(10).await;
+    println!("{:?}", res);
 }

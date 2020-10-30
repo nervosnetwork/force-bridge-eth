@@ -1,4 +1,4 @@
-ci: check-fmt test clippy
+ci: check-fmt test-cli clippy
 
 fmt:
 	cargo fmt
@@ -6,8 +6,11 @@ fmt:
 check-fmt:
 	cargo fmt -- --check
 
-test:
-	cargo test
+test-cli:
+	sh test.sh
+
+build:
+	cargo build
 
 build:
 	cargo build

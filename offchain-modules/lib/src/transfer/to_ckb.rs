@@ -1,9 +1,9 @@
 use crate::util::eth_util::Web3Client;
+use anyhow::Result;
 use ethabi::{Function, Param, ParamType, Token};
-// use tokio::runtime::Runtime;
 use web3::types::{H160, H256, U256};
 
-pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> H256 {
+pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "approve".to_owned(),
@@ -24,13 +24,11 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> H25
         constant: false,
     };
     let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
-    let input_data = function.encode_input(&tokens).expect("invalid input data");
-    rpc_client
+    let input_data = function.encode_input(&tokens)?;
+    let res = rpc_client
         .send_transaction(from, to, key_path, input_data, U256::from(0))
-        .await
-        .expect("invalid tx_hash")
-    // let mut rt = Runtime::new().unwrap();
-    // rt.block_on(f).expect("invalid tx hash")
+        .await?;
+    Ok(res)
 }
 
 pub async fn lock_token(
@@ -39,7 +37,7 @@ pub async fn lock_token(
     url: String,
     key_path: String,
     data: &[Token],
-) -> H256 {
+) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lock".to_owned(),
@@ -60,13 +58,11 @@ pub async fn lock_token(
         outputs: vec![],
         constant: false,
     };
-    let input_data = function.encode_input(data).expect("invalid input data");
-    rpc_client
+    let input_data = function.encode_input(data)?;
+    let res = rpc_client
         .send_transaction(from, to, key_path, input_data, U256::from(0))
-        .await
-        .expect("invalid tx hash")
-    // let mut rt = Runtime::new().unwrap();
-    // rt.block_on(f).expect("invalid tx hash")
+        .await?;
+    Ok(res)
 }
 
 pub async fn lock_eth(
@@ -76,7 +72,7 @@ pub async fn lock_eth(
     key_path: String,
     data: &[Token],
     eth_value: U256,
-) -> H256 {
+) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lockETH".to_owned(),
@@ -87,18 +83,16 @@ pub async fn lock_eth(
         outputs: vec![],
         constant: false,
     };
-    let input_data = function.encode_input(data).expect("invalid input data");
-    rpc_client
+    let input_data = function.encode_input(data)?;
+    let res = rpc_client
         .send_transaction(from, to, key_path, input_data, eth_value)
-        .await
-        .expect("invalid tx hash")
-    // let mut rt = Runtime::new().unwrap();
-    // rt.block_on(f).expect("invalid tx hash")
+        .await?;
+    Ok(res)
 }
 
-pub async fn get_header_rlp(url: String, hash: H256) -> String {
+pub async fn get_header_rlp(url: String, hash: H256) -> Result<String> {
     let mut rpc_client = Web3Client::new(url);
-    rpc_client.get_header_rlp_with_hash(hash).await
+    Ok(rpc_client.get_header_rlp_with_hash(hash).await?)
 }
 
 pub fn verify_eth_spv_proof() -> bool {
