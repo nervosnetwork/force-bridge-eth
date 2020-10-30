@@ -1,31 +1,22 @@
-use anyhow::{anyhow, Result};
-use ethabi::{Function, Token};
+use anyhow::{anyhow, Error, Result};
 use ethereum_tx_sign::RawTransaction;
-use futures::future::join_all;
-use futures::Future;
 use rlp::RlpStream;
 use web3::transports::Http;
-use web3::types::{Block, Bytes, H160, H256, U256};
+use web3::types::{Block, BlockId, BlockNumber, Bytes, H160, H256, U256};
 use web3::Web3;
 
 pub struct Web3Client {
     url: String,
-    chain_id: u32,
     client: Web3<Http>,
 }
 
 impl Web3Client {
-    pub fn new(url: String, chain_id: u32) -> Web3Client {
+    pub fn new(url: String) -> Web3Client {
         let client = {
-            let (eloop, transport) = web3::transports::Http::new(url.as_str()).unwrap();
-            eloop.into_remote();
+            let transport = web3::transports::Http::new(url.as_str()).expect("new transport");
             web3::Web3::new(transport)
         };
-        Web3Client {
-            url,
-            chain_id,
-            client,
-        }
+        Web3Client { url, client }
     }
 
     pub fn url(&self) -> &str {
@@ -34,76 +25,73 @@ impl Web3Client {
     pub fn client(&mut self) -> &mut Web3<Http> {
         &mut self.client
     }
-    pub fn chain_id(&mut self) -> &u32 {
-        &self.chain_id
-    }
 
-    pub fn send_transaction(
+    pub async fn send_transaction(
         &mut self,
         from: H160,
         to: H160,
         key_path: String,
         data: Vec<u8>,
-    ) -> H256 {
-        let nonce = self
-            .client()
-            .eth()
-            .transaction_count(from, None)
-            .wait()
-            .unwrap();
-        let tx = make_transaction(to, nonce, data);
+        eth_value: U256,
+    ) -> Result<H256> {
+        let nonce = self.client().eth().transaction_count(from, None).await?;
+        dbg!(&nonce);
+        let chain_id = self.client().eth().chain_id().await?;
+        dbg!(&chain_id);
+        let tx = make_transaction(to, nonce, data, eth_value);
         let signed_tx = tx.sign(
             &parse_private_key(key_path.as_str()).unwrap(),
-            &self.chain_id,
+            &chain_id.as_u32(),
         );
         let tx_hash = self
             .client()
             .eth()
+            // .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(5, 100), 10)
             .send_raw_transaction(Bytes::from(signed_tx))
-            .wait()
-            .unwrap();
-        println!("tx hash: {:?}", tx_hash);
-        tx_hash
+            .await?;
+        log::debug!("tx hash: {:?}", tx_hash);
+        Ok(tx_hash)
     }
 
-    pub fn get_blocks(&mut self, start: usize, stop: usize) -> (Vec<Vec<u8>>, Vec<H256>) {
-        let futures = (start..stop)
-            .map(|i| self.client.eth().block((i as u64).into()))
-            .collect::<Vec<_>>();
-        let block_headers = join_all(futures).wait().unwrap();
-
-        let mut blocks: Vec<Vec<u8>> = vec![];
-        let mut hashes: Vec<H256> = vec![];
-        for block_header in block_headers {
-            let mut stream = RlpStream::new();
-            rlp_append(&block_header.clone().unwrap(), &mut stream);
-            blocks.push(stream.out());
-            hashes.push(H256(block_header.clone().unwrap().hash.unwrap().0));
+    pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> Result<String> {
+        let block_header = self.client.eth().block(BlockId::Hash(hash)).await?;
+        match block_header {
+            Some(header) => {
+                let mut stream = RlpStream::new();
+                rlp_append(&header, &mut stream);
+                let header_vec = stream.out();
+                Ok(hex::encode(header_vec))
+            }
+            None => Err(Error::msg("the block is not exist.")),
         }
-        for item in &blocks {
-            println!("header rlp: {:?}", hex::encode(item.clone()));
-        }
+    }
 
-        (blocks, hashes)
+    pub async fn get_block_with_number(&mut self, number: usize) -> Result<(Vec<u8>, H256)> {
+        let block_header = self
+            .client
+            .eth()
+            .block(BlockId::Number(BlockNumber::Number((number as u64).into())))
+            .await?;
+        match block_header {
+            Some(header) => {
+                let mut stream = RlpStream::new();
+                rlp_append(&header, &mut stream);
+                let header_vec = stream.out();
+                log::debug!("header rlp: {:?}", hex::encode(header_vec.clone()));
+                Ok((header_vec, H256(header.hash.unwrap().0)))
+            }
+            None => Err(Error::msg("the block is not exist.")),
+        }
     }
 }
 
-pub fn function_encode(function: Function) -> Vec<u8> {
-    let mut uint = [0u8; 32];
-    uint[31] = 69;
-    function
-        .encode_input(&[Token::Uint(uint.into()), Token::Bool(true)])
-        .unwrap()
-}
-
-pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>) -> RawTransaction {
-    use ethereum_types::U256;
+pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>, eth_value: U256) -> RawTransaction {
     RawTransaction {
         nonce: convert_u256(nonce),
         to: Some(convert_account(to)),
-        value: U256::from(10000),
+        value: eth_value,
         gas_price: U256::from(1000000000),
-        gas: U256::from(21000),
+        gas: U256::from(2100000),
         data,
     }
 }
@@ -150,4 +138,13 @@ fn rlp_append<TX>(header: &Block<TX>, stream: &mut RlpStream) {
     stream.append(&header.extra_data.0);
     stream.append(&header.mix_hash.unwrap());
     stream.append(&header.nonce.unwrap());
+}
+
+#[tokio::test]
+async fn test_get_block() {
+    let mut client = Web3Client::new(String::from(
+        "https://mainnet.infura.io/v3/9c7178cede9f4a8a84a151d058bd609c",
+    ));
+    let res = client.get_block_with_number(10).await;
+    println!("{:?}", res);
 }
