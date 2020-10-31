@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Error, Result};
 use ethereum_tx_sign::RawTransaction;
+use log::{debug, info};
 use rlp::RlpStream;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
@@ -38,9 +39,9 @@ impl Web3Client {
         eth_value: U256,
     ) -> Result<H256> {
         let nonce = self.client().eth().transaction_count(from, None).await?;
-        dbg!(&nonce);
+        info!("tx current nonce :{}", &nonce);
         let chain_id = self.client().eth().chain_id().await?;
-        dbg!(&chain_id);
+        debug!("chain id :{}", &chain_id);
         let tx = make_transaction(to, nonce, data, eth_value);
         let signed_tx = tx.sign(
             &parse_private_key(key_path.as_str()).unwrap(),
@@ -52,7 +53,7 @@ impl Web3Client {
             // .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(5, 100), 10)
             .send_raw_transaction(Bytes::from(signed_tx))
             .await?;
-        log::debug!("tx hash: {:?}", tx_hash);
+        debug!("tx hash: {:?}", tx_hash);
         Ok(tx_hash)
     }
 
@@ -87,16 +88,15 @@ impl Web3Client {
         }
     }
 
-    pub async fn get_light_client_current_height(&mut self, contract_addr: Address) -> u64 {
+    pub async fn get_light_client_current_height(&mut self, contract_addr: Address) -> Result<u64> {
         let contract = Contract::from_json(
             self.client.eth(),
             contract_addr,
             include_bytes!("ckb_chain_abi.json"),
-        )
-        .unwrap();
+        )?;
         let result = contract.query("latestBlockNumber", (), None, Options::default(), None);
-        let latest_block_number: u64 = result.await.unwrap();
-        latest_block_number
+        let latest_block_number: u64 = result.await?;
+        Ok(latest_block_number)
     }
 }
 
@@ -160,7 +160,7 @@ pub fn convert_eth_address(mut address: &str) -> Result<H160> {
         address = &address[2..];
     }
     if address.len() != ETH_ADDRESS_LENGTH {
-        return Err(Error::msg(format!("invalid eth address: {:?}", address)));
+        anyhow::bail!("invalid eth address: {:?}", address)
     }
     Ok(H160::from_slice(hex::decode(address)?.as_slice()))
 }

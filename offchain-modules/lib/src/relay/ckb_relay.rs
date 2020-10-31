@@ -1,9 +1,10 @@
-use crate::transfer::to_eth::get_add_ckb_headers_abi;
+use crate::transfer::to_eth::get_add_ckb_headers_func;
 use crate::util::ckb_util::Generator;
 use crate::util::eth_util::Web3Client;
 use anyhow::Result;
+use ethabi::Token;
 use ethereum_types::U256;
-use log::*;
+use log::info;
 use web3::types::H160;
 
 pub struct CKBRelayer {
@@ -39,20 +40,21 @@ impl CKBRelayer {
             self.indexer_url.clone(),
             Default::default(),
         )
-        .unwrap();
+        .map_err(|e| anyhow::anyhow!("failed to crate generator: {}", e))?;
         let mut web3_client = Web3Client::new(self.eth_rpc_url.clone());
 
         let mut block_height = web3_client
             .get_light_client_current_height(self.contract_addr)
-            .await;
+            .await?;
         info!("blcok header number : {:?}", block_height);
 
         loop {
             block_height += 1;
-            let headers = ckb_relay.get_ckb_headers(vec![block_height]);
+            let headers = ckb_relay.get_ckb_headers(vec![block_height])?;
             info!("headers : {:?} ", hex::encode(headers.as_slice()));
 
-            let add_headers_abi = get_add_ckb_headers_abi(headers);
+            let add_headers_func = get_add_ckb_headers_func();
+            let add_headers_abi = add_headers_func.encode_input(&[Token::Bytes(headers)])?;
             let result = web3_client
                 .send_transaction(
                     self.from,

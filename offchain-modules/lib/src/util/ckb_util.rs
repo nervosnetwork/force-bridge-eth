@@ -97,28 +97,32 @@ impl Generator {
         }
         Ok((ckb_cell, ckb_cell_data))
     }
-    pub fn get_ckb_headers(&mut self, block_numbers: Vec<u64>) -> Vec<u8> {
+    pub fn get_ckb_headers(&mut self, block_numbers: Vec<u64>) -> Result<Vec<u8>> {
         let mut mol_header_vec: Vec<packed::Header> = Default::default();
         for number in block_numbers {
-            match self.rpc_client.get_block_by_number(number).unwrap() {
-                Some(block) => mol_header_vec.push(block.header.inner.into()),
-                None => continue,
+            let block_opt = self
+                .rpc_client
+                .get_block_by_number(number)
+                .map_err(|e| anyhow::anyhow!("failed to get block: {}", e))?;
+
+            if let Some(block) = block_opt {
+                mol_header_vec.push(block.header.inner.into());
             }
         }
         let mol_headers = HeaderVec::new_builder().set(mol_header_vec).build();
-        Vec::from(mol_headers.as_slice())
+        Ok(Vec::from(mol_headers.as_slice()))
     }
 }
 
-pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256, String> {
+pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256> {
     if tx_hash.starts_with("0x") || tx_hash.starts_with("0X") {
         tx_hash = &tx_hash[2..];
     }
     if tx_hash.len() % 2 != 0 {
-        return Err(format!("Invalid hex string lenth: {}", tx_hash.len()));
+        anyhow::bail!(format!("Invalid hex string length: {}", tx_hash.len()))
     }
     let mut bytes = vec![0u8; tx_hash.len() / 2];
     hex_decode(tx_hash.as_bytes(), &mut bytes)
-        .map_err(|err| format!("parse hex string failed: {:?}", err))?;
-    H256::from_slice(&bytes).map_err(|err| err.to_string())
+        .map_err(|err| anyhow::anyhow!("parse hex string failed: {:?}", err))?;
+    H256::from_slice(&bytes).map_err(|e| anyhow::anyhow!("failed to covert tx hash: {}", e))
 }
