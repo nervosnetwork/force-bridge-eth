@@ -24,6 +24,7 @@ pub struct Settings {
     pub bridge_lockscript: ScriptConf,
     pub bridge_typescript: ScriptConf,
     pub light_client_typescript: ScriptConf,
+    pub eth_recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
 }
 

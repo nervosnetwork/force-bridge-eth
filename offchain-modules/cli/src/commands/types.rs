@@ -20,6 +20,7 @@ pub enum SubCommand {
     Burn(BurnArgs),
     GenerateCkbProof(GenerateCkbProofArgs),
     Unlock(UnlockArgs),
+    QuerySudtBlance(SudtGetBalanceArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
 }
@@ -51,6 +52,8 @@ pub struct DevInitArgs {
         default_value = "../ckb-contracts/build/release/eth-light-client-typescript"
     )]
     pub light_client_typescript_path: String,
+    #[clap(long, default_value = "../build/release/eth_recipient_typescript")]
+    pub eth_recipient_typescript_path: String,
     #[clap(long, default_value = "cli/deps/simple_udt")]
     pub sudt_path: String,
 }
@@ -131,14 +134,47 @@ pub struct MintArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct TransferFromCkbArgs {}
-
-#[derive(Clap, Clone, Debug)]
-pub struct BurnArgs {
+pub struct TransferFromCkbArgs {
+    #[clap(long, default_value = "/tmp/.tockb-cli/config.toml")]
+    pub config_path: String,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(long, default_value = "https://localhost:8114")]
-    pub rpc_url: String,
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8116")]
+    pub indexer_rpc_url: String,
+    #[clap(short, long)]
+    pub to_addr: String,
+    #[clap(long)]
+    pub sudt_amount: u128,
+    #[clap(long, default_value = "200")]
+    pub ckb_amount: String,
+    #[clap(long)]
+    pub token_addr: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct BurnArgs {
+    #[clap(long, default_value = "/tmp/.tockb-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long, default_value = "https://localhost:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8545")]
+    pub eth_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8116")]
+    pub indexer_rpc_url: String,
+    #[clap(long)]
+    pub token_addr: String,
+    #[clap(long)]
+    pub amount: u128,
+    #[clap(long)]
+    pub receive_addr: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -185,4 +221,18 @@ pub struct CkbRelayArgs {
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8116")]
     pub indexer_rpc_url: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct SudtGetBalanceArgs {
+    #[clap(long, default_value = "/tmp/.tockb-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "https://localhost:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8116")]
+    pub indexer_rpc_url: String,
+    #[clap(short, long)]
+    pub addr: String,
+    #[clap(long)]
+    pub token_addr: String,
 }
