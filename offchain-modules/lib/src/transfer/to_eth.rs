@@ -6,7 +6,7 @@ use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Entity, Pack, Unpack};
 use ckb_types::utilities::CBMT;
 use ckb_types::{packed, H256};
-use ethabi::{Bytes, Function, Param, ParamType, Token};
+use ethabi::{Function, Param, ParamType};
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use log::debug;
@@ -56,9 +56,9 @@ pub fn unlock() -> Result<()> {
     todo!()
 }
 
-pub fn get_add_ckb_headers_abi(headers: Vec<u8>) -> Bytes {
+pub fn get_add_ckb_headers_func() -> Function {
     //TODO : addHeader is mock function for test feature which set header data in eth contract
-    let function = Function {
+    Function {
         name: "addHeader".to_owned(),
         inputs: vec![Param {
             name: "_data".to_owned(),
@@ -66,40 +66,40 @@ pub fn get_add_ckb_headers_abi(headers: Vec<u8>) -> Bytes {
         }],
         outputs: vec![],
         constant: false,
-    };
-    function.encode_input(&[Token::Bytes(headers)]).unwrap()
+    }
 }
 
-pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof, String> {
+pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof> {
     let tx_hash = covert_to_h256(tx_hash_str)?;
     let mut rpc_client = HttpRpcClient::new(rpc_url);
+    let mut tx_indices = HashSet::new();
     let retrieved_block_hash;
     let retrieved_block;
-    let mut tx_indices = HashSet::new();
     let tx_index;
-    match rpc_client.get_transaction(tx_hash.clone())? {
-        Some(tx_with_status) => {
-            retrieved_block_hash = tx_with_status.tx_status.block_hash;
-            retrieved_block = rpc_client
-                .get_block(retrieved_block_hash.clone().expect("tx_block_hash is none"))?
-                .expect("block is none");
+    let tx_with_status_opt = rpc_client
+        .get_transaction(tx_hash.clone())
+        .map_err(|e| anyhow::anyhow!("failed to get ckb tx: {}", e))?;
 
-            tx_index = get_tx_index(&tx_hash, &retrieved_block)
-                .expect("tx_hash not in retrieved_block") as u32;
-            dbg!(tx_index);
-            if !tx_indices.insert(tx_index) {
-                return Err(format!("Duplicated tx_hash {:#x}", tx_hash));
-            }
-        }
-        None => {
-            return Err(format!("Transaction {:#x} not yet in block", tx_hash));
-        }
+    match tx_with_status_opt {
+        Some(tx_with_status) => retrieved_block_hash = tx_with_status.tx_status.block_hash,
+        None => anyhow::bail!(format!("Transaction {:#x} not yet in block", tx_hash)),
+    }
+    retrieved_block = rpc_client
+        .get_block(retrieved_block_hash.clone().expect("tx_block_hash is none"))
+        .map_err(|e| anyhow::anyhow!("failed to get ckb block: {}", e))?
+        .expect("block is none");
+
+    tx_index =
+        get_tx_index(&tx_hash, &retrieved_block).expect("tx_hash not in retrieved_block") as u32;
+    debug!("tx index: {}", tx_index);
+    if !tx_indices.insert(tx_index) {
+        anyhow::bail!("Duplicated tx_hash {:#x}", tx_hash)
     }
 
     let tx_num = retrieved_block.transactions.len();
     let retrieved_block_hash = retrieved_block_hash.expect("checked len");
-    dbg!(format!("{:#x}", retrieved_block_hash));
-    dbg!(format!("{:#x}", retrieved_block.header.hash));
+    debug!("retrieved block hash {:?}", retrieved_block_hash);
+    debug!("retrieved header hash {:?}", retrieved_block.header.hash);
 
     let proof = CBMT::build_merkle_proof(
         &retrieved_block
