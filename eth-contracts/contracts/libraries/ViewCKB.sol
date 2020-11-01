@@ -20,7 +20,7 @@ library ViewCKB {
         H256,
         H160,
         Header,
-
+        Nonce,
         RawHeader,
         Version,
         CompactTarget,
