@@ -1,11 +1,7 @@
 #[cfg(not(feature = "std"))]
 use ckb_std::debug;
 
-use crate::generated::{
-    eth_recipient_cell::{
-        ETHRecipientCellData, ETHRecipientCellDataReader,
-    },
-};
+use crate::generated::eth_recipient_cell::{ETHRecipientCellData, ETHRecipientCellDataReader};
 use core::result::Result;
 use molecule::{
     bytes::Bytes,

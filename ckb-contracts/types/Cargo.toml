@@ -1,5 +1,5 @@
 [package]
-name = "types"
+name = "force-eth-types"
 version = "0.1.0"
 authors = ["jacobdenver007 <jacobdenver@163.com>"]
 edition = "2018"
