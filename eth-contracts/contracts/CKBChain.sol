@@ -5,19 +5,22 @@ import {CKBCrypto} from "./libraries/CKBCrypto.sol";
 import {SafeMath} from "./libraries/SafeMath.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
+import {HeaderVerifier} from "./libraries/HeaderVerifier.sol";
+import {EaglesongLib} from "./libraries/EaglesongLib.sol";
 import {ICKBChain} from "./interfaces/ICKBChain.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
-import {IHeaderVerifier} from "./interfaces/IHeaderVerifier.sol";
 
 // tools below just for test, they will be removed before production ready
 import "hardhat/console.sol";
-import "./interfaces/IHeaderVerifier.sol";
 
 contract CKBChain is ICKBChain, ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
+
+    /// CHAIN_VERSION means chain_id on CKB CHAIN
+    uint32 public constant CHAIN_VERSION = 0;
 
     /// We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
     /// Events that happen past this threshold cannot be verified by the client.
@@ -33,7 +36,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     struct BlockHeader {
         uint64 number;
         uint64 epoch;
-        uint256 timestamp;
+        uint256 difficulty;
         uint256 totalDifficulty;
         bytes32 parentHash;
     }
@@ -42,9 +45,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
     bool public initialized;
     uint64 public latestBlockNumber;
     BlockHeader latestHeader;
-
-    // TODO remove `headerVerifierAddress`
-    address public verifier;
 
     /// Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
     /// entries.
@@ -88,71 +88,122 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
     }
 
-    function _addHeader(bytes29 headerView) private {
+    function _addHeader(bytes29 headerView) public {
         uint64 blockNumber = headerView.blockNumber();
-        bytes32 blockHash = headerView.blockHash();
-        uint256 mockTotalDifficulty = 0;
 
-        // TODO verify version
+        // ## verify version
+        require(headerView.version() == CHAIN_VERSION, "chain version invalid");
 
+        // ## verify blockNumber
+        require(blockNumber + CanonicalGcThreshold >= latestBlockNumber, "block is too old");
+        bytes32 parentHash = headerView.parentHash();
+        BlockHeader memory parentHeader = blockHeaders[parentHash];
+        require(parentHeader.totalDifficulty > 0 && parentHeader.number + 1 == blockNumber, "block's parent block mismatch");
 
-        // verify blockNumber
-        if (blockHeaders[headerView.parentHash()].number + 1 != blockNumber) {
+        // calc blockHash
+        bytes memory headerBytes = headerView.clone();
+        bytes32 blockHash = CKBCrypto.digest(abi.encodePacked(headerBytes, new bytes(48)), 208);
+        console.logBytes32(blockHash);
+
+        // ## verify blockHash should not exsist
+        if (canonicalTransactionsRoots[blockHash] != bytes32(0) || blockHeaders[blockHash].number == blockNumber) {
             return;
         }
 
-        // verify pow
-        if (!IHeaderVerifier(verifier).verifyHeader(headerView.clone())) {
-            return;
-        }
-        console.log('verify header success');
+        // ## verify pow
+        uint256 difficulty = _verifyPow(headerView, parentHeader);
 
-
-        // 1. insert to allHeaderHashes
-        allHeaderHashes[blockNumber].push(blockHash);
-
-        // 2. insert to blockHeaders
-        blockHeaders[blockHash] = BlockHeader(
+        // ## insert header to storage
+        // 1. insert to blockHeaders
+        uint256 totalDifficulty = parentHeader.totalDifficulty + difficulty;
+        BlockHeader memory header = BlockHeader(
             blockNumber,
             headerView.epoch(),
-            headerView.timestamp(),
-            mockTotalDifficulty,
-            headerView.parentHash()
+            difficulty,
+            totalDifficulty,
+            parentHash
         );
+        blockHeaders[blockHash] = header;
+
+        // 2. insert to allHeaderHashes
+        allHeaderHashes[header.number].push(blockHash);
 
         // 3. refresh canonicalChain
-        if (mockTotalDifficulty > latestHeader.totalDifficulty) {
-            // remove lower difficulty canonical
-            for (uint64 i = blockNumber + 1; i <= latestBlockNumber; i++) {
-                delete canonicalTransactionsRoots[canonicalHeaderHashes[i]];
-                delete canonicalHeaderHashes[i];
-            }
-
-            // set latest
-            latestHeader = blockHeaders[blockHash];
-            latestBlockNumber = blockNumber;
-
-            // set canonical
-            canonicalHeaderHashes[latestBlockNumber] = blockHash;
+        if (totalDifficulty > latestHeader.totalDifficulty) {
+            _refreshCanonicalChain(header, blockHash);
             canonicalTransactionsRoots[blockHash] = headerView.transactionsRoot();
-            uint64 number = blockNumber - 1;
-            bytes32 currentHash = latestHeader.parentHash;
-            while (true) {
-                if (number == 0 || canonicalHeaderHashes[number] == currentHash) {
-                    break;
-                }
-                canonicalHeaderHashes[number] = currentHash;
-                number--;
-            }
+        }
+    }
 
-            // gc
-            if (blockNumber >= CanonicalGcThreshold) {
-                _gcCanonicalChain(blockNumber - CanonicalGcThreshold);
-            }
+    // @dev reference code:  https://github.com/nervosnetwork/ckb/blob/develop/pow/src/eaglesong.rs
+    function _verifyPow(bytes29 headerView, BlockHeader memory parentHeader) internal view returns (uint256) {
+        bytes29 rawHeader = headerView.rawHeader();
+        bytes32 rawHeaderHash = CKBCrypto.digest(abi.encodePacked(rawHeader.clone(), new bytes(64)), 192);
 
-            if (blockNumber >= FinalizedGcThreshold) {
-                _gcHeaders(blockNumber - FinalizedGcThreshold);
+        // - 1. calc powMessage
+        bytes memory powMessage = abi.encodePacked(rawHeaderHash, headerView.slice(192, 16, uint40(ViewCKB.CKBTypes.Nonce)).clone());
+        
+        // - 2. calc EaglesongHash to output
+        bytes32 output = EaglesongLib.EaglesongHash(powMessage);
+        // bytes memory expectOutput= hex"000000000000053ee598839a89638a5b37a7cf98ecf0ce6d02d3d9287f008b84";
+        // require(keccak256(output) == keccak256(expectOutput), "eaglesong error");
+
+        // - 3. calc block_target, check if target > 0
+        (uint256 target, bool overflow) = HeaderVerifier._compactToTarget(rawHeader.compactTarget());
+        // require(target == 13919424058362656885362395578858131467813097398447086657077248, "target error");
+        // require(!overflow, "overflow error");
+        require(target > 0 && !overflow, "block target is zero or overflow");
+
+        // - 4. check if EaglesongHash <= block target
+        // @dev the smaller the target value, the greater the difficulty
+        require(uint256(output) <= target, "block difficulty should greater or equal the target difficulty");
+
+        // - 5. verify_difficulty
+        uint256 difficulty = HeaderVerifier._targetToDifficulty(target);
+        uint64 epoch = headerView.epoch();
+        if (epoch == parentHeader.epoch) {
+            require(difficulty != parentHeader.difficulty, "difficulty should equal parent's difficulty");
+        } else {
+            require(parentHeader.epoch + 1 == epoch, "epoch number invalid");
+            // we are using dampening factor τ = 2 in CKB, the difficulty adjust range will be [previous / (τ * τ) .. previous * (τ * τ)]
+            require(difficulty >= parentHeader.difficulty / 4 && difficulty <= parentHeader.difficulty * 4, "difficulty invalid");
+
+        }
+
+        return difficulty;
+    }
+
+    function _refreshCanonicalChain(BlockHeader memory header, bytes32 blockHash) internal {
+        // remove lower difficulty canonical branch
+        for (uint64 i = header.number + 1; i <= latestBlockNumber; i++) {
+            delete canonicalTransactionsRoots[canonicalHeaderHashes[i]];
+            delete canonicalHeaderHashes[i];
+        }
+
+        // set latest
+        latestHeader = blockHeaders[blockHash];
+        latestBlockNumber = header.number;
+
+        // set canonical
+        canonicalHeaderHashes[latestBlockNumber] = blockHash;
+
+        uint64 number = header.number - 1;
+        bytes32 currentHash = latestHeader.parentHash;
+        while (true) {
+            if (number == 0 || canonicalHeaderHashes[number] == currentHash) {
+                break;
             }
+            canonicalHeaderHashes[number] = currentHash;
+            number--;
+        }
+
+        // gc
+        if (header.number >= CanonicalGcThreshold) {
+            _gcCanonicalChain(header.number - CanonicalGcThreshold);
+        }
+
+        if (header.number >= FinalizedGcThreshold) {
+            _gcHeaders(header.number - FinalizedGcThreshold);
         }
     }
 
@@ -225,15 +276,11 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
     }
 
-    // TODO remove all mock function
+    // TODO remove all mock function before production ready
     // mock for test
     function mockForProveTxExist(uint64 _latestBlockNumber, uint64 spvBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
         latestBlockNumber = _latestBlockNumber;
         canonicalHeaderHashes[spvBlockNumber] = blockHash;
         canonicalTransactionsRoots[blockHash] = transactionsRoot;
-    }
-    // mock for test verify
-    function mockForHeaderVerifier(address _verifier) public {
-        verifier = _verifier;
     }
 }

@@ -11,8 +11,18 @@ library EaglesongLib {
         uint32[688] injection_constants;
     }
 
-    function EaglesongHash(bytes memory data) internal pure returns (bytes memory) {
-        return EaglesongSponge(data, OUTPUT_LEN, DELIMITER);
+    // TODO using assembly code to modify bytesToBytes32
+    function bytesToBytes32(bytes memory b, uint offset) private pure returns (bytes32) {
+        bytes32 out;
+        for (uint i = 0; i < 32; i++) {
+            out |= bytes32(b[offset + i] & 0xFF) >> (i * 8);
+        }
+        return out;
+    }
+
+    function EaglesongHash(bytes memory data) internal pure returns (bytes32) {
+        bytes memory output = EaglesongSponge(data, OUTPUT_LEN, DELIMITER);
+        return bytesToBytes32(output, 0);
     }
 
     function EaglesongPermutation(uint[16] memory state) internal pure {
