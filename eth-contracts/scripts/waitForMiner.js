@@ -1,7 +1,7 @@
 const ethers = require("ethers");
 
 function sleep(s) {
-    return new Promise(resolve => setTimeout(resolve, 1000*s));
+  return new Promise((resolve) => setTimeout(resolve, 1000 * s));
 }
 
 async function main() {
@@ -35,8 +35,8 @@ async function main() {
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
 main()
-    .then(() => process.exit(0))
-    .catch(error => {
-        console.error(error);
-        process.exit(1);
-    });
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

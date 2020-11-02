@@ -32,7 +32,7 @@ library CKBPow {
         */
 
         uint32 exponent = compact >> 24;
-        uint256 mantissa = uint256(compact & 0x00ff_ffff);
+        uint256 mantissa = uint256(compact & uint32(0x00ffffff));
         uint256 ret;
         if (exponent <= 3) {
             mantissa >>= 8 * (3 - exponent);
@@ -41,7 +41,7 @@ library CKBPow {
             ret = mantissa;
             ret <<= 8 * (exponent - 3);
         }
-        bool overflow =  mantissa != 0 && (exponent > 32);
+        bool overflow = mantissa != 0 && (exponent > 32);
         return (ret, overflow);
     }
 
