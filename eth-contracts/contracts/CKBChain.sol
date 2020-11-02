@@ -5,7 +5,7 @@ import {CKBCrypto} from "./libraries/CKBCrypto.sol";
 import {SafeMath} from "./libraries/SafeMath.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
-import {HeaderVerifier} from "./libraries/HeaderVerifier.sol";
+import {CKBPow} from "./libraries/CKBPow.sol";
 import {EaglesongLib} from "./libraries/EaglesongLib.sol";
 import {ICKBChain} from "./interfaces/ICKBChain.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
@@ -66,15 +66,34 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     /// @notice             requires `memView` to be of a specified type
     /// @param memView      a 29-byte view with a 5-byte type
-    /// @param t            the expected type (e.g. BTCTypes.Outpoint, BTCTypes.TxIn, etc)
+    /// @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
     /// @return             passes if it is the correct type, errors if not
     modifier typeAssert(bytes29 memView, ViewCKB.CKBTypes t) {
         memView.assertType(uint40(t));
         _;
     }
 
-    /// #ICKBChain
+    function initWithHeader(bytes calldata data, bytes32 blockHash, uint256 totalDifficulty) external {
+        require(!initialized, "Contract is already initialized");
+        initialized = true;
+
+        bytes29 rawHeaderView = data.ref(uint40(ViewCKB.CKBTypes.Header)).rawHeader();
+        (uint256 target,) = CKBPow.compactToTarget(rawHeaderView.compactTarget());
+        uint256 difficulty = CKBPow.targetToDifficulty(target);
+        BlockHeader memory header = BlockHeader(
+            rawHeaderView.blockNumber(),
+            rawHeaderView.epoch(),
+            difficulty,
+            totalDifficulty,
+            rawHeaderView.parentHash()
+        );
+        _refreshCanonicalChain(header, blockHash);
+    }
+
+    /// # ICKBChain
     function addHeaders(bytes calldata data) external {
+        require(initialized, "Contract is not initialized");
+
         // 1. view decode from data to headers view
         bytes29 headerVecView = data.ref(uint40(ViewCKB.CKBTypes.HeaderVec));
 
@@ -88,7 +107,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
     }
 
-    function _addHeader(bytes29 headerView) public {
+    function _addHeader(bytes29 headerView) private {
         uint64 blockNumber = headerView.blockNumber();
 
         // ## verify version
@@ -105,7 +124,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         bytes32 blockHash = CKBCrypto.digest(abi.encodePacked(headerBytes, new bytes(48)), 208);
         console.logBytes32(blockHash);
 
-        // ## verify blockHash should not exsist
+        // ## verify blockHash should not exist
         if (canonicalTransactionsRoots[blockHash] != bytes32(0) || blockHeaders[blockHash].number == blockNumber) {
             return;
         }
@@ -115,12 +134,11 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // ## insert header to storage
         // 1. insert to blockHeaders
-        uint256 totalDifficulty = parentHeader.totalDifficulty + difficulty;
         BlockHeader memory header = BlockHeader(
             blockNumber,
             headerView.epoch(),
             difficulty,
-            totalDifficulty,
+            parentHeader.totalDifficulty + difficulty,
             parentHash
         );
         blockHeaders[blockHash] = header;
@@ -129,27 +147,31 @@ contract CKBChain is ICKBChain, ICKBSpv {
         allHeaderHashes[header.number].push(blockHash);
 
         // 3. refresh canonicalChain
-        if (totalDifficulty > latestHeader.totalDifficulty) {
+        if (header.totalDifficulty > latestHeader.totalDifficulty) {
             _refreshCanonicalChain(header, blockHash);
             canonicalTransactionsRoots[blockHash] = headerView.transactionsRoot();
         }
     }
 
-    // @dev reference code:  https://github.com/nervosnetwork/ckb/blob/develop/pow/src/eaglesong.rs
+    /// @notice                     verifyPow for the header
+    /// @dev                        reference code:  https://github.com/nervosnetwork/ckb/blob/develop/pow/src/eaglesong.rs
+    /// @param headerView           the bytes29 view of the header
+    /// @param parentHeader         parent header of the header
+    /// @return                     the difficulty of the header
     function _verifyPow(bytes29 headerView, BlockHeader memory parentHeader) internal view returns (uint256) {
         bytes29 rawHeader = headerView.rawHeader();
         bytes32 rawHeaderHash = CKBCrypto.digest(abi.encodePacked(rawHeader.clone(), new bytes(64)), 192);
 
         // - 1. calc powMessage
         bytes memory powMessage = abi.encodePacked(rawHeaderHash, headerView.slice(192, 16, uint40(ViewCKB.CKBTypes.Nonce)).clone());
-        
+
         // - 2. calc EaglesongHash to output
         bytes32 output = EaglesongLib.EaglesongHash(powMessage);
         // bytes memory expectOutput= hex"000000000000053ee598839a89638a5b37a7cf98ecf0ce6d02d3d9287f008b84";
         // require(keccak256(output) == keccak256(expectOutput), "eaglesong error");
 
         // - 3. calc block_target, check if target > 0
-        (uint256 target, bool overflow) = HeaderVerifier._compactToTarget(rawHeader.compactTarget());
+        (uint256 target, bool overflow) = CKBPow.compactToTarget(rawHeader.compactTarget());
         // require(target == 13919424058362656885362395578858131467813097398447086657077248, "target error");
         // require(!overflow, "overflow error");
         require(target > 0 && !overflow, "block target is zero or overflow");
@@ -159,7 +181,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         require(uint256(output) <= target, "block difficulty should greater or equal the target difficulty");
 
         // - 5. verify_difficulty
-        uint256 difficulty = HeaderVerifier._targetToDifficulty(target);
+        uint256 difficulty = CKBPow.targetToDifficulty(target);
         uint64 epoch = headerView.epoch();
         if (epoch == parentHeader.epoch) {
             require(difficulty != parentHeader.difficulty, "difficulty should equal parent's difficulty");
@@ -167,7 +189,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
             require(parentHeader.epoch + 1 == epoch, "epoch number invalid");
             // we are using dampening factor τ = 2 in CKB, the difficulty adjust range will be [previous / (τ * τ) .. previous * (τ * τ)]
             require(difficulty >= parentHeader.difficulty / 4 && difficulty <= parentHeader.difficulty * 4, "difficulty invalid");
-
         }
 
         return difficulty;
@@ -209,6 +230,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     /// #ICKBSpv
     function proveTxExist(bytes calldata txProofData, uint64 numConfirmations) external view returns (bool) {
+        require(initialized, "Contract is not initialized");
+
         bytes29 proofView = txProofData.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
@@ -245,7 +268,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
         return true;
     }
 
-    /// #GC
     /// Remove hashes from the Canonical chain that are at least as old as the given header number.
     function _gcCanonicalChain(uint64 blockNumber) internal {
         uint64 number = blockNumber;
@@ -279,6 +301,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     // TODO remove all mock function before production ready
     // mock for test
     function mockForProveTxExist(uint64 _latestBlockNumber, uint64 spvBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
+        initialized = true;
         latestBlockNumber = _latestBlockNumber;
         canonicalHeaderHashes[spvBlockNumber] = blockHash;
         canonicalTransactionsRoots[blockHash] = transactionsRoot;

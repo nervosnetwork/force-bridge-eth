@@ -29,7 +29,6 @@ library ViewCKB {
         ParentHash,
         TransactionsRoot,
         UnclesHash,
-        Dao,
 
         HeaderVec,
         Transaction
@@ -153,13 +152,6 @@ library ViewCKB {
         return _input.index(128, 32);
     }
 
-    /// @notice         extracts the dao from a RawHeader
-    /// @param _input   the RawHeader
-    /// @return         the dao
-    function dao(bytes29 _input) internal pure typeAssert(_input, CKBTypes.RawHeader) returns (bytes32) {
-        return _input.index(160, 32);
-    }
-
     /// @notice         Index a header vector.
     /// @dev            Errors on overruns
     /// @param _headers The header vector
@@ -178,4 +170,3 @@ library ViewCKB {
         return uint32(_headers.indexLEUint(0, 4));
     }
 }
-

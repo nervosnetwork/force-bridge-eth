@@ -10,10 +10,10 @@ import {ICKBSpv} from "../interfaces/ICKBSpv.sol";
 import "hardhat/console.sol";
 
 
-library HeaderVerifier {
+library CKBPow {
     uint256 constant public MAX_UIN256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
-    function _compactToTarget(uint32 compact) internal pure returns (uint256, bool) {
+    function compactToTarget(uint32 compact) internal pure returns (uint256, bool) {
         /*
             let exponent = compact >> 24;
             let mut mantissa = U256::from(compact & 0x00ff_ffff);
@@ -45,7 +45,7 @@ library HeaderVerifier {
         return (ret, overflow);
     }
 
-    function _targetToDifficulty(uint256 target) internal pure returns (uint256) {
+    function targetToDifficulty(uint256 target) internal pure returns (uint256) {
         if (target == 1) {
             return MAX_UIN256;
         }
