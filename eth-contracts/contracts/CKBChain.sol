@@ -202,7 +202,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
 
         // set latest
-        latestHeader = blockHeaders[blockHash];
+        latestHeader = header;
         latestBlockNumber = header.number;
 
         // set canonical
