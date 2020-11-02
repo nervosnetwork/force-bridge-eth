@@ -19,7 +19,9 @@ contract('TokenLocker', () => {
     provider = tokenLocker.provider
   })
 
-  describe('lockETH', async () => {
+  describe('lockETH', async function () {
+    // disable timeout
+    this.timeout(0)
     it('Should lockETH verified', async () => {
       // let defaultProvider = ethers.getDefaultProvider()
       const contractBalance = await provider.getBalance(tokenLocker.address)
@@ -37,7 +39,9 @@ contract('TokenLocker', () => {
     })
   })
 
-  describe('lockToken', async () => {
+  describe('lockToken', async function () {
+    // disable timeout
+    this.timeout(0)
     it('Should lock erc20 token verified', async () => {
       // deploy erc20
       const factory = await ethers.getContractFactory("contracts/test/ERC20.sol:ERC20")
