@@ -167,13 +167,10 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // - 2. calc EaglesongHash to output
         bytes32 output = EaglesongLib.EaglesongHash(powMessage);
-        // bytes memory expectOutput= hex"000000000000053ee598839a89638a5b37a7cf98ecf0ce6d02d3d9287f008b84";
-        // require(keccak256(output) == keccak256(expectOutput), "eaglesong error");
 
         // - 3. calc block_target, check if target > 0
         (uint256 target, bool overflow) = CKBPow.compactToTarget(rawHeader.compactTarget());
-        // require(target == 13919424058362656885362395578858131467813097398447086657077248, "target error");
-        // require(!overflow, "overflow error");
+
         require(target > 0 && !overflow, "block target is zero or overflow");
 
         // - 4. check if EaglesongHash <= block target
