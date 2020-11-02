@@ -10,11 +10,10 @@ use ckb_std::error::SysError;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-#[derive(Default, Clone)]
-pub struct ComplexData {}
-
 #[derive(Debug, Clone)]
 pub struct BridgeCellDataTuple(pub Option<Vec<u8>>, pub Option<Vec<u8>>);
+
+use molecule::bytes::Bytes;
 
 #[cfg_attr(feature = "std", automock)]
 pub trait Adapter {
@@ -22,5 +21,7 @@ pub trait Adapter {
 
     fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError>;
 
-    fn get_complex_data(&self) -> Result<ComplexData, SysError>;
+    fn load_input_witness_args(&self) -> Result<Bytes, SysError>;
+
+    fn load_cell_dep_data(&self, index: usize) -> Result<Vec<u8>, SysError>;
 }

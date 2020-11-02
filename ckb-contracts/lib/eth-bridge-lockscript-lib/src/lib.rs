@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod actions;
+pub mod actions;
 pub mod adapter;
 pub mod debug;
 
@@ -26,11 +26,12 @@ pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
         .load_input_output_data()
         .expect("inputs or outputs cell num invalid");
 
-    debug!("cell_data_tuple {:?}", cell_data_tuple);
-
     match cell_data_tuple {
         BridgeCellDataTuple(Some(input_data), Some(output_data)) => {
             actions::verify_mint_token(data_loader, input_data.as_slice(), output_data.as_slice())
+        }
+        BridgeCellDataTuple(Some(input_data), None) => {
+            actions::verify_destroy_cell(data_loader, input_data.as_slice())
         }
         _ => panic!("input and output should not be none"),
     }
@@ -46,7 +47,7 @@ mod tests {
         let mut mock = MockAdapter::new();
         mock.expect_load_input_output_data()
             .times(1)
-            .returning(|| Ok(BridgeCellDataTuple(Some([0].to_vec()), Some([0].to_vec()))));
+            .returning(|| Ok(BridgeCellDataTuple(Some([].to_vec()), Some([].to_vec()))));
         let return_code = _verify(mock);
         assert_eq!(return_code, 0);
     }

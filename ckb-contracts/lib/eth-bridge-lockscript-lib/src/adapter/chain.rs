@@ -1,12 +1,15 @@
-use super::{Adapter, BridgeCellDataTuple, ComplexData};
+use super::{Adapter, BridgeCellDataTuple};
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::high_level::{
-    load_cell_data, load_cell_lock_hash, load_script_hash, load_tx_hash, QueryIter,
+    load_cell_data, load_cell_lock_hash, load_script_hash, load_tx_hash, load_witness_args,
+    QueryIter,
 };
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+
+use molecule::bytes::Bytes;
 
 pub struct ChainAdapter {}
 
@@ -20,7 +23,6 @@ impl Adapter for ChainAdapter {
             let data_list =
                 QueryIter::new(load_cell_data, Source::GroupInput).collect::<Vec<Vec<u8>>>();
             match data_list.len() {
-                0 => None,
                 1 => Some(data_list[0].clone()),
                 _ => panic!("inputs have more than 1 bridge cell"),
             }
@@ -56,7 +58,15 @@ impl Adapter for ChainAdapter {
         Ok(tuple)
     }
 
-    fn get_complex_data(&self) -> Result<ComplexData, SysError> {
-        unimplemented!()
+    fn load_input_witness_args(&self) -> Result<Bytes, SysError> {
+        let witness_args = load_witness_args(0, Source::GroupInput)?.input_type();
+        if witness_args.is_none() {
+            panic!("witness is none");
+        }
+        Ok(witness_args.to_opt().unwrap().raw_data())
+    }
+
+    fn load_cell_dep_data(&self, index: usize) -> Result<Vec<u8>, SysError> {
+        load_cell_data(index, Source::CellDep)
     }
 }
