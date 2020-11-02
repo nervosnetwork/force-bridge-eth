@@ -1,0 +1,7 @@
+import basic;
+
+table ETHRecipientCellData {
+    eth_recipient_address: Bytes,
+    eth_token_address: Bytes,
+    token_amount: Uint128,
+}

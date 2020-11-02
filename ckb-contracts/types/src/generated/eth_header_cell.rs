@@ -3,7 +3,6 @@
 
 use super::basic::*;
 use molecule::prelude::*;
-
 #[derive(Clone)]
 pub struct EthCellData(molecule::bytes::Bytes);
 impl ::core::fmt::LowerHex for EthCellData {
@@ -358,7 +357,6 @@ impl<'r> ::core::fmt::Debug for ChainReader<'r> {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-
 impl<'r> ::core::fmt::Display for ChainReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
