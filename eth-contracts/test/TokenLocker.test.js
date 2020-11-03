@@ -15,7 +15,7 @@ contract("TokenLocker", () => {
     this.timeout(0);
 
     let factory = await ethers.getContractFactory(
-      "contracts/MockCKBSpv.sol:MockCKBSpv"
+      "contracts/test/MockCKBSpv.sol:MockCKBSpv"
     );
     const mockSpv = await factory.deploy();
     await mockSpv.deployed();
