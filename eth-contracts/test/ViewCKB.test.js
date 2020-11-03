@@ -206,7 +206,6 @@ contract("ViewCKB", () => {
         const headerVec = indexHeaderVec[i].output;
 
         for (let index = 0; index < headerVec.length; index++) {
-          console.log("index = ", index);
           const res = await instance.indexHeaderVec(
             indexHeaderVec[i].input,
             index
