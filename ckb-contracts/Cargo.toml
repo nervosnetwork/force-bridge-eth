@@ -2,7 +2,9 @@
 
 members = [
     "tests",
+    "types",
     "lib/eth-bridge-lockscript-lib",
+    "lib/eth-bridge-typescript-lib",
 ]
 
 exclude = [
