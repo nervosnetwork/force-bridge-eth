@@ -9,7 +9,7 @@ import {ICKBChain} from "../interfaces/ICKBChain.sol";
 import {ICKBSpv} from "../interfaces/ICKBSpv.sol";
 import "hardhat/console.sol";
 
-
+/// @dev    reference code:  https://github.com/nervosnetwork/ckb/blob/master/util/types/src/utilities/difficulty.rs
 library CKBPow {
     uint256 constant public MAX_UIN256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
