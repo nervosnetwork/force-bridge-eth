@@ -9,6 +9,7 @@ pub struct Opts {
 
 #[derive(Clap, Clone, Debug)]
 pub enum SubCommand {
+    DevInit(DevInitArgs),
     TransferToCkb(TransferToCkbArgs),
     Approve(ApproveArgs),
     LockToken(LockTokenArgs),
@@ -19,6 +20,26 @@ pub enum SubCommand {
     Burn(BurnArgs),
     GenerateCkbProof(GenerateCkbProofArgs),
     Unlock(UnlockArgs),
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct DevInitArgs {
+    #[clap(short = 'f', long)]
+    pub force: bool,
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "http://127.0.0.1:8114")]
+    pub rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8116")]
+    pub indexer_url: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long, default_value = "../build/release/eth-bridge-typescript")]
+    pub typescript_path: String,
+    #[clap(long, default_value = "../build/release/eth-bridge-lockscript")]
+    pub lockscript_path: String,
+    #[clap(long, default_value = "../tests/deps/simple_udt")]
+    pub sudt_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -79,7 +100,20 @@ pub struct GenerateEthProofArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct MintArgs {}
+pub struct MintArgs {
+    #[clap(short, long)]
+    pub hash: String,
+    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    pub eth_rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "http://127.0.0.1:8116")]
+    pub indexer_url: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+}
 
 #[derive(Clap, Clone, Debug)]
 pub struct TransferFromCkbArgs {}
