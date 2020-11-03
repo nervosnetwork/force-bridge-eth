@@ -80,13 +80,20 @@ contract CKBChain is ICKBChain, ICKBSpv {
         bytes29 rawHeaderView = data.ref(uint40(ViewCKB.CKBTypes.Header)).rawHeader();
         (uint256 target,) = CKBPow.compactToTarget(rawHeaderView.compactTarget());
         uint256 difficulty = CKBPow.targetToDifficulty(target);
+        uint64 blockNumber = rawHeaderView.blockNumber();
         BlockHeader memory header = BlockHeader(
-            rawHeaderView.blockNumber(),
+            blockNumber,
             rawHeaderView.epoch(),
             difficulty,
             totalDifficulty,
             rawHeaderView.parentHash()
         );
+
+        // set headers
+        allHeaderHashes[blockNumber].push(blockHash);
+        blockHeaders[blockHash] = header;
+
+        // set canonical chain
         _refreshCanonicalChain(header, blockHash);
     }
 
