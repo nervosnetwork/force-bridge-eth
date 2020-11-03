@@ -46,6 +46,21 @@ library CKBPow {
     }
 
     function targetToDifficulty(uint256 target) internal pure returns (uint256) {
+        /*
+            const ONE: U256 = U256::one();
+            // ONE << 256
+            const HSPACE: U512 = u512!("0x10000000000000000000000000000000000000000000000000000000000000000");
+
+            fn target_to_difficulty(target: &U256) -> U256 {
+                if target == &ONE {
+                    U256::max_value()
+                } else {
+                    let (target, _): (U512, bool) = target.convert_into();
+                    (HSPACE / target).convert_into().0
+                }
+            }
+        */
+
         if (target == 1) {
             return MAX_UIN256;
         }
