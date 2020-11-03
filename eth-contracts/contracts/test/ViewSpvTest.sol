@@ -15,7 +15,7 @@ contract ViewSpvTest {
     }
 
     function blockNumber(bytes memory _input) public pure returns (uint64) {
-        return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).blockNumber();
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).spvBlockNumber();
     }
 
     function blockHash(bytes memory _input) public pure returns (bytes32) {
