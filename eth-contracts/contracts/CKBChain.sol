@@ -201,6 +201,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     function _refreshCanonicalChain(BlockHeader memory header, bytes32 blockHash) internal {
         // remove lower difficulty canonical branch
         for (uint64 i = header.number + 1; i <= latestBlockNumber; i++) {
+            emit BlockHashReverted(i, canonicalHeaderHashes[i]);
             delete canonicalTransactionsRoots[canonicalHeaderHashes[i]];
             delete canonicalHeaderHashes[i];
         }
@@ -211,6 +212,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // set canonical
         canonicalHeaderHashes[latestBlockNumber] = blockHash;
+        emit BlockHashAdded(latestBlockNumber, blockHash);
 
         uint64 number = header.number - 1;
         bytes32 currentHash = latestHeader.parentHash;
