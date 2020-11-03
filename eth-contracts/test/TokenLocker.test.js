@@ -32,7 +32,7 @@ contract("TokenLocker", () => {
 
       // lockETH
       const amount = ethers.utils.parseEther("1.2");
-      const res = await tokenLocker.lockETH(0, { value: amount });
+      const res = await tokenLocker.lockETH("ckbAddress", "replayResistOutpoint", { value: amount });
       const gasUsed = await waitingForGasUsed(provider, res);
       log(`gasUsed: ${gasUsed.toString()}`);
 
@@ -76,7 +76,7 @@ contract("TokenLocker", () => {
       // lock erc20
       const amount = 789;
       log(`lock erc20 token amount ${amount}`);
-      res = await tokenLocker.lockToken(erc20.address, amount, "ckb_address");
+      res = await tokenLocker.lockToken(erc20.address, amount, "ckb_address", "replayResistOutpoint");
       gasUsed = await waitingForGasUsed(provider, res);
       log(`gasUsed: ${gasUsed.toString()}`);
 
