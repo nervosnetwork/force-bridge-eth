@@ -1,92 +1,8 @@
 [
   {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint64",
-        "name": "blockNumber",
-        "type": "uint64"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "BlockHashAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint64",
-        "name": "blockNumber",
-        "type": "uint64"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "BlockHashReverted",
-    "type": "event"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "CanonicalGcThreshold",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "FinalizedGcThreshold",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "constant": false,
     "inputs": [
       {
-        "internalType": "bytes",
-        "name": "_data",
-        "type": "bytes"
-      }
-    ],
-    "name": "addHeader",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "internalType": "bytes",
         "name": "data",
         "type": "bytes"
       }
@@ -100,10 +16,60 @@
   {
     "constant": true,
     "inputs": [],
+    "name": "rawHeaders",
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "CanonicalGcThreshold",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
     "name": "initialized",
     "outputs": [
       {
-        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "txProofData",
+        "type": "bytes"
+      },
+      {
+        "name": "numConfirmations",
+        "type": "uint64"
+      }
+    ],
+    "name": "proveTxExist",
+    "outputs": [
+      {
         "name": "",
         "type": "bool"
       }
@@ -118,9 +84,22 @@
     "name": "latestBlockNumber",
     "outputs": [
       {
-        "internalType": "uint64",
         "name": "",
         "type": "uint64"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "CHAIN_VERSION",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32"
       }
     ],
     "payable": false,
@@ -131,22 +110,32 @@
     "constant": false,
     "inputs": [
       {
-        "internalType": "uint64",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "addRawHeaders",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
         "name": "_latestBlockNumber",
         "type": "uint64"
       },
       {
-        "internalType": "uint64",
         "name": "spvBlockNumber",
         "type": "uint64"
       },
       {
-        "internalType": "bytes32",
         "name": "blockHash",
         "type": "bytes32"
       },
       {
-        "internalType": "bytes32",
         "name": "transactionsRoot",
         "type": "bytes32"
       }
@@ -159,24 +148,66 @@
   },
   {
     "constant": true,
-    "inputs": [
+    "inputs": [],
+    "name": "FinalizedGcThreshold",
+    "outputs": [
       {
-        "internalType": "bytes",
-        "name": "txProofData",
-        "type": "bytes"
-      },
-      {
-        "internalType": "uint64",
-        "name": "numConfirmations",
+        "name": "",
         "type": "uint64"
       }
     ],
-    "name": "proveTxExist",
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "blockNumber",
+        "type": "uint64"
+      }
+    ],
+    "name": "getHeaderHash",
     "outputs": [
       {
-        "internalType": "bool",
         "name": "",
-        "type": "bool"
+        "type": "bytes32"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "blockHeaders",
+    "outputs": [
+      {
+        "name": "number",
+        "type": "uint64"
+      },
+      {
+        "name": "epoch",
+        "type": "uint64"
+      },
+      {
+        "name": "difficulty",
+        "type": "uint256"
+      },
+      {
+        "name": "totalDifficulty",
+        "type": "uint256"
+      },
+      {
+        "name": "parentHash",
+        "type": "bytes32"
       }
     ],
     "payable": false,
@@ -185,17 +216,81 @@
   },
   {
     "constant": true,
-    "inputs": [],
-    "name": "raw_header_data",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint64"
+      },
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "allHeaderHashes",
     "outputs": [
       {
-        "internalType": "bytes",
         "name": "",
-        "type": "bytes"
+        "type": "bytes32"
       }
     ],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes"
+      },
+      {
+        "name": "blockHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "totalDifficulty",
+        "type": "uint256"
+      }
+    ],
+    "name": "initWithHeader",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "blockNumber",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "name": "blockHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "BlockHashAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "blockNumber",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "name": "blockHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "BlockHashReverted",
+    "type": "event"
   }
 ]

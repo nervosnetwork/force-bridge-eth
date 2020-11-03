@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Error, Result};
+use ethabi::{FixedBytes, Uint};
 use ethereum_tx_sign::RawTransaction;
 use log::{debug, info};
 use rlp::RlpStream;
@@ -43,10 +44,7 @@ impl Web3Client {
         let chain_id = self.client().eth().chain_id().await?;
         debug!("chain id :{}", &chain_id);
         let tx = make_transaction(to, nonce, data, eth_value);
-        let signed_tx = tx.sign(
-            &parse_private_key(key_path.as_str()).unwrap(),
-            &chain_id.as_u32(),
-        );
+        let signed_tx = tx.sign(&parse_private_key(&key_path)?, &chain_id.as_u32());
         let tx_hash = self
             .client()
             .eth()
@@ -93,10 +91,62 @@ impl Web3Client {
             self.client.eth(),
             contract_addr,
             include_bytes!("ckb_chain_abi.json"),
-        )?;
+        )
+        .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
         let result = contract.query("latestBlockNumber", (), None, Options::default(), None);
         let latest_block_number: u64 = result.await?;
         Ok(latest_block_number)
+    }
+    pub async fn get_mock_data(&mut self, contract_addr: Address) -> Result<Bytes> {
+        let contract = Contract::from_json(
+            self.client.eth(),
+            contract_addr,
+            include_bytes!("ckb_chain_abi.json"),
+        )
+        .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+        let result = contract.query("rawHeaders", (), None, Options::default(), None);
+        let mock_data: Bytes = result.await?;
+        Ok(mock_data)
+    }
+
+    pub async fn is_header_exist(
+        &mut self,
+        block_number: u64,
+        latest_header_hash: ckb_types::H256,
+        contract_addr: Address,
+    ) -> Result<bool> {
+        let contract = Contract::from_json(
+            self.client.eth(),
+            contract_addr,
+            include_bytes!("ckb_chain_abi.json"),
+        )
+        .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+
+        info!(
+            "ckb block {:?} header hash : {:?}",
+            block_number,
+            hex::encode(latest_header_hash.as_bytes())
+        );
+
+        // TODO : confirm the result contains all the block hash at same height(maybe fork)
+        let result = contract.query(
+            "getHeaderHash",
+            Uint::from(block_number),
+            None,
+            Options::default(),
+            None,
+        );
+
+        let header_hash: FixedBytes = result.await?;
+        info!(
+            "contact block {:?} header hash : {:?}",
+            block_number,
+            hex::encode(header_hash.as_slice())
+        );
+        if header_hash.as_slice() == latest_header_hash.as_bytes() {
+            return Ok(true);
+        }
+        Ok(false)
     }
 }
 
@@ -118,9 +168,7 @@ pub fn parse_private_key(path: &str) -> Result<ethereum_types::H256> {
         .next()
         .ok_or_else(|| anyhow!("File is empty"))?;
     return Ok(ethereum_types::H256::from_slice(
-        hex::decode(private_key_string)
-            .expect("invalid private_key_string.")
-            .as_slice(),
+        hex::decode(private_key_string)?.as_slice(),
     ));
 }
 

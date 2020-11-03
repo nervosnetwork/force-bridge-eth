@@ -35,7 +35,7 @@ impl CKBRelayer {
         }
     }
     pub async fn start(&mut self) -> Result<()> {
-        let mut ckb_relay = Generator::new(
+        let mut ckb_client = Generator::new(
             self.ckb_rpc_url.clone(),
             self.indexer_url.clone(),
             Default::default(),
@@ -43,15 +43,43 @@ impl CKBRelayer {
         .map_err(|e| anyhow::anyhow!("failed to crate generator: {}", e))?;
         let mut web3_client = Web3Client::new(self.eth_rpc_url.clone());
 
-        let mut block_height = web3_client
+        let mut client_block_number = web3_client
             .get_light_client_current_height(self.contract_addr)
             .await?;
-        info!("blcok header number : {:?}", block_height);
+        info!("client contract header number : {:?}", client_block_number);
+
+        while client_block_number > 0 {
+            let ckb_header_hash = ckb_client
+                .rpc_client
+                .get_block_by_number(client_block_number)
+                .map_err(|e| anyhow::anyhow!("failed to get block: {}", e))?
+                .ok_or_else(|| anyhow::anyhow!("block {:?} is none", client_block_number))?
+                .header
+                .hash;
+
+            if web3_client
+                .is_header_exist(client_block_number, ckb_header_hash, self.contract_addr)
+                .await?
+            {
+                break;
+            }
+            client_block_number -= 1;
+        }
+
+        let mut block_height = client_block_number;
+        let block_gap = 1;
 
         loop {
-            block_height += 1;
-            let headers = ckb_relay.get_ckb_headers(vec![block_height])?;
-            info!("headers : {:?} ", hex::encode(headers.as_slice()));
+            let height_range = block_height..block_height + block_gap;
+            block_height += block_gap;
+
+            let heights: Vec<u64> = height_range.clone().collect();
+            let headers = ckb_client.get_ckb_headers(heights)?;
+            info!(
+                "the headers vec of {:?} is {:?} ",
+                height_range,
+                hex::encode(headers.as_slice())
+            );
 
             let add_headers_func = get_add_ckb_headers_func();
             let add_headers_abi = add_headers_func.encode_input(&[Token::Bytes(headers)])?;
