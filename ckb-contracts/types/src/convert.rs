@@ -2,8 +2,6 @@
 use alloc::borrow::ToOwned;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
-use ckb_std::ckb_types::packed;
 
 use crate::generated::basic::{Byte32, Bytes, Uint128, Uint64};
 use core::convert::TryFrom;
