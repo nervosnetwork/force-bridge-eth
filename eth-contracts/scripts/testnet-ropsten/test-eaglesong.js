@@ -2,7 +2,7 @@
 // but useful for running the script in a standalone fashion through `node <script>`.
 // When running the script with `buidler run <script>` you'll find the Buidler
 // Runtime Environment's members available in the global scope.
-const { waitingForTxReceipt } = require('../../test/utils')
+const { waitingForTxReceipt } = require("../../test/utils");
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -32,7 +32,7 @@ async function main() {
   //     "0x000000000000053ee598839a89638a5b37a7cf98ecf0ce6d02d3d9287f008b84",
   //   `${res} !== 0x000000000000053ee598839a89638a5b37a7cf98ecf0ce6d02d3d9287f008b84`
   // );
-  const txReceipt = await waitingForTxReceipt(contract.provider, res)
+  const txReceipt = await waitingForTxReceipt(contract.provider, res);
   console.log("txReceipt: ", txReceipt);
   console.log("gasUsed: ", txReceipt.gasUsed.toString());
 }
