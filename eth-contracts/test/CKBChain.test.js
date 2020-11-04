@@ -61,12 +61,13 @@ contract("CKBChain", () => {
 
       // addHeaders
       const headersInput = indexHeaderVec[startIndex].input
+      const headers = indexHeaderVec[startIndex].output;
       let res = await ckbChain.addHeaders(headersInput)
       let txReceipt = await waitingForTxReceipt(provider, res);
+      log(`add ${headers.length} Headers gasUsed: ${txReceipt.gasUsed.toString()}`);
       log(JSON.stringify(txReceipt.logs, null, 4));
 
       // verify result
-      const headers = indexHeaderVec[startIndex].output;
       const endHeaderIndex = startIndex + headers.length - 1;
       let expectTipNumber = extractBlockNumber[ endHeaderIndex ].output
       let actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber();
