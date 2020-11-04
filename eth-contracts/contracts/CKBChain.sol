@@ -73,6 +73,22 @@ contract CKBChain is ICKBChain, ICKBSpv {
         _;
     }
 
+
+    // query
+    function getLatestBlockNumber() public returns (uint64) {
+        return latestBlockNumber;
+    }
+
+    // query
+    function getCanonicalHeaderHash(uint64  blockNumber) public returns (bytes32 memory) {
+        return canonicalHeaderHashes[blockNumber];
+    }
+
+    // query
+    function getCanonicalTransactionsRoot(bytes32 blockHash) public returns (bytes32 memory) {
+        return canonicalTransactionsRoots[blockHash];
+    }
+
     function initWithHeader(bytes calldata data, bytes32 blockHash) external {
         require(!initialized, "Contract is already initialized");
         initialized = true;
