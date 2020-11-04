@@ -73,7 +73,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         _;
     }
 
-    function initWithHeader(bytes calldata data, bytes32 blockHash, uint256 totalDifficulty) external {
+    function initWithHeader(bytes calldata data, bytes32 blockHash) external {
         require(!initialized, "Contract is already initialized");
         initialized = true;
 
@@ -85,7 +85,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
             blockNumber,
             rawHeaderView.epoch(),
             difficulty,
-            totalDifficulty,
+            difficulty,
             rawHeaderView.parentHash()
         );
 
@@ -99,6 +99,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     /// # ICKBChain
     function addHeaders(bytes calldata data) external {
+        console.log("addHeaders debug");
+        console.logBytes(data);
         require(initialized, "Contract is not initialized");
 
         // 1. view decode from data to headers view
