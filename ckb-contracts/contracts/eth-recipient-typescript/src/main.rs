@@ -13,7 +13,7 @@
 extern crate alloc;
 
 use ckb_std::default_alloc;
-use eth_bridge_typescript_lib::verify;
+use eth_recipient_typescript_lib::verify;
 
 default_alloc!();
 

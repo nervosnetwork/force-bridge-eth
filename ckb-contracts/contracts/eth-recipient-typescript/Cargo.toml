@@ -1,5 +1,5 @@
 [package]
-name = "eth-bridge-typescript"
+name = "eth-recipient-typescript"
 version = "0.1.0"
 edition = "2018"
 
