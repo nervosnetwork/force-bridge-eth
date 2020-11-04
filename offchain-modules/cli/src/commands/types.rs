@@ -140,7 +140,18 @@ pub struct GenerateCkbProofArgs {
 pub struct UnlockArgs {}
 
 #[derive(Clap, Clone, Debug)]
-pub struct EthRelayArgs {}
+pub struct EthRelayArgs {
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long, default_value = "http://localhost:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8545")]
+    pub eth_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8116")]
+    pub indexer_rpc_url: String,
+}
 
 #[derive(Clap, Clone, Debug)]
 pub struct CkbRelayArgs {

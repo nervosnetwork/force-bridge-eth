@@ -2,6 +2,7 @@ pub mod types;
 use anyhow::Result;
 use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
+use force_eth_lib::relay::eth_relay::ETHRelayer;
 use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
@@ -37,7 +38,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::Unlock(args) => unlock_handler(args),
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
 
-        SubCommand::EthRelay(args) => eth_relay_handler(args),
+        SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
     }
 }
@@ -197,9 +198,16 @@ pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     todo!()
 }
 
-pub fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
+pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     debug!("eth_relay_handler args: {:?}", &args);
-    todo!()
+    let mut eth_relayer = ETHRelayer::new(
+        args.config_path,
+        args.ckb_rpc_url,
+        args.indexer_rpc_url,
+        args.eth_rpc_url,
+        args.private_key_path,
+    );
+    eth_relayer.start().await
 }
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
