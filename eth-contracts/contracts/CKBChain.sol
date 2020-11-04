@@ -89,10 +89,15 @@ contract CKBChain is ICKBChain, ICKBSpv {
         return canonicalTransactionsRoots[blockHash];
     }
 
-    function initWithHeader(bytes calldata data, bytes32 blockHash) external {
+    function initWithHeader(bytes calldata data, bytes32 blockHash, uint64 finalizedGcThreshold, uint64 canonicalGcThreshold) external {
         require(!initialized, "Contract is already initialized");
         initialized = true;
 
+        // set init threshold
+        FinalizedGcThreshold = finalizedGcThreshold;
+        CanonicalGcThreshold = canonicalGcThreshold;
+
+        // decoder init header
         bytes29 rawHeaderView = data.ref(uint40(ViewCKB.CKBTypes.Header)).rawHeader();
         (uint256 target,) = CKBPow.compactToTarget(rawHeaderView.compactTarget());
         uint256 difficulty = CKBPow.targetToDifficulty(target);
@@ -230,16 +235,20 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // set canonical
         canonicalHeaderHashes[latestBlockNumber] = blockHash;
+        console.logBytes32(canonicalHeaderHashes[latestBlockNumber]);
         emit BlockHashAdded(latestBlockNumber, blockHash);
 
-        uint64 number = header.number - 1;
-        bytes32 currentHash = latestHeader.parentHash;
-        while (true) {
-            if (number == 0 || canonicalHeaderHashes[number] == currentHash) {
+        // set new branch to canonical chain
+        uint64 parentNumber = latestBlockNumber - 1;
+        bytes32 parentHash = latestHeader.parentHash;
+        while (parentNumber > 0) {
+            if (canonicalHeaderHashes[parentNumber] == bytes32(0) || canonicalHeaderHashes[parentNumber] == parentHash) {
                 break;
             }
-            canonicalHeaderHashes[number] = currentHash;
-            number--;
+            canonicalHeaderHashes[parentNumber] = parentHash;
+
+            parentHash = blockHeaders[parentHash].parentHash;
+            parentNumber--;
         }
 
         // gc
