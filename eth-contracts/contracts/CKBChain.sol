@@ -11,7 +11,7 @@ import {ICKBChain} from "./interfaces/ICKBChain.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
 // TODO tools below just for test, they will be removed before production ready
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract CKBChain is ICKBChain, ICKBSpv {
     using TypedMemView for bytes;
@@ -126,8 +126,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     /// # ICKBChain
     function addHeaders(bytes calldata data) external {
-        console.log("addHeaders debug");
-        console.logBytes(data);
         require(initialized, "Contract is not initialized");
 
         // 1. view decode from data to headers view
@@ -138,6 +136,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint32 index = 0;
         while (index < length) {
             bytes29 headerView = headerVecView.indexHeaderVec(index);
+//            console.log("index: %s", index);
             _addHeader(headerView);
             index++;
         }
@@ -150,24 +149,30 @@ contract CKBChain is ICKBChain, ICKBSpv {
         // ## verify version
         require(rawHeaderView.version() == CHAIN_VERSION, "chain version invalid");
 
-        // ## verify blockNumber
-        require(blockNumber + CanonicalGcThreshold >= latestBlockNumber, "block is too old");
-        bytes32 parentHash = rawHeaderView.parentHash();
-        BlockHeader memory parentHeader = blockHeaders[parentHash];
-        require(parentHeader.totalDifficulty > 0 && parentHeader.number + 1 == blockNumber, "block's parent block mismatch");
-
         // calc blockHash
         bytes memory headerBytes = headerView.clone();
         bytes32 blockHash = CKBCrypto.digest(abi.encodePacked(headerBytes, new bytes(48)), 208);
-        console.logBytes32(blockHash);
+//        bytes32 blockHash = bytes32(0x8a3e5a9fa954d32328870bc6a7679e80cd238621cfbdabc6116311c9f41a7d5d);
 
         // ## verify blockHash should not exist
         if (canonicalTransactionsRoots[blockHash] != bytes32(0) || blockHeaders[blockHash].number == blockNumber) {
             return;
         }
 
+        // ## verify blockNumber
+        require(blockNumber + CanonicalGcThreshold >= latestBlockNumber, "block is too old");
+        bytes32 parentHash = rawHeaderView.parentHash();
+//        console.logBytes32(parentHash);
+
+        BlockHeader memory parentHeader = blockHeaders[parentHash];
+//        console.log("parentHeader.number + 1 = %s, blockNumber = %s", parentHeader.number + 1, blockNumber);
+//        console.log("parentHeader.totalDifficulty = %s", parentHeader.totalDifficulty);
+        require(parentHeader.totalDifficulty > 0 && parentHeader.number + 1 == blockNumber, "block's parent block mismatch");
+
+//        console.log("after ## verify blockNumber");
         // ## verify pow
-        uint256 difficulty = _verifyPow(rawHeaderView, parentHeader);
+        uint256 difficulty = _verifyPow(headerView, rawHeaderView, parentHeader);
+//        console.log("after ## verify pow");
 
         // ## insert header to storage
         // 1. insert to blockHeaders
@@ -195,9 +200,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
     /// @param headerView           the bytes29 view of the header
     /// @param parentHeader         parent header of the header
     /// @return                     the difficulty of the header
-    function _verifyPow(bytes29 headerView, BlockHeader memory parentHeader) internal view returns (uint256) {
-        bytes29 rawHeader = headerView.rawHeader();
-        bytes32 rawHeaderHash = CKBCrypto.digest(abi.encodePacked(rawHeader.clone(), new bytes(64)), 192);
+    function _verifyPow(bytes29 headerView, bytes29 rawHeaderView, BlockHeader memory parentHeader) internal view returns (uint256) {
+        bytes32 rawHeaderHash = CKBCrypto.digest(abi.encodePacked(rawHeaderView.clone(), new bytes(64)), 192);
 
         // - 1. calc powMessage
         bytes memory powMessage = abi.encodePacked(rawHeaderHash, headerView.slice(192, 16, uint40(ViewCKB.CKBTypes.Nonce)).clone());
@@ -206,8 +210,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         bytes32 output = EaglesongLib.EaglesongHash(powMessage);
 
         // - 3. calc block_target, check if target > 0
-        (uint256 target, bool overflow) = CKBPow.compactToTarget(rawHeader.compactTarget());
-
+        (uint256 target, bool overflow) = CKBPow.compactToTarget(rawHeaderView.compactTarget());
         require(target > 0 && !overflow, "block target is zero or overflow");
 
         // - 4. check if EaglesongHash <= block target
@@ -216,11 +219,10 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // - 5. verify_difficulty
         uint256 difficulty = CKBPow.targetToDifficulty(target);
-        uint64 epoch = headerView.epoch();
+        uint64 epoch = rawHeaderView.epoch();
         if (epoch == parentHeader.epoch) {
             require(difficulty != parentHeader.difficulty, "difficulty should equal parent's difficulty");
         } else {
-            require(parentHeader.epoch + 1 == epoch, "epoch number invalid");
             // we are using dampening factor τ = 2 in CKB, the difficulty adjust range will be [previous / (τ * τ) .. previous * (τ * τ)]
             require(difficulty >= parentHeader.difficulty / 4 && difficulty <= parentHeader.difficulty * 4, "difficulty invalid");
         }
@@ -242,7 +244,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // set canonical
         canonicalHeaderHashes[latestBlockNumber] = blockHash;
-        console.logBytes32(canonicalHeaderHashes[latestBlockNumber]);
+//        console.logBytes32(canonicalHeaderHashes[latestBlockNumber]);
         emit BlockHashAdded(latestBlockNumber, blockHash);
 
         // set new branch to canonical chain

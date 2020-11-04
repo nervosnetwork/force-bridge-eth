@@ -7,7 +7,7 @@ import {ViewSpv} from "../libraries/ViewSpv.sol";
 import {EaglesongLib} from "../libraries/EaglesongLib.sol";
 import {ICKBChain} from "../interfaces/ICKBChain.sol";
 import {ICKBSpv} from "../interfaces/ICKBSpv.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 /// @dev    reference code:  https://github.com/nervosnetwork/ckb/blob/master/util/types/src/utilities/difficulty.rs
 library CKBPow {

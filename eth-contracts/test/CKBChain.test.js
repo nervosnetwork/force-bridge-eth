@@ -1,15 +1,17 @@
 const { expect } = require("chai");
-const { log, waitingForGasUsed, sleep } = require("./utils");
-const vectors = require("./data/testSpv.json");
+const { log, waitingForTxReceipt, sleep } = require("./utils");
+const vectors = require("./data/testVectors.json");
 
 const {
   extractBlockNumber,
-  extractBlockHash,
-  expectedTransactionsRoot,
+  calculateBlockHash,
+  extractTransactionsRoot,
+  extractEpoch,
+  indexHeaderVec
 } = vectors;
 
 contract("CKBChain", () => {
-  let ckbChain, provider;
+  let ckbChain, provider, initHeaderIndex;
 
   before(async function () {
     // disable timeout
@@ -20,23 +22,24 @@ contract("CKBChain", () => {
     ckbChain = await factory.deploy();
     await ckbChain.deployed();
     provider = ckbChain.provider;
+    initHeaderIndex = extractBlockNumber.length - 3;  // it will add 2 headers
   });
 
   describe("initWithHeader correct case", async function () {
     // disable timeout
     this.timeout(0);
     it("Should initWithHeader success", async () => {
-      const initHeaderData = '0x000000007ea9081a0867f5706e01000005000000000000000000000500cf060083832d6367429901a4bf763a6d6cbdc658a2624a8a4cda7427edd6fad65d0f7d8877c8cab9d920c4ce87c67661ffc566ffe34d5c1ec7341ad53a3d91b90c22960000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030bba492fd1ea12e17d1fb8ef2862300ae897b092b00000000710b00c0fefe0635a9e31900000000000000558c23d5ab'
-      const initBlockHash = '0x2567f226c73b04a6cb3ef04b3bb10ab99f37850794cd9569be7de00bac4db875'
       const finalizedGcThreshold = 500;
       const canonicalGcThreshold = 40000;
-      let res = await ckbChain.initWithHeader(initHeaderData, initBlockHash, finalizedGcThreshold, canonicalGcThreshold);
-      let gasUsed = await waitingForGasUsed(provider, res);
-      log(`initWithHeader gasUsed: ${gasUsed.toString()}`);
-      // await sleep(10)
 
-      // check if init success
-      let expectTipNumber = 5
+      const initHeaderData = calculateBlockHash[initHeaderIndex].input
+      const initBlockHash = calculateBlockHash[initHeaderIndex].output
+      let res = await ckbChain.initWithHeader(initHeaderData, initBlockHash, finalizedGcThreshold, canonicalGcThreshold);
+      let txReceipt = await waitingForTxReceipt(provider, res);
+      log(`initWithHeader gasUsed: ${txReceipt.gasUsed.toString()}`);
+
+      // verify result
+      let expectTipNumber = extractBlockNumber[initHeaderIndex].output
       let actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber();
       expect(actualTipNumber).to.equal(expectTipNumber);
 
@@ -44,13 +47,39 @@ contract("CKBChain", () => {
       let actualCanonicalHeaderHash = await ckbChain.callStatic.getCanonicalHeaderHash(expectTipNumber);
       expect(actualCanonicalHeaderHash).to.equal(expectCanonicalHeaderHash);
 
-      let expectLatestEpoch = 1916448851099648
+      let expectLatestEpoch = extractEpoch[initHeaderIndex].output
       let actualLatestEpoch = await ckbChain.callStatic.getLatestEpoch();
       expect(actualLatestEpoch).to.equal(expectLatestEpoch);
-      
-      let expectTransactionsRoot = '0x8877c8cab9d920c4ce87c67661ffc566ffe34d5c1ec7341ad53a3d91b90c2296'
+
+      let expectTransactionsRoot = extractTransactionsRoot[initHeaderIndex].output
       let actualTransactionsRoot = await ckbChain.callStatic.getCanonicalTransactionsRoot(initBlockHash);
       expect(actualTransactionsRoot).to.equal(expectTransactionsRoot);
     });
-  });
-});
+
+    it("Should addHeaders success", async () => {
+      const startIndex = initHeaderIndex + 1;  // add headers that follow initHeader
+
+      // addHeaders
+      const headersInput = indexHeaderVec[startIndex].input
+      let res = await ckbChain.addHeaders(headersInput)
+      let txReceipt = await waitingForTxReceipt(provider, res);
+      log(JSON.stringify(txReceipt.logs, null, 4));
+
+      // verify result
+      const headers = indexHeaderVec[startIndex].output;
+      const endHeaderIndex = startIndex + headers.length - 1;
+      let expectTipNumber = extractBlockNumber[ endHeaderIndex ].output
+      let actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber();
+      expect(actualTipNumber).to.equal(expectTipNumber);
+
+      for (let i = 0; i < headers.length; i++) {
+        const headerIndex = startIndex + i;
+        let expectBlockHash = calculateBlockHash[headerIndex].output
+        let blockNumber = extractBlockNumber[headerIndex].output
+        let actualBlockHash = await ckbChain.callStatic.getCanonicalHeaderHash(blockNumber);
+        expect(actualBlockHash).to.equal(expectBlockHash);
+      }
+    });
+
+  })
+})
