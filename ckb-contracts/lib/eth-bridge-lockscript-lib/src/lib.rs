@@ -4,8 +4,7 @@ pub mod actions;
 pub mod adapter;
 pub mod debug;
 
-pub use adapter::Adapter;
-
+use adapter::Adapter;
 use adapter::BridgeCellDataTuple;
 
 cfg_if::cfg_if! {
@@ -18,22 +17,32 @@ cfg_if::cfg_if! {
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
     let chain = adapter::chain::ChainAdapter {};
-    _verify(chain)
+    _verify(chain);
+    0
 }
 
-pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
-    let cell_data_tuple = data_loader
-        .load_input_output_data()
-        .expect("inputs or outputs cell num invalid");
-
-    match cell_data_tuple {
-        BridgeCellDataTuple(Some(input_data), Some(output_data)) => {
-            actions::verify_mint_token(data_loader, input_data.as_slice(), output_data.as_slice())
+pub fn _verify<T: Adapter>(data_loader: T) {
+    // let cell_data_tuple = data_loader
+    //     .load_input_output_data()
+    //     .expect("inputs or outputs cell num invalid");
+    //
+    // match cell_data_tuple {
+    //     BridgeCellDataTuple(Some(input_data), Some(output_data)) => {
+    //         actions::verify_mint_token(data_loader, input_data.as_slice(), output_data.as_slice())
+    //     }
+    //     // BridgeCellDataTuple(Some(input_data), None) => {
+    //     //     actions::verify_destroy_cell(data_loader, input_data.as_slice())
+    //     // }
+    //     _ => panic!("input and output should not be none"),
+    // }
+    let mode = actions::check_mode(&data_loader);
+    match mode {
+        actions::Mode::Owner => {
+            actions::verify_owner_mode(&data_loader);
         }
-        BridgeCellDataTuple(Some(input_data), None) => {
-            actions::verify_destroy_cell(data_loader, input_data.as_slice())
+        actions::Mode::Mint => {
+            actions::verify_mint_token(&data_loader);
         }
-        _ => panic!("input and output should not be none"),
     }
 }
 
@@ -42,15 +51,15 @@ mod tests {
     use super::_verify;
     use crate::adapter::*;
 
-    #[test]
-    fn mock_return_ok() {
-        let mut mock = MockAdapter::new();
-        mock.expect_load_input_output_data()
-            .times(1)
-            .returning(|| Ok(BridgeCellDataTuple(Some([].to_vec()), Some([].to_vec()))));
-        let return_code = _verify(mock);
-        assert_eq!(return_code, 0);
-    }
+    // #[test]
+    // fn mock_return_ok() {
+    //     let mut mock = MockAdapter::new();
+    //     mock.expect_load_input_output_data()
+    //         .times(1)
+    //         .returning(|| Ok(BridgeCellDataTuple(Some([].to_vec()), Some([].to_vec()))));
+    //     let return_code = _verify(mock);
+    //     assert_eq!(return_code, 0);
+    // }
 
     #[test]
     #[should_panic]

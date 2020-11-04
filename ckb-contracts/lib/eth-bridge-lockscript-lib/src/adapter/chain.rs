@@ -2,7 +2,8 @@ use super::{Adapter, BridgeCellDataTuple};
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::high_level::{
-    load_cell_data, load_cell_lock_hash, load_script_hash, load_witness_args, QueryIter,
+    load_cell_data, load_cell_lock_hash, load_cell_type, load_script, load_script_hash,
+    load_witness_args, QueryIter,
 };
 
 #[cfg(not(feature = "std"))]
@@ -14,15 +15,6 @@ pub struct ChainAdapter {}
 
 impl Adapter for ChainAdapter {
     fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError> {
-        fn load_data_from_input() -> Option<Vec<u8>> {
-            let data_list =
-                QueryIter::new(load_cell_data, Source::GroupInput).collect::<Vec<Vec<u8>>>();
-            match data_list.len() {
-                1 => Some(data_list[0].clone()),
-                _ => panic!("inputs have more than 1 bridge cell"),
-            }
-        }
-
         fn load_data_from_output() -> Result<Option<Vec<u8>>, SysError> {
             let script_hash = load_script_hash()?;
             let mut output_index = 0;
@@ -49,26 +41,47 @@ impl Adapter for ChainAdapter {
             Ok(data)
         }
 
-        let tuple = BridgeCellDataTuple(load_data_from_input(), load_data_from_output()?);
+        let tuple = BridgeCellDataTuple(Some(load_input_data()), load_data_from_output()?);
         Ok(tuple)
     }
 
+    fn load_input_data(&self) -> Vec<u8> {
+        load_input_data()
+    }
+
+    fn load_script_hash(&self) -> [u8; 32] {
+        load_script_hash().unwrap()
+    }
+
     fn load_input_witness_args(&self) -> Result<Bytes, SysError> {
-        let witness_args = load_witness_args(0, Source::GroupInput)?.input_type();
-        if witness_args.is_none() {
-            panic!("witness is none");
-        }
-        Ok(witness_args.to_opt().unwrap().raw_data())
+        let witness_args = load_witness_args(0, Source::GroupInput)?
+            .lock()
+            .to_opt()
+            .expect("proof witness is none");
+        Ok(witness_args.raw_data())
     }
 
     fn load_cell_dep_data(&self, index: usize) -> Result<Vec<u8>, SysError> {
         load_cell_data(index, Source::CellDep)
     }
 
-    fn check_inputs_lock_hash(&self, data: &[u8]) -> bool {
+    fn lock_hash_exists_in_inputs(&self, data: &[u8]) -> bool {
         QueryIter::new(load_cell_lock_hash, Source::Input)
             .filter(|hash| hash.as_ref() == data)
-            .count()
-            > 0
+            .any()
     }
+
+    fn typescript_exists_in_outputs(&self, data: &[u8]) -> bool {
+        QueryIter::new(load_cell_type, Source::Output)
+            .filter(|script| script.as_ref() == data)
+            .any()
+    }
+}
+
+fn load_input_data() -> Vec<u8> {
+    let data_list = QueryIter::new(load_cell_data, Source::GroupInput).collect::<Vec<Vec<u8>>>();
+    if data_list.len() != 1 {
+        panic!("inputs have more than 1 bridge cell");
+    }
+    data_list[0]
 }

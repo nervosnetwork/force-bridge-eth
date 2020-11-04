@@ -1,33 +1,53 @@
 use crate::adapter::Adapter;
 use crate::debug;
+use ckb_std::ckb_constants::Source;
+use ckb_std::ckb_types::{
+    bytes::Bytes,
+    packed::{Byte32, Script},
+    prelude::Pack,
+};
+use ckb_std::high_level::QueryIter;
+use eth_spv_lib::{eth_types::*, ethspv};
 use force_eth_types::generated::eth_header_cell::{EthCellDataReader, HeaderInfoReader};
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
-
-use eth_spv_lib::{eth_types::*, ethspv};
-
+use force_eth_types::{config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent};
 use molecule::prelude::*;
+use std::convert::TryInto;
 
-#[derive(Debug, Clone, Default)]
-pub struct ETHReceiptInfo {
-    token_amount: [u8; 32],
-    token_address: [u8; 32],
-    ckb_recipient_address: [u8; 32],
-    replay_resist_cell_id: [u8; 32],
+pub enum Mode {
+    Owner,
+    Mint,
 }
 
-pub fn verify_mint_token<T: Adapter>(data_loader: T, input_data: &[u8], output_data: &[u8]) -> i8 {
-    verify_data(input_data, output_data);
-    if !input_data.is_empty() && !data_loader.check_inputs_lock_hash(input_data) {
-        panic!("verify signature fail")
+/// if the first 32 bytes of data match any of input lockscript hash,
+/// it is owner mode, otherwise it is mint mode.
+pub fn check_mode<T: Adapter>(data_loader: &T) -> Mode {
+    let input_data = data_loader.load_input_data();
+    if input_data.len() >= 32 && data_loader.lock_hash_exists_in_inputs(&input_data[..32]) {
+        Mode::Owner
+    } else {
+        Mode::Mint
     }
+}
 
+/// In owner mode, mint associated sudt is forbidden.
+/// Owners can do options like destroy the cell or supply capacity for it,
+/// which means put an identical cell in output with higher capacity.
+pub fn verify_owner_mode<T: Adapter>(data_loader: &T) {
+    let udt_script = data_loader.get_associated_udt_script();
+    if data_loader.typescript_exists_in_outputs(udt_script.as_slice()) {
+        panic!("mint sudt is forbidden in owner mode");
+    }
+}
+
+pub fn verify_mint_token<T: Adapter>(data_loader: &T) -> i8 {
     verify_eth_light_client();
     let eth_receipt_info = verify_witness(data_loader);
-    verify_eth_receipt_info(eth_receipt_info);
+    verify_eth_receipt_info(data_loader, eth_receipt_info);
     0
 }
 
-pub fn verify_destroy_cell<T: Adapter>(_data_loader: T, _input_data: &[u8]) -> i8 {
+pub fn verify_destroy_cell<T: Adapter>(_data_loader: &T, _input_data: &[u8]) -> i8 {
     0
 }
 
@@ -37,28 +57,26 @@ fn verify_data(input_data: &[u8], output_data: &[u8]) {
     }
 }
 
-// fn verify_signature<T: Adapter>(data_loader: T, data: &[u8]) {
+// fn verify_signature<T: Adapter>(data_loader: &T, data: &[u8]) {
 //     if !data_loader.check_inputs_lock_hash(data) {
 //         panic!("verify signature fail")
 //     }
 // }
 
 fn verify_eth_light_client() {
-    todo!()
+    // todo!()
 }
 
 /// Verify eth witness data.
 /// 1. Verify that the header of the user's cross-chain tx is on the main chain.
 /// 2. Verify that the user's cross-chain transaction is legal and really exists (based spv proof).
-/// 3. Get ETHReceiptInfo from spv proof.
+/// 3. Get ETHLockEvent from spv proof.
 ///
-fn verify_witness<T: Adapter>(data_loader: T) -> ETHReceiptInfo {
+fn verify_witness<T: Adapter>(data_loader: &T) -> ETHLockEvent {
     let witness_args = data_loader
         .load_input_witness_args()
         .expect("load witness args error");
-    if MintTokenWitnessReader::verify(&witness_args, false).is_err() {
-        panic!("witness is invalid");
-    }
+    MintTokenWitnessReader::verify(&witness_args, false).expect("witness is invalid");
     let witness = MintTokenWitnessReader::new_unchecked(&witness_args);
     debug!("witness: {:?}", witness);
     let proof = witness.spv_proof().raw_data();
@@ -75,10 +93,10 @@ fn verify_witness<T: Adapter>(data_loader: T) -> ETHReceiptInfo {
 /// @param cell_dep_index_list is used to get the headers oracle information to verify the cross-chain tx is really exists on the main chain.
 ///
 fn verify_eth_spv_proof<T: Adapter>(
-    data_loader: T,
+    data_loader: &T,
     proof: &[u8],
     cell_dep_index_list: &[u8],
-) -> ETHReceiptInfo {
+) -> ETHLockEvent {
     if ETHSPVProofReader::verify(proof, false).is_err() {
         panic!("eth spv proof is invalid")
     }
@@ -94,7 +112,7 @@ fn verify_eth_spv_proof<T: Adapter>(
 }
 
 fn verify_eth_header_on_main_chain<T: Adapter>(
-    data_loader: T,
+    data_loader: &T,
     header: &BlockHeader,
     cell_dep_index_list: &[u8],
 ) {
@@ -144,7 +162,7 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
     }
 }
 
-fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) -> ETHReceiptInfo {
+fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) -> ETHLockEvent {
     let mut log_index = [0u8; 8];
     log_index.copy_from_slice(proof_reader.log_index().raw_data());
     debug!("log_index is {:?}", &log_index);
@@ -178,23 +196,6 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
     let receipt: Receipt = rlp::decode(receipt_data.as_slice()).expect("rlp decode receipt failed");
     debug!("receipt_data is {:?}", &receipt);
 
-    let log_data = log_entry.data;
-    let slices = slice_data(log_data.as_slice());
-    debug!("log data slice: {:?}", slices);
-
-    let token_amount = slices[0];
-    let token_address = slices[1];
-    let ckb_recipient_address = slices[2];
-    let replay_resist_cell_id = slices[3];
-
-    let eth_receipt_info = ETHReceiptInfo {
-        token_amount,
-        token_address,
-        ckb_recipient_address,
-        replay_resist_cell_id,
-    };
-    debug!("log data eth_receipt_info: {:?}", eth_receipt_info);
-
     if !ethspv::verify_log_entry(
         u64::from_le_bytes(log_index),
         log_entry_data,
@@ -205,6 +206,10 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
     ) {
         panic!("wrong merkle proof");
     }
+
+    let log_data = log_entry.data;
+    let eth_receipt_info = ETHLockEvent::parse_from_event_data(&log_data);
+    debug!("log data eth_receipt_info: {:?}", eth_receipt_info);
     eth_receipt_info
 }
 
@@ -229,4 +234,34 @@ fn slice_data(data: &[u8]) -> Vec<[u8; 32]> {
 /// 1. Verify ckb_recipient_address get a number of token_amount cToken.
 /// 2. Verify token_address equals to args.token_address.
 /// 3. Verify replay_resist_cell_id exists in inputs.
-fn verify_eth_receipt_info(_eth_receipt_info: ETHReceiptInfo) {}
+fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLockEvent) {
+    if !data_loader.outpoint_exists_in_inputs(eth_receipt_info.replay_resist_cell_id.as_ref()) {
+        panic!("replay_resist_cell_id not exists in inputs");
+    }
+    let udt_typescript = data_loader.get_associated_udt_script();
+    let udt_script_slice = udt_typescript.as_slice();
+    let expected_mint_amount: u128 =
+        (ethereum_types::U256::from_big_endian(&eth_receipt_info.token_amount) / 10_000_000_000u64)
+            .try_into()
+            .unwrap();
+    let mut mint_amount = 0u128;
+    for (output_type, output_lock, output_data) in QueryIter::new(
+        |index, source| data_loader.load_cell_type_lock_data(index, source),
+        Source::Output,
+    )
+    .into_iter()
+    {
+        if udt_script_slice == output_type.as_slice() {
+            if output_lock.as_slice() != eth_receipt_info.recipient_lockscript.as_slice() {
+                panic!("you can only mint mirror token to recipient_lockscript");
+            }
+            let mut amount = [0u8; 16];
+            amount.copy_from_slice(&output_data[..16]);
+            mint_amount += u128::from_le_bytes(amount);
+        }
+    }
+    assert_eq!(
+        mint_amount, expected_mint_amount,
+        "mint token amount not equal to expected"
+    );
+}
