@@ -89,6 +89,11 @@ contract CKBChain is ICKBChain, ICKBSpv {
         return canonicalTransactionsRoots[blockHash];
     }
 
+    // query
+    function getLatestEpoch() public returns (uint64) {
+        return latestHeader.epoch;
+    }
+
     function initWithHeader(bytes calldata data, bytes32 blockHash, uint64 finalizedGcThreshold, uint64 canonicalGcThreshold) external {
         require(!initialized, "Contract is already initialized");
         initialized = true;
@@ -116,6 +121,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // set canonical chain
         _refreshCanonicalChain(header, blockHash);
+        canonicalTransactionsRoots[blockHash] = rawHeaderView.transactionsRoot();
     }
 
     /// # ICKBChain
@@ -138,14 +144,15 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     function _addHeader(bytes29 headerView) private {
-        uint64 blockNumber = headerView.blockNumber();
+        bytes29 rawHeaderView = headerView.rawHeader();
+        uint64 blockNumber = rawHeaderView.blockNumber();
 
         // ## verify version
-        require(headerView.version() == CHAIN_VERSION, "chain version invalid");
+        require(rawHeaderView.version() == CHAIN_VERSION, "chain version invalid");
 
         // ## verify blockNumber
         require(blockNumber + CanonicalGcThreshold >= latestBlockNumber, "block is too old");
-        bytes32 parentHash = headerView.parentHash();
+        bytes32 parentHash = rawHeaderView.parentHash();
         BlockHeader memory parentHeader = blockHeaders[parentHash];
         require(parentHeader.totalDifficulty > 0 && parentHeader.number + 1 == blockNumber, "block's parent block mismatch");
 
@@ -160,13 +167,13 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
 
         // ## verify pow
-        uint256 difficulty = _verifyPow(headerView, parentHeader);
+        uint256 difficulty = _verifyPow(rawHeaderView, parentHeader);
 
         // ## insert header to storage
         // 1. insert to blockHeaders
         BlockHeader memory header = BlockHeader(
             blockNumber,
-            headerView.epoch(),
+            rawHeaderView.epoch(),
             difficulty,
             parentHeader.totalDifficulty + difficulty,
             parentHash
@@ -179,7 +186,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         // 3. refresh canonicalChain
         if (header.totalDifficulty > latestHeader.totalDifficulty) {
             _refreshCanonicalChain(header, blockHash);
-            canonicalTransactionsRoots[blockHash] = headerView.transactionsRoot();
+            canonicalTransactionsRoots[blockHash] = rawHeaderView.transactionsRoot();
         }
     }
 
