@@ -12,8 +12,8 @@ std = ["mockall"]
 
 [dependencies]
 cfg-if = "0.1"
-ckb-std = "0.6"
+ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
 mockall = { version = "0.8", optional = true }
 force-eth-types = { path = "../../types", default-features = false, features = ["contract"] }
 molecule = { version = "0.6", default-features = false }
-ckb-types = { git = "https://github.com/nervosnetwork/ckb", tag = "v0.36.0-rc2" }
+blake2b-ref = "0.1.0"

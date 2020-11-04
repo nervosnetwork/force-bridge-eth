@@ -1,11 +1,13 @@
-use super::{Adapter, ComplexData};
+use super::Adapter;
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::packed::{Byte, Byte32, Bytes, Script};
+use ckb_std::ckb_types::packed::Script;
 use ckb_std::error::SysError;
-use ckb_std::high_level::{load_cell_data, load_cell_type, load_tx_hash, QueryIter};
+use ckb_std::high_level::{load_cell_data, load_cell_type, QueryIter};
 
 use force_eth_types::{config::SUDT_CODE_HASH, eth_recipient_cell::ETHRecipientDataView};
-use molecule::prelude::Entity;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 pub struct ChainAdapter {}
 
@@ -26,16 +28,16 @@ impl Adapter for ChainAdapter {
     fn get_sudt_amount_from_source(&self, source: Source, eth_bridge_lock_hash: &[u8]) -> u128 {
         fn is_sudt_typescript(script: Option<Script>, lock_hash: &[u8]) -> bool {
             if script.is_none() {
-                false
+                return false;
             }
             let script = script.unwrap();
             if script.code_hash().raw_data().as_ref() == SUDT_CODE_HASH.as_ref()
                 && script.args().raw_data().as_ref() == lock_hash
                 && script.hash_type() == 0u8.into()
             {
-                true
+                return true;
             }
-            false
+            return false;
         }
 
         let mut index = 0;
@@ -51,7 +53,7 @@ impl Adapter for ChainAdapter {
                         continue;
                     }
 
-                    let data = load_cell_data(index, source)?;
+                    let data = load_cell_data(index, source).expect("laod cell data fail");
                     let mut buf = [0u8; 16];
                     if data.len() == 16 {
                         buf.copy_from_slice(&data);

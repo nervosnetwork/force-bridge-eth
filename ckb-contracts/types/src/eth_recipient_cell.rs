@@ -45,7 +45,6 @@ impl ETHRecipientDataView {
 mod tests {
     use super::ETHRecipientDataView;
     use molecule::bytes::Bytes;
-    use molecule::prelude::*;
 
     fn str_to_bytes(s: &str) -> Bytes {
         Bytes::copy_from_slice(s.as_bytes())

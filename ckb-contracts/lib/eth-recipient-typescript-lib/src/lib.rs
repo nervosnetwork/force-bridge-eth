@@ -35,15 +35,11 @@ mod tests {
     use force_eth_types::eth_recipient_cell::ETHRecipientDataView;
     use molecule::bytes::Bytes;
 
-    fn str_to_bytes(s: &str) -> Bytes {
-        Bytes::copy_from_slice(s.as_bytes())
-    }
-
     #[test]
     fn mock_return_ok() {
         let data = ETHRecipientDataView {
-            eth_recipient_address: Bytes::new(),
-            eth_token_address: str_to_bytes("0x734Ac651Dd95a339c633cdEd410228515F97fAfF"),
+            eth_recipient_address: Bytes::from([0u8].to_vec()),
+            eth_token_address: Bytes::from([0u8].to_vec()),
             token_amount: 1,
         };
         let mut mock = MockAdapter::new();
@@ -61,8 +57,8 @@ mod tests {
     #[should_panic]
     fn mock_return_err_when_input_less_than_output() {
         let data = ETHRecipientDataView {
-            eth_recipient_address: Bytes::new(),
-            eth_token_address: str_to_bytes("0x734Ac651Dd95a339c633cdEd410228515F97fAfF"),
+            eth_recipient_address: Bytes::from([0u8].to_vec()),
+            eth_token_address: Bytes::from([0u8].to_vec()),
             token_amount: 1,
         };
         let mut mock = MockAdapter::new();
@@ -80,8 +76,8 @@ mod tests {
     #[should_panic]
     fn mock_return_err_when_burned_amount_not_equal_data_amount() {
         let data = ETHRecipientDataView {
-            eth_recipient_address: Bytes::new(),
-            eth_token_address: str_to_bytes("0x734Ac651Dd95a339c633cdEd410228515F97fAfF"),
+            eth_recipient_address: Bytes::from([0u8].to_vec()),
+            eth_token_address: Bytes::from([0u8].to_vec()),
             token_amount: 1,
         };
         let mut mock = MockAdapter::new();
