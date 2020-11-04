@@ -17,11 +17,11 @@ use molecule::bytes::Bytes;
 
 #[cfg_attr(feature = "std", automock)]
 pub trait Adapter {
-    fn load_tx_hash(&self) -> Result<[u8; 32], SysError>;
-
     fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError>;
 
     fn load_input_witness_args(&self) -> Result<Bytes, SysError>;
 
     fn load_cell_dep_data(&self, index: usize) -> Result<Vec<u8>, SysError>;
+
+    fn check_inputs_lock_hash(&self, data: &[u8]) -> bool;
 }

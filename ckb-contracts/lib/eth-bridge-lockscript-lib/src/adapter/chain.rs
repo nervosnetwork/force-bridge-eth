@@ -2,8 +2,7 @@ use super::{Adapter, BridgeCellDataTuple};
 use ckb_std::ckb_constants::Source;
 use ckb_std::error::SysError;
 use ckb_std::high_level::{
-    load_cell_data, load_cell_lock_hash, load_script_hash, load_tx_hash, load_witness_args,
-    QueryIter,
+    load_cell_data, load_cell_lock_hash, load_script_hash, load_witness_args, QueryIter,
 };
 
 #[cfg(not(feature = "std"))]
@@ -14,10 +13,6 @@ use molecule::bytes::Bytes;
 pub struct ChainAdapter {}
 
 impl Adapter for ChainAdapter {
-    fn load_tx_hash(&self) -> Result<[u8; 32], SysError> {
-        load_tx_hash()
-    }
-
     fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError> {
         fn load_data_from_input() -> Option<Vec<u8>> {
             let data_list =
@@ -68,5 +63,12 @@ impl Adapter for ChainAdapter {
 
     fn load_cell_dep_data(&self, index: usize) -> Result<Vec<u8>, SysError> {
         load_cell_data(index, Source::CellDep)
+    }
+
+    fn check_inputs_lock_hash(&self, data: &[u8]) -> bool {
+        QueryIter::new(load_cell_lock_hash, Source::Input)
+            .filter(|hash| hash.as_ref() == data)
+            .count()
+            > 0
     }
 }

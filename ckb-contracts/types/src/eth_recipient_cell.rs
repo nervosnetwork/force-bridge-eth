@@ -1,6 +1,3 @@
-#[cfg(not(feature = "std"))]
-use ckb_std::debug;
-
 use crate::generated::eth_recipient_cell::{ETHRecipientCellData, ETHRecipientCellDataReader};
 use core::result::Result;
 use molecule::{
@@ -11,21 +8,15 @@ use molecule::{
 
 #[derive(Debug, Clone)]
 pub struct ETHRecipientDataView {
-    pub eth_recipient_address: Bytes,
-    pub eth_token_address: Bytes,
-    pub token_amount: u128,
+    eth_recipient_address: Bytes,
+    eth_token_address: Bytes,
+    token_amount: u128,
 }
 
 impl ETHRecipientDataView {
     pub fn new(data: &[u8]) -> Result<ETHRecipientDataView, VerificationError> {
         ETHRecipientCellDataReader::verify(data, false)?;
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "std")] {
-                dbg!("molecule verify toCKB data format success");
-            } else {
-                debug!("molecule verify toCKB data format success");
-            }
-        }
+
         let data_reader = ETHRecipientCellDataReader::new_unchecked(data);
 
         let eth_recipient_address = data_reader.eth_recipient_address().to_entity().raw_data();
