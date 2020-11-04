@@ -136,7 +136,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint32 index = 0;
         while (index < length) {
             bytes29 headerView = headerVecView.indexHeaderVec(index);
-//            console.log("index: %s", index);
             _addHeader(headerView);
             index++;
         }
@@ -152,7 +151,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
         // calc blockHash
         bytes memory headerBytes = headerView.clone();
         bytes32 blockHash = CKBCrypto.digest(abi.encodePacked(headerBytes, new bytes(48)), 208);
-//        bytes32 blockHash = bytes32(0x8a3e5a9fa954d32328870bc6a7679e80cd238621cfbdabc6116311c9f41a7d5d);
 
         // ## verify blockHash should not exist
         if (canonicalTransactionsRoots[blockHash] != bytes32(0) || blockHeaders[blockHash].number == blockNumber) {
@@ -162,17 +160,12 @@ contract CKBChain is ICKBChain, ICKBSpv {
         // ## verify blockNumber
         require(blockNumber + CanonicalGcThreshold >= latestBlockNumber, "block is too old");
         bytes32 parentHash = rawHeaderView.parentHash();
-//        console.logBytes32(parentHash);
 
         BlockHeader memory parentHeader = blockHeaders[parentHash];
-//        console.log("parentHeader.number + 1 = %s, blockNumber = %s", parentHeader.number + 1, blockNumber);
-//        console.log("parentHeader.totalDifficulty = %s", parentHeader.totalDifficulty);
         require(parentHeader.totalDifficulty > 0 && parentHeader.number + 1 == blockNumber, "block's parent block mismatch");
 
-//        console.log("after ## verify blockNumber");
         // ## verify pow
         uint256 difficulty = _verifyPow(headerView, rawHeaderView, parentHeader);
-//        console.log("after ## verify pow");
 
         // ## insert header to storage
         // 1. insert to blockHeaders
@@ -244,7 +237,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // set canonical
         canonicalHeaderHashes[latestBlockNumber] = blockHash;
-//        console.logBytes32(canonicalHeaderHashes[latestBlockNumber]);
         emit BlockHashAdded(latestBlockNumber, blockHash);
 
         // set new branch to canonical chain
