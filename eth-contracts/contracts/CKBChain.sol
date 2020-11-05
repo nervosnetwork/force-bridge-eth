@@ -214,7 +214,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint256 difficulty = CKBPow.targetToDifficulty(target);
         uint64 epoch = rawHeaderView.epoch();
         if (epoch == parentHeader.epoch) {
-            require(difficulty != parentHeader.difficulty, "difficulty should equal parent's difficulty");
+            require(difficulty == parentHeader.difficulty, "difficulty should equal parent's difficulty");
         } else {
             // we are using dampening factor τ = 2 in CKB, the difficulty adjust range will be [previous / (τ * τ) .. previous * (τ * τ)]
             require(difficulty >= parentHeader.difficulty / 4 && difficulty <= parentHeader.difficulty * 4, "difficulty invalid");

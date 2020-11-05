@@ -8,7 +8,7 @@ library ViewCKB {
     using SafeMath for uint;
     uint256 public constant PERIOD_BLOCKS = 24 * 450 * 7;  // 1 week in blocks
     uint8 public constant NUMBER_SIZE = 4; // Size of Number in ckb molecule
-
+    uint64 public constant NUMBER_MASK = 16777215;
     enum CKBTypes {
         Unknown, // 0x0
         Script, // 0x1
@@ -128,7 +128,7 @@ library ViewCKB {
     /// @param _input   the RawHeader
     /// @return         the epoch
     function epoch(bytes29 _input) internal pure typeAssert(_input, CKBTypes.RawHeader) returns (uint64) {
-        return uint64(_input.indexLEUint(24, 8));
+        return uint64(_input.indexLEUint(24, 8)) & NUMBER_MASK;
     }
 
     /// @notice         extracts the parentHash from a RawHeader
