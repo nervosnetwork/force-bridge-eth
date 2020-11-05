@@ -8,7 +8,11 @@ import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {ICKBChain} from "./interfaces/ICKBChain.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
+// tools below just for test, they will be removed before production ready
+import "hardhat/console.sol";
+
 contract CKBChain is ICKBChain, ICKBSpv {
+    using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
@@ -34,7 +38,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     // Whether the contract was initialized.
     bool public initialized;
-    uint64 public lastBlockNumber;
+    uint64 public latestBlockNumber;
 
     /// Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
     /// entries.
@@ -65,10 +69,44 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     /// #ICKBChain
     function addHeaders(bytes calldata data) external {
+        // TODO addHeaders
     }
 
     /// #ICKBSpv
-    function proveTxExist(bytes calldata txProofData, uint64 numConfirmations) external view returns (bool){
+    function proveTxExist(bytes calldata txProofData, uint64 numConfirmations) external view returns (bool) {
+        bytes29 proofView = txProofData.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
+        uint64 blockNumber = proofView.spvBlockNumber();
+        bytes32 blockHash = proofView.blockHash();
+
+        // TODO use safeMath for blockNumber + numConfirmations calc
+        require(blockNumber + numConfirmations <= latestBlockNumber, "blockNumber from txProofData is too ahead of the latestBlockNumber");
+        require(canonicalHeaderHashes[blockNumber] == blockHash, "blockNumber and blockHash mismatch");
+        require(canonicalTransactionRoots[blockHash] != bytes32(0), "blockHash invalid or too old");
+        uint16 index = proofView.txMerkleIndex();
+        uint16 sibling;
+        uint256 lemmasIndex = 0;
+        bytes29 lemmas = proofView.lemmas();
+        uint256 length = lemmas.len() / 32;
+
+        // calc the rawTransactionsRoot
+        // TODO optimize rawTxRoot calculation with assembly code
+        bytes32 rawTxRoot = proofView.txHash();
+        while (lemmasIndex < length && index > 0) {
+            sibling = ((index + 1) ^ 1) - 1;
+            if (index < sibling) {
+                rawTxRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, lemmas.indexH256Array(lemmasIndex), new bytes(64)), 64);
+            } else {
+                rawTxRoot = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), rawTxRoot, new bytes(64)), 64);
+            }
+
+            lemmasIndex++;
+            // index = parent(index)
+            index = (index - 1) >> 1;
+        }
+
+        // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
+        bytes32 transactionsRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, proofView.witnessesRoot(), new bytes(64)), 64);
+        require(transactionsRoot == canonicalTransactionRoots[blockHash], "proof not passed");
         return true;
     }
 
@@ -82,7 +120,15 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     /// #Verify header
-    function verifyHeader(bytes29 header) internal view typeAssert(header, ViewCKB.CKBTypes.Header) returns (bool){
+    function verifyHeader(bytes29 header) internal view typeAssert(header, ViewCKB.CKBTypes.Header) returns (bool) {
+        // TODO verify header's pow and version
         return true;
+    }
+
+    // mock for test
+    function mockForProveTxExist(uint64 _latestBlockNumber, uint64 spvBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
+        latestBlockNumber = _latestBlockNumber;
+        canonicalHeaderHashes[spvBlockNumber] = blockHash;
+        canonicalTransactionRoots[blockHash] = transactionsRoot;
     }
 }

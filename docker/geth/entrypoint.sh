@@ -1,6 +1,6 @@
 #!/bin/sh
 
-MINER=0x627306090abab3a6e1400e9345bc60c78a8bef57
+MINER=0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2
 
 geth init ./geth-genesis.json --datadir=/tmp/geth
 

@@ -1,0 +1,16 @@
+[package]
+name = "force-eth-types"
+version = "0.1.0"
+authors = ["jacobdenver007 <jacobdenver@163.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["std"]
+std = ["molecule/std"]
+contract = []
+
+[dependencies]
+molecule = { version = "0.6", default-features = false }
+cfg-if = "0.1"

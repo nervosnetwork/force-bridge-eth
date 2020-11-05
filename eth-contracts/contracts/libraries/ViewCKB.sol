@@ -32,7 +32,7 @@ library ViewCKB {
         UnclesHash,
         Dao,
 
-        HeaderArray,
+        HeaderVec,
         Transaction
     }
 
@@ -159,6 +159,24 @@ library ViewCKB {
     /// @return         the dao
     function dao(bytes29 _input) internal pure typeAssert(_input, CKBTypes.RawHeader) returns (bytes32) {
         return _input.index(160, 32);
+    }
+
+    /// @notice         Index a header vector.
+    /// @dev            Errors on overruns
+    /// @param _headers The header vector
+    /// @param index    The 0-indexed location of the header to get
+    /// @return         the typed header at `index`
+    function indexHeaderVec(bytes29 _headers, uint256 index) internal pure typeAssert(_headers, CKBTypes.HeaderVec) returns (bytes29) {
+        uint256 _start = 4 + index.mul(208);
+        return _headers.slice(_start, 208, uint40(CKBTypes.Header));
+    }
+
+    /// @notice         return length of a header vector.
+    /// @dev            Errors on overruns
+    /// @param _headers The header vector
+    /// @return         the length of a header vector.
+    function lengthHeaderVec(bytes29 _headers) internal pure typeAssert(_headers, CKBTypes.HeaderVec) returns (uint32) {
+        return uint32(_headers.indexLEUint(0, 4));
     }
 }
 

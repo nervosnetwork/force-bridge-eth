@@ -163,6 +163,9 @@ library CKBCrypto {
         }
     }
 
+    // TODO optimize blake2b
+    // 1. optimize memory alloc
+    // 2. optimize input data length adaption
     function digest(bytes memory data, uint256 data_len)
         internal
         view
