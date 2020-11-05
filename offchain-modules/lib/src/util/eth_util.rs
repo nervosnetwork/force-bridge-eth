@@ -56,13 +56,7 @@ impl Web3Client {
     }
 
     pub async fn get_block(&mut self, hash_or_number: BlockId) -> Result<Block<H256>> {
-        let block;
-        match hash_or_number {
-            BlockId::Hash(hash) => block = self.client.eth().block(BlockId::Hash(hash)).await?,
-            BlockId::Number(number) => {
-                block = self.client.eth().block(BlockId::Number(number)).await?;
-            }
-        }
+        let block = self.client.eth().block(hash_or_number).await?;
         match block {
             Some(block) => Ok(block),
             None => anyhow::bail!("the block is not exist."),
@@ -70,10 +64,10 @@ impl Web3Client {
     }
 
     pub async fn get_header_rlp(&mut self, hash_or_number: BlockId) -> Result<String> {
-        let block = self.get_block(hash_or_number).await?;
+        let block = self.get_block(hash_or_number).await;
         let mut stream = RlpStream::new();
-        rlp_append(&block, &mut stream);
-        Ok(hex::encode(stream.out()))
+        rlp_append(&block.unwrap(), &mut stream);
+        Ok(hex::encode(stream.out().as_slice()))
     }
 
     pub async fn get_light_client_current_height(&mut self, contract_addr: Address) -> Result<u64> {
@@ -182,7 +176,7 @@ fn rlp_append<TX>(header: &Block<TX>, stream: &mut RlpStream) {
     stream.append(&header.state_root);
     stream.append(&header.transactions_root);
     stream.append(&header.receipts_root);
-    stream.append(&header.logs_bloom);
+    stream.append(&header.logs_bloom.unwrap());
     stream.append(&header.difficulty);
     stream.append(&header.number.unwrap());
     stream.append(&header.gas_limit);
@@ -205,11 +199,14 @@ pub fn convert_eth_address(mut address: &str) -> Result<H160> {
 
 #[tokio::test]
 async fn test_get_block() {
+    use cmd_lib::run_cmd;
     use web3::types::BlockNumber;
     let mut client = Web3Client::new(String::from(
-        "https://mainnet.infura.io/v3/9c7178cede9f4a8a84a151d058bd609c",
+        "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
     ));
-    let number = BlockId::Number(BlockNumber::Number((10 as u64).into()));
-    let res = client.get_header_rlp(number).await;
+    let res = client.get_header_rlp((U64::from(3)).into()).await;
     println!("{:?}", res);
+    let header_rlp = format!("0x{}", res.unwrap());
+    println!("{:?}", header_rlp);
+    run_cmd!(src/vendor/relayer ${header_rlp} > /tmp/data.json);
 }

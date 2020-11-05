@@ -151,6 +151,8 @@ pub struct EthRelayArgs {
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8116")]
     pub indexer_rpc_url: String,
+    #[clap(long, default_value = "/tmp/proof_data.json")]
+    pub proof_data_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]

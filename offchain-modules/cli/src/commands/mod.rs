@@ -206,6 +206,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         args.indexer_rpc_url,
         args.eth_rpc_url,
         args.private_key_path,
+        args.proof_data_path,
     );
     eth_relayer.start().await
 }
