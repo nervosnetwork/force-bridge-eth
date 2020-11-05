@@ -39,12 +39,9 @@ impl Web3Client {
         data: Vec<u8>,
         eth_value: U256,
     ) -> Result<H256> {
-        let nonce = self.client().eth().transaction_count(from, None).await?;
-        info!("tx current nonce :{}", &nonce);
-        let chain_id = self.client().eth().chain_id().await?;
-        debug!("chain id :{}", &chain_id);
-        let tx = make_transaction(to, nonce, data, eth_value);
-        let signed_tx = tx.sign(&parse_private_key(&key_path)?, &chain_id.as_u32());
+        let signed_tx = self
+            .build_sign_tx(from, to, key_path, data, eth_value)
+            .await?;
         let tx_hash = self
             .client()
             .eth()
@@ -53,6 +50,22 @@ impl Web3Client {
             .await?;
         debug!("tx hash: {:?}", tx_hash);
         Ok(tx_hash)
+    }
+    pub async fn build_sign_tx(
+        &mut self,
+        from: H160,
+        to: H160,
+        key_path: String,
+        data: Vec<u8>,
+        eth_value: U256,
+    ) -> Result<Vec<u8>> {
+        let nonce = self.client().eth().transaction_count(from, None).await?;
+        info!("tx current nonce :{}", &nonce);
+        let chain_id = self.client().eth().chain_id().await?;
+        debug!("chain id :{}", &chain_id);
+        let tx = make_transaction(to, nonce, data, eth_value);
+        let signed_tx = tx.sign(&parse_private_key(&key_path)?, &chain_id.as_u32());
+        Ok(signed_tx)
     }
 
     pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> Result<String> {
@@ -104,7 +117,7 @@ impl Web3Client {
             include_bytes!("ckb_chain_abi.json"),
         )
         .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
-        let result = contract.query("rawHeaders", (), None, Options::default(), None);
+        let result = contract.query("mockHeaders", (), None, Options::default(), None);
         let mock_data: Bytes = result.await?;
         Ok(mock_data)
     }

@@ -1,5 +1,19 @@
 [
   {
+    "constant": true,
+    "inputs": [],
+    "name": "mockHeaders",
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "constant": false,
     "inputs": [
       {
@@ -11,20 +25,6 @@
     "outputs": [],
     "payable": false,
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "rawHeaders",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -79,6 +79,25 @@
     "type": "function"
   },
   {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "blockNumber",
+        "type": "uint64"
+      }
+    ],
+    "name": "getCanonicalHeaderHash",
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "constant": true,
     "inputs": [],
     "name": "latestBlockNumber",
@@ -107,46 +126,6 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "data",
-        "type": "bytes"
-      }
-    ],
-    "name": "addRawHeaders",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_latestBlockNumber",
-        "type": "uint64"
-      },
-      {
-        "name": "spvBlockNumber",
-        "type": "uint64"
-      },
-      {
-        "name": "blockHash",
-        "type": "bytes32"
-      },
-      {
-        "name": "transactionsRoot",
-        "type": "bytes32"
-      }
-    ],
-    "name": "mockForProveTxExist",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "constant": true,
     "inputs": [],
     "name": "FinalizedGcThreshold",
@@ -158,6 +137,32 @@
     ],
     "payable": false,
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes"
+      },
+      {
+        "name": "blockHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "finalizedGcThreshold",
+        "type": "uint64"
+      },
+      {
+        "name": "canonicalGcThreshold",
+        "type": "uint64"
+      }
+    ],
+    "name": "initWithHeader",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -180,38 +185,31 @@
     "type": "function"
   },
   {
-    "constant": true,
+    "constant": false,
     "inputs": [
       {
-        "name": "",
-        "type": "bytes32"
+        "name": "blockNumber",
+        "type": "uint64"
       }
     ],
-    "name": "blockHeaders",
+    "name": "setHeight",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [],
+    "name": "getLatestEpoch",
     "outputs": [
       {
-        "name": "number",
+        "name": "",
         "type": "uint64"
-      },
-      {
-        "name": "epoch",
-        "type": "uint64"
-      },
-      {
-        "name": "difficulty",
-        "type": "uint256"
-      },
-      {
-        "name": "totalDifficulty",
-        "type": "uint256"
-      },
-      {
-        "name": "parentHash",
-        "type": "bytes32"
       }
     ],
     "payable": false,
-    "stateMutability": "view",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -239,22 +237,33 @@
   },
   {
     "constant": false,
-    "inputs": [
+    "inputs": [],
+    "name": "getLatestBlockNumber",
+    "outputs": [
       {
-        "name": "data",
-        "type": "bytes"
-      },
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
       {
         "name": "blockHash",
         "type": "bytes32"
-      },
-      {
-        "name": "totalDifficulty",
-        "type": "uint256"
       }
     ],
-    "name": "initWithHeader",
-    "outputs": [],
+    "name": "getCanonicalTransactionsRoot",
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "payable": false,
     "stateMutability": "nonpayable",
     "type": "function"

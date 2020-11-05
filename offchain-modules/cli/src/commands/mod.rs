@@ -168,6 +168,6 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         from,
         to,
         args.private_key_path,
-    );
+    )?;
     ckb_relayer.start().await
 }
