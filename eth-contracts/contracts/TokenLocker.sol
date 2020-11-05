@@ -91,7 +91,7 @@ contract TokenLocker {
         bytes29 rawTx = ckbTx.ref(uint40(CKBTxView.CKBTxTypes.RawTx));
         bytes29 recipientCellTypescript = rawTx.outputs().recipientCellOutput().typescript();
         require((recipientCellTypescript.codeHash() == recipientCellTypescriptCodeHash_), "invalid recipient cell typescript code hash");
-        require((recipientCellTypescript.hashType() == 0), "invalid recipient cell typescript hash type");
+        require((recipientCellTypescript.hashType() == recipientCellTypescriptHashType_), "invalid recipient cell typescript hash type");
         require((recipientCellTypescript.args() == address(this)), "invalid recipient cell typescript args");
         bytes29 recipientCellData = rawTx.outputsData().recipientCellData();
         result = BurnResult(recipientCellData.tokenAmount(), recipientCellData.tokenAddress(), recipientCellData.recipientAddress());
