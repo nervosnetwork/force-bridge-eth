@@ -85,6 +85,8 @@ contract TokenLocker {
         emit Unlocked(address(result.token), result.recipient, result.amount);
     }
 
+    // TODO refund function
+
     function decodeBurnResult(bytes memory ckbTx) public view returns (BurnResult memory result) {
         bytes29 rawTx = ckbTx.ref(uint40(CKBTxView.CKBTxTypes.RawTx));
         bytes29 recipientCellTypescript = rawTx.outputs().recipientCellOutput().typescript();
