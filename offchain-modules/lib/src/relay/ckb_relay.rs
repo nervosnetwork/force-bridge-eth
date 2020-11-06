@@ -1,7 +1,7 @@
 use crate::transfer::to_eth::get_add_ckb_headers_func;
 use crate::util::ckb_util::Generator;
 use crate::util::eth_util::Web3Client;
-use anyhow::Result;
+use anyhow::{anyhow, bail, Result};
 use ethabi::Token;
 use ethereum_types::U256;
 use log::info;
@@ -26,7 +26,7 @@ impl CKBRelayer {
         priv_key_path: String,
     ) -> Result<CKBRelayer> {
         let ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
-            .map_err(|e| anyhow::anyhow!("failed to crate generator: {}", e))?;
+            .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
         let web3_client = Web3Client::new(eth_rpc_url);
 
         Ok(CKBRelayer {
@@ -48,8 +48,8 @@ impl CKBRelayer {
                 .ckb_client
                 .rpc_client
                 .get_block_hash(client_block_number)
-                .map_err(|e| anyhow::anyhow!("failed to get block hash: {}", e))?
-                .ok_or_else(|| anyhow::anyhow!("block {:?}  hash is none", client_block_number))?;
+                .map_err(|e| anyhow!("failed to get block hash: {}", e))?
+                .ok_or_else(|| anyhow!("block {:?}  hash is none", client_block_number))?;
 
             if self
                 .web3_client
@@ -64,22 +64,20 @@ impl CKBRelayer {
         let mut block_height = client_block_number + 1;
         let block_gap = 1;
 
-        loop {
-            let ckb_current_height = self
-                .ckb_client
-                .rpc_client
-                .get_tip_block_number()
-                .map_err(|e| anyhow::anyhow!("failed to get ckb current height : {}", e))?;
+        let ckb_current_height = self
+            .ckb_client
+            .rpc_client
+            .get_tip_block_number()
+            .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
 
-            if block_height >= ckb_current_height {
-                continue;
-            }
+        while block_height < ckb_current_height {
             let height_range = block_height..block_height + block_gap;
             block_height += block_gap;
 
             let heights: Vec<u64> = height_range.clone().collect();
             self.relay_headers(heights).await?;
         }
+        Ok(())
     }
 
     pub async fn relay_headers(&mut self, heights: Vec<u64>) -> Result<()> {
@@ -113,12 +111,12 @@ impl CKBRelayer {
             .await?;
         let tx_status = tx_receipt
             .status
-            .ok_or_else(|| anyhow::anyhow!("tx receipt is none"))?;
+            .ok_or_else(|| anyhow!("tx receipt is none"))?;
         let hex_tx_hash = hex::encode(tx_receipt.transaction_hash);
         if tx_status.as_usize() == 1 {
             info!("relay headers success. tx_hash : {} ", hex_tx_hash)
         } else {
-            anyhow::bail!(
+            bail!(
                 "failed to relay headers tx_hash: {} , tx_status : {}",
                 hex_tx_hash,
                 tx_status
