@@ -46,6 +46,9 @@ mod tests {
         mock.expect_load_output_data()
             .times(1)
             .returning(move || Some(data.clone()));
+        mock.expect_load_script_args()
+            .times(1)
+            .returning(|| Bytes::from([0u8].to_vec()));
         mock.expect_get_sudt_amount_from_source()
             .times(2)
             .returning(|x, _y| if x == Source::Input { 100 } else { 99 });
@@ -65,6 +68,9 @@ mod tests {
         mock.expect_load_output_data()
             .times(1)
             .returning(move || Some(data.clone()));
+        mock.expect_load_script_args()
+            .times(1)
+            .returning(|| Bytes::from([0u8].to_vec()));
         mock.expect_get_sudt_amount_from_source()
             .times(2)
             .returning(|x, _y| if x == Source::Input { 99 } else { 100 });
@@ -84,6 +90,9 @@ mod tests {
         mock.expect_load_output_data()
             .times(1)
             .returning(move || Some(data.clone()));
+        mock.expect_load_script_args()
+            .times(1)
+            .returning(|| Bytes::from([0u8].to_vec()));
         mock.expect_get_sudt_amount_from_source()
             .times(2)
             .returning(|x, _y| if x == Source::Input { 100 } else { 98 });

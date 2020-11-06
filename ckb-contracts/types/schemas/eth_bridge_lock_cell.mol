@@ -1,0 +1,6 @@
+import basic;
+
+table ETHBridgeLockArgs {
+    eth_contract_address: Bytes,
+    eth_token_address: Bytes,
+}

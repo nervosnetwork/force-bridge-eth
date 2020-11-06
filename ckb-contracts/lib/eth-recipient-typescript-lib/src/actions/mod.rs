@@ -5,14 +5,17 @@ use ckb_std::ckb_constants::Source;
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::ckb_types::packed::{Byte32, Bytes, Script};
 use force_eth_types::{
-    config::ETH_BRIDGE_LOCKSCRIPT_CODE_HASH, eth_recipient_cell::ETHRecipientDataView,
+    config::ETH_BRIDGE_LOCKSCRIPT_CODE_HASH, eth_bridge_lock_cell::ETHBridgeLockArgs,
+    eth_recipient_cell::ETHRecipientDataView, generated::basic,
 };
 use molecule::prelude::{Builder, Byte, Entity};
 
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
 pub fn verify_burn_token<T: Adapter>(data_loader: T, data: ETHRecipientDataView) {
-    let eth_bridge_lock_hash = calc_eth_bridge_lock_hash(data.eth_token_address);
+    let eth_contract_address = data_loader.load_script_args();
+    let eth_bridge_lock_hash =
+        calc_eth_bridge_lock_hash(eth_contract_address, data.eth_token_address);
     let input_sudt_num =
         data_loader.get_sudt_amount_from_source(Source::Input, &eth_bridge_lock_hash);
     let output_sudt_num =
@@ -25,15 +28,22 @@ pub fn verify_burn_token<T: Adapter>(data_loader: T, data: ETHRecipientDataView)
     }
 }
 
-fn calc_eth_bridge_lock_hash(eth_token_address: molecule::bytes::Bytes) -> [u8; 32] {
+fn calc_eth_bridge_lock_hash(
+    eth_contract_address: molecule::bytes::Bytes,
+    eth_token_address: molecule::bytes::Bytes,
+) -> [u8; 32] {
     debug!("eth_token_address {:?}", eth_token_address);
+    let args = ETHBridgeLockArgs::new_builder()
+        .eth_token_address(basic::Bytes::new_unchecked(eth_token_address))
+        .eth_contract_address(basic::Bytes::new_unchecked(eth_contract_address))
+        .build();
     let eth_bridge_lockscript = Script::new_builder()
         .code_hash(
             Byte32::from_slice(&ETH_BRIDGE_LOCKSCRIPT_CODE_HASH)
                 .expect("eth bridge lockscript hash invalid"),
         )
         .hash_type(Byte::new(0))
-        .args(Bytes::new_unchecked(eth_token_address))
+        .args(Bytes::new_unchecked(args.as_bytes()))
         .build();
 
     blake2b_256(eth_bridge_lockscript.as_slice())
