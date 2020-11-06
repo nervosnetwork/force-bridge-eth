@@ -80,6 +80,11 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     // query
+    function getHeadersByNumber(uint64 blockNumber) public returns (bytes32[]) {
+        return allHeaderHashes[blockNumber];
+    }
+
+    // query
     function getCanonicalHeaderHash(uint64  blockNumber) public returns (bytes32) {
         return canonicalHeaderHashes[blockNumber];
     }
