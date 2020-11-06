@@ -40,10 +40,20 @@ impl CKBRelayer {
     pub async fn start(&mut self) -> Result<()> {
         let mut client_block_number = self
             .web3_client
-            .get_light_client_current_height(self.contract_addr)
+            .get_contract_height("latestBlockNumber", self.contract_addr)
             .await?;
-        info!("client contract header number : {:?}", client_block_number);
-        while client_block_number > 0 {
+        let client_init_height = self
+            .web3_client
+            .get_contract_height("initBlockNumber", self.contract_addr)
+            .await?;
+        if client_block_number < client_init_height {
+            bail!(
+                "contract current height  : {}  <  init height : {}",
+                client_block_number,
+                client_init_height
+            );
+        }
+        while client_block_number > client_init_height {
             let ckb_header_hash = self
                 .ckb_client
                 .rpc_client

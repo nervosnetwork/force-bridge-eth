@@ -99,16 +99,21 @@ impl Web3Client {
         }
     }
 
-    pub async fn get_light_client_current_height(&mut self, contract_addr: Address) -> Result<u64> {
+    pub async fn get_contract_height(
+        &mut self,
+        func_name: &str,
+        contract_addr: Address,
+    ) -> Result<u64> {
         let contract = Contract::from_json(
             self.client.eth(),
             contract_addr,
             include_bytes!("ckb_chain_abi.json"),
         )
         .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
-        let result = contract.query("latestBlockNumber", (), None, Options::default(), None);
-        let latest_block_number: u64 = result.await?;
-        Ok(latest_block_number)
+        let result = contract.query(func_name, (), None, Options::default(), None);
+        let height: u64 = result.await?;
+        info!("client contract header number : {:?}", height);
+        Ok(height)
     }
     pub async fn get_mock_data(&mut self, contract_addr: Address) -> Result<Bytes> {
         let contract = Contract::from_json(
@@ -141,7 +146,6 @@ impl Web3Client {
             hex::encode(latest_header_hash.as_bytes())
         );
 
-        // TODO : confirm the result contains all the block hash at same height(maybe fork)
         let result = contract.query(
             "getHeaderHash",
             Uint::from(block_number),
@@ -150,15 +154,19 @@ impl Web3Client {
             None,
         );
 
-        let header_hash: FixedBytes = result.await?;
-        info!(
-            "contact block {:?} header hash : {:?}",
-            block_number,
-            hex::encode(header_hash.as_slice())
-        );
-        if header_hash.as_slice() == latest_header_hash.as_bytes() {
-            return Ok(true);
+        let header_hashes: Vec<FixedBytes> = result.await?;
+
+        for hash in header_hashes {
+            info!(
+                "contact block {:?} header hash : {:?}",
+                block_number,
+                hex::encode(hash.as_slice())
+            );
+            if hash.as_slice() == latest_header_hash.as_bytes() {
+                return Ok(true);
+            }
         }
+
         Ok(false)
     }
 }
