@@ -37,9 +37,11 @@ pub struct DevInitArgs {
     #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(long, default_value = "../build/release/eth-bridge-typescript")]
-    pub typescript_path: String,
+    pub spv_typescript_path: String,
     #[clap(long, default_value = "../build/release/eth-bridge-lockscript")]
     pub lockscript_path: String,
+    #[clap(long, default_value = "../build/release/eth-light-client-typescript")]
+    pub light_client_typescript_path: String,
     #[clap(long, default_value = "../tests/deps/simple_udt")]
     pub sudt_path: String,
 }

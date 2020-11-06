@@ -22,7 +22,8 @@ pub struct ScriptsConf {
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct Settings {
     pub lockscript: ScriptConf,
-    pub typescript: ScriptConf,
+    pub spv_typescript: ScriptConf,
+    pub light_client_typescript: ScriptConf,
     pub sudt: ScriptConf,
 }
 

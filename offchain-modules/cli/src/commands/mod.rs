@@ -55,8 +55,9 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.rpc_url,
         args.indexer_url,
         args.private_key_path,
-        args.typescript_path,
+        args.spv_typescript_path,
         args.lockscript_path,
+        args.light_client_typescript_path,
         args.sudt_path,
     )
 }
@@ -208,7 +209,13 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         args.private_key_path,
         args.proof_data_path,
     );
-    eth_relayer.start().await
+    loop {
+        let res = eth_relayer.start().await;
+        if let Err(err) = res {
+            println!("An error occurred during the eth relay. Err: {:?}", err)
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
 }
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {

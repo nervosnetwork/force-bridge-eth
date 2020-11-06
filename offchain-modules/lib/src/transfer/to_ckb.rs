@@ -143,13 +143,15 @@ pub fn verify_eth_spv_proof() -> bool {
     todo!()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn dev_init(
     config_path: String,
     rpc_url: String,
     indexer_url: String,
     private_key_path: String,
-    typescript_path: String,
+    spv_typescript_path: String,
     lockscript_path: String,
+    light_client_typescript_path: String,
     sudt_path: String,
 ) -> Result<()> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
@@ -158,23 +160,42 @@ pub fn dev_init(
     let private_key = parse_privkey_path(&private_key_path)?;
 
     // dev deploy
-    let typescript_bin = std::fs::read(typescript_path)?;
+    let spv_typescript_bin = std::fs::read(spv_typescript_path)?;
     let lockscript_bin = std::fs::read(lockscript_path)?;
+    let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
     let sudt_bin = std::fs::read(sudt_path)?;
-    let typescript_code_hash = blake2b_256(&typescript_bin);
-    let typescript_code_hash_hex = hex::encode(&typescript_code_hash);
+
+    let spv_typescript_code_hash = blake2b_256(&spv_typescript_bin);
+    let spv_typescript_code_hash_hex = hex::encode(&spv_typescript_code_hash);
+
+    let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
+    let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
+
     let lockscript_code_hash = blake2b_256(&lockscript_bin);
     let lockscript_code_hash_hex = hex::encode(&lockscript_code_hash);
     let sudt_code_hash = blake2b_256(&sudt_bin);
     let sudt_code_hash_hex = hex::encode(&sudt_code_hash);
-    let data = vec![typescript_bin, lockscript_bin, sudt_bin];
+
+    let data = vec![
+        spv_typescript_bin,
+        lockscript_bin,
+        light_client_typescript_bin,
+        sudt_bin,
+    ];
 
     let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data).unwrap();
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).unwrap();
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
     let settings = Settings {
-        typescript: ScriptConf {
-            code_hash: typescript_code_hash_hex,
+        spv_typescript: ScriptConf {
+            code_hash: spv_typescript_code_hash_hex,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex.clone(),
+                index: 0,
+            },
+        },
+        light_client_typescript: ScriptConf {
+            code_hash: light_client_typescript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,

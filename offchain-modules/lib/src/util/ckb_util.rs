@@ -3,6 +3,7 @@ use anyhow::Result;
 use ckb_sdk::{Address, GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, DepType, TransactionView};
 // use ckb_types::packed::WitnessArgs;
+use crate::util::eth_proof_helper::Witness;
 use ckb_types::packed::HeaderVec;
 use ckb_types::prelude::{Builder, Entity, Pack};
 use ckb_types::{
@@ -13,11 +14,12 @@ use ckb_types::{
 use ethereum_types::H160;
 use faster_hex::hex_decode;
 use force_sdk::cell_collector::{get_live_cell_by_lockscript, get_live_cell_by_typescript};
-use force_sdk::indexer::IndexerRpcClient;
+use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::TxHelper;
-use force_sdk::util::{get_live_cell, get_live_cell_with_cache};
+use force_sdk::util::get_live_cell_with_cache;
 use std::collections::HashMap;
 use std::str::FromStr;
+use web3::types::{Block, BlockHeader};
 
 pub fn make_ckb_transaction(_from_lockscript: Script) -> Result<TransactionView> {
     todo!()
@@ -45,6 +47,65 @@ impl Generator {
             _genesis_info: genesis_info,
             settings,
         })
+    }
+
+    #[allow(clippy::mutable_key_type)]
+    pub fn generate_eth_light_client_tx(
+        &mut self,
+        header: &Block<ethereum_types::H256>,
+        cell: &Cell,
+        _witness: &Witness,
+        headers: &[BlockHeader],
+        from_lockscript: Script,
+    ) -> Result<TransactionView, String> {
+        let tx_fee: u64 = 10000;
+        let mut helper = TxHelper::default();
+        let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
+            Default::default();
+        let rpc_client = &mut self.rpc_client;
+        let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+            get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+                .map(|(output, _)| output)
+        };
+        helper.add_input(
+            OutPoint::from(cell.clone().out_point),
+            None,
+            &mut get_live_cell_fn,
+            &self._genesis_info,
+            true,
+        )?;
+
+        {
+            let cell_output = CellOutput::from(cell.clone().output);
+            let output = CellOutput::new_builder()
+                .lock(cell_output.lock())
+                .type_(cell_output.type_())
+                .build();
+            let tip = &headers[headers.len() - 1];
+            let mut _output_data = ckb_types::bytes::Bytes::default();
+            if tip.parent_hash == header.hash.unwrap()
+                || header.number.unwrap().as_u64() >= tip.number.unwrap().as_u64()
+            {
+                // the new header is on main chain.
+                // FIXME: build output data.
+                todo!()
+            } else {
+                // the new header is on uncle chain.
+                // FIXME: build output data.
+                _output_data = ckb_types::bytes::Bytes::default();
+            }
+            helper.add_output_with_auto_capacity(output, _output_data);
+        }
+
+        // build tx
+        let tx = helper.supply_capacity(
+            &mut self.rpc_client,
+            &mut self.indexer_client,
+            from_lockscript,
+            &self._genesis_info,
+            tx_fee,
+        )?;
+        Ok(tx)
     }
 
     #[allow(clippy::mutable_key_type)]
@@ -177,30 +238,30 @@ impl Generator {
         Ok(())
     }
 
-    fn _get_ckb_cell(
+    pub fn get_ckb_cell(
         &mut self,
-        helper: &mut TxHelper,
+        // helper: &mut TxHelper,
         cell_typescript: Script,
-        add_to_input: bool,
+        // add_to_input: bool,
     ) -> Result<(CellOutput, Bytes), String> {
-        let genesis_info = self._genesis_info.clone();
+        // let genesis_info = self._genesis_info.clone();
         let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_typescript)?
             .ok_or("cell not found")?;
         let ckb_cell = CellOutput::from(cell.output);
         let ckb_cell_data = packed::Bytes::from(cell.output_data).raw_data();
-        if add_to_input {
-            let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
-                get_live_cell(&mut self.rpc_client, out_point, with_data).map(|(output, _)| output)
-            };
-
-            helper.add_input(
-                cell.out_point.into(),
-                None,
-                &mut get_live_cell_fn,
-                &genesis_info,
-                true,
-            )?;
-        }
+        // if add_to_input {
+        //     let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+        //         get_live_cell(&mut self.rpc_client, out_point, with_data).map(|(output, _)| output)
+        //     };
+        //
+        //     helper.add_input(
+        //         cell.out_point.into(),
+        //         None,
+        //         &mut get_live_cell_fn,
+        //         &genesis_info,
+        //         true,
+        //     )?;
+        // }
         Ok((ckb_cell, ckb_cell_data))
     }
     pub fn get_ckb_headers(&mut self, block_numbers: Vec<u64>) -> Result<Vec<u8>> {

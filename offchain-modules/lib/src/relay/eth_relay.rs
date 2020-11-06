@@ -3,20 +3,24 @@ use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use crate::util::settings::Settings;
 use anyhow::Result;
+use ckb_sdk::{AddressPayload, SECP256K1};
+use ckb_types::bytes::Bytes;
 use ckb_types::core::DepType;
+use ckb_types::packed::{self};
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity};
 use cmd_lib::run_cmd;
 use ethereum_types::H256;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
+use force_sdk::indexer::Cell;
+use force_sdk::tx_helper::sign;
+use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use std::ops::Add;
 use web3::types::{Block, BlockHeader, BlockId};
 
 pub struct ETHRelayer {
-    pub config_path: String,
-    pub ckb_rpc_url: String,
-    pub eth_rpc_url: String,
-    pub indexer_url: String,
+    pub eth_client: Web3Client,
+    pub generator: Generator,
     pub priv_key_path: String,
     pub proof_data_path: String,
 }
@@ -30,11 +34,14 @@ impl ETHRelayer {
         priv_key_path: String,
         proof_data_path: String,
     ) -> Self {
+        let settings = Settings::new(&config_path).expect("can not init settings.");
+        let generator = Generator::new(ckb_rpc_url, indexer_url, settings)
+            .map_err(|e| anyhow::anyhow!(e))
+            .unwrap();
+        let eth_client = Web3Client::new(eth_rpc_url);
         ETHRelayer {
-            config_path,
-            ckb_rpc_url,
-            eth_rpc_url,
-            indexer_url,
+            eth_client,
+            generator,
             priv_key_path,
             proof_data_path,
         }
@@ -47,88 +54,128 @@ impl ETHRelayer {
     // current_height = common_ancestor_height + 1
     // 5. If reorg does not occur, directly use header as tip to build output
     pub async fn start(&mut self) -> Result<()> {
-        let settings = Settings::new(&self.config_path)?;
-        let mut generator =
-            Generator::new(self.ckb_rpc_url.clone(), self.indexer_url.clone(), settings)
-                .map_err(|e| anyhow::anyhow!(e))?;
         let typescript = Script::new_builder()
             .code_hash(
-                Byte32::from_slice(generator.settings.typescript.code_hash.as_bytes()).unwrap(),
+                Byte32::from_slice(
+                    self.generator
+                        .settings
+                        .light_client_typescript
+                        .code_hash
+                        .as_bytes(),
+                )
+                .unwrap(),
             )
             .hash_type(DepType::Code.into())
             // FIXME: add script args
             .args(ckb_types::packed::Bytes::default())
             .build();
-        let indexer_client = &mut generator.indexer_client;
-        let cell = get_live_cell_by_typescript(indexer_client, typescript).unwrap();
-        let mut rpc_client = Web3Client::new(self.eth_rpc_url.clone());
-        match cell {
-            Some(cell) => {
-                let data = cell.output_data.as_bytes();
-                let headers = parse_headers(data)?;
-                let index = headers.len() - 1;
-                // Determine whether the latest_header is on the Ethereum main chain
-                // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
-                // If it is not in the main chain, it means that reorg has occurred, and you need to trace back from latest_height until the back traced header is on the main chain
-                let block = lookup_common_ancestor(headers, index, &mut rpc_client).await?;
-                self.do_relay_loop(&mut rpc_client, block).await?;
-            }
-            None => anyhow::bail!("the bridge cell is not found."),
-        }
+
+        let cell = get_live_cell_by_typescript(&mut self.generator.indexer_client, typescript)
+            .unwrap()
+            .unwrap();
+
+        // let (ckb_cell, ckb_cell_data) = self
+        //     .generator
+        //     .get_ckb_cell(typescript)
+        //     .expect("no cell found");
+        let ckb_cell_data = packed::Bytes::from(cell.clone().output_data).raw_data();
+        let headers = parse_headers(ckb_cell_data)?;
+        let index = headers.len() - 1;
+        // Determine whether the latest_header is on the Ethereum main chain
+        // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
+        // If it is not in the main chain, it means that reorg has occurred, and you need to trace back from latest_height until the back traced header is on the main chain
+        let block = self.lookup_common_ancestor(&headers, index).await?;
+        self.do_relay_loop(block, &cell, &headers).await?;
         Ok(())
+    }
+
+    // Find the common ancestor of the latest header and main chain
+    pub async fn lookup_common_ancestor(
+        &mut self,
+        headers: &[BlockHeader],
+        mut index: usize,
+    ) -> Result<Block<H256>> {
+        while index > 0 {
+            let latest_header = &headers[index];
+            let block = self
+                .eth_client
+                .get_block(BlockId::Hash(latest_header.hash.unwrap()))
+                .await;
+            match block {
+                Ok(block) => {
+                    return Ok(block);
+                }
+                Err(_) => {
+                    // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+                    index -= 1;
+                }
+            }
+        }
+        Err(anyhow::Error::msg(
+            "system error! can not find the common ancestor with main chain.",
+        ))
     }
 
     pub async fn do_relay_loop(
         &mut self,
-        rpc_client: &mut Web3Client,
-        block: Block<H256>,
+        mut current_block: Block<H256>,
+        cell: &Cell,
+        headers: &[BlockHeader],
     ) -> Result<()> {
-        let number = block.number.unwrap();
+        let mut number = current_block.number.unwrap();
         loop {
             // let block_id = BlockId::Number(BlockNumber::Number((number.as_u64().add(1)).into()));
-            let new_header_rlp = rpc_client.get_header_rlp(number.add(1).into()).await?;
-            let header_rlp = format!("0x{}", new_header_rlp);
-            println!("{:?}", header_rlp);
-            let proof_data_path = self.proof_data_path.clone();
-            run_cmd!(../vendor/relayer ${header_rlp} > ${proof_data_path})?;
-            let block_with_proofs = read_block(proof_data_path);
-            let _witness = Witness {
-                cell_dep_index_list: vec![0],
-                header: block_with_proofs.header_rlp.0.clone(),
-                merkle_proof: block_with_proofs.to_double_node_with_merkle_proof_vec(),
-            };
+            let new_header = self
+                .eth_client
+                .get_block(number.add(1 as u64).into())
+                .await?;
+            if new_header.parent_hash == current_block.hash.unwrap() {
+                // No reorg
+                let new_header_rlp = self.eth_client.get_header_rlp(number.add(1).into()).await?;
+                let header_rlp = format!("0x{}", new_header_rlp);
+                println!("{:?}", header_rlp);
+                let proof_data_path = self.proof_data_path.clone();
+                run_cmd!(../vendor/relayer ${header_rlp} > ${proof_data_path})?;
+                let block_with_proofs = read_block(proof_data_path);
+                let witness = Witness {
+                    cell_dep_index_list: vec![0],
+                    header: block_with_proofs.header_rlp.0.clone(),
+                    merkle_proof: block_with_proofs.to_double_node_with_merkle_proof_vec(),
+                };
+                // let mut helper = TxHelper::default();
+                let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
+                let from_public_key =
+                    secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
+                let address_payload = AddressPayload::from_pubkey(&from_public_key);
+                let from_lockscript = Script::from(&address_payload);
+                let unsigned_tx = self
+                    .generator
+                    .generate_eth_light_client_tx(
+                        &new_header,
+                        cell,
+                        &witness,
+                        headers,
+                        from_lockscript,
+                    )
+                    .unwrap();
+                let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey).unwrap();
+                send_tx_sync(&mut self.generator.rpc_client, &tx, 60).unwrap();
+                // FIXME: update cell
+                number = number.add(1);
+                current_block = new_header;
+            } else {
+                // Reorg occurred, need to go back
+                let index = headers.len() - 1;
+                current_block = self.lookup_common_ancestor(&headers, index).await?;
+                number = current_block.number.unwrap();
+            }
+
             // send ckb tx
             std::thread::sleep(std::time::Duration::from_secs(2));
         }
     }
 }
 
-// Find the common ancestor of the latest header and main chain
-pub async fn lookup_common_ancestor(
-    headers: Vec<BlockHeader>,
-    mut index: usize,
-    rpc_client: &mut Web3Client,
-) -> Result<Block<H256>> {
-    while index > 0 {
-        let latest_header = &headers[index];
-        let block = rpc_client
-            .get_block(BlockId::Hash(latest_header.hash.unwrap()))
-            .await;
-        match block {
-            Ok(block) => {
-                return Ok(block);
-            }
-            Err(_) => {
-                // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
-                index -= 1;
-            }
-        }
-    }
-    Err(anyhow::Error::msg(
-        "system error! can not find the common ancestor with main chain.",
-    ))
-}
-
-pub fn parse_headers(_data: &[u8]) -> Result<Vec<BlockHeader>> {
+pub fn parse_headers(_data: Bytes) -> Result<Vec<BlockHeader>> {
     todo!()
 }

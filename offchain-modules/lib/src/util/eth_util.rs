@@ -200,7 +200,7 @@ pub fn convert_eth_address(mut address: &str) -> Result<H160> {
 #[tokio::test]
 async fn test_get_block() {
     use cmd_lib::run_cmd;
-    use web3::types::BlockNumber;
+    use web3::types::{BlockNumber, U64};
     let mut client = Web3Client::new(String::from(
         "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
     ));
