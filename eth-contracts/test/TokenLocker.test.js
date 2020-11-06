@@ -87,8 +87,8 @@ async function testLockETH(testcase) {
   const {
     tokenAddressTopic,
     lockerAddressTopic,
-    ckbAddressTopic,
     lockedAmount,
+    ckbAddress,
     replayResistOutpoint,
   } = parseLockedEvent(receipt.logs[0]);
 
@@ -96,11 +96,8 @@ async function testLockETH(testcase) {
     "0x0000000000000000000000000000000000000000"
   );
   expect(lockerAddressTopic).to.equal(user.address);
-  const hashCKBAddress = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes(testcase.ckbAddress)
-  );
-  expect(ckbAddressTopic).to.equal(hashCKBAddress);
   expect(lockedAmount).to.equal(amount);
+  expect(ckbAddress).to.equal(testcase.ckbAddress);
   expect(replayResistOutpoint).to.equal(testcase.replayResistOutpoint);
 
   // locked token amount == delta balance of contract
@@ -147,18 +144,15 @@ async function testLockToken(testcase) {
   const {
     tokenAddressTopic,
     lockerAddressTopic,
-    ckbAddressTopic,
     lockedAmount,
+    ckbAddress,
     replayResistOutpoint,
   } = parseLockedEvent(receipt.logs[2]);
 
   expect(tokenAddressTopic).to.equal(erc20.address);
   expect(lockerAddressTopic).to.equal(user.address);
-  const hashCKBAddress = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes(testcase.ckbAddress)
-  );
-  expect(ckbAddressTopic).to.equal(hashCKBAddress);
   expect(lockedAmount).to.equal(amount);
+  expect(ckbAddress).to.equal(testcase.ckbAddress);
   expect(replayResistOutpoint).to.equal(testcase.replayResistOutpoint);
 
   // locked token amount == delta balance of contract
@@ -180,19 +174,15 @@ function parseLockedEvent(eventLog) {
     ["address"],
     eventLog.topics[2]
   )[0];
-  const ckbAddressTopic = ethers.utils.defaultAbiCoder.decode(
-    ["bytes32"],
-    eventLog.topics[3]
-  )[0];
   const eventData = ethers.utils.defaultAbiCoder.decode(
-    ["uint256", "string"],
+    ["uint256", "string", "string"],
     eventLog.data
   );
   return {
     tokenAddressTopic: tokenAddressTopic,
     lockerAddressTopic: lockerAddressTopic,
-    ckbAddressTopic: ckbAddressTopic,
     lockedAmount: eventData[0],
-    replayResistOutpoint: eventData[1],
+    ckbAddress: eventData[1],
+    replayResistOutpoint: eventData[2],
   };
 }

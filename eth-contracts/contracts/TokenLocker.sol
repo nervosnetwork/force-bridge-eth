@@ -35,8 +35,8 @@ contract TokenLocker {
     event Locked(
         address indexed token,
         address indexed sender,
-        string  indexed ckbAddress,
         uint256 amount,
+        string  ckbAddress,
         string replayResistOutpoint
     );
 
@@ -57,11 +57,11 @@ contract TokenLocker {
     function lockToken(address token, uint256 amount, string memory ckbAddress, string memory replayResistOutpoint) public {
         // TODO modify `transferFrom` to `safeTransferFrom`
         IERC20(token).transferFrom(msg.sender, address(this), amount);
-        emit Locked(token, msg.sender, ckbAddress, amount, replayResistOutpoint);
+        emit Locked(token, msg.sender, amount, ckbAddress, replayResistOutpoint);
     }
 
     function lockETH(string memory ckbAddress, string memory replayResistOutpoint) public payable {
-        emit Locked(address(0), msg.sender, ckbAddress, msg.value, replayResistOutpoint);
+        emit Locked(address(0), msg.sender, msg.value, ckbAddress, replayResistOutpoint);
     }
 
     function unlockToken(bytes memory ckbTxProof, bytes memory ckbTx) public {
