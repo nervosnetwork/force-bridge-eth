@@ -81,7 +81,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     // query
-    function getHeadersByNumber(uint64 blockNumber) public returns (bytes32[]) {
+    function getHeadersByNumber(uint64 blockNumber) public returns (bytes32[] memory) {
         return allHeaderHashes[blockNumber];
     }
 
