@@ -44,6 +44,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     // Whether the contract was initialized.
     bool public initialized;
     uint64 public latestBlockNumber;
+    uint64 public initBlockNumber;
     BlockHeader latestHeader;
 
     /// Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
@@ -112,6 +113,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         (uint256 target,) = CKBPow.compactToTarget(rawHeaderView.compactTarget());
         uint256 difficulty = CKBPow.targetToDifficulty(target);
         uint64 blockNumber = rawHeaderView.blockNumber();
+        initBlockNumber = blockNumber;
         BlockHeader memory header = BlockHeader(
             blockNumber,
             rawHeaderView.epoch(),
