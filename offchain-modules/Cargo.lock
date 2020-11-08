@@ -1359,6 +1359,7 @@ dependencies = [
  "ethereum-tx-sign",
  "ethereum-types",
  "faster-hex 0.4.1",
+ "force-eth-types",
  "force-sdk",
  "futures 0.3.7",
  "hex 0.4.2",
@@ -1372,6 +1373,14 @@ dependencies = [
  "tokio 0.2.22",
  "toml",
  "web3",
+]
+
+[[package]]
+name = "force-eth-types"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "molecule",
 ]
 
 [[package]]

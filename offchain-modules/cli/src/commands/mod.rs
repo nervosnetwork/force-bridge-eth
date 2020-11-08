@@ -165,7 +165,8 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     let settings = Settings::new(&args.config_path)?;
     let mut generator = Generator::new(args.ckb_rpc_url, args.indexer_url, settings)
         .map_err(|e| anyhow::anyhow!(e))?;
-    let tx_hash = send_eth_spv_proof_tx(&mut generator, &eth_proof, args.private_key_path).await?;
+    let tx_hash =
+        send_eth_spv_proof_tx(&mut generator, &eth_proof, args.private_key_path, args.cell).await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);
     Ok(())
 }

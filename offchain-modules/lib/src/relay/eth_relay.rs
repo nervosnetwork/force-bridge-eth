@@ -1,14 +1,14 @@
-use crate::util::ckb_util::Generator;
+use crate::util::ckb_util::{parse_cell, Generator};
 use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use crate::util::settings::Settings;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ckb_sdk::{AddressPayload, SECP256K1};
 use ckb_types::bytes::Bytes;
 use ckb_types::core::DepType;
-use ckb_types::packed::{self, ScriptReader};
+use ckb_types::packed::{self};
 use ckb_types::packed::{Byte32, Script};
-use ckb_types::prelude::{Builder, Entity, Reader};
+use ckb_types::prelude::{Builder, Entity};
 use cmd_lib::run_cmd;
 use ethereum_types::{H256, U64};
 use force_sdk::cell_collector::get_live_cell_by_typescript;
@@ -224,12 +224,4 @@ impl ETHRelayer {
 
 pub fn parse_headers(_data: Bytes) -> Result<Vec<BlockHeader>> {
     todo!()
-}
-
-pub fn parse_cell(cell: &str) -> Result<Script> {
-    let cell_bytes =
-        hex::decode(cell).map_err(|e| anyhow!("cell shoule be hex format, err: {}", e))?;
-    ScriptReader::verify(&cell_bytes, false).map_err(|e| anyhow!("cell decoding err: {}", e))?;
-    let cell_typescript = Script::new_unchecked(cell_bytes.into());
-    Ok(cell_typescript)
 }

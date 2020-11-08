@@ -117,6 +117,8 @@ pub struct MintArgs {
     pub indexer_url: String,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
+    #[clap(short, long)]
+    pub cell: String,
 }
 
 #[derive(Clap, Clone, Debug)]

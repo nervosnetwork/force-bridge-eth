@@ -1,11 +1,10 @@
+use crate::util::eth_proof_helper::Witness;
 use crate::util::settings::{OutpointConf, Settings};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ckb_sdk::{Address, GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, DepType, TransactionView};
-// use ckb_types::packed::WitnessArgs;
-use crate::util::eth_proof_helper::Witness;
-use ckb_types::packed::HeaderVec;
-use ckb_types::prelude::{Builder, Entity, Pack};
+use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
+use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
     bytes::Bytes,
     packed::{self, Byte32, CellDep, CellOutput, OutPoint, Script},
@@ -13,11 +12,14 @@ use ckb_types::{
 };
 use ethereum_types::H160;
 use faster_hex::hex_decode;
+use force_eth_types::basic::BytesVec;
+use force_eth_types::{basic, witness};
 use force_sdk::cell_collector::{get_live_cell_by_lockscript, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::TxHelper;
 use force_sdk::util::get_live_cell_with_cache;
 use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 use web3::types::{Block, BlockHeader};
 
@@ -167,15 +169,22 @@ impl Generator {
         &mut self,
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
+        cell_dep: String,
     ) -> Result<TransactionView, String> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
 
-        let outpoints = vec![
-            self.settings.lockscript.outpoint.clone(),
-            self.settings.spv_typescript.outpoint.clone(),
-        ];
-        self.add_cell_deps(&mut helper, outpoints)?;
+        // add cell deps.
+        let cell_script = parse_cell(cell_dep.as_str()).unwrap();
+        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)?.unwrap();
+        let mut builder = helper.transaction.as_advanced_builder();
+        builder = builder.cell_dep(
+            CellDep::new_builder()
+                .out_point(cell.out_point.into())
+                .dep_type(DepType::Code.into())
+                .build(),
+        );
+        helper.transaction = builder.build();
 
         let lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&self.settings.lockscript.code_hash.as_bytes()).unwrap())
@@ -194,21 +203,14 @@ impl Generator {
                 get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                     .map(|(output, _)| output)
             };
-            let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())?;
-            match cell {
-                Some(cell) => {
-                    helper.add_input(
-                        OutPoint::from(cell.out_point),
-                        None,
-                        &mut get_live_cell_fn,
-                        &self._genesis_info,
-                        true,
-                    )?;
-                }
-                None => {
-                    return Err("the bridge cell is not found.".to_string());
-                }
-            }
+            let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())?.unwrap();
+            helper.add_input(
+                OutPoint::from(cell.out_point),
+                None,
+                &mut get_live_cell_fn,
+                &self._genesis_info,
+                true,
+            )?;
         }
 
         // 1 bridge cells
@@ -246,16 +248,20 @@ impl Generator {
         //FIXME: Wait for the work on the contract side to complete
         // add witness
         {
-            // let witness_data = Default::default();
-            // let witness = WitnessArgs::new_builder()
-            //     .input_type(Some(witness_data.as_bytes()).pack())
-            //     .build();
-            //
-            // helper.transaction = helper
-            //     .transaction
-            //     .as_advanced_builder()
-            //     .set_witnesses(vec![witness.as_bytes().pack()])
-            //     .build();
+            let witness_data = EthWitness {
+                cell_dep_index_list: vec![0],
+                spv_proof: eth_proof.clone(),
+            };
+
+            let witness = WitnessArgs::new_builder()
+                .input_type(Some(witness_data.as_bytes()).pack())
+                .build();
+
+            helper.transaction = helper
+                .transaction
+                .as_advanced_builder()
+                .set_witnesses(vec![witness.as_bytes().pack()])
+                .build();
         }
 
         // build tx
@@ -354,6 +360,14 @@ pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256> {
     H256::from_slice(&bytes).map_err(|e| anyhow::anyhow!("failed to covert tx hash: {}", e))
 }
 
+pub fn parse_cell(cell: &str) -> Result<Script> {
+    let cell_bytes =
+        hex::decode(cell).map_err(|e| anyhow!("cell shoule be hex format, err: {}", e))?;
+    ScriptReader::verify(&cell_bytes, false).map_err(|e| anyhow!("cell decoding err: {}", e))?;
+    let cell_typescript = Script::new_unchecked(cell_bytes.into());
+    Ok(cell_typescript)
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct ETHSPVProofJson {
     pub log_index: u64,
@@ -365,4 +379,55 @@ pub struct ETHSPVProofJson {
     pub token: H160,
     pub lock_amount: u128,
     pub ckb_recipient: String,
+}
+
+impl TryFrom<ETHSPVProofJson> for witness::ETHSPVProof {
+    type Error = anyhow::Error;
+    fn try_from(proof: ETHSPVProofJson) -> Result<Self> {
+        let mut proof_vec: Vec<basic::Bytes> = vec![];
+        for i in 0..proof.proof.len() {
+            proof_vec.push(proof.proof[i].to_vec().into())
+        }
+        Ok(witness::ETHSPVProof::new_builder()
+            .log_index(proof.log_index.into())
+            .log_entry_data(hex::decode(clear_0x(&proof.log_entry_data))?.into())
+            .receipt_index(proof.receipt_index.into())
+            .receipt_data(hex::decode(clear_0x(&proof.receipt_data))?.into())
+            .header_data(hex::decode(clear_0x(&proof.header_data))?.into())
+            .proof(BytesVec::new_builder().set(proof_vec).build())
+            .build())
+    }
+}
+
+pub fn clear_0x(s: &str) -> &str {
+    if &s[..2] == "0x" || &s[..2] == "0X" {
+        &s[2..]
+    } else {
+        s
+    }
+}
+
+#[derive(Clone)]
+pub struct EthWitness {
+    pub cell_dep_index_list: Vec<u8>,
+    pub spv_proof: ETHSPVProofJson,
+}
+
+impl EthWitness {
+    pub fn as_bytes(&self) -> Bytes {
+        let spv_proof: witness::ETHSPVProof = self
+            .spv_proof
+            .clone()
+            .try_into()
+            .expect("try into mint_xt_witness::ETHSPVProof success");
+        let spv_proof = spv_proof.as_slice().to_vec();
+        let witness_data = witness::MintTokenWitness::new_builder()
+            .spv_proof(spv_proof.into())
+            .cell_dep_index_list(self.cell_dep_index_list.clone().into())
+            .build();
+        let witness = WitnessArgs::new_builder()
+            .input_type(Some(witness_data.as_bytes()).pack())
+            .build();
+        witness.as_bytes()
+    }
 }

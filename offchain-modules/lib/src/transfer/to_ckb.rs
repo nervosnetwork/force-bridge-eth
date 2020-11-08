@@ -108,6 +108,7 @@ pub async fn send_eth_spv_proof_tx(
     generator: &mut Generator,
     eth_proof: &ETHSPVProofJson,
     private_key_path: String,
+    cell_dep: String,
 ) -> Result<ckb_types::H256> {
     let from_privkey = parse_privkey_path(private_key_path.as_str())?;
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
@@ -115,7 +116,7 @@ pub async fn send_eth_spv_proof_tx(
     let from_lockscript = Script::from(&address_payload);
 
     let unsigned_tx = generator
-        .generate_eth_spv_tx(from_lockscript, eth_proof)
+        .generate_eth_spv_tx(from_lockscript, eth_proof, cell_dep)
         .unwrap();
     let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).unwrap();
     log::info!(
