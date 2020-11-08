@@ -208,6 +208,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         args.eth_rpc_url,
         args.private_key_path,
         args.proof_data_path,
+        args.cell,
     );
     loop {
         let res = eth_relayer.start().await;

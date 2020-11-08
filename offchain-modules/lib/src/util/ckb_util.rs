@@ -50,6 +50,53 @@ impl Generator {
     }
 
     #[allow(clippy::mutable_key_type)]
+    pub fn init_light_client_tx(
+        &mut self,
+        _witness: &Witness,
+        from_lockscript: Script,
+        typescript: Script,
+    ) -> Result<TransactionView, String> {
+        let tx_fee: u64 = 10000;
+        let mut helper = TxHelper::default();
+
+        let outpoints = vec![
+            self.settings.lockscript.outpoint.clone(),
+            self.settings.light_client_typescript.outpoint.clone(),
+        ];
+        self.add_cell_deps(&mut helper, outpoints)?;
+
+        // build tx
+        let tx = helper.supply_capacity(
+            &mut self.rpc_client,
+            &mut self.indexer_client,
+            from_lockscript,
+            &self._genesis_info,
+            tx_fee,
+        )?;
+        let first_outpoint = tx
+            .inputs()
+            .get(0)
+            .expect("should have input")
+            .previous_output()
+            .as_bytes();
+        let typescript_args = first_outpoint.as_ref();
+        assert_eq!(
+            typescript_args.len(),
+            37,
+            "typescript_args len should be 37"
+        );
+        let new_typescript = typescript.as_builder().args(typescript_args.pack()).build();
+
+        let output = CellOutput::new_builder()
+            .type_(Some(new_typescript).pack())
+            .build();
+        let output_data = ckb_types::bytes::Bytes::default();
+        helper.add_output_with_auto_capacity(output, output_data);
+
+        Ok(tx)
+    }
+
+    #[allow(clippy::mutable_key_type)]
     pub fn generate_eth_light_client_tx(
         &mut self,
         header: &Block<ethereum_types::H256>,
@@ -60,6 +107,13 @@ impl Generator {
     ) -> Result<TransactionView, String> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
+
+        let outpoints = vec![
+            self.settings.lockscript.outpoint.clone(),
+            self.settings.light_client_typescript.outpoint.clone(),
+        ];
+        self.add_cell_deps(&mut helper, outpoints)?;
+
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
         let rpc_client = &mut self.rpc_client;
@@ -74,7 +128,6 @@ impl Generator {
             &self._genesis_info,
             true,
         )?;
-
         {
             let cell_output = CellOutput::from(cell.clone().output);
             let output = CellOutput::new_builder()
@@ -105,6 +158,7 @@ impl Generator {
             &self._genesis_info,
             tx_fee,
         )?;
+
         Ok(tx)
     }
 
@@ -116,6 +170,12 @@ impl Generator {
     ) -> Result<TransactionView, String> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
+
+        let outpoints = vec![
+            self.settings.lockscript.outpoint.clone(),
+            self.settings.spv_typescript.outpoint.clone(),
+        ];
+        self.add_cell_deps(&mut helper, outpoints)?;
 
         let lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&self.settings.lockscript.code_hash.as_bytes()).unwrap())
@@ -210,7 +270,7 @@ impl Generator {
         // Ok(TransactionView::)
     }
 
-    fn _add_cell_deps(
+    fn add_cell_deps(
         &mut self,
         helper: &mut TxHelper,
         outpoints: Vec<OutpointConf>,

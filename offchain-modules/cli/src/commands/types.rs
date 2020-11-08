@@ -155,6 +155,9 @@ pub struct EthRelayArgs {
     pub indexer_rpc_url: String,
     #[clap(long, default_value = "/tmp/proof_data.json")]
     pub proof_data_path: String,
+    /// cell typescript hex
+    #[clap(short, long)]
+    pub cell: String,
 }
 
 #[derive(Clap, Clone, Debug)]
