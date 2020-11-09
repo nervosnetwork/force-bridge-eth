@@ -1,6 +1,5 @@
 use crate::util::settings::{OutpointConf, Settings};
 use anyhow::Result;
-use ckb_sdk::rpc::Header;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, DepType, TransactionView};
 use ckb_types::packed::HeaderVec;
@@ -101,14 +100,13 @@ impl Generator {
     pub fn get_ckb_headers(&mut self, block_numbers: Vec<u64>) -> Result<Vec<u8>> {
         let mut mol_header_vec: Vec<packed::Header> = Default::default();
         for number in block_numbers {
-            let block_opt = self
+            let header = self
                 .rpc_client
-                .get_block_by_number(number)
-                .map_err(|e| anyhow::anyhow!("failed to get block: {}", e))?;
+                .get_header_by_number(number)
+                .map_err(|e| anyhow::anyhow!("failed to get header: {}", e))?
+                .ok_or_else(|| anyhow::anyhow!("failed to get header which is none"))?;
 
-            if let Some(block) = block_opt {
-                mol_header_vec.push(block.header.inner.into());
-            }
+            mol_header_vec.push(header.inner.into());
         }
         let mol_headers = HeaderVec::new_builder().set(mol_header_vec).build();
         Ok(Vec::from(mol_headers.as_slice()))
