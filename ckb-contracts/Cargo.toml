@@ -4,9 +4,11 @@ members = [
     "tests",
     "types",
     "lib/eth-bridge-lockscript-lib",
+    "lib/eth-recipient-typescript-lib",
 ]
 
 exclude = [
     "contracts/eth-light-client-typescript",
     "contracts/eth-bridge-lockscript",
+    "contracts/eth-recipient-typescript",
 ]
