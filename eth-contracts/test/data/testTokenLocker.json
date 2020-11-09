@@ -6,14 +6,17 @@
   "lockETHTestCases": [
     {
       "lockAmount": "1.2",
-      "ckbAddress": "ckb1qyqwmxws34634ced7l7x7vzgklx22mpmltaq683yc6",
-      "replayResistOutpoint": "0x123456"
+      "recipientLockscript": "0x123456",
+      "replayResistOutpoint": "0x123456",
+      "sudtExtraData": "0x123456"
     }
-  ],"lockTokenTestCases": [
+  ],
+  "lockTokenTestCases": [
     {
       "lockAmount": 666,
-      "ckbAddress": "ckb1qyqwmxws34634ced7l7x7vzgklx22mpmltaq683yc6",
-      "replayResistOutpoint": "0x123456"
+      "recipientLockscript": "0x123456",
+      "replayResistOutpoint": "0x123456",
+      "sudtExtraData": "0x123456"
     }
   ],
   "decodeBurnTxTestCases": [

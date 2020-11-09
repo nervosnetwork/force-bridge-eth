@@ -77,8 +77,9 @@ async function testLockETH(testcase) {
   // lockETH
   const amount = ethers.utils.parseEther(testcase.lockAmount);
   const res = await tokenLocker.lockETH(
-    testcase.ckbAddress,
+    testcase.recipientLockscript,
     testcase.replayResistOutpoint,
+    testcase.sudtExtraData,
     { value: amount }
   );
   const receipt = await waitingForReceipt(provider, res);
@@ -88,8 +89,9 @@ async function testLockETH(testcase) {
     tokenAddressTopic,
     lockerAddressTopic,
     lockedAmount,
-    ckbAddress,
+    recipientLockscript,
     replayResistOutpoint,
+    sudtExtraData,
   } = parseLockedEvent(receipt.logs[0]);
 
   expect(tokenAddressTopic).to.equal(
@@ -97,8 +99,9 @@ async function testLockETH(testcase) {
   );
   expect(lockerAddressTopic).to.equal(user.address);
   expect(lockedAmount).to.equal(amount);
-  expect(ckbAddress).to.equal(testcase.ckbAddress);
+  expect(recipientLockscript).to.equal(testcase.recipientLockscript);
   expect(replayResistOutpoint).to.equal(testcase.replayResistOutpoint);
+  expect(sudtExtraData).to.equal(testcase.sudtExtraData);
 
   // locked token amount == delta balance of contract
   const delta =
@@ -135,8 +138,9 @@ async function testLockToken(testcase) {
   res = await tokenLocker.lockToken(
     erc20.address,
     amount,
-    testcase.ckbAddress,
-    testcase.replayResistOutpoint
+    testcase.recipientLockscript,
+    testcase.replayResistOutpoint,
+    testcase.sudtExtraData
   );
   receipt = await waitingForReceipt(provider, res);
   log(`gasUsed: ${receipt.gasUsed.toString()}`);
@@ -145,15 +149,17 @@ async function testLockToken(testcase) {
     tokenAddressTopic,
     lockerAddressTopic,
     lockedAmount,
-    ckbAddress,
+    recipientLockscript,
     replayResistOutpoint,
+    sudtExtraData,
   } = parseLockedEvent(receipt.logs[2]);
 
   expect(tokenAddressTopic).to.equal(erc20.address);
   expect(lockerAddressTopic).to.equal(user.address);
   expect(lockedAmount).to.equal(amount);
-  expect(ckbAddress).to.equal(testcase.ckbAddress);
+  expect(recipientLockscript).to.equal(testcase.recipientLockscript);
   expect(replayResistOutpoint).to.equal(testcase.replayResistOutpoint);
+  expect(sudtExtraData).to.equal(testcase.sudtExtraData);
 
   // locked token amount == delta balance of contract
   const contractBalanceAfter = await erc20.callStatic.balanceOf(
@@ -175,14 +181,15 @@ function parseLockedEvent(eventLog) {
     eventLog.topics[2]
   )[0];
   const eventData = ethers.utils.defaultAbiCoder.decode(
-    ["uint256", "string", "string"],
+    ["uint256", "bytes", "bytes", "bytes"],
     eventLog.data
   );
   return {
     tokenAddressTopic: tokenAddressTopic,
     lockerAddressTopic: lockerAddressTopic,
     lockedAmount: eventData[0],
-    ckbAddress: eventData[1],
+    recipientLockscript: eventData[1],
     replayResistOutpoint: eventData[2],
+    sudtExtraData: eventData[3],
   };
 }

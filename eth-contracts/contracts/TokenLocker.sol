@@ -36,8 +36,9 @@ contract TokenLocker {
         address indexed token,
         address indexed sender,
         uint256 amount,
-        string  ckbAddress,
-        string replayResistOutpoint
+        bytes  recipientLockscript,
+        bytes replayResistOutpoint,
+        bytes sudtExtraData
     );
 
     event Unlocked(
@@ -53,15 +54,35 @@ contract TokenLocker {
         recipientCellTypescriptHashType_ = typescriptHashType;
     }
 
-    // before lockToken, user should approve -> TokenLocker Contract with 0xffffff token
-    function lockToken(address token, uint256 amount, string memory ckbAddress, string memory replayResistOutpoint) public {
-        // TODO modify `transferFrom` to `safeTransferFrom`
-        IERC20(token).transferFrom(msg.sender, address(this), amount);
-        emit Locked(token, msg.sender, amount, ckbAddress, replayResistOutpoint);
+    function lockETH(bytes memory recipientLockscript, bytes memory replayResistOutpoint, bytes memory sudtExtraData) public payable {
+        emit Locked(
+            address(0),
+            msg.sender,
+            msg.value,
+            recipientLockscript,
+            replayResistOutpoint,
+            sudtExtraData
+        );
     }
 
-    function lockETH(string memory ckbAddress, string memory replayResistOutpoint) public payable {
-        emit Locked(address(0), msg.sender, msg.value, ckbAddress, replayResistOutpoint);
+    // before lockToken, user should approve -> TokenLocker Contract with 0xffffff token
+    function lockToken(
+        address token,
+        uint256 amount,
+        bytes memory recipientLockscript,
+        bytes memory replayResistOutpoint,
+        bytes memory sudtExtraData
+    ) public {
+        // TODO modify `transferFrom` to `safeTransferFrom`
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        emit Locked(
+            token,
+            msg.sender,
+            amount,
+            recipientLockscript,
+            replayResistOutpoint,
+            sudtExtraData
+        );
     }
 
     function unlockToken(bytes memory ckbTxProof, bytes memory ckbTx) public {
