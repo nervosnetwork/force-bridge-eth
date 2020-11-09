@@ -147,7 +147,7 @@ impl Web3Client {
         );
 
         let result = contract.query(
-            "getHeaderHash",
+            "getHeadersByNumber",
             Uint::from(block_number),
             None,
             Options::default(),
