@@ -8,4 +8,6 @@ pub const ETH_BRIDGE_LOCKSCRIPT_CODE_HASH: [u8; 32] = [
     92, 90, 228, 42, 157, 125, 99, 215, 125, 244, 25,
 ];
 
+pub const UDT_LEN: usize = 16;
+
 pub const CKB_UNITS: u64 = 100_000_000;

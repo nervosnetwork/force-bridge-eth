@@ -39,7 +39,8 @@ impl ::core::fmt::Display for ETHBridgeLockArgs {
 impl ::core::default::Default for ETHBridgeLockArgs {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            20, 0, 0, 0, 12, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            52, 0, 0, 0, 12, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
         ETHBridgeLockArgs::new_unchecked(v.into())
     }
@@ -62,20 +63,20 @@ impl ETHBridgeLockArgs {
     pub fn has_extra_fields(&self) -> bool {
         Self::FIELD_COUNT != self.field_count()
     }
-    pub fn eth_contract_address(&self) -> Bytes {
+    pub fn eth_contract_address(&self) -> ETHAddress {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[4..]) as usize;
         let end = molecule::unpack_number(&slice[8..]) as usize;
-        Bytes::new_unchecked(self.0.slice(start..end))
+        ETHAddress::new_unchecked(self.0.slice(start..end))
     }
-    pub fn eth_token_address(&self) -> Bytes {
+    pub fn eth_token_address(&self) -> ETHAddress {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[8..]) as usize;
         if self.has_extra_fields() {
             let end = molecule::unpack_number(&slice[12..]) as usize;
-            Bytes::new_unchecked(self.0.slice(start..end))
+            ETHAddress::new_unchecked(self.0.slice(start..end))
         } else {
-            Bytes::new_unchecked(self.0.slice(start..))
+            ETHAddress::new_unchecked(self.0.slice(start..))
         }
     }
     pub fn as_reader<'r>(&'r self) -> ETHBridgeLockArgsReader<'r> {
@@ -160,20 +161,20 @@ impl<'r> ETHBridgeLockArgsReader<'r> {
     pub fn has_extra_fields(&self) -> bool {
         Self::FIELD_COUNT != self.field_count()
     }
-    pub fn eth_contract_address(&self) -> BytesReader<'r> {
+    pub fn eth_contract_address(&self) -> ETHAddressReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[4..]) as usize;
         let end = molecule::unpack_number(&slice[8..]) as usize;
-        BytesReader::new_unchecked(&self.as_slice()[start..end])
+        ETHAddressReader::new_unchecked(&self.as_slice()[start..end])
     }
-    pub fn eth_token_address(&self) -> BytesReader<'r> {
+    pub fn eth_token_address(&self) -> ETHAddressReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[8..]) as usize;
         if self.has_extra_fields() {
             let end = molecule::unpack_number(&slice[12..]) as usize;
-            BytesReader::new_unchecked(&self.as_slice()[start..end])
+            ETHAddressReader::new_unchecked(&self.as_slice()[start..end])
         } else {
-            BytesReader::new_unchecked(&self.as_slice()[start..])
+            ETHAddressReader::new_unchecked(&self.as_slice()[start..])
         }
     }
 }
@@ -228,23 +229,23 @@ impl<'r> molecule::prelude::Reader<'r> for ETHBridgeLockArgsReader<'r> {
         if offsets.windows(2).any(|i| i[0] > i[1]) {
             return ve!(Self, OffsetsNotMatch);
         }
-        BytesReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
-        BytesReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        ETHAddressReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        ETHAddressReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
         Ok(())
     }
 }
 #[derive(Debug, Default)]
 pub struct ETHBridgeLockArgsBuilder {
-    pub(crate) eth_contract_address: Bytes,
-    pub(crate) eth_token_address: Bytes,
+    pub(crate) eth_contract_address: ETHAddress,
+    pub(crate) eth_token_address: ETHAddress,
 }
 impl ETHBridgeLockArgsBuilder {
     pub const FIELD_COUNT: usize = 2;
-    pub fn eth_contract_address(mut self, v: Bytes) -> Self {
+    pub fn eth_contract_address(mut self, v: ETHAddress) -> Self {
         self.eth_contract_address = v;
         self
     }
-    pub fn eth_token_address(mut self, v: Bytes) -> Self {
+    pub fn eth_token_address(mut self, v: ETHAddress) -> Self {
         self.eth_token_address = v;
         self
     }

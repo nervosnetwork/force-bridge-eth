@@ -4,7 +4,10 @@ use ckb_std::ckb_types::packed::Script;
 use ckb_std::error::SysError;
 use ckb_std::high_level::{load_cell_data, load_cell_type, load_script, QueryIter};
 
-use force_eth_types::{config::SUDT_CODE_HASH, eth_recipient_cell::ETHRecipientDataView};
+use force_eth_types::{
+    config::{SUDT_CODE_HASH, UDT_LEN},
+    eth_recipient_cell::ETHRecipientDataView,
+};
 use molecule::bytes::Bytes;
 
 #[cfg(not(feature = "std"))]
@@ -59,9 +62,9 @@ impl Adapter for ChainAdapter {
                     }
 
                     let data = load_cell_data(index, source).expect("laod cell data fail");
-                    let mut buf = [0u8; 16];
-                    if data.len() == 16 {
-                        buf.copy_from_slice(&data);
+                    let mut buf = [0u8; UDT_LEN];
+                    if data.len() >= UDT_LEN {
+                        buf.copy_from_slice(&data[0..UDT_LEN]);
                         sudt_sum += u128::from_le_bytes(buf)
                     }
                     index += 1;

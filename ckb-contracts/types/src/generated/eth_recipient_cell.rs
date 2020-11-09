@@ -30,6 +30,7 @@ impl ::core::fmt::Display for ETHRecipientCellData {
         )?;
         write!(f, ", {}: {}", "eth_token_address", self.eth_token_address())?;
         write!(f, ", {}: {}", "token_amount", self.token_amount())?;
+        write!(f, ", {}: {}", "fee", self.fee())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -40,14 +41,16 @@ impl ::core::fmt::Display for ETHRecipientCellData {
 impl ::core::default::Default for ETHRecipientCellData {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            40, 0, 0, 0, 16, 0, 0, 0, 20, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            92, 0, 0, 0, 20, 0, 0, 0, 40, 0, 0, 0, 60, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0,
         ];
         ETHRecipientCellData::new_unchecked(v.into())
     }
 }
 impl ETHRecipientCellData {
-    pub const FIELD_COUNT: usize = 3;
+    pub const FIELD_COUNT: usize = 4;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -64,23 +67,29 @@ impl ETHRecipientCellData {
     pub fn has_extra_fields(&self) -> bool {
         Self::FIELD_COUNT != self.field_count()
     }
-    pub fn eth_recipient_address(&self) -> Bytes {
+    pub fn eth_recipient_address(&self) -> ETHAddress {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[4..]) as usize;
         let end = molecule::unpack_number(&slice[8..]) as usize;
-        Bytes::new_unchecked(self.0.slice(start..end))
+        ETHAddress::new_unchecked(self.0.slice(start..end))
     }
-    pub fn eth_token_address(&self) -> Bytes {
+    pub fn eth_token_address(&self) -> ETHAddress {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[8..]) as usize;
         let end = molecule::unpack_number(&slice[12..]) as usize;
-        Bytes::new_unchecked(self.0.slice(start..end))
+        ETHAddress::new_unchecked(self.0.slice(start..end))
     }
     pub fn token_amount(&self) -> Uint128 {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[12..]) as usize;
+        let end = molecule::unpack_number(&slice[16..]) as usize;
+        Uint128::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn fee(&self) -> Uint128 {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[16..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[16..]) as usize;
+            let end = molecule::unpack_number(&slice[20..]) as usize;
             Uint128::new_unchecked(self.0.slice(start..end))
         } else {
             Uint128::new_unchecked(self.0.slice(start..))
@@ -116,6 +125,7 @@ impl molecule::prelude::Entity for ETHRecipientCellData {
             .eth_recipient_address(self.eth_recipient_address())
             .eth_token_address(self.eth_token_address())
             .token_amount(self.token_amount())
+            .fee(self.fee())
     }
 }
 #[derive(Clone, Copy)]
@@ -145,6 +155,7 @@ impl<'r> ::core::fmt::Display for ETHRecipientCellDataReader<'r> {
         )?;
         write!(f, ", {}: {}", "eth_token_address", self.eth_token_address())?;
         write!(f, ", {}: {}", "token_amount", self.token_amount())?;
+        write!(f, ", {}: {}", "fee", self.fee())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -153,7 +164,7 @@ impl<'r> ::core::fmt::Display for ETHRecipientCellDataReader<'r> {
     }
 }
 impl<'r> ETHRecipientCellDataReader<'r> {
-    pub const FIELD_COUNT: usize = 3;
+    pub const FIELD_COUNT: usize = 4;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -170,23 +181,29 @@ impl<'r> ETHRecipientCellDataReader<'r> {
     pub fn has_extra_fields(&self) -> bool {
         Self::FIELD_COUNT != self.field_count()
     }
-    pub fn eth_recipient_address(&self) -> BytesReader<'r> {
+    pub fn eth_recipient_address(&self) -> ETHAddressReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[4..]) as usize;
         let end = molecule::unpack_number(&slice[8..]) as usize;
-        BytesReader::new_unchecked(&self.as_slice()[start..end])
+        ETHAddressReader::new_unchecked(&self.as_slice()[start..end])
     }
-    pub fn eth_token_address(&self) -> BytesReader<'r> {
+    pub fn eth_token_address(&self) -> ETHAddressReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[8..]) as usize;
         let end = molecule::unpack_number(&slice[12..]) as usize;
-        BytesReader::new_unchecked(&self.as_slice()[start..end])
+        ETHAddressReader::new_unchecked(&self.as_slice()[start..end])
     }
     pub fn token_amount(&self) -> Uint128Reader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[12..]) as usize;
+        let end = molecule::unpack_number(&slice[16..]) as usize;
+        Uint128Reader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn fee(&self) -> Uint128Reader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[16..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[16..]) as usize;
+            let end = molecule::unpack_number(&slice[20..]) as usize;
             Uint128Reader::new_unchecked(&self.as_slice()[start..end])
         } else {
             Uint128Reader::new_unchecked(&self.as_slice()[start..])
@@ -244,30 +261,36 @@ impl<'r> molecule::prelude::Reader<'r> for ETHRecipientCellDataReader<'r> {
         if offsets.windows(2).any(|i| i[0] > i[1]) {
             return ve!(Self, OffsetsNotMatch);
         }
-        BytesReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
-        BytesReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        ETHAddressReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        ETHAddressReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
         Uint128Reader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
+        Uint128Reader::verify(&slice[offsets[3]..offsets[4]], compatible)?;
         Ok(())
     }
 }
 #[derive(Debug, Default)]
 pub struct ETHRecipientCellDataBuilder {
-    pub(crate) eth_recipient_address: Bytes,
-    pub(crate) eth_token_address: Bytes,
+    pub(crate) eth_recipient_address: ETHAddress,
+    pub(crate) eth_token_address: ETHAddress,
     pub(crate) token_amount: Uint128,
+    pub(crate) fee: Uint128,
 }
 impl ETHRecipientCellDataBuilder {
-    pub const FIELD_COUNT: usize = 3;
-    pub fn eth_recipient_address(mut self, v: Bytes) -> Self {
+    pub const FIELD_COUNT: usize = 4;
+    pub fn eth_recipient_address(mut self, v: ETHAddress) -> Self {
         self.eth_recipient_address = v;
         self
     }
-    pub fn eth_token_address(mut self, v: Bytes) -> Self {
+    pub fn eth_token_address(mut self, v: ETHAddress) -> Self {
         self.eth_token_address = v;
         self
     }
     pub fn token_amount(mut self, v: Uint128) -> Self {
         self.token_amount = v;
+        self
+    }
+    pub fn fee(mut self, v: Uint128) -> Self {
+        self.fee = v;
         self
     }
 }
@@ -279,6 +302,7 @@ impl molecule::prelude::Builder for ETHRecipientCellDataBuilder {
             + self.eth_recipient_address.as_slice().len()
             + self.eth_token_address.as_slice().len()
             + self.token_amount.as_slice().len()
+            + self.fee.as_slice().len()
     }
     fn write<W: ::molecule::io::Write>(&self, writer: &mut W) -> ::molecule::io::Result<()> {
         let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
@@ -289,6 +313,8 @@ impl molecule::prelude::Builder for ETHRecipientCellDataBuilder {
         total_size += self.eth_token_address.as_slice().len();
         offsets.push(total_size);
         total_size += self.token_amount.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.fee.as_slice().len();
         writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
         for offset in offsets.into_iter() {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
@@ -296,6 +322,7 @@ impl molecule::prelude::Builder for ETHRecipientCellDataBuilder {
         writer.write_all(self.eth_recipient_address.as_slice())?;
         writer.write_all(self.eth_token_address.as_slice())?;
         writer.write_all(self.token_amount.as_slice())?;
+        writer.write_all(self.fee.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {

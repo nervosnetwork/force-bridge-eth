@@ -1,7 +1,8 @@
 import basic;
 
 table ETHRecipientCellData {
-    eth_recipient_address: Bytes,
-    eth_token_address: Bytes,
+    eth_recipient_address: ETHAddress,
+    eth_token_address: ETHAddress,
     token_amount: Uint128,
+    fee: Uint128,
 }
