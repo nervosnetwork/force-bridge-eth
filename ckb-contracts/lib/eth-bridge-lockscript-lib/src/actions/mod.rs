@@ -10,7 +10,7 @@ use ckb_std::high_level::QueryIter;
 use eth_spv_lib::{eth_types::*, ethspv};
 use force_eth_types::generated::eth_header_cell::{EthCellDataReader, HeaderInfoReader};
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
-use force_eth_types::{config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent};
+use force_eth_types::{config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent, util::eth_to_ckb_amount};
 use molecule::prelude::*;
 use std::convert::TryInto;
 
@@ -40,11 +40,10 @@ pub fn verify_owner_mode<T: Adapter>(data_loader: &T) {
     }
 }
 
-pub fn verify_mint_token<T: Adapter>(data_loader: &T) -> i8 {
+pub fn verify_mint_token<T: Adapter>(data_loader: &T) {
     verify_eth_light_client();
     let eth_receipt_info = verify_witness(data_loader);
     verify_eth_receipt_info(data_loader, eth_receipt_info);
-    0
 }
 
 pub fn verify_destroy_cell<T: Adapter>(_data_loader: &T, _input_data: &[u8]) -> i8 {
@@ -240,12 +239,11 @@ fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLoc
     }
     let udt_typescript = data_loader.get_associated_udt_script();
     let udt_script_slice = udt_typescript.as_slice();
-    let expected_mint_amount: u128 =
-        (ethereum_types::U256::from_big_endian(&eth_receipt_info.locked_amount)
-            / 10_000_000_000u64)
-            .try_into()
-            .unwrap();
+    let expected_mint_amount: u128 = eth_to_ckb_amount(eth_receipt_info.locked_amount).expect("locked amount overflow");
+    let bridge_fee: u128 = eth_to_ckb_amount(eth_receipt_info.bridge_fee).expect("bridge fee overflow");
+    // ensure
     let mut mint_amount = 0u128;
+    let mut recipient_amount = 0u128;
     for (output_type, output_lock, output_data) in QueryIter::new(
         |index, source| data_loader.load_cell_type_lock_data(index, source),
         Source::Output,
@@ -253,16 +251,25 @@ fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLoc
     .into_iter()
     {
         if udt_script_slice == output_type.as_slice() {
-            if output_lock.as_slice() != eth_receipt_info.recipient_lockscript.as_slice() {
-                panic!("you can only mint mirror token to recipient_lockscript");
-            }
             let mut amount = [0u8; 16];
             amount.copy_from_slice(&output_data[..16]);
-            mint_amount += u128::from_le_bytes(amount);
+            let amount = u128::from_le_bytes(amount);
+            mint_amount += amount;
+            if output_lock.as_slice() == eth_receipt_info.recipient_lockscript.as_slice() {
+                if recipient_amount != 0 {
+                    panic!("you can only mint to one sudt cell for recipient");
+                }
+                assert_eq!(&output_data[16..], eth_receipt_info.sudt_extra_data, "recipient sudt cell extra data not match");
+                recipient_amount += amount;
+            }
         }
     }
     assert_eq!(
         mint_amount, expected_mint_amount,
         "mint token amount not equal to expected"
+    );
+    assert_eq!(
+        recipient_amount, expected_mint_amount - bridge_fee,
+        "recipient amount not equal to expected(mint_amount - bridge_fee)"
     );
 }

@@ -204,6 +204,7 @@ name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "ethereum-types",
  "molecule",
 ]
 

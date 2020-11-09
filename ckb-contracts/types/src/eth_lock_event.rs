@@ -9,13 +9,15 @@
 ///     bytes replayResistOutpoint,
 ///     bytes sudtExtraData
 /// );
+use ethereum_types::U256;
+use std::convert::TryInto;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ETHLockEvent {
     pub token: [u8; 20],
     pub sender: [u8; 20],
-    pub locked_amount: [u8; 32],
-    pub bridge_fee: [u8; 32],
+    pub locked_amount: U256,
+    pub bridge_fee: U256,
     pub recipient_lockscript: Vec<u8>,
     pub replay_resist_outpoint: [u8; 36],
     pub sudt_extra_data: Vec<u8>,
@@ -30,26 +32,31 @@ impl ETHLockEvent {
         let mut sender = [0u8; 20];
         token.copy_from_slice(&data[12..32]);
         sender.copy_from_slice(&data[44..64]);
-        let mut locked_amount = [0u8; 32];
-        locked_amount.copy_from_slice(&data[32 * 2..32 * 3]);
-        let mut bridge_fee = [0u8; 32];
-        bridge_fee.copy_from_slice(&data[32 * 3..32 * 4]);
-        let recipient_lockscript_offset =
-            parse_be_bytes_to_u64(&data[32 * 4..32 * 5]).unwrap() as usize;
-        let replay_resist_outpoint_offset =
-            parse_be_bytes_to_u64(&data[32 * 5..32 * 6]).unwrap() as usize;
-        let sudt_extra_data_offset = parse_be_bytes_to_u64(&data[32 * 6..32 * 7]).unwrap() as usize;
-        let recipient_lockscript_len = parse_be_bytes_to_u64(
+        let locked_amount = U256::from_big_endian(&data[32 * 2..32 * 3]);
+        let bridge_fee = U256::from_big_endian(&data[32 * 3..32 * 4]);
+        let recipient_lockscript_offset: usize = U256::from_big_endian(&data[32 * 4..32 * 5])
+            .try_into()
+            .unwrap();
+        let replay_resist_outpoint_offset: usize = U256::from_big_endian(&data[32 * 5..32 * 6])
+            .try_into()
+            .unwrap();
+        let sudt_extra_data_offset: usize = U256::from_big_endian(&data[32 * 6..32 * 7])
+            .try_into()
+            .unwrap();
+        let recipient_lockscript_len: usize = U256::from_big_endian(
             &data[recipient_lockscript_offset..(recipient_lockscript_offset + 32)],
         )
-        .unwrap() as usize;
-        let replay_resist_outpoint_len = parse_be_bytes_to_u64(
+        .try_into()
+        .unwrap();
+        let replay_resist_outpoint_len: usize = U256::from_big_endian(
             &data[replay_resist_outpoint_offset..(replay_resist_outpoint_offset + 32)],
         )
-        .unwrap() as usize;
-        let sudt_extra_data_len =
-            parse_be_bytes_to_u64(&data[sudt_extra_data_offset..(sudt_extra_data_offset + 32)])
-                .unwrap() as usize;
+        .try_into()
+        .unwrap();
+        let sudt_extra_data_len: usize =
+            U256::from_big_endian(&data[sudt_extra_data_offset..(sudt_extra_data_offset + 32)])
+                .try_into()
+                .unwrap();
         let recipient_lockscript = data[(recipient_lockscript_offset + 32)
             ..(recipient_lockscript_offset + 32 + recipient_lockscript_len)]
             .to_vec();
@@ -74,32 +81,6 @@ impl ETHLockEvent {
     }
 }
 
-fn parse_be_bytes_to_u128(data: &[u8]) -> Result<u128, String> {
-    let len = data.len();
-    if len != 32 {
-        return Err(format!("input data should be 32 bytes"));
-    }
-    if data[..(len - 128 / 8)].iter().any(|&b| b != 0u8) {
-        return Err(format!("data overflow"));
-    }
-    let mut be_bytes = [0u8; 128 / 8];
-    be_bytes.copy_from_slice(&data[(len - 128 / 8)..]);
-    Ok(u128::from_be_bytes(be_bytes))
-}
-
-fn parse_be_bytes_to_u64(data: &[u8]) -> Result<u64, String> {
-    let len = data.len();
-    if len != 32 {
-        return Err(format!("input data should be 32 bytes"));
-    }
-    if data[..(len - 64 / 8)].iter().any(|&b| b != 0u8) {
-        return Err(format!("data overflow"));
-    }
-    let mut be_bytes = [0u8; 64 / 8];
-    be_bytes.copy_from_slice(&data[(len - 64 / 8)..]);
-    Ok(u64::from_be_bytes(be_bytes))
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -120,8 +101,8 @@ mod test {
         let tokens = [
             Token::Address([0x11u8; 20].into()),
             Token::Address([0x22u8; 20].into()),
-            Token::Uint(0.into()),
-            Token::Uint(0.into()),
+            Token::Uint(100.into()),
+            Token::Uint(2.into()),
             Token::Bytes(b"ckb_recipient_address".to_vec()),
             Token::Bytes((0..36).map(|_| 0x33u8).collect::<Vec<_>>()),
             Token::Bytes(b"sudt_extra_data".to_vec()),
@@ -138,8 +119,8 @@ mod test {
         let expected_eth_lock_event = ETHLockEvent {
             token: [0x11u8; 20],
             sender: [0x22u8; 20],
-            locked_amount: [0u8; 32],
-            bridge_fee: [0u8; 32],
+            locked_amount: 100.into(),
+            bridge_fee: 2.into(),
             recipient_lockscript: b"ckb_recipient_address".to_vec(),
             replay_resist_outpoint: [0x33u8; 36],
             sudt_extra_data: b"sudt_extra_data".to_vec(),
