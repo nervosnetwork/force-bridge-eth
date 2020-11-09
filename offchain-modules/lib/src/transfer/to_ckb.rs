@@ -115,19 +115,21 @@ pub async fn send_eth_spv_proof_tx(
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
 
-    let unsigned_tx = generator
-        .generate_eth_spv_tx(from_lockscript, eth_proof, cell_dep)
-        .unwrap();
-    let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).unwrap();
+    let unsigned_tx = generator.generate_eth_spv_tx(from_lockscript, eth_proof, cell_dep)?;
+    let tx =
+        sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
     log::info!(
         "tx: \n{}",
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
-            .unwrap()
+            .map_err(|err| anyhow!(err))?
     );
-    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60)
-        .map_err(|e| anyhow::anyhow!(e))
-        .unwrap();
-    let cell_typescript = tx.output(0).unwrap().type_().to_opt();
+    let tx_hash =
+        send_tx_sync(&mut generator.rpc_client, &tx, 60).map_err(|e| anyhow::anyhow!(e))?;
+    let cell_typescript = tx
+        .output(0)
+        .ok_or_else(|| anyhow!("no out_put found"))?
+        .type_()
+        .to_opt();
     let cell_script = match cell_typescript {
         Some(script) => hex::encode(script.as_slice()),
         None => "".to_owned(),
@@ -150,8 +152,8 @@ pub fn dev_init(
     rpc_url: String,
     indexer_url: String,
     private_key_path: String,
-    spv_typescript_path: String,
-    lockscript_path: String,
+    bridge_typescript_path: String,
+    bridge_lockscript_path: String,
     light_client_typescript_path: String,
     sudt_path: String,
 ) -> Result<()> {
@@ -161,35 +163,36 @@ pub fn dev_init(
     let private_key = parse_privkey_path(&private_key_path)?;
 
     // dev deploy
-    let spv_typescript_bin = std::fs::read(spv_typescript_path)?;
-    let lockscript_bin = std::fs::read(lockscript_path)?;
+    let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
+    let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
     let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
     let sudt_bin = std::fs::read(sudt_path)?;
 
-    let spv_typescript_code_hash = blake2b_256(&spv_typescript_bin);
-    let spv_typescript_code_hash_hex = hex::encode(&spv_typescript_code_hash);
+    let bridge_typescript_code_hash = blake2b_256(&bridge_typescript_bin);
+    let bridge_typescript_code_hash_hex = hex::encode(&bridge_typescript_code_hash);
 
     let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
     let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
 
-    let lockscript_code_hash = blake2b_256(&lockscript_bin);
-    let lockscript_code_hash_hex = hex::encode(&lockscript_code_hash);
+    let bridge_lockscript_code_hash = blake2b_256(&bridge_lockscript_bin);
+    let bridge_lockscript_code_hash_hex = hex::encode(&bridge_lockscript_code_hash);
     let sudt_code_hash = blake2b_256(&sudt_bin);
     let sudt_code_hash_hex = hex::encode(&sudt_code_hash);
 
     let data = vec![
-        spv_typescript_bin,
-        lockscript_bin,
+        bridge_typescript_bin,
+        bridge_lockscript_bin,
         light_client_typescript_bin,
         sudt_bin,
     ];
 
-    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data).unwrap();
-    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).unwrap();
+    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
+        .map_err(|err| anyhow!(err))?;
+    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
     let settings = Settings {
-        spv_typescript: ScriptConf {
-            code_hash: spv_typescript_code_hash_hex,
+        bridge_typescript: ScriptConf {
+            code_hash: bridge_typescript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
@@ -202,8 +205,8 @@ pub fn dev_init(
                 index: 0,
             },
         },
-        lockscript: ScriptConf {
-            code_hash: lockscript_code_hash_hex,
+        bridge_lockscript: ScriptConf {
+            code_hash: bridge_lockscript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,

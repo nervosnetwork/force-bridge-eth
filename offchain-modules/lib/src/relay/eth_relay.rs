@@ -2,7 +2,7 @@ use crate::util::ckb_util::{parse_cell, Generator};
 use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use crate::util::settings::Settings;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ckb_sdk::{AddressPayload, SECP256K1};
 use ckb_types::bytes::Bytes;
 use ckb_types::core::DepType;
@@ -17,7 +17,7 @@ use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use secp256k1::SecretKey;
 use std::ops::Add;
-use web3::types::{Block, BlockHeader, BlockId};
+use web3::types::{Block, BlockHeader};
 
 pub const INIT_ETH_HEIGHT: u64 = 10000;
 
@@ -38,11 +38,10 @@ impl ETHRelayer {
         priv_key_path: String,
         proof_data_path: String,
         cell: String,
-    ) -> Self {
-        let settings = Settings::new(&config_path).expect("can not init settings.");
-        let generator = Generator::new(ckb_rpc_url, indexer_url, settings)
-            .map_err(|e| anyhow::anyhow!(e))
-            .unwrap();
+    ) -> Result<Self> {
+        let settings = Settings::new(&config_path)?;
+        let generator =
+            Generator::new(ckb_rpc_url, indexer_url, settings).map_err(|e| anyhow::anyhow!(e))?;
         let eth_client = Web3Client::new(eth_rpc_url);
         let temp_typescript = parse_cell(&cell);
         let cell_typescript;
@@ -51,13 +50,13 @@ impl ETHRelayer {
             Ok(temp_typescript) => cell_typescript = Some(temp_typescript),
         }
 
-        ETHRelayer {
+        Ok(ETHRelayer {
             eth_client,
             generator,
             priv_key_path,
             proof_data_path,
             cell_typescript,
-        }
+        })
     }
 
     // 1. Query the latest block height of the current main chain of the ckb contract: latest_height
@@ -67,33 +66,32 @@ impl ETHRelayer {
     // current_height = common_ancestor_height + 1
     // 5. If reorg does not occur, directly use header as tip to build output
     pub async fn start(&mut self) -> Result<()> {
+        let typescript;
         match &self.cell_typescript {
-            None => self.do_first_relay().await?,
-            Some(script) => {
-                let typescript = Script::new_builder()
-                    .code_hash(script.code_hash())
-                    .hash_type(script.hash_type())
-                    .args(script.args())
+            None => {
+                let cell_script = self.do_first_relay().await?;
+                typescript = Script::new_builder()
+                    .code_hash(cell_script.code_hash())
+                    .hash_type(cell_script.hash_type())
+                    .args(cell_script.args())
                     .build();
-                let cell =
-                    get_live_cell_by_typescript(&mut self.generator.indexer_client, typescript)
-                        .unwrap()
-                        .unwrap();
-
-                let ckb_cell_data = packed::Bytes::from(cell.clone().output_data).raw_data();
-                let headers = parse_headers(ckb_cell_data)?;
-                let index = headers.len() - 1;
-                // Determine whether the latest_header is on the Ethereum main chain
-                // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
-                // If it is not in the main chain, it means that reorg has occurred, and you need to trace back from latest_height until the back traced header is on the main chain
-                let block = self.lookup_common_ancestor(&headers, index).await?;
-                self.do_relay_loop(block, &cell, &headers).await?;
+            }
+            Some(cell_script) => {
+                typescript = Script::new_builder()
+                    .code_hash(cell_script.code_hash())
+                    .hash_type(cell_script.hash_type())
+                    .args(cell_script.args())
+                    .build();
             }
         }
+        let cell = get_live_cell_by_typescript(&mut self.generator.indexer_client, typescript)
+            .map_err(|err| anyhow::anyhow!(err))?
+            .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
+        self.do_relay_loop(cell).await?;
         Ok(())
     }
 
-    pub async fn do_first_relay(&mut self) -> Result<()> {
+    pub async fn do_first_relay(&mut self) -> Result<Script> {
         let typescript = Script::new_builder()
             .code_hash(
                 Byte32::from_slice(
@@ -103,7 +101,7 @@ impl ETHRelayer {
                         .code_hash
                         .as_bytes(),
                 )
-                .unwrap(),
+                .map_err(|err| anyhow::anyhow!(err))?,
             )
             .hash_type(DepType::Code.into())
             .build();
@@ -119,13 +117,20 @@ impl ETHRelayer {
         let witness = self.generate_witness(header_rlp)?;
         let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
         let from_lockscript = self.generate_from_lockscript(from_privkey)?;
-        let unsigned_tx = self
-            .generator
-            .init_light_client_tx(&witness, from_lockscript, typescript)
-            .unwrap();
-        let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey).unwrap();
-        send_tx_sync(&mut self.generator.rpc_client, &tx, 60).unwrap();
-        Ok(())
+        let unsigned_tx =
+            self.generator
+                .init_light_client_tx(&witness, from_lockscript, typescript)?;
+        let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
+            .map_err(|err| anyhow::anyhow!(err))?;
+        send_tx_sync(&mut self.generator.rpc_client, &tx, 60)
+            .map_err(|err| anyhow::anyhow!(err))?;
+        let cell_typescript = tx
+            .output(0)
+            .ok_or_else(|| anyhow!("no out_put found"))?
+            .type_()
+            .to_opt()
+            .ok_or_else(|| anyhow!("cell_typescript is not found."))?;
+        Ok(cell_typescript)
     }
 
     pub fn generate_witness(&mut self, header_rlp: String) -> Result<Witness> {
@@ -157,56 +162,80 @@ impl ETHRelayer {
             let latest_header = &headers[index];
             let block = self
                 .eth_client
-                .get_block(BlockId::Hash(latest_header.hash.unwrap()))
+                .get_block(
+                    latest_header
+                        .hash
+                        .ok_or_else(|| anyhow!("the block hash is not exist."))?
+                        .into(),
+                )
                 .await;
-            match block {
-                Ok(block) => {
-                    return Ok(block);
-                }
-                Err(_) => {
-                    // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
-                    index -= 1;
-                }
+            if block.is_err() {
+                // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+                index -= 1;
+                continue;
             }
+            return Ok(block.unwrap());
         }
         Err(anyhow::Error::msg(
             "system error! can not find the common ancestor with main chain.",
         ))
     }
 
-    pub async fn do_relay_loop(
-        &mut self,
-        mut current_block: Block<H256>,
-        cell: &Cell,
-        headers: &[BlockHeader],
-    ) -> Result<()> {
-        let mut number = current_block.number.unwrap();
+    pub async fn do_relay_loop(&mut self, mut cell: Cell) -> Result<()> {
+        let ckb_cell_data = packed::Bytes::from(cell.clone().output_data).raw_data();
+        let headers = parse_headers(ckb_cell_data)?;
+        let index = headers.len() - 1;
+        // Determine whether the latest_header is on the Ethereum main chain
+        // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
+        // If it is not in the main chain, it means that reorg has occurred, and you need to trace back from latest_height until the back traced header is on the main chain
+        let mut current_block = self.lookup_common_ancestor(&headers, index).await?;
+        let mut number = current_block
+            .number
+            .ok_or_else(|| anyhow!("the block number is not exist."))?;
         loop {
             // let block_id = BlockId::Number(BlockNumber::Number((number.as_u64().add(1)).into()));
-            let new_header = self
-                .eth_client
-                .get_block(number.add(1 as u64).into())
-                .await?;
-            if new_header.parent_hash == current_block.hash.unwrap() {
+            let new_header_temp = self.eth_client.get_block(number.add(1 as u64).into()).await;
+            if new_header_temp.is_err() {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                continue;
+            }
+            let new_header = new_header_temp.unwrap();
+            if new_header.parent_hash
+                == current_block
+                    .hash
+                    .ok_or_else(|| anyhow!("the block hash is not exist."))?
+            {
                 // No reorg
                 let new_header_rlp = self.eth_client.get_header_rlp(number.add(1).into()).await?;
                 let header_rlp = format!("0x{}", new_header_rlp);
                 let witness = self.generate_witness(header_rlp)?;
                 let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
                 let from_lockscript = self.generate_from_lockscript(from_privkey)?;
-                let unsigned_tx = self
-                    .generator
-                    .generate_eth_light_client_tx(
-                        &new_header,
-                        cell,
-                        &witness,
-                        headers,
-                        from_lockscript,
-                    )
-                    .unwrap();
-                let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey).unwrap();
-                send_tx_sync(&mut self.generator.rpc_client, &tx, 60).unwrap();
-                // FIXME: update cell
+                let unsigned_tx = self.generator.generate_eth_light_client_tx(
+                    &new_header,
+                    &cell,
+                    &witness,
+                    &headers,
+                    from_lockscript,
+                )?;
+                let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
+                    .map_err(|err| anyhow::anyhow!(err))?;
+                send_tx_sync(&mut self.generator.rpc_client, &tx, 60)
+                    .map_err(|err| anyhow::anyhow!(err))?;
+
+                // update cell current_block and number.
+                let cell_typescript = tx
+                    .output(0)
+                    .ok_or_else(|| anyhow!("no out_put found"))?
+                    .type_()
+                    .to_opt()
+                    .ok_or_else(|| anyhow!("cell_typescript is not found."))?;
+                cell = get_live_cell_by_typescript(
+                    &mut self.generator.indexer_client,
+                    cell_typescript,
+                )
+                .map_err(|err| anyhow::anyhow!(err))?
+                .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
                 number = number.add(1);
                 current_block = new_header;
             } else {
@@ -217,7 +246,7 @@ impl ETHRelayer {
             }
 
             // send ckb tx
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
 }

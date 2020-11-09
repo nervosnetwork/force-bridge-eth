@@ -35,14 +35,15 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn new(rpc_url: String, indexer_url: String, settings: Settings) -> Result<Self, String> {
+    pub fn new(rpc_url: String, indexer_url: String, settings: Settings) -> Result<Self> {
         let mut rpc_client = HttpRpcClient::new(rpc_url);
         let indexer_client = IndexerRpcClient::new(indexer_url);
         let genesis_block: BlockView = rpc_client
-            .get_block_by_number(0)?
-            .expect("Can not get genesis block?")
+            .get_block_by_number(0)
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("Can not get genesis block?"))?
             .into();
-        let genesis_info = GenesisInfo::from_block(&genesis_block)?;
+        let genesis_info = GenesisInfo::from_block(&genesis_block).map_err(|err| anyhow!(err))?;
         Ok(Self {
             rpc_client,
             indexer_client,
@@ -57,24 +58,24 @@ impl Generator {
         _witness: &Witness,
         from_lockscript: Script,
         typescript: Script,
-    ) -> Result<TransactionView, String> {
+    ) -> Result<TransactionView> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
 
-        let outpoints = vec![
-            self.settings.lockscript.outpoint.clone(),
-            self.settings.light_client_typescript.outpoint.clone(),
-        ];
-        self.add_cell_deps(&mut helper, outpoints)?;
+        let outpoints = vec![self.settings.light_client_typescript.outpoint.clone()];
+        self.add_cell_deps(&mut helper, outpoints)
+            .map_err(|err| anyhow!(err))?;
 
         // build tx
-        let tx = helper.supply_capacity(
-            &mut self.rpc_client,
-            &mut self.indexer_client,
-            from_lockscript,
-            &self._genesis_info,
-            tx_fee,
-        )?;
+        let tx = helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self._genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
         let first_outpoint = tx
             .inputs()
             .get(0)
@@ -106,15 +107,13 @@ impl Generator {
         _witness: &Witness,
         headers: &[BlockHeader],
         from_lockscript: Script,
-    ) -> Result<TransactionView, String> {
+    ) -> Result<TransactionView> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
 
-        let outpoints = vec![
-            self.settings.lockscript.outpoint.clone(),
-            self.settings.light_client_typescript.outpoint.clone(),
-        ];
-        self.add_cell_deps(&mut helper, outpoints)?;
+        let outpoints = vec![self.settings.light_client_typescript.outpoint.clone()];
+        self.add_cell_deps(&mut helper, outpoints)
+            .map_err(|err| anyhow!(err))?;
 
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
@@ -123,13 +122,15 @@ impl Generator {
             get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
-        helper.add_input(
-            OutPoint::from(cell.clone().out_point),
-            None,
-            &mut get_live_cell_fn,
-            &self._genesis_info,
-            true,
-        )?;
+        helper
+            .add_input(
+                OutPoint::from(cell.clone().out_point),
+                None,
+                &mut get_live_cell_fn,
+                &self._genesis_info,
+                true,
+            )
+            .map_err(|err| anyhow!(err))?;
         {
             let cell_output = CellOutput::from(cell.clone().output);
             let output = CellOutput::new_builder()
@@ -153,13 +154,15 @@ impl Generator {
         }
 
         // build tx
-        let tx = helper.supply_capacity(
-            &mut self.rpc_client,
-            &mut self.indexer_client,
-            from_lockscript,
-            &self._genesis_info,
-            tx_fee,
-        )?;
+        let tx = helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self._genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
 
         Ok(tx)
     }
@@ -170,13 +173,22 @@ impl Generator {
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
         cell_dep: String,
-    ) -> Result<TransactionView, String> {
+    ) -> Result<TransactionView> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
 
         // add cell deps.
-        let cell_script = parse_cell(cell_dep.as_str()).unwrap();
-        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)?.unwrap();
+        let outpoints = vec![
+            self.settings.bridge_lockscript.outpoint.clone(),
+            self.settings.bridge_typescript.outpoint.clone(),
+        ];
+        self.add_cell_deps(&mut helper, outpoints)
+            .map_err(|err| anyhow!(err))?;
+
+        let cell_script = parse_cell(cell_dep.as_str())?;
+        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
         let mut builder = helper.transaction.as_advanced_builder();
         builder = builder.cell_dep(
             CellDep::new_builder()
@@ -187,7 +199,9 @@ impl Generator {
         helper.transaction = builder.build();
 
         let lockscript = Script::new_builder()
-            .code_hash(Byte32::from_slice(&self.settings.lockscript.code_hash.as_bytes()).unwrap())
+            .code_hash(Byte32::from_slice(
+                &self.settings.bridge_lockscript.code_hash.as_bytes(),
+            )?)
             .hash_type(DepType::Code.into())
             // FIXME: add script args
             .args(ckb_types::packed::Bytes::default())
@@ -203,14 +217,18 @@ impl Generator {
                 get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                     .map(|(output, _)| output)
             };
-            let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())?.unwrap();
-            helper.add_input(
-                OutPoint::from(cell.out_point),
-                None,
-                &mut get_live_cell_fn,
-                &self._genesis_info,
-                true,
-            )?;
+            let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())
+                .map_err(|err| anyhow!(err))?
+                .ok_or_else(|| anyhow!("there are no remaining public cells available"))?;
+            helper
+                .add_input(
+                    OutPoint::from(cell.out_point),
+                    None,
+                    &mut get_live_cell_fn,
+                    &self._genesis_info,
+                    true,
+                )
+                .map_err(|err| anyhow!(err))?;
         }
 
         // 1 bridge cells
@@ -223,14 +241,13 @@ impl Generator {
         {
             let recipient_lockscript = Script::from(
                 Address::from_str(&eth_proof.ckb_recipient)
-                    .unwrap()
+                    .map_err(|err| anyhow!(err))?
                     .payload(),
             );
 
-            let sudt_typescript_code_hash = hex::decode(&self.settings.sudt.code_hash)
-                .expect("wrong sudt_script code hash config");
+            let sudt_typescript_code_hash = hex::decode(&self.settings.sudt.code_hash)?;
             let sudt_typescript = Script::new_builder()
-                .code_hash(Byte32::from_slice(&sudt_typescript_code_hash).unwrap())
+                .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
                 .hash_type(DepType::Code.into())
                 // FIXME: add script args
                 .args(ckb_types::packed::Bytes::default())
@@ -265,13 +282,15 @@ impl Generator {
         }
 
         // build tx
-        let tx = helper.supply_capacity(
-            &mut self.rpc_client,
-            &mut self.indexer_client,
-            from_lockscript,
-            &self._genesis_info,
-            tx_fee,
-        )?;
+        let tx = helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self._genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
         Ok(tx)
         // Ok(TransactionView::)
     }
