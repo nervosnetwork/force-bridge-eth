@@ -139,7 +139,6 @@ impl ETHRelayer {
     }
 
     pub fn generate_witness(&mut self, header_rlp: String) -> Result<Witness> {
-        println!("{:?}", header_rlp);
         let proof_data_path = self.proof_data_path.clone();
         run_cmd!(../vendor/relayer ${header_rlp} > ${proof_data_path})?;
         let block_with_proofs = read_block(proof_data_path);
@@ -181,9 +180,7 @@ impl ETHRelayer {
             }
             return Ok(block.unwrap());
         }
-        Err(anyhow::Error::msg(
-            "system error! can not find the common ancestor with main chain.",
-        ))
+        anyhow::bail!("system error! can not find the common ancestor with main chain.")
     }
 
     pub async fn do_relay_loop(&mut self, mut cell: Cell) -> Result<()> {
@@ -201,7 +198,8 @@ impl ETHRelayer {
             .ok_or_else(|| anyhow!("the block number is not exist."))?;
         loop {
             // let block_id = BlockId::Number(BlockNumber::Number((number.as_u64().add(1)).into()));
-            let new_header_temp = self.eth_client.get_block(number.add(1 as u64).into()).await;
+            let new_number = number.add(1 as u64);
+            let new_header_temp = self.eth_client.get_block(new_number.into()).await;
             if new_header_temp.is_err() {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 continue;
@@ -213,10 +211,7 @@ impl ETHRelayer {
                     .ok_or_else(|| anyhow!("the block hash is not exist."))?
             {
                 // No reorg
-                let new_header_rlp = self
-                    .eth_client
-                    .get_header_rlp(number.add(1 as u64).into())
-                    .await?;
+                let new_header_rlp = self.eth_client.get_header_rlp(new_number.into()).await?;
                 let header_rlp = format!("0x{}", new_header_rlp);
                 let witness = self.generate_witness(header_rlp)?;
                 let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
@@ -246,7 +241,7 @@ impl ETHRelayer {
                 )
                 .map_err(|err| anyhow::anyhow!(err))?
                 .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
-                number = number.add(1);
+                number = new_number;
                 current_block = new_header;
             } else {
                 // Reorg occurred, need to go back
@@ -254,10 +249,11 @@ impl ETHRelayer {
                 current_block = self
                     .lookup_common_ancestor(&un_confirmed_headers, index)
                     .await?;
-                number = current_block.number.unwrap();
+                number = current_block
+                    .number
+                    .ok_or_else(|| anyhow!("the block number is not exist."))?;
             }
 
-            // send ckb tx
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
