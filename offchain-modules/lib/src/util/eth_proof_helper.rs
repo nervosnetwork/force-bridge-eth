@@ -61,7 +61,10 @@ pub fn read_block(filename: String) -> BlockWithProofs {
 }
 
 fn read_block_raw(filename: String) -> BlockWithProofsRaw {
-    serde_json::from_reader(std::fs::File::open(std::path::Path::new(&filename)).unwrap()).unwrap()
+    serde_json::from_reader(
+        std::fs::File::open(std::path::Path::new(&filename)).expect("the file is not exist."),
+    )
+    .expect("Incorrect file format")
 }
 
 impl BlockWithProofs {
