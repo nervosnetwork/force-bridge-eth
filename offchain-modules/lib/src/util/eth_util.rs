@@ -1,11 +1,12 @@
 use anyhow::{anyhow, Result};
+use eth_spv_lib::eth_types::my_keccak256;
 use ethabi::{FixedBytes, Uint};
 use ethereum_tx_sign::RawTransaction;
 use log::{debug, info};
-use rlp::RlpStream;
+use rlp::{DecoderError, Rlp, RlpStream};
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
-use web3::types::{Address, Block, BlockId, Bytes, H160, H256, U256};
+use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256};
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
@@ -77,9 +78,9 @@ impl Web3Client {
     }
 
     pub async fn get_header_rlp(&mut self, hash_or_number: BlockId) -> Result<String> {
-        let block = self.get_block(hash_or_number).await;
+        let block = self.get_block(hash_or_number).await?;
         let mut stream = RlpStream::new();
-        rlp_append(&block.unwrap(), &mut stream);
+        rlp_append(&block, &mut stream);
         Ok(hex::encode(stream.out().as_slice()))
     }
 
@@ -206,6 +207,29 @@ fn rlp_append<TX>(header: &Block<TX>, stream: &mut RlpStream) {
     stream.append(&header.extra_data.0);
     stream.append(&header.mix_hash.unwrap());
     stream.append(&header.nonce.unwrap());
+}
+
+pub fn decode_block_header(serialized: &Rlp) -> Result<BlockHeader, DecoderError> {
+    let block_header = BlockHeader {
+        parent_hash: serialized.val_at(0)?,
+        uncles_hash: serialized.val_at(1)?,
+        author: serialized.val_at(2)?,
+        state_root: serialized.val_at(3)?,
+        transactions_root: serialized.val_at(4)?,
+        receipts_root: serialized.val_at(5)?,
+        logs_bloom: serialized.val_at(6)?,
+        difficulty: serialized.val_at(7)?,
+        number: Some(serialized.val_at(8)?),
+        gas_limit: serialized.val_at(9)?,
+        gas_used: serialized.val_at(10)?,
+        timestamp: serialized.val_at(11)?,
+        extra_data: Bytes::from(serialized.as_raw()),
+        mix_hash: Some(serialized.val_at(13)?),
+        nonce: Some(serialized.val_at(14)?),
+        hash: Some(my_keccak256(serialized.as_raw()).into()),
+    };
+
+    Ok(block_header)
 }
 
 pub fn convert_eth_address(mut address: &str) -> Result<H160> {

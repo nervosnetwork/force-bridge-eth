@@ -143,14 +143,26 @@ impl Generator {
                 || header.number.unwrap().as_u64() >= tip.number.unwrap().as_u64()
             {
                 // the new header is on main chain.
-                // FIXME: build output data.
-                todo!()
+                // FIXME: build output data. Wait for the ckb contract to define the data structure
             } else {
                 // the new header is on uncle chain.
                 // FIXME: build output data.
                 _output_data = ckb_types::bytes::Bytes::default();
             }
             helper.add_output_with_auto_capacity(output, _output_data);
+        }
+
+        {
+            // add witness
+            // FIXME: add witness data. Wait for the ckb contract to define the data structure
+            // let witness_data = witness::Witness::new_builder()
+            //     .header(case.witness.header.into())
+            //     .merkle_proof(BytesVec::new_builder().set(proofs).build())
+            //     .cell_dep_index_list(case.witness.cell_dep_index_list.into())
+            //     .build();
+            // let witness = WitnessArgs::new_builder()
+            //     .input_type(Some(witness_data.as_bytes()).pack())
+            //     .build();
         }
 
         // build tx
@@ -249,8 +261,7 @@ impl Generator {
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
                 .hash_type(DepType::Code.into())
-                // FIXME: add script args
-                .args(ckb_types::packed::Bytes::default())
+                .args(recipient_lockscript.calc_script_hash().as_bytes().pack())
                 .build();
 
             let sudt_user_output = CellOutput::new_builder()
@@ -262,7 +273,6 @@ impl Generator {
             helper.add_output_with_auto_capacity(sudt_user_output, to_user_amount_data);
         }
 
-        //FIXME: Wait for the work on the contract side to complete
         // add witness
         {
             let witness_data = EthWitness {
@@ -292,7 +302,6 @@ impl Generator {
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
-        // Ok(TransactionView::)
     }
 
     fn add_cell_deps(

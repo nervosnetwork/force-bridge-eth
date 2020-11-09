@@ -1,6 +1,6 @@
 use crate::util::ckb_util::{parse_cell, Generator};
 use crate::util::eth_proof_helper::{read_block, Witness};
-use crate::util::eth_util::Web3Client;
+use crate::util::eth_util::{decode_block_header, Web3Client};
 use crate::util::settings::Settings;
 use anyhow::{anyhow, Result};
 use ckb_sdk::{AddressPayload, SECP256K1};
@@ -8,18 +8,22 @@ use ckb_types::bytes::Bytes;
 use ckb_types::core::DepType;
 use ckb_types::packed::{self};
 use ckb_types::packed::{Byte32, Script};
-use ckb_types::prelude::{Builder, Entity};
+use ckb_types::prelude::{Builder, Entity, Reader};
 use cmd_lib::run_cmd;
+// use eth_spv_lib::eth_types::BlockHeader;
 use ethereum_types::{H256, U64};
+use force_eth_types::eth_header_cell::ChainReader;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::Cell;
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
+use rlp::Rlp;
 use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
 pub const INIT_ETH_HEIGHT: u64 = 10000;
+pub const CONFIRM: usize = 10;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -84,6 +88,7 @@ impl ETHRelayer {
                     .build();
             }
         }
+        // get the latest output cell
         let cell = get_live_cell_by_typescript(&mut self.generator.indexer_client, typescript)
             .map_err(|err| anyhow::anyhow!(err))?
             .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
@@ -183,12 +188,14 @@ impl ETHRelayer {
 
     pub async fn do_relay_loop(&mut self, mut cell: Cell) -> Result<()> {
         let ckb_cell_data = packed::Bytes::from(cell.clone().output_data).raw_data();
-        let headers = parse_headers(ckb_cell_data)?;
-        let index = headers.len() - 1;
+        let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
+        let index = un_confirmed_headers.len() - 1;
         // Determine whether the latest_header is on the Ethereum main chain
         // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
         // If it is not in the main chain, it means that reorg has occurred, and you need to trace back from latest_height until the back traced header is on the main chain
-        let mut current_block = self.lookup_common_ancestor(&headers, index).await?;
+        let mut current_block = self
+            .lookup_common_ancestor(&un_confirmed_headers, index)
+            .await?;
         let mut number = current_block
             .number
             .ok_or_else(|| anyhow!("the block number is not exist."))?;
@@ -206,7 +213,10 @@ impl ETHRelayer {
                     .ok_or_else(|| anyhow!("the block hash is not exist."))?
             {
                 // No reorg
-                let new_header_rlp = self.eth_client.get_header_rlp(number.add(1).into()).await?;
+                let new_header_rlp = self
+                    .eth_client
+                    .get_header_rlp(number.add(1 as u64).into())
+                    .await?;
                 let header_rlp = format!("0x{}", new_header_rlp);
                 let witness = self.generate_witness(header_rlp)?;
                 let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
@@ -215,7 +225,7 @@ impl ETHRelayer {
                     &new_header,
                     &cell,
                     &witness,
-                    &headers,
+                    &un_confirmed_headers,
                     from_lockscript,
                 )?;
                 let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
@@ -240,8 +250,10 @@ impl ETHRelayer {
                 current_block = new_header;
             } else {
                 // Reorg occurred, need to go back
-                let index = headers.len() - 1;
-                current_block = self.lookup_common_ancestor(&headers, index).await?;
+                let index = un_confirmed_headers.len() - 1;
+                current_block = self
+                    .lookup_common_ancestor(&un_confirmed_headers, index)
+                    .await?;
                 number = current_block.number.unwrap();
             }
 
@@ -251,6 +263,21 @@ impl ETHRelayer {
     }
 }
 
-pub fn parse_headers(_data: Bytes) -> Result<Vec<BlockHeader>> {
-    todo!()
+pub fn parse_main_chain_headers(data: Bytes) -> Result<(Vec<BlockHeader>, Vec<Vec<u8>>)> {
+    ChainReader::verify(&data, false).map_err(|err| anyhow!(err))?;
+    let chain_reader = ChainReader::new_unchecked(&data);
+    let main_reader = chain_reader.main();
+    let mut un_confirmed = vec![];
+    let mut confirmed = vec![];
+    let len = main_reader.len();
+    for i in (0..len).rev() {
+        if (len - i) < CONFIRM {
+            let rlp = Rlp::new(main_reader.get_unchecked(i).raw_data());
+            let header: BlockHeader = decode_block_header(&rlp).map_err(|err| anyhow!(err))?;
+            un_confirmed.push(header);
+        } else {
+            confirmed.push(main_reader.get_unchecked(i).raw_data().to_vec())
+        }
+    }
+    Ok((un_confirmed, confirmed))
 }
