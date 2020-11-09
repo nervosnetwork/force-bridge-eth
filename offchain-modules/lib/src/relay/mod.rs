@@ -1,2 +1,2 @@
-mod ckb_relay;
+pub mod ckb_relay;
 mod eth_relay;
