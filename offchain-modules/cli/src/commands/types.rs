@@ -18,8 +18,8 @@ pub enum SubCommand {
     Mint(MintArgs),
     TransferFromCkb(TransferFromCkbArgs),
     Burn(BurnArgs),
-    Unlock(UnlockArgs),
     GenerateCkbProof(GenerateCkbProofArgs),
+    Unlock(UnlockArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
 }
