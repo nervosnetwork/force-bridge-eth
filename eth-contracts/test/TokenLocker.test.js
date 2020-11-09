@@ -60,11 +60,17 @@ contract("TokenLocker", () => {
     // disable timeout
     this.timeout(0);
     it("should decode burn tx verified", async () => {
-      for (t of decodeBurnTxTestCases) {
-        const burnResult = await tokenLocker.decodeBurnResult(t.txData);
-        expect(burnResult.token).to.equal(t.burnTokenAddress);
-        expect(burnResult.recipient).to.equal(t.recipientAddress);
-        expect(burnResult.amount.toNumber()).to.equal(t.burnAmount);
+      for (testcase of decodeBurnTxTestCases) {
+        let [
+          bridgeAmount,
+          bridgeFee,
+          tokenAddress,
+          recipientAddress,
+        ] = await tokenLocker.decodeBurnResult(testcase.txData);
+        expect(tokenAddress).to.equal(testcase.tokenAddress);
+        expect(recipientAddress).to.equal(testcase.recipientAddress);
+        expect(bridgeAmount).to.equal(testcase.bridgeAmount);
+        expect(bridgeFee).to.equal(testcase.bridgeFee);
       }
     });
     // TODO test unlock
@@ -76,7 +82,9 @@ async function testLockETH(testcase) {
 
   // lockETH
   const amount = ethers.utils.parseEther(testcase.lockAmount);
+  const fee = ethers.utils.parseEther(testcase.bridgeFee);
   const res = await tokenLocker.lockETH(
+    fee,
     testcase.recipientLockscript,
     testcase.replayResistOutpoint,
     testcase.sudtExtraData,
@@ -89,6 +97,7 @@ async function testLockETH(testcase) {
     tokenAddressTopic,
     lockerAddressTopic,
     lockedAmount,
+    bridgeFee,
     recipientLockscript,
     replayResistOutpoint,
     sudtExtraData,
@@ -99,6 +108,7 @@ async function testLockETH(testcase) {
   );
   expect(lockerAddressTopic).to.equal(user.address);
   expect(lockedAmount).to.equal(amount);
+  expect(bridgeFee).to.equal(fee);
   expect(recipientLockscript).to.equal(testcase.recipientLockscript);
   expect(replayResistOutpoint).to.equal(testcase.replayResistOutpoint);
   expect(sudtExtraData).to.equal(testcase.sudtExtraData);
@@ -138,6 +148,7 @@ async function testLockToken(testcase) {
   res = await tokenLocker.lockToken(
     erc20.address,
     amount,
+    testcase.bridgeFee,
     testcase.recipientLockscript,
     testcase.replayResistOutpoint,
     testcase.sudtExtraData
@@ -149,6 +160,7 @@ async function testLockToken(testcase) {
     tokenAddressTopic,
     lockerAddressTopic,
     lockedAmount,
+    bridgeFee,
     recipientLockscript,
     replayResistOutpoint,
     sudtExtraData,
@@ -157,6 +169,7 @@ async function testLockToken(testcase) {
   expect(tokenAddressTopic).to.equal(erc20.address);
   expect(lockerAddressTopic).to.equal(user.address);
   expect(lockedAmount).to.equal(amount);
+  expect(bridgeFee).to.equal(testcase.bridgeFee);
   expect(recipientLockscript).to.equal(testcase.recipientLockscript);
   expect(replayResistOutpoint).to.equal(testcase.replayResistOutpoint);
   expect(sudtExtraData).to.equal(testcase.sudtExtraData);
@@ -181,15 +194,16 @@ function parseLockedEvent(eventLog) {
     eventLog.topics[2]
   )[0];
   const eventData = ethers.utils.defaultAbiCoder.decode(
-    ["uint256", "bytes", "bytes", "bytes"],
+    ["uint256", "uint256", "bytes", "bytes", "bytes"],
     eventLog.data
   );
   return {
     tokenAddressTopic: tokenAddressTopic,
     lockerAddressTopic: lockerAddressTopic,
     lockedAmount: eventData[0],
-    recipientLockscript: eventData[1],
-    replayResistOutpoint: eventData[2],
-    sudtExtraData: eventData[3],
+    bridgeFee: eventData[1],
+    recipientLockscript: eventData[2],
+    replayResistOutpoint: eventData[3],
+    sudtExtraData: eventData[4],
   };
 }

@@ -18,12 +18,6 @@ contract TokenLocker {
     using CKBTxView for bytes29;
     using ViewSpv for bytes29;
 
-    struct BurnResult {
-        uint256 amount;
-        address token;
-        address recipient;
-    }
-
     uint64 public numConfirmations_;
     ICKBSpv public ckbSpv_;
     bytes32 public recipientCellTypescriptCodeHash_;
@@ -35,7 +29,8 @@ contract TokenLocker {
     event Locked(
         address indexed token,
         address indexed sender,
-        uint256 amount,
+        uint256 lockedAmount,
+        uint256 bridgeFee,
         bytes  recipientLockscript,
         bytes replayResistOutpoint,
         bytes sudtExtraData
@@ -44,7 +39,9 @@ contract TokenLocker {
     event Unlocked(
         address indexed token,
         address indexed recipient,
-        uint256 amount
+        address indexed sender,
+        uint256 receivedAmount,
+        uint256 bridgeFee
     );
 
     constructor(address ckbSpvAddress, uint64 numConfirmations, bytes32 typescriptCodeHash, uint8 typescriptHashType) public {
@@ -54,11 +51,18 @@ contract TokenLocker {
         recipientCellTypescriptHashType_ = typescriptHashType;
     }
 
-    function lockETH(bytes memory recipientLockscript, bytes memory replayResistOutpoint, bytes memory sudtExtraData) public payable {
+    function lockETH(
+        uint256 bridgeFee,
+        bytes memory recipientLockscript,
+        bytes memory replayResistOutpoint,
+        bytes memory sudtExtraData
+    ) public payable {
+        require(msg.value > bridgeFee, "fee should not exceed bridge amount");
         emit Locked(
             address(0),
             msg.sender,
             msg.value,
+            bridgeFee,
             recipientLockscript,
             replayResistOutpoint,
             sudtExtraData
@@ -69,16 +73,19 @@ contract TokenLocker {
     function lockToken(
         address token,
         uint256 amount,
+        uint256 bridgeFee,
         bytes memory recipientLockscript,
         bytes memory replayResistOutpoint,
         bytes memory sudtExtraData
     ) public {
+        require(amount > bridgeFee, "fee should not exceed bridge amount");
         // TODO modify `transferFrom` to `safeTransferFrom`
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         emit Locked(
             token,
             msg.sender,
             amount,
+            bridgeFee,
             recipientLockscript,
             replayResistOutpoint,
             sudtExtraData
@@ -94,27 +101,42 @@ contract TokenLocker {
         usedTx_[txHash] = true;
         require((txHash == CKBCrypto.digest(ckbTx, ckbTx.length)), "ckbTx mismatched with ckbTxProof");
 
-        BurnResult memory result = decodeBurnResult(ckbTx);
+        (uint256 bridgeAmount, uint256 bridgeFee, address tokenAddress, address recipientAddress) = decodeBurnResult(ckbTx);
+        require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
+        uint256 receivedAmount = bridgeAmount - bridgeFee;
+
         // TODO modify `transfer` to `safeTransfer`
         // if token == ETH
-        if (result.token == address(0)) {
-            result.recipient.toPayable().transfer(result.amount);
+        if (tokenAddress == address(0)) {
+            recipientAddress.toPayable().transfer(receivedAmount);
+            msg.sender.transfer(bridgeFee);
         } else {
-            IERC20(result.token).transfer(result.recipient, result.amount);
+            IERC20(tokenAddress).transfer(recipientAddress, receivedAmount);
+            IERC20(tokenAddress).transfer(msg.sender, bridgeFee);
         }
 
-        emit Unlocked(address(result.token), result.recipient, result.amount);
+        emit Unlocked(tokenAddress, recipientAddress, msg.sender, receivedAmount, bridgeFee);
     }
 
     // TODO refund function
 
-    function decodeBurnResult(bytes memory ckbTx) public view returns (BurnResult memory result) {
+    function decodeBurnResult(bytes memory ckbTx) public view returns (
+        uint256 bridgeAmount,
+        uint256 bridgeFee,
+        address token,
+        address recipient
+    ){
         bytes29 rawTx = ckbTx.ref(uint40(CKBTxView.CKBTxTypes.RawTx));
         bytes29 recipientCellTypescript = rawTx.outputs().recipientCellOutput().typescript();
         require((recipientCellTypescript.codeHash() == recipientCellTypescriptCodeHash_), "invalid recipient cell typescript code hash");
         require((recipientCellTypescript.hashType() == recipientCellTypescriptHashType_), "invalid recipient cell typescript hash type");
         require((recipientCellTypescript.args() == address(this)), "invalid recipient cell typescript args");
         bytes29 recipientCellData = rawTx.outputsData().recipientCellData();
-        result = BurnResult(recipientCellData.tokenAmount(), recipientCellData.tokenAddress(), recipientCellData.recipientAddress());
+        return (
+            recipientCellData.bridgeAmount(),
+            recipientCellData.bridgeFee(),
+            recipientCellData.tokenAddress(),
+            recipientCellData.recipientAddress()
+        );
     }
 }

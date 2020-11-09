@@ -71,24 +71,19 @@ library CKBTxView {
     }
 
     function recipientAddress(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (address) {
-        uint256 startIndex = _input.indexLEUint(4, 4);
-        uint256 len = _input.indexLEUint(startIndex, 4);
-        require(20 == len, "invalid recipient address in cell data");
-        return _input.indexAddress(startIndex + 4);
+        return _input.indexAddress(0);
     }
 
     function tokenAddress(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (address) {
-        uint256 startIndex = _input.indexLEUint(8, 4);
-        uint256 len = _input.indexLEUint(startIndex, 4);
-        require(20 == len, "invalid token address in cell data");
-        return _input.indexAddress(startIndex + 4);
+        return _input.indexAddress(20);
     }
 
-    function tokenAmount(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (uint256) {
-        uint256 startIndex = _input.indexLEUint(12, 4);
-        uint256 len = _input.len() - startIndex;
-        require(16 == len, "invalid token amount in cell data");
-        return _input.indexLEUint(startIndex, 16);
+    function bridgeAmount(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (uint256) {
+        return _input.indexLEUint(40, 16);
+    }
+
+    function bridgeFee(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (uint256) {
+        return _input.indexLEUint(56, 16);
     }
 }
 
