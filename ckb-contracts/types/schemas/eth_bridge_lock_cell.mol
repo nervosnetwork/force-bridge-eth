@@ -1,6 +1,6 @@
 import basic;
 
-table ETHBridgeLockArgs {
+struct ETHBridgeLockArgs {
     eth_contract_address: ETHAddress,
     eth_token_address: ETHAddress,
 }
