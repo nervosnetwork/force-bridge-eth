@@ -235,13 +235,14 @@ fn slice_data(data: &[u8]) -> Vec<[u8; 32]> {
 /// 2. Verify token_address equals to args.token_address.
 /// 3. Verify replay_resist_cell_id exists in inputs.
 fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLockEvent) {
-    if !data_loader.outpoint_exists_in_inputs(eth_receipt_info.replay_resist_cell_id.as_ref()) {
+    if !data_loader.outpoint_exists_in_inputs(eth_receipt_info.replay_resist_outpoint.as_ref()) {
         panic!("replay_resist_cell_id not exists in inputs");
     }
     let udt_typescript = data_loader.get_associated_udt_script();
     let udt_script_slice = udt_typescript.as_slice();
     let expected_mint_amount: u128 =
-        (ethereum_types::U256::from_big_endian(&eth_receipt_info.token_amount) / 10_000_000_000u64)
+        (ethereum_types::U256::from_big_endian(&eth_receipt_info.locked_amount)
+            / 10_000_000_000u64)
             .try_into()
             .unwrap();
     let mut mint_amount = 0u128;
