@@ -3,7 +3,7 @@ async function sleep(seconds) {
   await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
 }
 
-async function waitingForGasUsed(provider, res) {
+async function waitingForReceipt(provider, res) {
   if (!res) {
     return -1;
   }
@@ -17,9 +17,9 @@ async function waitingForGasUsed(provider, res) {
     }
     await sleep(1);
   }
-  return txReceipt.gasUsed;
+  return txReceipt;
 }
 
 const { log } = console;
 
-module.exports = { sleep, log, waitingForGasUsed };
+module.exports = { sleep, log, waitingForReceipt };
