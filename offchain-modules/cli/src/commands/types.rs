@@ -34,15 +34,24 @@ pub struct DevInitArgs {
     pub rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8116")]
     pub indexer_url: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
     pub private_key_path: String,
-    #[clap(long, default_value = "../build/release/eth-bridge-typescript")]
+    #[clap(
+        long,
+        default_value = "../ckb-contracts/build/release/eth-bridge-typescript"
+    )]
     pub bridge_typescript_path: String,
-    #[clap(long, default_value = "../build/release/eth-bridge-lockscript")]
+    #[clap(
+        long,
+        default_value = "../ckb-contracts/build/release/eth-bridge-lockscript"
+    )]
     pub bridge_lockscript_path: String,
-    #[clap(long, default_value = "../build/release/eth-light-client-typescript")]
+    #[clap(
+        long,
+        default_value = "../ckb-contracts/build/release/eth-light-client-typescript"
+    )]
     pub light_client_typescript_path: String,
-    #[clap(long, default_value = "../tests/deps/simple_udt")]
+    #[clap(long, default_value = "cli/deps/simple_udt")]
     pub sudt_path: String,
 }
 
@@ -115,7 +124,7 @@ pub struct MintArgs {
     pub config_path: String,
     #[clap(long, default_value = "http://127.0.0.1:8116")]
     pub indexer_url: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
     pub private_key_path: String,
     #[clap(short, long)]
     pub cell: String,

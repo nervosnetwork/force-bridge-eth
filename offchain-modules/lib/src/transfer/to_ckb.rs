@@ -10,7 +10,7 @@ use ethabi::{Function, Param, ParamType, Token};
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{deploy, sign};
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
-use web3::types::{BlockId, H160, H256, U256};
+use web3::types::{H160, H256, U256};
 
 pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
@@ -101,7 +101,7 @@ pub async fn lock_eth(
 
 pub async fn get_header_rlp(url: String, hash: H256) -> Result<String> {
     let mut rpc_client = Web3Client::new(url);
-    Ok(rpc_client.get_header_rlp(BlockId::Hash(hash)).await?)
+    Ok(rpc_client.get_header_rlp(hash.into()).await?)
 }
 
 pub async fn send_eth_spv_proof_tx(
@@ -159,7 +159,6 @@ pub fn dev_init(
 ) -> Result<()> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
-
     let private_key = parse_privkey_path(&private_key_path)?;
 
     // dev deploy
@@ -190,6 +189,8 @@ pub fn dev_init(
         .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
+
+    //FIXME: Need to generate a public bridge cell in advance.
     let settings = Settings {
         bridge_typescript: ScriptConf {
             code_hash: bridge_typescript_code_hash_hex,

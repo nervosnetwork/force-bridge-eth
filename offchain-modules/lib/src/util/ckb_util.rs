@@ -185,35 +185,35 @@ impl Generator {
         let mut helper = TxHelper::default();
 
         // add cell deps.
-        let outpoints = vec![
-            self.settings.bridge_lockscript.outpoint.clone(),
-            self.settings.bridge_typescript.outpoint.clone(),
-        ];
-        self.add_cell_deps(&mut helper, outpoints)
-            .map_err(|err| anyhow!(err))?;
+        {
+            let outpoints = vec![
+                self.settings.bridge_lockscript.outpoint.clone(),
+                self.settings.bridge_typescript.outpoint.clone(),
+            ];
+            self.add_cell_deps(&mut helper, outpoints)
+                .map_err(|err| anyhow!(err))?;
 
-        let cell_script = parse_cell(cell_dep.as_str())?;
-        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
-            .map_err(|err| anyhow!(err))?
-            .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
-        let mut builder = helper.transaction.as_advanced_builder();
-        builder = builder.cell_dep(
-            CellDep::new_builder()
-                .out_point(cell.out_point.into())
-                .dep_type(DepType::Code.into())
-                .build(),
-        );
-        helper.transaction = builder.build();
+            let cell_script = parse_cell(cell_dep.as_str())?;
+            let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
+                .map_err(|err| anyhow!(err))?
+                .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
+            let mut builder = helper.transaction.as_advanced_builder();
+            builder = builder.cell_dep(
+                CellDep::new_builder()
+                    .out_point(cell.out_point.into())
+                    .dep_type(DepType::Code.into())
+                    .build(),
+            );
+            helper.transaction = builder.build();
+        }
 
+        let lockscript_code_hash = hex::decode(&self.settings.bridge_lockscript.code_hash)?;
         let lockscript = Script::new_builder()
-            .code_hash(Byte32::from_slice(
-                &self.settings.bridge_lockscript.code_hash.as_bytes(),
-            )?)
+            .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
             .hash_type(DepType::Code.into())
             // FIXME: add script args
             .args(ckb_types::packed::Bytes::default())
             .build();
-
         // input bridge cells
         {
             let rpc_client = &mut self.rpc_client;

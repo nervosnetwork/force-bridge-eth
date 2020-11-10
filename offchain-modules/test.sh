@@ -40,6 +40,6 @@ start_ganache
 truffle version
 cd ../eth-contracts && truffle migrate --reset
 cd ../offchain-modules
-RUST_LOG="debug" target/debug/force-eth-cli lock-eth --from 848582DCe45547981B29957A9C6Fe390386476D2 --to 0Ef621E386a0F30CBFa3AbDC6363bc4219627162 --amount 10000 --ckb-address djfkdjfdjf --private-key-path cli/privkeys/key
+RUST_LOG="debug" target/debug/force-eth-cli lock-eth --from 848582DCe45547981B29957A9C6Fe390386476D2 --to 0Ef621E386a0F30CBFa3AbDC6363bc4219627162 --amount 10000 --ckb-address djfkdjfdjf --private-key-path cli/privkeys/eth_key
 # ckb-relay example
 # target/debug/force-eth-cli ckb-relay --from 0x627306090abaB3A6e1400e9345bC60c78a8BEf57 --to 0xeec918d74c746167564401103096D45BbD494B74  --eth-rpc-url http://172.18.0.51:8545 --private-key-path cli/privkeys/key

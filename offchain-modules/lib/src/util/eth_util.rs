@@ -242,6 +242,27 @@ pub fn convert_eth_address(mut address: &str) -> Result<H160> {
     Ok(H160::from_slice(hex::decode(address)?.as_slice()))
 }
 
+pub fn convert_hex_to_h256(hex: String) -> Result<H256> {
+    let bytes = strip_hex_prefix(&hex).and_then(decode_hex)?;
+    Ok(H256::from_slice(&bytes))
+}
+
+pub fn strip_hex_prefix(prefixed_hex: &str) -> Result<String> {
+    let res = str::replace(prefixed_hex, "0x", "");
+    match res.len() % 2 {
+        0 => Ok(res),
+        _ => left_pad_with_zero(&res),
+    }
+}
+
+fn left_pad_with_zero(string: &str) -> Result<String> {
+    Ok(format!("0{}", string))
+}
+
+pub fn decode_hex(hex_to_decode: String) -> Result<Vec<u8>> {
+    Ok(hex::decode(hex_to_decode)?)
+}
+
 #[tokio::test]
 async fn test_get_block() {
     use cmd_lib::run_cmd;
