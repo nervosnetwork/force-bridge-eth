@@ -7,8 +7,8 @@ use ckb_std::ckb_types::packed::{Byte32, Bytes, Script};
 use core::convert::TryFrom;
 use force_eth_types::{
     config::ETH_BRIDGE_LOCKSCRIPT_CODE_HASH,
-    eth_bridge_lock_cell::ETHBridgeLockArgs,
     eth_recipient_cell::{ETHAddress, ETHRecipientDataView},
+    generated::eth_bridge_lock_cell::ETHBridgeLockArgs,
 };
 use molecule::prelude::{Builder, Byte, Entity};
 
