@@ -10,13 +10,13 @@ use ckb_types::packed::{self};
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity, Reader};
 use cmd_lib::run_cmd;
-// use eth_spv_lib::eth_types::BlockHeader;
 use ethereum_types::{H256, U64};
 use force_eth_types::eth_header_cell::ChainReader;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::Cell;
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
+use log::info;
 use rlp::Rlp;
 use secp256k1::SecretKey;
 use std::ops::Add;
@@ -71,6 +71,7 @@ impl ETHRelayer {
     // 5. If reorg does not occur, directly use header as tip to build output
     pub async fn start(&mut self) -> Result<()> {
         let typescript;
+        // The first relay will generate a unique typescript, and subsequent relays will always use this typescript.
         match &self.cell_typescript {
             None => {
                 let cell_script = self.do_first_relay().await?;
@@ -96,6 +97,8 @@ impl ETHRelayer {
         Ok(())
     }
 
+    //The first time the relay uses the outpoint of the first input when it is created,
+    // to ensure that the typescript is unique across the network
     pub async fn do_first_relay(&mut self) -> Result<Script> {
         let typescript = Script::new_builder()
             .code_hash(
@@ -147,6 +150,10 @@ impl ETHRelayer {
             header: block_with_proofs.header_rlp.0.clone(),
             merkle_proof: block_with_proofs.to_double_node_with_merkle_proof_vec(),
         };
+        info!(
+            "generate witness for header_rlp. header_rlp: {:?}, witness: {:?}",
+            header_rlp, witness
+        );
         Ok(witness)
     }
 
@@ -197,7 +204,6 @@ impl ETHRelayer {
             .number
             .ok_or_else(|| anyhow!("the block number is not exist."))?;
         loop {
-            // let block_id = BlockId::Number(BlockNumber::Number((number.as_u64().add(1)).into()));
             let new_number = number.add(1 as u64);
             let new_header_temp = self.eth_client.get_block(new_number.into()).await;
             if new_header_temp.is_err() {
@@ -211,6 +217,10 @@ impl ETHRelayer {
                     .ok_or_else(|| anyhow!("the block hash is not exist."))?
             {
                 // No reorg
+                info!(
+                    "no reorg occurred, ready to relay new header: {:?}",
+                    new_header
+                );
                 let new_header_rlp = self.eth_client.get_header_rlp(new_number.into()).await?;
                 let header_rlp = format!("0x{}", new_header_rlp);
                 let witness = self.generate_witness(header_rlp)?;
@@ -243,12 +253,18 @@ impl ETHRelayer {
                 .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
                 number = new_number;
                 current_block = new_header;
+                info!("Successfully relayed the current header, ready to relay the next one. current_number: {:?}", number);
             } else {
                 // Reorg occurred, need to go back
+                info!("reorg occurred, ready to go back");
                 let index = un_confirmed_headers.len() - 1;
                 current_block = self
                     .lookup_common_ancestor(&un_confirmed_headers, index)
                     .await?;
+                info!(
+                    "reorg occurred, found the common ancestor. {:?}",
+                    current_block
+                );
                 number = current_block
                     .number
                     .ok_or_else(|| anyhow!("the block number is not exist."))?;

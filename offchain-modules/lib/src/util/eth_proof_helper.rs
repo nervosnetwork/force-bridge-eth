@@ -106,6 +106,7 @@ pub struct DoubleNodeWithMerkleProof {
     pub proof: Vec<H128>,
 }
 
+#[derive(Debug)]
 pub struct Witness {
     pub cell_dep_index_list: Vec<u8>,
     pub header: Vec<u8>,

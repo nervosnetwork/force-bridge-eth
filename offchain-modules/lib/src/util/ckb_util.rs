@@ -83,11 +83,6 @@ impl Generator {
             .previous_output()
             .as_bytes();
         let typescript_args = first_outpoint.as_ref();
-        assert_eq!(
-            typescript_args.len(),
-            37,
-            "typescript_args len should be 37"
-        );
         let new_typescript = typescript.as_builder().args(typescript_args.pack()).build();
 
         let output = CellOutput::new_builder()
