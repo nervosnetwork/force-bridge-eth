@@ -4,11 +4,12 @@ use crate::util::settings::{OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1};
-use ckb_types::packed::Script;
-use ckb_types::prelude::Entity;
+use ckb_types::core::DepType;
+use ckb_types::packed::{Byte32, Script};
+use ckb_types::prelude::{Builder, Entity};
 use ethabi::{Function, Param, ParamType, Token};
 use force_sdk::indexer::IndexerRpcClient;
-use force_sdk::tx_helper::{deploy, sign};
+use force_sdk::tx_helper::{deploy, generate_public_bridge_cell_tx, sign};
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use web3::types::{H160, H256, U256};
 
@@ -191,6 +192,21 @@ pub fn dev_init(
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
     //FIXME: Need to generate a public bridge cell in advance.
+    let lockscript = Script::new_builder()
+        .code_hash(Byte32::from_slice(&bridge_lockscript_code_hash)?)
+        .hash_type(DepType::Code.into())
+        // FIXME: add script args
+        .args(ckb_types::packed::Bytes::default())
+        .build();
+    let tx_bridge_cell = generate_public_bridge_cell_tx(
+        &mut rpc_client,
+        &mut indexer_client,
+        &private_key,
+        lockscript,
+    )
+    .map_err(|err| anyhow!(err))?;
+    send_tx_sync(&mut rpc_client, &tx_bridge_cell, 60).map_err(|err| anyhow!(err))?;
+
     let settings = Settings {
         bridge_typescript: ScriptConf {
             code_hash: bridge_typescript_code_hash_hex,

@@ -214,6 +214,7 @@ impl Generator {
             // FIXME: add script args
             .args(ckb_types::packed::Bytes::default())
             .build();
+
         // input bridge cells
         {
             let rpc_client = &mut self.rpc_client;
@@ -251,14 +252,12 @@ impl Generator {
                     .map_err(|err| anyhow!(err))?
                     .payload(),
             );
-
             let sudt_typescript_code_hash = hex::decode(&self.settings.sudt.code_hash)?;
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
                 .hash_type(DepType::Code.into())
                 .args(recipient_lockscript.calc_script_hash().as_bytes().pack())
                 .build();
-
             let sudt_user_output = CellOutput::new_builder()
                 .type_(Some(sudt_typescript).pack())
                 .lock(recipient_lockscript)
@@ -285,7 +284,6 @@ impl Generator {
                 .set_witnesses(vec![witness.as_bytes().pack()])
                 .build();
         }
-
         // build tx
         let tx = helper
             .supply_capacity(
