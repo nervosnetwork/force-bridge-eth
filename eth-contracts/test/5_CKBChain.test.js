@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { log, waitingForTxReceipt, sleep } = require("./utils");
+const { log, waitingForReceipt, sleep } = require("./utils");
 const vectors = require("./data/testVectors.json");
 
 const {
@@ -40,7 +40,7 @@ contract("CKBChain", () => {
         finalizedGcThreshold,
         canonicalGcThreshold
       );
-      let txReceipt = await waitingForTxReceipt(provider, res);
+      let txReceipt = await waitingForReceipt(provider, res);
       log(`initWithHeader gasUsed: ${txReceipt.gasUsed.toString()}`);
 
       // verify result
@@ -73,7 +73,7 @@ contract("CKBChain", () => {
       const headersInput = indexHeaderVec[startIndex].input;
       const headers = indexHeaderVec[startIndex].output;
       let res = await ckbChain.addHeaders(headersInput);
-      let txReceipt = await waitingForTxReceipt(provider, res);
+      let txReceipt = await waitingForReceipt(provider, res);
       log(
         `add ${headers.length} Headers gasUsed: ${txReceipt.gasUsed.toString()}`
       );

@@ -60,7 +60,7 @@ contract("TokenLocker", () => {
     // disable timeout
     this.timeout(0);
     it("should decode burn tx verified", async () => {
-      for (testcase of decodeBurnTxTestCases) {
+      for (const testcase of decodeBurnTxTestCases) {
         let [
           bridgeAmount,
           bridgeFee,
