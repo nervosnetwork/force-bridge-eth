@@ -80,7 +80,7 @@ fn init_header_info(
     let main_reader = chain_reader.main();
     let uncle_reader = chain_reader.uncle();
     assert_eq!(main_reader.len() == 1, true, "invalid main chain");
-    assert_eq!(uncle_reader.len() == 0, true, "invalid uncle chain");
+    assert_eq!(uncle_reader.is_empty(), true, "invalid uncle chain");
     let main_tail_info = main_reader.get_unchecked(0).raw_data();
     if ETHHeaderInfoReader::verify(&main_tail_info, false).is_err() {
         panic!("invalid main tail info");
