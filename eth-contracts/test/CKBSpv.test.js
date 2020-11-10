@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { log, waitingForGasUsed } = require("./utils");
+const { log, waitingForReceipt } = require("./utils");
 const vectors = require("./data/testSpv.json");
 
 const {
@@ -40,7 +40,7 @@ contract("CKBSpv", () => {
           blockHash,
           transactionsRoot
         );
-        await waitingForGasUsed(provider, res);
+        await waitingForReceipt(provider, res);
         expect(await ckbChain.callStatic.latestBlockNumber()).to.equal(
           latestBlockNumber
         );
@@ -48,8 +48,8 @@ contract("CKBSpv", () => {
         // proveTxExist
         const txProof = expectedTransactionsRoot[i].input;
         const proveRes = await ckbChain.proveTxExist(txProof, 100);
-        const gasUsed = await waitingForGasUsed(provider, res);
-        log(`proveTxExist gasUsed: ${gasUsed.toString()}`);
+        const receipt = await waitingForReceipt(provider, res);
+        log(`proveTxExist gasUsed: ${receipt.gasUsed.toString()}`);
         expect(proveRes).to.equal(true);
       }
     });
