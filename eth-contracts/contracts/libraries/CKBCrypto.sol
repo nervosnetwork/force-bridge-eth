@@ -154,8 +154,14 @@ library CKBCrypto {
         uint256 data_len
     ) internal view returns (bytes32 output) {
         // FIXME: support incomplete blocks (zero pad them)
-        assert((data.length % 128) == 0);
-        update_loop(instance, data, data_len, true);
+        // assert((data.length % 128) == 0);
+        uint256 remainder = data.length % 128;
+        if (0 != remainder) {
+            bytes memory fixed_data = abi.encodePacked(data, new bytes(128 - remainder));
+            update_loop(instance, fixed_data, data_len, true);
+        } else {
+            update_loop(instance, data, data_len, true);
+        }
 
         bytes memory state = instance.state;
         assembly {
@@ -163,6 +169,9 @@ library CKBCrypto {
         }
     }
 
+    // TODO optimize blake2b
+    // 1. optimize memory alloc
+    // 2. optimize input data length adaption
     function digest(bytes memory data, uint256 data_len)
         internal
         view
