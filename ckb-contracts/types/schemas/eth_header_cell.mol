@@ -1,16 +1,31 @@
 import basic;
 
-table EthCellData {
-    headers: Chain,
+table ETHHeaderCellData {
+    headers: ETHChain,
 }
 
-table Chain {
+table ETHChain {
     main: BytesVec,
     uncle: BytesVec,
 }
 
-table HeaderInfo {
+table ETHHeaderInfo {
     header: Bytes,
     total_difficulty: Uint64,
     hash: Byte32,
+}
+
+table DagsMerkleRoots {
+    dags_merkle_roots: BytesVec,
+}
+
+table DoubleNodeWithMerkleProof {
+    dag_nodes: BytesVec,
+    proof: BytesVec,
+}
+
+table ETHLightClientWitness {
+    header: Bytes,
+    merkle_proof: BytesVec,
+    cell_dep_index_list: Bytes,
 }

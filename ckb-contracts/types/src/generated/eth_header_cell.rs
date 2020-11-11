@@ -3,8 +3,8 @@
 use super::basic::*;
 use molecule::prelude::*;
 #[derive(Clone)]
-pub struct EthCellData(molecule::bytes::Bytes);
-impl ::core::fmt::LowerHex for EthCellData {
+pub struct ETHHeaderCellData(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for ETHHeaderCellData {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -13,12 +13,12 @@ impl ::core::fmt::LowerHex for EthCellData {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl ::core::fmt::Debug for EthCellData {
+impl ::core::fmt::Debug for ETHHeaderCellData {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl ::core::fmt::Display for EthCellData {
+impl ::core::fmt::Display for ETHHeaderCellData {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "headers", self.headers())?;
@@ -29,15 +29,15 @@ impl ::core::fmt::Display for EthCellData {
         write!(f, " }}")
     }
 }
-impl ::core::default::Default for EthCellData {
+impl ::core::default::Default for ETHHeaderCellData {
     fn default() -> Self {
         let v: Vec<u8> = vec![
             28, 0, 0, 0, 8, 0, 0, 0, 20, 0, 0, 0, 12, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0,
         ];
-        EthCellData::new_unchecked(v.into())
+        ETHHeaderCellData::new_unchecked(v.into())
     }
 }
-impl EthCellData {
+impl ETHHeaderCellData {
     pub const FIELD_COUNT: usize = 1;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
@@ -55,25 +55,25 @@ impl EthCellData {
     pub fn has_extra_fields(&self) -> bool {
         Self::FIELD_COUNT != self.field_count()
     }
-    pub fn headers(&self) -> Chain {
+    pub fn headers(&self) -> ETHChain {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[4..]) as usize;
         if self.has_extra_fields() {
             let end = molecule::unpack_number(&slice[8..]) as usize;
-            Chain::new_unchecked(self.0.slice(start..end))
+            ETHChain::new_unchecked(self.0.slice(start..end))
         } else {
-            Chain::new_unchecked(self.0.slice(start..))
+            ETHChain::new_unchecked(self.0.slice(start..))
         }
     }
-    pub fn as_reader<'r>(&'r self) -> EthCellDataReader<'r> {
-        EthCellDataReader::new_unchecked(self.as_slice())
+    pub fn as_reader<'r>(&'r self) -> ETHHeaderCellDataReader<'r> {
+        ETHHeaderCellDataReader::new_unchecked(self.as_slice())
     }
 }
-impl molecule::prelude::Entity for EthCellData {
-    type Builder = EthCellDataBuilder;
-    const NAME: &'static str = "EthCellData";
+impl molecule::prelude::Entity for ETHHeaderCellData {
+    type Builder = ETHHeaderCellDataBuilder;
+    const NAME: &'static str = "ETHHeaderCellData";
     fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
-        EthCellData(data)
+        ETHHeaderCellData(data)
     }
     fn as_bytes(&self) -> molecule::bytes::Bytes {
         self.0.clone()
@@ -82,10 +82,10 @@ impl molecule::prelude::Entity for EthCellData {
         &self.0[..]
     }
     fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        EthCellDataReader::from_slice(slice).map(|reader| reader.to_entity())
+        ETHHeaderCellDataReader::from_slice(slice).map(|reader| reader.to_entity())
     }
     fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        EthCellDataReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+        ETHHeaderCellDataReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
     }
     fn new_builder() -> Self::Builder {
         ::core::default::Default::default()
@@ -95,8 +95,8 @@ impl molecule::prelude::Entity for EthCellData {
     }
 }
 #[derive(Clone, Copy)]
-pub struct EthCellDataReader<'r>(&'r [u8]);
-impl<'r> ::core::fmt::LowerHex for EthCellDataReader<'r> {
+pub struct ETHHeaderCellDataReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for ETHHeaderCellDataReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -105,12 +105,12 @@ impl<'r> ::core::fmt::LowerHex for EthCellDataReader<'r> {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl<'r> ::core::fmt::Debug for EthCellDataReader<'r> {
+impl<'r> ::core::fmt::Debug for ETHHeaderCellDataReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl<'r> ::core::fmt::Display for EthCellDataReader<'r> {
+impl<'r> ::core::fmt::Display for ETHHeaderCellDataReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "headers", self.headers())?;
@@ -121,7 +121,7 @@ impl<'r> ::core::fmt::Display for EthCellDataReader<'r> {
         write!(f, " }}")
     }
 }
-impl<'r> EthCellDataReader<'r> {
+impl<'r> ETHHeaderCellDataReader<'r> {
     pub const FIELD_COUNT: usize = 1;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
@@ -139,25 +139,25 @@ impl<'r> EthCellDataReader<'r> {
     pub fn has_extra_fields(&self) -> bool {
         Self::FIELD_COUNT != self.field_count()
     }
-    pub fn headers(&self) -> ChainReader<'r> {
+    pub fn headers(&self) -> ETHChainReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[4..]) as usize;
         if self.has_extra_fields() {
             let end = molecule::unpack_number(&slice[8..]) as usize;
-            ChainReader::new_unchecked(&self.as_slice()[start..end])
+            ETHChainReader::new_unchecked(&self.as_slice()[start..end])
         } else {
-            ChainReader::new_unchecked(&self.as_slice()[start..])
+            ETHChainReader::new_unchecked(&self.as_slice()[start..])
         }
     }
 }
-impl<'r> molecule::prelude::Reader<'r> for EthCellDataReader<'r> {
-    type Entity = EthCellData;
-    const NAME: &'static str = "EthCellDataReader";
+impl<'r> molecule::prelude::Reader<'r> for ETHHeaderCellDataReader<'r> {
+    type Entity = ETHHeaderCellData;
+    const NAME: &'static str = "ETHHeaderCellDataReader";
     fn to_entity(&self) -> Self::Entity {
         Self::Entity::new_unchecked(self.as_slice().to_owned().into())
     }
     fn new_unchecked(slice: &'r [u8]) -> Self {
-        EthCellDataReader(slice)
+        ETHHeaderCellDataReader(slice)
     }
     fn as_slice(&self) -> &'r [u8] {
         self.0
@@ -201,24 +201,24 @@ impl<'r> molecule::prelude::Reader<'r> for EthCellDataReader<'r> {
         if offsets.windows(2).any(|i| i[0] > i[1]) {
             return ve!(Self, OffsetsNotMatch);
         }
-        ChainReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        ETHChainReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
         Ok(())
     }
 }
 #[derive(Debug, Default)]
-pub struct EthCellDataBuilder {
-    pub(crate) headers: Chain,
+pub struct ETHHeaderCellDataBuilder {
+    pub(crate) headers: ETHChain,
 }
-impl EthCellDataBuilder {
+impl ETHHeaderCellDataBuilder {
     pub const FIELD_COUNT: usize = 1;
-    pub fn headers(mut self, v: Chain) -> Self {
+    pub fn headers(mut self, v: ETHChain) -> Self {
         self.headers = v;
         self
     }
 }
-impl molecule::prelude::Builder for EthCellDataBuilder {
-    type Entity = EthCellData;
-    const NAME: &'static str = "EthCellDataBuilder";
+impl molecule::prelude::Builder for ETHHeaderCellDataBuilder {
+    type Entity = ETHHeaderCellData;
+    const NAME: &'static str = "ETHHeaderCellDataBuilder";
     fn expected_length(&self) -> usize {
         molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1) + self.headers.as_slice().len()
     }
@@ -238,12 +238,12 @@ impl molecule::prelude::Builder for EthCellDataBuilder {
         let mut inner = Vec::with_capacity(self.expected_length());
         self.write(&mut inner)
             .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
-        EthCellData::new_unchecked(inner.into())
+        ETHHeaderCellData::new_unchecked(inner.into())
     }
 }
 #[derive(Clone)]
-pub struct Chain(molecule::bytes::Bytes);
-impl ::core::fmt::LowerHex for Chain {
+pub struct ETHChain(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for ETHChain {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -252,12 +252,12 @@ impl ::core::fmt::LowerHex for Chain {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl ::core::fmt::Debug for Chain {
+impl ::core::fmt::Debug for ETHChain {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl ::core::fmt::Display for Chain {
+impl ::core::fmt::Display for ETHChain {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "main", self.main())?;
@@ -269,15 +269,15 @@ impl ::core::fmt::Display for Chain {
         write!(f, " }}")
     }
 }
-impl ::core::default::Default for Chain {
+impl ::core::default::Default for ETHChain {
     fn default() -> Self {
         let v: Vec<u8> = vec![
             20, 0, 0, 0, 12, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0,
         ];
-        Chain::new_unchecked(v.into())
+        ETHChain::new_unchecked(v.into())
     }
 }
-impl Chain {
+impl ETHChain {
     pub const FIELD_COUNT: usize = 2;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
@@ -311,15 +311,15 @@ impl Chain {
             BytesVec::new_unchecked(self.0.slice(start..))
         }
     }
-    pub fn as_reader<'r>(&'r self) -> ChainReader<'r> {
-        ChainReader::new_unchecked(self.as_slice())
+    pub fn as_reader<'r>(&'r self) -> ETHChainReader<'r> {
+        ETHChainReader::new_unchecked(self.as_slice())
     }
 }
-impl molecule::prelude::Entity for Chain {
-    type Builder = ChainBuilder;
-    const NAME: &'static str = "Chain";
+impl molecule::prelude::Entity for ETHChain {
+    type Builder = ETHChainBuilder;
+    const NAME: &'static str = "ETHChain";
     fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
-        Chain(data)
+        ETHChain(data)
     }
     fn as_bytes(&self) -> molecule::bytes::Bytes {
         self.0.clone()
@@ -328,10 +328,10 @@ impl molecule::prelude::Entity for Chain {
         &self.0[..]
     }
     fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        ChainReader::from_slice(slice).map(|reader| reader.to_entity())
+        ETHChainReader::from_slice(slice).map(|reader| reader.to_entity())
     }
     fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        ChainReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+        ETHChainReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
     }
     fn new_builder() -> Self::Builder {
         ::core::default::Default::default()
@@ -341,8 +341,8 @@ impl molecule::prelude::Entity for Chain {
     }
 }
 #[derive(Clone, Copy)]
-pub struct ChainReader<'r>(&'r [u8]);
-impl<'r> ::core::fmt::LowerHex for ChainReader<'r> {
+pub struct ETHChainReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for ETHChainReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -351,12 +351,12 @@ impl<'r> ::core::fmt::LowerHex for ChainReader<'r> {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl<'r> ::core::fmt::Debug for ChainReader<'r> {
+impl<'r> ::core::fmt::Debug for ETHChainReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl<'r> ::core::fmt::Display for ChainReader<'r> {
+impl<'r> ::core::fmt::Display for ETHChainReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "main", self.main())?;
@@ -368,7 +368,7 @@ impl<'r> ::core::fmt::Display for ChainReader<'r> {
         write!(f, " }}")
     }
 }
-impl<'r> ChainReader<'r> {
+impl<'r> ETHChainReader<'r> {
     pub const FIELD_COUNT: usize = 2;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
@@ -403,14 +403,14 @@ impl<'r> ChainReader<'r> {
         }
     }
 }
-impl<'r> molecule::prelude::Reader<'r> for ChainReader<'r> {
-    type Entity = Chain;
-    const NAME: &'static str = "ChainReader";
+impl<'r> molecule::prelude::Reader<'r> for ETHChainReader<'r> {
+    type Entity = ETHChain;
+    const NAME: &'static str = "ETHChainReader";
     fn to_entity(&self) -> Self::Entity {
         Self::Entity::new_unchecked(self.as_slice().to_owned().into())
     }
     fn new_unchecked(slice: &'r [u8]) -> Self {
-        ChainReader(slice)
+        ETHChainReader(slice)
     }
     fn as_slice(&self) -> &'r [u8] {
         self.0
@@ -460,11 +460,11 @@ impl<'r> molecule::prelude::Reader<'r> for ChainReader<'r> {
     }
 }
 #[derive(Debug, Default)]
-pub struct ChainBuilder {
+pub struct ETHChainBuilder {
     pub(crate) main: BytesVec,
     pub(crate) uncle: BytesVec,
 }
-impl ChainBuilder {
+impl ETHChainBuilder {
     pub const FIELD_COUNT: usize = 2;
     pub fn main(mut self, v: BytesVec) -> Self {
         self.main = v;
@@ -475,9 +475,9 @@ impl ChainBuilder {
         self
     }
 }
-impl molecule::prelude::Builder for ChainBuilder {
-    type Entity = Chain;
-    const NAME: &'static str = "ChainBuilder";
+impl molecule::prelude::Builder for ETHChainBuilder {
+    type Entity = ETHChain;
+    const NAME: &'static str = "ETHChainBuilder";
     fn expected_length(&self) -> usize {
         molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
             + self.main.as_slice().len()
@@ -502,12 +502,12 @@ impl molecule::prelude::Builder for ChainBuilder {
         let mut inner = Vec::with_capacity(self.expected_length());
         self.write(&mut inner)
             .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
-        Chain::new_unchecked(inner.into())
+        ETHChain::new_unchecked(inner.into())
     }
 }
 #[derive(Clone)]
-pub struct HeaderInfo(molecule::bytes::Bytes);
-impl ::core::fmt::LowerHex for HeaderInfo {
+pub struct ETHHeaderInfo(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for ETHHeaderInfo {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -516,12 +516,12 @@ impl ::core::fmt::LowerHex for HeaderInfo {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl ::core::fmt::Debug for HeaderInfo {
+impl ::core::fmt::Debug for ETHHeaderInfo {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl ::core::fmt::Display for HeaderInfo {
+impl ::core::fmt::Display for ETHHeaderInfo {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "header", self.header())?;
@@ -534,17 +534,17 @@ impl ::core::fmt::Display for HeaderInfo {
         write!(f, " }}")
     }
 }
-impl ::core::default::Default for HeaderInfo {
+impl ::core::default::Default for ETHHeaderInfo {
     fn default() -> Self {
         let v: Vec<u8> = vec![
             60, 0, 0, 0, 16, 0, 0, 0, 20, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ];
-        HeaderInfo::new_unchecked(v.into())
+        ETHHeaderInfo::new_unchecked(v.into())
     }
 }
-impl HeaderInfo {
+impl ETHHeaderInfo {
     pub const FIELD_COUNT: usize = 3;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
@@ -584,15 +584,15 @@ impl HeaderInfo {
             Byte32::new_unchecked(self.0.slice(start..))
         }
     }
-    pub fn as_reader<'r>(&'r self) -> HeaderInfoReader<'r> {
-        HeaderInfoReader::new_unchecked(self.as_slice())
+    pub fn as_reader<'r>(&'r self) -> ETHHeaderInfoReader<'r> {
+        ETHHeaderInfoReader::new_unchecked(self.as_slice())
     }
 }
-impl molecule::prelude::Entity for HeaderInfo {
-    type Builder = HeaderInfoBuilder;
-    const NAME: &'static str = "HeaderInfo";
+impl molecule::prelude::Entity for ETHHeaderInfo {
+    type Builder = ETHHeaderInfoBuilder;
+    const NAME: &'static str = "ETHHeaderInfo";
     fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
-        HeaderInfo(data)
+        ETHHeaderInfo(data)
     }
     fn as_bytes(&self) -> molecule::bytes::Bytes {
         self.0.clone()
@@ -601,10 +601,10 @@ impl molecule::prelude::Entity for HeaderInfo {
         &self.0[..]
     }
     fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        HeaderInfoReader::from_slice(slice).map(|reader| reader.to_entity())
+        ETHHeaderInfoReader::from_slice(slice).map(|reader| reader.to_entity())
     }
     fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
-        HeaderInfoReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+        ETHHeaderInfoReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
     }
     fn new_builder() -> Self::Builder {
         ::core::default::Default::default()
@@ -617,8 +617,8 @@ impl molecule::prelude::Entity for HeaderInfo {
     }
 }
 #[derive(Clone, Copy)]
-pub struct HeaderInfoReader<'r>(&'r [u8]);
-impl<'r> ::core::fmt::LowerHex for HeaderInfoReader<'r> {
+pub struct ETHHeaderInfoReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for ETHHeaderInfoReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         use molecule::hex_string;
         if f.alternate() {
@@ -627,12 +627,12 @@ impl<'r> ::core::fmt::LowerHex for HeaderInfoReader<'r> {
         write!(f, "{}", hex_string(self.as_slice()))
     }
 }
-impl<'r> ::core::fmt::Debug for HeaderInfoReader<'r> {
+impl<'r> ::core::fmt::Debug for ETHHeaderInfoReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{}({:#x})", Self::NAME, self)
     }
 }
-impl<'r> ::core::fmt::Display for HeaderInfoReader<'r> {
+impl<'r> ::core::fmt::Display for ETHHeaderInfoReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "header", self.header())?;
@@ -645,7 +645,7 @@ impl<'r> ::core::fmt::Display for HeaderInfoReader<'r> {
         write!(f, " }}")
     }
 }
-impl<'r> HeaderInfoReader<'r> {
+impl<'r> ETHHeaderInfoReader<'r> {
     pub const FIELD_COUNT: usize = 3;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
@@ -686,14 +686,14 @@ impl<'r> HeaderInfoReader<'r> {
         }
     }
 }
-impl<'r> molecule::prelude::Reader<'r> for HeaderInfoReader<'r> {
-    type Entity = HeaderInfo;
-    const NAME: &'static str = "HeaderInfoReader";
+impl<'r> molecule::prelude::Reader<'r> for ETHHeaderInfoReader<'r> {
+    type Entity = ETHHeaderInfo;
+    const NAME: &'static str = "ETHHeaderInfoReader";
     fn to_entity(&self) -> Self::Entity {
         Self::Entity::new_unchecked(self.as_slice().to_owned().into())
     }
     fn new_unchecked(slice: &'r [u8]) -> Self {
-        HeaderInfoReader(slice)
+        ETHHeaderInfoReader(slice)
     }
     fn as_slice(&self) -> &'r [u8] {
         self.0
@@ -744,12 +744,12 @@ impl<'r> molecule::prelude::Reader<'r> for HeaderInfoReader<'r> {
     }
 }
 #[derive(Debug, Default)]
-pub struct HeaderInfoBuilder {
+pub struct ETHHeaderInfoBuilder {
     pub(crate) header: Bytes,
     pub(crate) total_difficulty: Uint64,
     pub(crate) hash: Byte32,
 }
-impl HeaderInfoBuilder {
+impl ETHHeaderInfoBuilder {
     pub const FIELD_COUNT: usize = 3;
     pub fn header(mut self, v: Bytes) -> Self {
         self.header = v;
@@ -764,9 +764,9 @@ impl HeaderInfoBuilder {
         self
     }
 }
-impl molecule::prelude::Builder for HeaderInfoBuilder {
-    type Entity = HeaderInfo;
-    const NAME: &'static str = "HeaderInfoBuilder";
+impl molecule::prelude::Builder for ETHHeaderInfoBuilder {
+    type Entity = ETHHeaderInfo;
+    const NAME: &'static str = "ETHHeaderInfoBuilder";
     fn expected_length(&self) -> usize {
         molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
             + self.header.as_slice().len()
@@ -795,6 +795,811 @@ impl molecule::prelude::Builder for HeaderInfoBuilder {
         let mut inner = Vec::with_capacity(self.expected_length());
         self.write(&mut inner)
             .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
-        HeaderInfo::new_unchecked(inner.into())
+        ETHHeaderInfo::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct DagsMerkleRoots(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for DagsMerkleRoots {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for DagsMerkleRoots {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for DagsMerkleRoots {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "dags_merkle_roots", self.dags_merkle_roots())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl ::core::default::Default for DagsMerkleRoots {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![12, 0, 0, 0, 8, 0, 0, 0, 4, 0, 0, 0];
+        DagsMerkleRoots::new_unchecked(v.into())
+    }
+}
+impl DagsMerkleRoots {
+    pub const FIELD_COUNT: usize = 1;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn dags_merkle_roots(&self) -> BytesVec {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[8..]) as usize;
+            BytesVec::new_unchecked(self.0.slice(start..end))
+        } else {
+            BytesVec::new_unchecked(self.0.slice(start..))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> DagsMerkleRootsReader<'r> {
+        DagsMerkleRootsReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for DagsMerkleRoots {
+    type Builder = DagsMerkleRootsBuilder;
+    const NAME: &'static str = "DagsMerkleRoots";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        DagsMerkleRoots(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DagsMerkleRootsReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DagsMerkleRootsReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder().dags_merkle_roots(self.dags_merkle_roots())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct DagsMerkleRootsReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for DagsMerkleRootsReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for DagsMerkleRootsReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for DagsMerkleRootsReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "dags_merkle_roots", self.dags_merkle_roots())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl<'r> DagsMerkleRootsReader<'r> {
+    pub const FIELD_COUNT: usize = 1;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn dags_merkle_roots(&self) -> BytesVecReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[8..]) as usize;
+            BytesVecReader::new_unchecked(&self.as_slice()[start..end])
+        } else {
+            BytesVecReader::new_unchecked(&self.as_slice()[start..])
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for DagsMerkleRootsReader<'r> {
+    type Entity = DagsMerkleRoots;
+    const NAME: &'static str = "DagsMerkleRootsReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        DagsMerkleRootsReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let total_size = molecule::unpack_number(slice) as usize;
+        if slice_len != total_size {
+            return ve!(Self, TotalSizeNotMatch, total_size, slice_len);
+        }
+        if slice_len == molecule::NUMBER_SIZE && Self::FIELD_COUNT == 0 {
+            return Ok(());
+        }
+        if slice_len < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE * 2, slice_len);
+        }
+        let offset_first = molecule::unpack_number(&slice[molecule::NUMBER_SIZE..]) as usize;
+        if offset_first % 4 != 0 || offset_first < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        let field_count = offset_first / 4 - 1;
+        if field_count < Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        } else if !compatible && field_count > Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        };
+        let header_size = molecule::NUMBER_SIZE * (field_count + 1);
+        if slice_len < header_size {
+            return ve!(Self, HeaderIsBroken, header_size, slice_len);
+        }
+        let mut offsets: Vec<usize> = slice[molecule::NUMBER_SIZE..]
+            .chunks(molecule::NUMBER_SIZE)
+            .take(field_count)
+            .map(|x| molecule::unpack_number(x) as usize)
+            .collect();
+        offsets.push(total_size);
+        if offsets.windows(2).any(|i| i[0] > i[1]) {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        BytesVecReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct DagsMerkleRootsBuilder {
+    pub(crate) dags_merkle_roots: BytesVec,
+}
+impl DagsMerkleRootsBuilder {
+    pub const FIELD_COUNT: usize = 1;
+    pub fn dags_merkle_roots(mut self, v: BytesVec) -> Self {
+        self.dags_merkle_roots = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for DagsMerkleRootsBuilder {
+    type Entity = DagsMerkleRoots;
+    const NAME: &'static str = "DagsMerkleRootsBuilder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1) + self.dags_merkle_roots.as_slice().len()
+    }
+    fn write<W: ::molecule::io::Write>(&self, writer: &mut W) -> ::molecule::io::Result<()> {
+        let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
+        let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
+        offsets.push(total_size);
+        total_size += self.dags_merkle_roots.as_slice().len();
+        writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
+        for offset in offsets.into_iter() {
+            writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
+        }
+        writer.write_all(self.dags_merkle_roots.as_slice())?;
+        Ok(())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        DagsMerkleRoots::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct DoubleNodeWithMerkleProof(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for DoubleNodeWithMerkleProof {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for DoubleNodeWithMerkleProof {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for DoubleNodeWithMerkleProof {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "dag_nodes", self.dag_nodes())?;
+        write!(f, ", {}: {}", "proof", self.proof())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl ::core::default::Default for DoubleNodeWithMerkleProof {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![
+            20, 0, 0, 0, 12, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0,
+        ];
+        DoubleNodeWithMerkleProof::new_unchecked(v.into())
+    }
+}
+impl DoubleNodeWithMerkleProof {
+    pub const FIELD_COUNT: usize = 2;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn dag_nodes(&self) -> BytesVec {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        BytesVec::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn proof(&self) -> BytesVec {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[12..]) as usize;
+            BytesVec::new_unchecked(self.0.slice(start..end))
+        } else {
+            BytesVec::new_unchecked(self.0.slice(start..))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> DoubleNodeWithMerkleProofReader<'r> {
+        DoubleNodeWithMerkleProofReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for DoubleNodeWithMerkleProof {
+    type Builder = DoubleNodeWithMerkleProofBuilder;
+    const NAME: &'static str = "DoubleNodeWithMerkleProof";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        DoubleNodeWithMerkleProof(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DoubleNodeWithMerkleProofReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        DoubleNodeWithMerkleProofReader::from_compatible_slice(slice)
+            .map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder()
+            .dag_nodes(self.dag_nodes())
+            .proof(self.proof())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct DoubleNodeWithMerkleProofReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for DoubleNodeWithMerkleProofReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for DoubleNodeWithMerkleProofReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for DoubleNodeWithMerkleProofReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "dag_nodes", self.dag_nodes())?;
+        write!(f, ", {}: {}", "proof", self.proof())?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl<'r> DoubleNodeWithMerkleProofReader<'r> {
+    pub const FIELD_COUNT: usize = 2;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn dag_nodes(&self) -> BytesVecReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        BytesVecReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn proof(&self) -> BytesVecReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[12..]) as usize;
+            BytesVecReader::new_unchecked(&self.as_slice()[start..end])
+        } else {
+            BytesVecReader::new_unchecked(&self.as_slice()[start..])
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for DoubleNodeWithMerkleProofReader<'r> {
+    type Entity = DoubleNodeWithMerkleProof;
+    const NAME: &'static str = "DoubleNodeWithMerkleProofReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        DoubleNodeWithMerkleProofReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let total_size = molecule::unpack_number(slice) as usize;
+        if slice_len != total_size {
+            return ve!(Self, TotalSizeNotMatch, total_size, slice_len);
+        }
+        if slice_len == molecule::NUMBER_SIZE && Self::FIELD_COUNT == 0 {
+            return Ok(());
+        }
+        if slice_len < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE * 2, slice_len);
+        }
+        let offset_first = molecule::unpack_number(&slice[molecule::NUMBER_SIZE..]) as usize;
+        if offset_first % 4 != 0 || offset_first < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        let field_count = offset_first / 4 - 1;
+        if field_count < Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        } else if !compatible && field_count > Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        };
+        let header_size = molecule::NUMBER_SIZE * (field_count + 1);
+        if slice_len < header_size {
+            return ve!(Self, HeaderIsBroken, header_size, slice_len);
+        }
+        let mut offsets: Vec<usize> = slice[molecule::NUMBER_SIZE..]
+            .chunks(molecule::NUMBER_SIZE)
+            .take(field_count)
+            .map(|x| molecule::unpack_number(x) as usize)
+            .collect();
+        offsets.push(total_size);
+        if offsets.windows(2).any(|i| i[0] > i[1]) {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        BytesVecReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        BytesVecReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct DoubleNodeWithMerkleProofBuilder {
+    pub(crate) dag_nodes: BytesVec,
+    pub(crate) proof: BytesVec,
+}
+impl DoubleNodeWithMerkleProofBuilder {
+    pub const FIELD_COUNT: usize = 2;
+    pub fn dag_nodes(mut self, v: BytesVec) -> Self {
+        self.dag_nodes = v;
+        self
+    }
+    pub fn proof(mut self, v: BytesVec) -> Self {
+        self.proof = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for DoubleNodeWithMerkleProofBuilder {
+    type Entity = DoubleNodeWithMerkleProof;
+    const NAME: &'static str = "DoubleNodeWithMerkleProofBuilder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
+            + self.dag_nodes.as_slice().len()
+            + self.proof.as_slice().len()
+    }
+    fn write<W: ::molecule::io::Write>(&self, writer: &mut W) -> ::molecule::io::Result<()> {
+        let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
+        let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
+        offsets.push(total_size);
+        total_size += self.dag_nodes.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.proof.as_slice().len();
+        writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
+        for offset in offsets.into_iter() {
+            writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
+        }
+        writer.write_all(self.dag_nodes.as_slice())?;
+        writer.write_all(self.proof.as_slice())?;
+        Ok(())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        DoubleNodeWithMerkleProof::new_unchecked(inner.into())
+    }
+}
+#[derive(Clone)]
+pub struct ETHLightClientWitness(molecule::bytes::Bytes);
+impl ::core::fmt::LowerHex for ETHLightClientWitness {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl ::core::fmt::Debug for ETHLightClientWitness {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl ::core::fmt::Display for ETHLightClientWitness {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "header", self.header())?;
+        write!(f, ", {}: {}", "merkle_proof", self.merkle_proof())?;
+        write!(
+            f,
+            ", {}: {}",
+            "cell_dep_index_list",
+            self.cell_dep_index_list()
+        )?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl ::core::default::Default for ETHLightClientWitness {
+    fn default() -> Self {
+        let v: Vec<u8> = vec![
+            28, 0, 0, 0, 16, 0, 0, 0, 20, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        ETHLightClientWitness::new_unchecked(v.into())
+    }
+}
+impl ETHLightClientWitness {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn header(&self) -> Bytes {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        Bytes::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn merkle_proof(&self) -> BytesVec {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        BytesVec::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn cell_dep_index_list(&self) -> Bytes {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[16..]) as usize;
+            Bytes::new_unchecked(self.0.slice(start..end))
+        } else {
+            Bytes::new_unchecked(self.0.slice(start..))
+        }
+    }
+    pub fn as_reader<'r>(&'r self) -> ETHLightClientWitnessReader<'r> {
+        ETHLightClientWitnessReader::new_unchecked(self.as_slice())
+    }
+}
+impl molecule::prelude::Entity for ETHLightClientWitness {
+    type Builder = ETHLightClientWitnessBuilder;
+    const NAME: &'static str = "ETHLightClientWitness";
+    fn new_unchecked(data: molecule::bytes::Bytes) -> Self {
+        ETHLightClientWitness(data)
+    }
+    fn as_bytes(&self) -> molecule::bytes::Bytes {
+        self.0.clone()
+    }
+    fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+    fn from_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        ETHLightClientWitnessReader::from_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn from_compatible_slice(slice: &[u8]) -> molecule::error::VerificationResult<Self> {
+        ETHLightClientWitnessReader::from_compatible_slice(slice).map(|reader| reader.to_entity())
+    }
+    fn new_builder() -> Self::Builder {
+        ::core::default::Default::default()
+    }
+    fn as_builder(self) -> Self::Builder {
+        Self::new_builder()
+            .header(self.header())
+            .merkle_proof(self.merkle_proof())
+            .cell_dep_index_list(self.cell_dep_index_list())
+    }
+}
+#[derive(Clone, Copy)]
+pub struct ETHLightClientWitnessReader<'r>(&'r [u8]);
+impl<'r> ::core::fmt::LowerHex for ETHLightClientWitnessReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        use molecule::hex_string;
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+        write!(f, "{}", hex_string(self.as_slice()))
+    }
+}
+impl<'r> ::core::fmt::Debug for ETHLightClientWitnessReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{}({:#x})", Self::NAME, self)
+    }
+}
+impl<'r> ::core::fmt::Display for ETHLightClientWitnessReader<'r> {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "{} {{ ", Self::NAME)?;
+        write!(f, "{}: {}", "header", self.header())?;
+        write!(f, ", {}: {}", "merkle_proof", self.merkle_proof())?;
+        write!(
+            f,
+            ", {}: {}",
+            "cell_dep_index_list",
+            self.cell_dep_index_list()
+        )?;
+        let extra_count = self.count_extra_fields();
+        if extra_count != 0 {
+            write!(f, ", .. ({} fields)", extra_count)?;
+        }
+        write!(f, " }}")
+    }
+}
+impl<'r> ETHLightClientWitnessReader<'r> {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn total_size(&self) -> usize {
+        molecule::unpack_number(self.as_slice()) as usize
+    }
+    pub fn field_count(&self) -> usize {
+        if self.total_size() == molecule::NUMBER_SIZE {
+            0
+        } else {
+            (molecule::unpack_number(&self.as_slice()[molecule::NUMBER_SIZE..]) as usize / 4) - 1
+        }
+    }
+    pub fn count_extra_fields(&self) -> usize {
+        self.field_count() - Self::FIELD_COUNT
+    }
+    pub fn has_extra_fields(&self) -> bool {
+        Self::FIELD_COUNT != self.field_count()
+    }
+    pub fn header(&self) -> BytesReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[4..]) as usize;
+        let end = molecule::unpack_number(&slice[8..]) as usize;
+        BytesReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn merkle_proof(&self) -> BytesVecReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[8..]) as usize;
+        let end = molecule::unpack_number(&slice[12..]) as usize;
+        BytesVecReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn cell_dep_index_list(&self) -> BytesReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        if self.has_extra_fields() {
+            let end = molecule::unpack_number(&slice[16..]) as usize;
+            BytesReader::new_unchecked(&self.as_slice()[start..end])
+        } else {
+            BytesReader::new_unchecked(&self.as_slice()[start..])
+        }
+    }
+}
+impl<'r> molecule::prelude::Reader<'r> for ETHLightClientWitnessReader<'r> {
+    type Entity = ETHLightClientWitness;
+    const NAME: &'static str = "ETHLightClientWitnessReader";
+    fn to_entity(&self) -> Self::Entity {
+        Self::Entity::new_unchecked(self.as_slice().to_owned().into())
+    }
+    fn new_unchecked(slice: &'r [u8]) -> Self {
+        ETHLightClientWitnessReader(slice)
+    }
+    fn as_slice(&self) -> &'r [u8] {
+        self.0
+    }
+    fn verify(slice: &[u8], compatible: bool) -> molecule::error::VerificationResult<()> {
+        use molecule::verification_error as ve;
+        let slice_len = slice.len();
+        if slice_len < molecule::NUMBER_SIZE {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE, slice_len);
+        }
+        let total_size = molecule::unpack_number(slice) as usize;
+        if slice_len != total_size {
+            return ve!(Self, TotalSizeNotMatch, total_size, slice_len);
+        }
+        if slice_len == molecule::NUMBER_SIZE && Self::FIELD_COUNT == 0 {
+            return Ok(());
+        }
+        if slice_len < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, HeaderIsBroken, molecule::NUMBER_SIZE * 2, slice_len);
+        }
+        let offset_first = molecule::unpack_number(&slice[molecule::NUMBER_SIZE..]) as usize;
+        if offset_first % 4 != 0 || offset_first < molecule::NUMBER_SIZE * 2 {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        let field_count = offset_first / 4 - 1;
+        if field_count < Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        } else if !compatible && field_count > Self::FIELD_COUNT {
+            return ve!(Self, FieldCountNotMatch, Self::FIELD_COUNT, field_count);
+        };
+        let header_size = molecule::NUMBER_SIZE * (field_count + 1);
+        if slice_len < header_size {
+            return ve!(Self, HeaderIsBroken, header_size, slice_len);
+        }
+        let mut offsets: Vec<usize> = slice[molecule::NUMBER_SIZE..]
+            .chunks(molecule::NUMBER_SIZE)
+            .take(field_count)
+            .map(|x| molecule::unpack_number(x) as usize)
+            .collect();
+        offsets.push(total_size);
+        if offsets.windows(2).any(|i| i[0] > i[1]) {
+            return ve!(Self, OffsetsNotMatch);
+        }
+        BytesReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
+        BytesVecReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        BytesReader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
+        Ok(())
+    }
+}
+#[derive(Debug, Default)]
+pub struct ETHLightClientWitnessBuilder {
+    pub(crate) header: Bytes,
+    pub(crate) merkle_proof: BytesVec,
+    pub(crate) cell_dep_index_list: Bytes,
+}
+impl ETHLightClientWitnessBuilder {
+    pub const FIELD_COUNT: usize = 3;
+    pub fn header(mut self, v: Bytes) -> Self {
+        self.header = v;
+        self
+    }
+    pub fn merkle_proof(mut self, v: BytesVec) -> Self {
+        self.merkle_proof = v;
+        self
+    }
+    pub fn cell_dep_index_list(mut self, v: Bytes) -> Self {
+        self.cell_dep_index_list = v;
+        self
+    }
+}
+impl molecule::prelude::Builder for ETHLightClientWitnessBuilder {
+    type Entity = ETHLightClientWitness;
+    const NAME: &'static str = "ETHLightClientWitnessBuilder";
+    fn expected_length(&self) -> usize {
+        molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
+            + self.header.as_slice().len()
+            + self.merkle_proof.as_slice().len()
+            + self.cell_dep_index_list.as_slice().len()
+    }
+    fn write<W: ::molecule::io::Write>(&self, writer: &mut W) -> ::molecule::io::Result<()> {
+        let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
+        let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
+        offsets.push(total_size);
+        total_size += self.header.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.merkle_proof.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.cell_dep_index_list.as_slice().len();
+        writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
+        for offset in offsets.into_iter() {
+            writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
+        }
+        writer.write_all(self.header.as_slice())?;
+        writer.write_all(self.merkle_proof.as_slice())?;
+        writer.write_all(self.cell_dep_index_list.as_slice())?;
+        Ok(())
+    }
+    fn build(&self) -> Self::Entity {
+        let mut inner = Vec::with_capacity(self.expected_length());
+        self.write(&mut inner)
+            .unwrap_or_else(|_| panic!("{} build should be ok", Self::NAME));
+        ETHLightClientWitness::new_unchecked(inner.into())
     }
 }

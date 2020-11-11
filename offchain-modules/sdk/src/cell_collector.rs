@@ -28,6 +28,24 @@ pub fn get_live_cell_by_typescript(
     }
 }
 
+pub fn get_live_cell_by_lockscript(
+    indexer_client: &mut IndexerRpcClient,
+    lockscript: Script,
+) -> Result<Option<Cell>, String> {
+    let search_key = SearchKey {
+        script: lockscript.into(),
+        script_type: ScriptType::Lock,
+        args_len: None,
+    };
+    let cells = get_live_cells(indexer_client, search_key, |_, _| (true, true))?;
+    let len = cells.len();
+    if len > 0 {
+        Ok(Some(cells[0].clone()))
+    } else {
+        Ok(None)
+    }
+}
+
 /// get cells to supply capacity
 /// if max_mature_number is None, skip mature check
 pub fn get_live_cells_by_lock_and_capacity(
