@@ -75,7 +75,6 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let from = convert_eth_address(&args.from)?;
     let to = convert_eth_address(&args.to)?;
     let token_addr = convert_eth_address(&args.token)?;
     let data = [
@@ -83,7 +82,7 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
         Token::Uint(U256::from(args.amount)),
         Token::String(args.ckb_address),
     ];
-    let hash = lock_token(from, to, args.rpc_url, args.private_key_path, &data)
+    let hash = lock_token(to, args.rpc_url, args.private_key_path, &data)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to call lock_token. {:?}", e))?;
     println!("lock erc20 token tx_hash: {:?}", &hash);
@@ -92,11 +91,9 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let from = convert_eth_address(&args.from)?;
     let to = convert_eth_address(&args.to)?;
     let data = [Token::String(args.ckb_address)];
     let hash = lock_eth(
-        from,
         to,
         args.rpc_url.clone(),
         args.private_key_path,

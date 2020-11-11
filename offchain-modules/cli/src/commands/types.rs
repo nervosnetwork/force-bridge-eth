@@ -73,8 +73,6 @@ pub struct ApproveArgs {
 #[derive(Clap, Clone, Debug)]
 pub struct LockTokenArgs {
     #[clap(short, long)]
-    pub from: String,
-    #[clap(short, long)]
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
@@ -90,8 +88,6 @@ pub struct LockTokenArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct LockEthArgs {
-    #[clap(short, long)]
-    pub from: String,
     #[clap(short, long)]
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]

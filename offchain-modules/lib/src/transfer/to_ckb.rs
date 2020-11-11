@@ -36,18 +36,12 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Res
     let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
-        .send_transaction(from, to, key_path, input_data, U256::from(0))
+        .send_transaction(to, key_path, input_data, U256::from(0))
         .await?;
     Ok(res)
 }
 
-pub async fn lock_token(
-    from: H160,
-    to: H160,
-    url: String,
-    key_path: String,
-    data: &[Token],
-) -> Result<H256> {
+pub async fn lock_token(to: H160, url: String, key_path: String, data: &[Token]) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lock".to_owned(),
@@ -70,13 +64,12 @@ pub async fn lock_token(
     };
     let input_data = function.encode_input(data)?;
     let res = rpc_client
-        .send_transaction(from, to, key_path, input_data, U256::from(0))
+        .send_transaction(to, key_path, input_data, U256::from(0))
         .await?;
     Ok(res)
 }
 
 pub async fn lock_eth(
-    from: H160,
     to: H160,
     url: String,
     key_path: String,
@@ -95,7 +88,7 @@ pub async fn lock_eth(
     };
     let input_data = function.encode_input(data)?;
     let res = rpc_client
-        .send_transaction(from, to, key_path, input_data, eth_value)
+        .send_transaction(to, key_path, input_data, eth_value)
         .await?;
     Ok(res)
 }
