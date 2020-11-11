@@ -1,7 +1,7 @@
 mod helper;
 
 #[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec};
+use alloc::vec;
 
 use crate::adapter::Adapter;
 use crate::debug;
@@ -43,7 +43,7 @@ fn verify_witness<T: Adapter>(
     debug!("verify verify_witness data.");
     let witness_args = data_loader.load_witness_args();
     if ETHLightClientWitnessReader::verify(&witness_args, false).is_err() {
-        panic!("invalid witness");
+        panic!("verify_witness, invalid witness");
     }
     let witness = ETHLightClientWitnessReader::new_unchecked(&witness_args);
     // parse header
@@ -63,7 +63,7 @@ fn verify_witness<T: Adapter>(
     // parse dep data
     let merkle_root = parse_dep_data(data_loader, witness, header.number);
     if !verify_header(&header, prev, merkle_root, &proofs) {
-        panic!("verify header fail");
+        panic!("verify_witness, verify header fail");
     }
 }
 
@@ -74,7 +74,7 @@ fn init_header_info(
     debug!("init header list.");
     let header: BlockHeader = rlp::decode(header_raw.to_vec().as_slice()).unwrap();
     if ETHChainReader::verify(&output.headers, false).is_err() {
-        panic!("invalid output headers");
+        panic!("init_header_info, invalid output headers");
     }
     let chain_reader = ETHChainReader::new_unchecked(&output.headers);
     let main_reader = chain_reader.main();
@@ -83,7 +83,7 @@ fn init_header_info(
     assert_eq!(uncle_reader.is_empty(), true, "invalid uncle chain");
     let main_tail_info = main_reader.get_unchecked(0).raw_data();
     if ETHHeaderInfoReader::verify(&main_tail_info, false).is_err() {
-        panic!("invalid main tail info");
+        panic!("init_header_info, invalid main tail info");
     }
     let main_tail_reader = ETHHeaderInfoReader::new_unchecked(main_tail_info);
     let main_tail_raw = main_tail_reader.header().raw_data();
@@ -96,7 +96,11 @@ fn init_header_info(
         difficulty,
         "invalid total difficulty"
     );
-    assert_eq!(hash, header.hash.unwrap().0.as_bytes(), "invalid hash");
+    assert_eq!(
+        hash,
+        header.hash.expect("header hash is none").0.as_bytes(),
+        "invalid hash"
+    );
     (header, Option::None)
 }
 
@@ -106,214 +110,309 @@ fn verify_input_output_data(
     header_raw: &[u8],
 ) -> (BlockHeader, Option<BlockHeader>) {
     debug!("verify input && output data. make sure the main chain is right.");
-    let header: BlockHeader =
-        rlp::decode(header_raw.to_vec().as_slice()).expect("rlp decode header_raw fail");
+    let header: BlockHeader = rlp::decode(header_raw.to_vec().as_slice()).unwrap();
     debug!("header after decode is {:?}", header);
 
-    if ETHChainReader::verify(&input.headers, false).is_err() {
-        panic!("invalid input headers");
-    }
-    let chain_input_reader = ETHChainReader::new_unchecked(&input.headers);
-    let main_input_reader = chain_input_reader.main();
-    debug!(
-        "input: the main chain length: {:?}",
-        main_input_reader.len()
-    );
-    let uncle_input_reader = chain_input_reader.uncle();
-    if ETHChainReader::verify(&output.headers, false).is_err() {
-        panic!("invalid output headers");
-    }
-    let chain_output_reader = ETHChainReader::new_unchecked(&output.headers);
-    let main_output_reader = chain_output_reader.main();
-    let uncle_output_reader = chain_output_reader.uncle();
-    debug!(
-        "output: the main chain length: {:?}",
-        main_output_reader.len()
-    );
-    // header is on main chain.
-    let main_tail_info_input = main_input_reader
-        .get_unchecked(main_input_reader.len() - 1)
-        .raw_data();
-    if ETHHeaderInfoReader::verify(&main_tail_info_input, false).is_err() {
-        panic!("invalid main tail info input");
-    }
-    let main_tail_info_input_reader = ETHHeaderInfoReader::new_unchecked(main_tail_info_input);
-    let main_tail_header_input = main_tail_info_input_reader.header().raw_data();
+    let (main_input_reader, uncle_input_reader) = get_main_and_uncle_from_headers(&input.headers);
+    let (main_output_reader, uncle_output_reader) =
+        get_main_and_uncle_from_headers(&output.headers);
 
-    let main_tail_info_output = main_output_reader
-        .get_unchecked(main_output_reader.len() - 1)
-        .raw_data();
-    if ETHHeaderInfoReader::verify(&main_tail_info_output, false).is_err() {
-        panic!("invalid main tail info output");
+    let (_, main_tail_header_output) = get_tail_info(main_output_reader);
+
+    // header is on uncle chain, just do append.
+    if main_tail_header_output != header_raw {
+        return verify_uncle_header(
+            header,
+            main_input_reader,
+            main_output_reader,
+            uncle_input_reader,
+            uncle_output_reader,
+        );
     }
-    let main_tail_info_output_reader = ETHHeaderInfoReader::new_unchecked(main_tail_info_output);
-    let main_tail_header_output = main_tail_info_output_reader.header().raw_data();
-    let mut prev: Option<BlockHeader> = Option::None;
-    // header is on main chain.
-    if main_tail_header_output == header_raw {
-        debug!("the new header is on main chain");
+
+    verify_main_header(
+        header,
+        main_input_reader,
+        main_output_reader,
+        uncle_input_reader,
+        uncle_output_reader,
+    )
+}
+
+fn get_main_and_uncle_from_headers(headers: &[u8]) -> (BytesVecReader, BytesVecReader) {
+    if ETHChainReader::verify(headers, false).is_err() {
+        panic!("get_main_and_uncle_from_headers, invalid headers");
+    }
+    let chain_reader = ETHChainReader::new_unchecked(headers);
+    let main_reader = chain_reader.main();
+    let uncle_reader = chain_reader.uncle();
+    (main_reader, uncle_reader)
+}
+
+fn get_tail_info(main_reader: BytesVecReader) -> (ETHHeaderInfoReader, &[u8]) {
+    let main_tail_info = main_reader.get_unchecked(main_reader.len() - 1).raw_data();
+    if ETHHeaderInfoReader::verify(&main_tail_info, false).is_err() {
+        panic!("get_tail_info, invalid main tail info");
+    }
+    let main_tail_info_reader = ETHHeaderInfoReader::new_unchecked(main_tail_info);
+    let main_tail_header = main_tail_info_reader.header().raw_data();
+
+    (main_tail_info_reader, main_tail_header)
+}
+
+fn verify_uncle_header(
+    header: BlockHeader,
+    main_input_reader: BytesVecReader,
+    main_output_reader: BytesVecReader,
+    uncle_input_reader: BytesVecReader,
+    uncle_output_reader: BytesVecReader,
+) -> (BlockHeader, Option<BlockHeader>) {
+    debug!("warning: the new header is not on main chain.");
+    verify_original_chain_data(
+        uncle_input_reader,
+        uncle_output_reader,
+        UNCLE_HEADER_CACHE_LIMIT,
+    );
+    // the main chain should be the same.
+    assert_eq!(main_output_reader.as_slice(), main_input_reader.as_slice());
+    let (prev, _) = get_parent_header(header.clone(), main_input_reader, uncle_input_reader);
+    (header, Option::Some(prev))
+}
+
+fn verify_main_header(
+    header: BlockHeader,
+    main_input_reader: BytesVecReader,
+    main_output_reader: BytesVecReader,
+    uncle_input_reader: BytesVecReader,
+    uncle_output_reader: BytesVecReader,
+) -> (BlockHeader, Option<BlockHeader>) {
+    debug!("the new header is on main chain");
+
+    verify_main_and_uncle_length(
+        main_input_reader,
+        main_output_reader,
+        uncle_input_reader,
+        uncle_output_reader,
+    );
+
+    let (main_tail_info_input_reader, main_tail_header_input) = get_tail_info(main_input_reader);
+    let (main_tail_info_output_reader, _) = get_tail_info(main_output_reader);
+
+    assert_eq!(
+        main_tail_info_output_reader.hash().raw_data(),
+        header.hash.unwrap().0.as_bytes()
+    );
+
+    let main_tail_input: BlockHeader =
+        rlp::decode(main_tail_header_input.to_vec().as_slice()).unwrap();
+    debug!(
+        "new header parent hash: {:?}, input main chain tail hash: {:?}",
+        header.parent_hash.0,
+        main_tail_input.hash.unwrap().0
+    );
+
+    // if header.parent_hash == tail_input.hash => the chain is not reorg.
+    // else do reorg.
+    if main_tail_input.hash.unwrap() == header.parent_hash {
+        verify_main_not_reorg(
+            header.difficulty.0.as_u64(),
+            main_tail_info_input_reader,
+            main_tail_info_output_reader,
+        );
+        verify_original_chain_data(
+            main_input_reader,
+            main_output_reader,
+            MAIN_HEADER_CACHE_LIMIT,
+        );
+        // the uncle chain should be the same.
         assert_eq!(
-            main_tail_info_output_reader.hash().raw_data(),
-            header.hash.unwrap().0.as_bytes()
+            uncle_input_reader.as_slice(),
+            uncle_output_reader.as_slice()
         );
-        let main_tail_input: BlockHeader =
-            rlp::decode(main_tail_header_input.to_vec().as_slice()).unwrap();
-        debug!("new header parent hash: {:?} ", header.parent_hash.0);
-        debug!(
-            "input main chain tail hash: {:?}",
-            main_tail_input.hash.unwrap().0
+    } else {
+        debug!("warning: the main chain had been reorged.");
+        verify_difficulty(
+            header.clone(),
+            main_tail_info_input_reader,
+            main_tail_info_output_reader,
+            main_input_reader,
+            uncle_input_reader,
         );
-        if main_output_reader.len() > 1 {
+
+        // header.number < main_tail_input.number
+        // assert_eq!(main_tail_input.number - header.number > 0, true)
+        let mut number = header.number - 1;
+        let mut current_hash = header.parent_hash;
+        loop {
+            if number == 0 {
+                panic!("number should be bigger than 0");
+            }
+            // find parent header.
+            if !check_parent_hash_on_main(
+                main_input_reader,
+                main_tail_input.clone(),
+                current_hash,
+                number,
+            ) {
+                // the parent header is on uncle chain.
+                debug!("the parent header is on uncle chain");
+                traverse_uncle_chain(uncle_input_reader, &mut current_hash, &mut number);
+            } else {
+                let offset = (main_tail_input.number - number) as usize;
+                // the parent header is on main chain.
+                // make sure the main chain is right.
+                let mut input_data = vec![];
+                for i in 0..main_input_reader.len() - offset {
+                    input_data.push(main_input_reader.get_unchecked(i).raw_data())
+                }
+                let mut output_data = vec![];
+                for i in 0..main_output_reader.len() - 1 {
+                    output_data.push(main_output_reader.get_unchecked(i).raw_data())
+                }
+                assert_eq!(input_data, output_data);
+                // FIXME: make sure the uncle chain is right.
+                if uncle_input_reader.len() + offset > UNCLE_HEADER_CACHE_LIMIT {
+                    verify_uncle_over_cache_limit(
+                        main_input_reader,
+                        uncle_input_reader,
+                        uncle_output_reader,
+                        offset,
+                    );
+                }
+                break;
+            }
+        }
+    }
+    (header, get_prev_from_output(main_output_reader))
+}
+
+fn verify_main_and_uncle_length(
+    main_input_reader: BytesVecReader,
+    main_output_reader: BytesVecReader,
+    uncle_input_reader: BytesVecReader,
+    uncle_output_reader: BytesVecReader,
+) {
+    if main_output_reader.len() > MAIN_HEADER_CACHE_LIMIT
+        || main_input_reader.len() > MAIN_HEADER_CACHE_LIMIT
+        || uncle_output_reader.len() > UNCLE_HEADER_CACHE_LIMIT
+        || uncle_input_reader.len() > UNCLE_HEADER_CACHE_LIMIT
+    {
+        panic!("main or uncle len exceed max");
+    }
+}
+
+fn get_prev_from_output(main_output_reader: BytesVecReader) -> Option<BlockHeader> {
+    match main_output_reader.len() {
+        0 => panic!("output reader can't be zero length"),
+        1 => None,
+        _ => {
             let header_raw = main_output_reader
                 .get_unchecked(main_output_reader.len() - 2)
                 .raw_data();
-            prev = Option::Some(extra_header(header_raw));
+            Some(extra_header(header_raw))
         }
-
-        if main_output_reader.len() > MAIN_HEADER_CACHE_LIMIT
-            || main_input_reader.len() > MAIN_HEADER_CACHE_LIMIT
-            || uncle_output_reader.len() > UNCLE_HEADER_CACHE_LIMIT
-            || uncle_input_reader.len() > UNCLE_HEADER_CACHE_LIMIT
-        {
-            panic!("main or uncle len exceed max");
-        }
-        // if header.parent_hash == tail_input.hash => the chain is not reorg.
-        // else do reorg.
-        if main_tail_input.hash.unwrap() == header.parent_hash {
-            debug!("the main chain is not reorg.");
-            let prev_difficult = main_tail_info_input_reader.total_difficulty().raw_data();
-            let left = main_tail_info_output_reader.total_difficulty().raw_data();
-            let right: u64 = header.difficulty.0.as_u64();
-            debug!("The total difficulty of the output chain is the total difficulty of the input chain plus the difficulty of the new block");
-            debug!(
-                "left difficulty u64: {} right difficulty u64: {}",
-                to_u64(&left),
-                right.checked_add(to_u64(&prev_difficult)).unwrap()
-            );
-            assert_eq!(
-                to_u64(&left),
-                right.checked_add(to_u64(&prev_difficult)).unwrap(),
-                "invalid difficulty."
-            );
-
-            debug!("the uncle chain should be the same");
-            verify_original_chain_data(
-                main_input_reader,
-                main_output_reader,
-                MAIN_HEADER_CACHE_LIMIT,
-            );
-            // the uncle chain should be the same.
-            assert_eq!(
-                uncle_input_reader.as_slice(),
-                uncle_output_reader.as_slice()
-            );
-        } else {
-            debug!("warning: the main chain had been reorged.");
-            let left = main_tail_info_input_reader.total_difficulty().raw_data();
-            let right = main_tail_info_output_reader.total_difficulty().raw_data();
-            //difficulty need verify! right == header.difficulty + header.parent.total_difficulty
-            let (_, difficulty) =
-                get_parent_header(header.clone(), main_input_reader, uncle_input_reader);
-            assert_eq!(
-                to_u64(right),
-                header.difficulty.0.as_u64() + difficulty,
-                "invalid difficulty."
-            );
-
-            if to_u64(&right) >= to_u64(&left) {
-                // header.number < main_tail_input.number
-                // assert_eq!(main_tail_input.number - header.number > 0, true)
-                let mut number = header.number - 1;
-                let mut current_hash = header.parent_hash;
-                loop {
-                    if number == 0 {
-                        panic!("invalid data");
-                    }
-                    // find parent header.
-                    if main_tail_input.number <= number {
-                        // the parent header is on uncle chain.
-                        debug!("the parent header is on uncle chain");
-                        traverse_uncle_chain(uncle_input_reader, &mut current_hash, &mut number);
-                    } else {
-                        let offset = (main_tail_input.number - number) as usize;
-                        debug!("offset: {:?}", offset);
-                        assert_eq!(offset < main_input_reader.len(), true, "invalid cell data");
-                        assert_eq!(offset < CONFIRM, true, "can not revert confirmed block.");
-                        let header_info_temp = main_input_reader
-                            .get_unchecked(main_input_reader.len() - 1 - offset)
-                            .raw_data();
-                        let hash_temp = extra_hash(header_info_temp);
-                        debug!(
-                            "hash_temp: {:?} current_hash: {:?}",
-                            hash_temp,
-                            current_hash.0.as_bytes()
-                        );
-                        if hash_temp == current_hash.0.as_bytes() {
-                            // the parent header is on main chain.
-                            // make sure the main chain is right.
-                            let mut input_data = vec![];
-                            for i in 0..main_input_reader.len() - offset {
-                                input_data.push(main_input_reader.get_unchecked(i).raw_data())
-                            }
-                            let mut output_data = vec![];
-                            for i in 0..main_output_reader.len() - 1 {
-                                output_data.push(main_output_reader.get_unchecked(i).raw_data())
-                            }
-                            assert_eq!(input_data, output_data);
-                            // FIXME: make sure the uncle chain is right.
-                            if uncle_input_reader.len() + offset > UNCLE_HEADER_CACHE_LIMIT {
-                                let mut uncle_input_data = vec![];
-                                let begin =
-                                    uncle_input_reader.len() + offset - UNCLE_HEADER_CACHE_LIMIT;
-
-                                for i in begin..uncle_input_reader.len() {
-                                    uncle_input_data
-                                        .push(uncle_input_reader.get_unchecked(i).raw_data())
-                                }
-                                for i in main_input_reader.len() - offset..main_input_reader.len() {
-                                    uncle_input_data
-                                        .push(main_input_reader.get_unchecked(i).raw_data())
-                                }
-                                let mut uncle_output_data = vec![];
-                                for i in 0..uncle_output_reader.len() {
-                                    uncle_output_data
-                                        .push(uncle_output_reader.get_unchecked(i).raw_data())
-                                }
-                                assert_eq!(
-                                    uncle_input_data, uncle_output_data,
-                                    "invalid uncle chain data"
-                                );
-                            }
-                            break;
-                        } else {
-                            // the parent header is on uncle chain.
-                            traverse_uncle_chain(
-                                uncle_input_reader,
-                                &mut current_hash,
-                                &mut number,
-                            );
-                        }
-                    }
-                }
-            } else {
-                panic!("invalid data");
-            }
-        }
-    } else {
-        debug!("warning: the new header is not on main chain.");
-        // the header is on uncle chain. just do append.
-        verify_original_chain_data(
-            uncle_input_reader,
-            uncle_output_reader,
-            UNCLE_HEADER_CACHE_LIMIT,
-        );
-        // the main chain should be the same.
-        assert_eq!(main_output_reader.as_slice(), main_input_reader.as_slice());
-        let (_prev, _) = get_parent_header(header.clone(), main_input_reader, uncle_input_reader);
-        prev = Option::Some(_prev);
     }
-    // assert_eq!(main_output_reader.get_unchecked(main_output_reader.len() - 1).raw_data(), header_raw);
-    (header, prev)
+}
+
+fn verify_main_not_reorg(
+    header_difficulty: u64,
+    main_tail_info_input_reader: ETHHeaderInfoReader,
+    main_tail_info_output_reader: ETHHeaderInfoReader,
+) {
+    debug!("the main chain is not reorg.");
+    let prev_difficult = main_tail_info_input_reader.total_difficulty().raw_data();
+    let left = main_tail_info_output_reader.total_difficulty().raw_data();
+    let right: u64 = header_difficulty;
+    debug!("The total difficulty of the output chain is the total difficulty of the input chain plus the difficulty of the new block");
+    debug!(
+        "left difficulty u64: {} right difficulty u64: {}",
+        to_u64(&left),
+        right.checked_add(to_u64(&prev_difficult)).unwrap()
+    );
+    assert_eq!(
+        to_u64(&left),
+        right.checked_add(to_u64(&prev_difficult)).unwrap(),
+        "invalid difficulty."
+    );
+}
+
+fn verify_difficulty(
+    header: BlockHeader,
+    main_tail_info_input_reader: ETHHeaderInfoReader,
+    main_tail_info_output_reader: ETHHeaderInfoReader,
+    main_input_reader: BytesVecReader,
+    uncle_input_reader: BytesVecReader,
+) {
+    let input_total_difficulty = to_u64(main_tail_info_input_reader.total_difficulty().raw_data());
+    let output_total_difficulty =
+        to_u64(main_tail_info_output_reader.total_difficulty().raw_data());
+    let header_difficulty = header.difficulty.0.as_u64();
+    let (_, header_parent_difficulty) =
+        get_parent_header(header, main_input_reader, uncle_input_reader);
+
+    //difficulty need verify! output_total_difficulty == header.difficulty + header.parent.total_difficulty
+    assert_eq!(
+        output_total_difficulty,
+        header_difficulty + header_parent_difficulty,
+        "invalid difficulty."
+    );
+
+    if output_total_difficulty < input_total_difficulty {
+        panic!("output difficulty less than input difficulty")
+    }
+}
+
+fn verify_uncle_over_cache_limit(
+    main_input_reader: BytesVecReader,
+    uncle_input_reader: BytesVecReader,
+    uncle_output_reader: BytesVecReader,
+    offset: usize,
+) {
+    let mut uncle_input_data = vec![];
+    let begin = uncle_input_reader.len() + offset - UNCLE_HEADER_CACHE_LIMIT;
+
+    for i in begin..uncle_input_reader.len() {
+        uncle_input_data.push(uncle_input_reader.get_unchecked(i).raw_data())
+    }
+    for i in main_input_reader.len() - offset..main_input_reader.len() {
+        uncle_input_data.push(main_input_reader.get_unchecked(i).raw_data())
+    }
+    let mut uncle_output_data = vec![];
+    for i in 0..uncle_output_reader.len() {
+        uncle_output_data.push(uncle_output_reader.get_unchecked(i).raw_data())
+    }
+    assert_eq!(
+        uncle_input_data, uncle_output_data,
+        "invalid uncle chain data"
+    );
+}
+
+fn check_parent_hash_on_main(
+    main_input_reader: BytesVecReader,
+    main_tail_input: BlockHeader,
+    current_hash: H256,
+    number: u64,
+) -> bool {
+    if main_tail_input.number <= number {
+        return false;
+    }
+    let offset = (main_tail_input.number - number) as usize;
+    debug!("offset: {:?}", offset);
+    assert_eq!(offset < main_input_reader.len(), true, "invalid cell data");
+    assert_eq!(offset < CONFIRM, true, "can not revert confirmed block.");
+    let header_info_temp = main_input_reader
+        .get_unchecked(main_input_reader.len() - 1 - offset)
+        .raw_data();
+    let hash_temp = extra_hash(header_info_temp);
+    debug!(
+        "hash_temp: {:?} current_hash: {:?}",
+        hash_temp,
+        current_hash.0.as_bytes()
+    );
+    if hash_temp == current_hash.0.as_bytes() {
+        return true;
+    }
+    false
 }
 
 fn extra_header(header_info_raw: &[u8]) -> BlockHeader {
@@ -459,12 +558,12 @@ fn parse_dep_data<T: Adapter>(
 ) -> H128 {
     let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
     if cell_dep_index_list.len() != 1 {
-        panic!("witness cell dep index len is not 1");
+        panic!("parse_dep_data, witness cell dep index len is not 1");
     }
     let dep_data = data_loader.load_data_from_dep(cell_dep_index_list[0].into());
     // debug!("dep data is {:?}", &dep_data);
     if DagsMerkleRootsReader::verify(&dep_data, false).is_err() {
-        panic!("invalid dags");
+        panic!("parse_dep_data, invalid dags");
     }
     let dags_reader = DagsMerkleRootsReader::new_unchecked(&dep_data);
     let idx: usize = (number / 30000) as usize;

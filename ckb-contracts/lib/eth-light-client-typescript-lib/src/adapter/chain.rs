@@ -3,8 +3,7 @@ use alloc::vec::Vec;
 
 use super::Adapter;
 use ckb_std::ckb_constants::Source;
-use ckb_std::error::SysError;
-use ckb_std::high_level::{load_cell_data, load_tx_hash, load_witness_args, QueryIter};
+use ckb_std::high_level::{load_cell_data, load_witness_args, QueryIter};
 
 use force_eth_types::eth_header_cell::ETHHeaderCellDataView;
 use molecule::bytes::Bytes;
