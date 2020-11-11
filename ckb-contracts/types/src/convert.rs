@@ -2,10 +2,8 @@
 use alloc::borrow::ToOwned;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
-use ckb_std::ckb_types::packed;
 
-use crate::generated::basic::{Byte32, Bytes, Uint128, Uint64};
+use crate::generated::basic::{Byte32, Bytes, ETHAddress, Uint128, Uint64};
 use core::convert::TryFrom;
 use molecule::{
     error::VerificationError,
@@ -34,6 +32,12 @@ impl TryFrom<Vec<u8>> for Byte32 {
         let v = v.into_iter().map(Byte::new).collect::<Vec<_>>();
         inner.copy_from_slice(&v);
         Ok(Self::new_builder().set(inner).build())
+    }
+}
+
+impl From<[Byte; 20]> for ETHAddress {
+    fn from(v: [Byte; 20]) -> Self {
+        Self::new_builder().set(v).build()
     }
 }
 

@@ -4,10 +4,10 @@
   "description": "CKB SPV proofs in Solidity",
   "scripts": {
     "compile": "hardhat compile",
-    "start-geth": "docker run -d --name geth-node --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23",
+    "start-geth": "docker run -d --name geth-node --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23 && ./wait-for-it.sh -t 0 127.0.0.1:8545 -- echo \"node is up\" && node scripts/waitForMiner.js",
     "stop-geth": "docker rm -f geth-node",
-    "pretest": "npm run start-geth && ./wait-for-it.sh -t 0 127.0.0.1:8545 -- echo \"node is up\" && node scripts/waitForMiner.js",
-    "test": "hardhat test --network geth",
+    "pretest": "npm run start-geth",
+    "test": "hardhat test --network geth || (npm run stop-geth && false)",
     "posttest": "npm run stop-geth",
     "test:coverage": "solidity-coverage",
     "lint": "solium -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js --check",

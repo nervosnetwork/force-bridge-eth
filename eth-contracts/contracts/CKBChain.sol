@@ -94,9 +94,9 @@ contract CKBChain is ICKBChain, ICKBSpv {
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
             if (index < sibling) {
-                rawTxRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, lemmas.indexH256Array(lemmasIndex), new bytes(64)), 64);
+                rawTxRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, lemmas.indexH256Array(lemmasIndex)), 64);
             } else {
-                rawTxRoot = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), rawTxRoot, new bytes(64)), 64);
+                rawTxRoot = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), rawTxRoot), 64);
             }
 
             lemmasIndex++;
@@ -105,7 +105,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
 
         // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
-        bytes32 transactionsRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, proofView.witnessesRoot(), new bytes(64)), 64);
+        bytes32 transactionsRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, proofView.witnessesRoot()), 64);
         require(transactionsRoot == canonicalTransactionRoots[blockHash], "proof not passed");
         return true;
     }
