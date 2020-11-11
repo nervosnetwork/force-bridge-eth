@@ -8,7 +8,10 @@ use ckb_std::ckb_types::{
     prelude::Pack,
 };
 use molecule::prelude::Entity;
-use std::prelude::v1::*;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 
 pub struct ChainAdapter {}
 
@@ -62,11 +65,11 @@ impl Adapter for ChainAdapter {
 }
 
 fn load_input_data() -> Vec<u8> {
-    let group_data_len = QueryIter::new(load_cell_data, Source::GroupInput).count();
-    if group_data_len != 1 {
+    let data_list = QueryIter::new(load_cell_data, Source::GroupInput).collect::<Vec<Vec<u8>>>();
+    if data_list.len() != 1 {
         panic!("inputs have more than 1 bridge cell");
     }
-    load_cell_data(0, Source::GroupInput).unwrap()
+    data_list[0].clone()
 }
 
 fn load_data_from_output() -> Result<Option<Vec<u8>>, SysError> {

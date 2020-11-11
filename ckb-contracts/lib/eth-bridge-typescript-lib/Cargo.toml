@@ -1,5 +1,5 @@
 [package]
-name = "eth-bridge-lockscript-lib"
+name = "eth-bridge-typescript-lib"
 version = "0.1.0"
 authors = ["huwenchao <me@huwenchao.com>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 
 [features]
 default = ["std"]
-std = ["mockall", "no-std-compat/std"]
+std = ["mockall"]
 #std = ["molecule/std", "int-enum/std", "ckb-server"]
 
 [dependencies]

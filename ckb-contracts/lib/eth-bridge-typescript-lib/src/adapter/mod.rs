@@ -1,6 +1,7 @@
 #[cfg(target_arch = "riscv64")]
 pub mod chain;
-use std::prelude::v1::*;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use mockall::predicate::*;
 #[cfg(feature = "std")]

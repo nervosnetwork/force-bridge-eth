@@ -11,6 +11,7 @@
 /// );
 use ethereum_types::U256;
 use std::convert::TryInto;
+use std::prelude::v1::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ETHLockEvent {
@@ -19,7 +20,7 @@ pub struct ETHLockEvent {
     pub locked_amount: U256,
     pub bridge_fee: U256,
     pub recipient_lockscript: Vec<u8>,
-    pub replay_resist_outpoint: [u8; 36],
+    pub replay_resist_outpoint: Vec<u8>,
     pub sudt_extra_data: Vec<u8>,
 }
 
@@ -61,11 +62,9 @@ impl ETHLockEvent {
             ..(recipient_lockscript_offset + 32 + recipient_lockscript_len)]
             .to_vec();
         debug_assert_eq!(replay_resist_outpoint_len, 36);
-        let mut replay_resist_outpoint = [0u8; 36];
-        replay_resist_outpoint.copy_from_slice(
-            &data[(replay_resist_outpoint_offset + 32)
-                ..(replay_resist_outpoint_offset + 32 + replay_resist_outpoint_len)],
-        );
+        let replay_resist_outpoint =
+            data[(replay_resist_outpoint_offset + 32)
+            ..(replay_resist_outpoint_offset + 32 + replay_resist_outpoint_len)].to_vec();
         let sudt_extra_data = data
             [(sudt_extra_data_offset + 32)..(sudt_extra_data_offset + 32 + sudt_extra_data_len)]
             .to_vec();
@@ -122,7 +121,7 @@ mod test {
             locked_amount: 100.into(),
             bridge_fee: 2.into(),
             recipient_lockscript: b"ckb_recipient_address".to_vec(),
-            replay_resist_outpoint: [0x33u8; 36],
+            replay_resist_outpoint: [0x33u8; 36].to_vec(),
             sudt_extra_data: b"sudt_extra_data".to_vec(),
         };
         assert_eq!(eth_lock_event, expected_eth_lock_event);

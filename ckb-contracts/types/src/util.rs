@@ -1,5 +1,11 @@
 use ethereum_types::U256;
 use std::convert::TryInto;
+// cfg_if::cfg_if! {
+//     if #[cfg(feature = "std")] {
+//     } else {
+//         use core::convert::TryInto;
+//     }
+// }
 
 /// The precision of eth token is usually 10^18, and ckb is 10^8
 pub const ETH_CKB_RATE: u128 = 10_000_000_000;
