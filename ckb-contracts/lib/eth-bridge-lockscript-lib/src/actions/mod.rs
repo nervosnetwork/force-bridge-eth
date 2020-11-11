@@ -8,7 +8,9 @@ use ckb_std::ckb_types::{
 };
 use ckb_std::high_level::QueryIter;
 use eth_spv_lib::{eth_types::*, ethspv};
-use force_eth_types::generated::eth_header_cell::{EthCellDataReader, HeaderInfoReader};
+use force_eth_types::generated::eth_header_cell::{
+    ETHHeaderCellData, ETHHeaderCellDataReader, ETHHeaderInfoReader,
+};
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
 use force_eth_types::{
     config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent, util::eth_to_ckb_amount,
@@ -122,21 +124,21 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
         .expect("load cell dep data failed");
     debug!("dep data is {:?}", &dep_data);
 
-    if EthCellDataReader::verify(&dep_data, false).is_err() {
+    if ETHHeaderCellDataReader::verify(&dep_data, false).is_err() {
         panic!("eth cell data invalid");
     }
 
-    let eth_cell_data_reader = EthCellDataReader::new_unchecked(&dep_data);
+    let eth_cell_data_reader = ETHHeaderCellDataReader::new_unchecked(&dep_data);
     debug!("eth_cell_data_reader: {:?}", eth_cell_data_reader);
     let tail_raw = eth_cell_data_reader
         .headers()
         .main()
         .get_unchecked(eth_cell_data_reader.headers().main().len() - 1)
         .raw_data();
-    if HeaderInfoReader::verify(&tail_raw, false).is_err() {
+    if ETHHeaderInfoReader::verify(&tail_raw, false).is_err() {
         panic!("header info invalid");
     }
-    let tail_info_reader = HeaderInfoReader::new_unchecked(tail_raw);
+    let tail_info_reader = ETHHeaderInfoReader::new_unchecked(&tail_raw);
     let tail_info_raw = tail_info_reader.header().raw_data();
     let tail: BlockHeader =
         rlp::decode(tail_info_raw.to_vec().as_slice()).expect("invalid tail info.");
@@ -151,8 +153,9 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
         .headers()
         .main()
         .get_unchecked(eth_cell_data_reader.headers().main().len() - 1 - offset)
-        .raw_data();
-    let target_info_reader = HeaderInfoReader::new_unchecked(target_raw);
+        .raw_data()
+        .as_ref();
+    let target_info_reader = ETHHeaderInfoReader::new_unchecked(target_raw);
     debug!(
         "main chain hash: {:?}, witness header hash: {:?}",
         hex::encode(target_info_reader.hash().raw_data()),

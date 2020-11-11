@@ -62,9 +62,9 @@ impl ETHLockEvent {
             ..(recipient_lockscript_offset + 32 + recipient_lockscript_len)]
             .to_vec();
         debug_assert_eq!(replay_resist_outpoint_len, 36);
-        let replay_resist_outpoint =
-            data[(replay_resist_outpoint_offset + 32)
-            ..(replay_resist_outpoint_offset + 32 + replay_resist_outpoint_len)].to_vec();
+        let replay_resist_outpoint = data[(replay_resist_outpoint_offset + 32)
+            ..(replay_resist_outpoint_offset + 32 + replay_resist_outpoint_len)]
+            .to_vec();
         let sudt_extra_data = data
             [(sudt_extra_data_offset + 32)..(sudt_extra_data_offset + 32 + sudt_extra_data_len)]
             .to_vec();

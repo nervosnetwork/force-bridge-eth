@@ -1,14 +1,17 @@
 use crate::_verify;
 use crate::adapter::*;
 use ckb_std::ckb_constants::Source;
-use ckb_std::error::SysError;
-use ckb_std::high_level::{load_cell_data, load_cell_lock_hash, load_cell_type, load_script, load_script_hash, load_witness_args, QueryIter, load_input_out_point, load_cell};
 use ckb_std::ckb_types::{
     packed::{Byte32, Script},
     prelude::Pack,
 };
-use molecule::prelude::Entity;
+use ckb_std::error::SysError;
+use ckb_std::high_level::{
+    load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_input_out_point,
+    load_script, load_script_hash, load_witness_args, QueryIter,
+};
 use molecule::bytes::Bytes;
+use molecule::prelude::Entity;
 
 // #[test]
 // fn test_mint_mode_ok() {

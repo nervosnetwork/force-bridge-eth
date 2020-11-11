@@ -1,11 +1,14 @@
 use super::{Adapter, BridgeCellDataTuple};
 use ckb_std::ckb_constants::Source;
-use ckb_std::error::SysError;
-use ckb_std::high_level::{load_cell_data, load_cell_lock_hash, load_cell_type, load_script, load_script_hash, load_witness_args, QueryIter, load_input_out_point, load_cell};
 use ckb_std::ckb_types::{
     bytes::Bytes,
     packed::{Byte32, Script},
     prelude::Pack,
+};
+use ckb_std::error::SysError;
+use ckb_std::high_level::{
+    load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_input_out_point,
+    load_script, load_script_hash, load_witness_args, QueryIter,
 };
 use molecule::prelude::Entity;
 use std::prelude::v1::*;
@@ -39,8 +42,7 @@ impl Adapter for ChainAdapter {
     }
 
     fn lock_hash_exists_in_inputs(&self, data: &[u8]) -> bool {
-        QueryIter::new(load_cell_lock_hash, Source::Input)
-            .any(|hash| hash.as_ref() == data)
+        QueryIter::new(load_cell_lock_hash, Source::Input).any(|hash| hash.as_ref() == data)
     }
 
     fn typescript_exists_in_outputs(&self, data: &[u8]) -> bool {
@@ -54,7 +56,11 @@ impl Adapter for ChainAdapter {
             .any(|outpoint| outpoint.as_slice() == data)
     }
 
-    fn load_cell_type_lock_data(&self, index: usize, source: Source) -> Result<(Option<Script>, Script, Vec<u8>), SysError> {
+    fn load_cell_type_lock_data(
+        &self,
+        index: usize,
+        source: Source,
+    ) -> Result<(Option<Script>, Script, Vec<u8>), SysError> {
         let cell = load_cell(index, source)?;
         let data = load_cell_data(index, source)?;
         Ok((cell.type_().to_opt(), cell.lock(), data))

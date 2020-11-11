@@ -15,7 +15,9 @@ fn test_mint_mode() {
     let bridge_lock_script = context
         .build_script(&bridge_lock_out_point, Default::default())
         .expect("script");
-    let bridge_lock_script_dep = CellDep::new_builder().out_point(bridge_lock_out_point).build();
+    let bridge_lock_script_dep = CellDep::new_builder()
+        .out_point(bridge_lock_out_point)
+        .build();
 
     // prepare cells
     let input_out_point = context.create_cell(

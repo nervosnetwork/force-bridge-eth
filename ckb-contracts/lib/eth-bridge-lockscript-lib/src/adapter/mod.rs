@@ -1,10 +1,10 @@
 #[cfg(target_arch = "riscv64")]
 pub mod chain;
-use std::prelude::v1::*;
 #[cfg(feature = "std")]
 use mockall::predicate::*;
 #[cfg(feature = "std")]
 use mockall::*;
+use std::prelude::v1::*;
 
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::{
