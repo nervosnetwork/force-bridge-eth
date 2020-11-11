@@ -33,7 +33,4 @@ faster-hex = "0.4"
 eth-spv-lib = { git = "https://github.com/LeonLi000/eth-spv-lib.git", default-features = false }
 cmd_lib = "0.8.5"
 force-eth-types = { path = "../../ckb-contracts/types" }
-<<<<<<< HEAD
 tiny-keccak = "2.0.2"
-=======
->>>>>>> upstream/main
