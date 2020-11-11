@@ -11,7 +11,7 @@ use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity, Reader};
 use cmd_lib::run_cmd;
 use ethereum_types::{H256, U64};
-use force_eth_types::eth_header_cell::ChainReader;
+use force_eth_types::generated::eth_header_cell::ETHChainReader;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::Cell;
 use force_sdk::tx_helper::sign;
@@ -276,8 +276,8 @@ impl ETHRelayer {
 }
 
 pub fn parse_main_chain_headers(data: Bytes) -> Result<(Vec<BlockHeader>, Vec<Vec<u8>>)> {
-    ChainReader::verify(&data, false).map_err(|err| anyhow!(err))?;
-    let chain_reader = ChainReader::new_unchecked(&data);
+    ETHChainReader::verify(&data, false).map_err(|err| anyhow!(err))?;
+    let chain_reader = ETHChainReader::new_unchecked(&data);
     let main_reader = chain_reader.main();
     let mut un_confirmed = vec![];
     let mut confirmed = vec![];

@@ -12,8 +12,8 @@ use ckb_types::{
 };
 use ethereum_types::H160;
 use faster_hex::hex_decode;
-use force_eth_types::basic::BytesVec;
-use force_eth_types::{basic, witness};
+use force_eth_types::generated::basic::BytesVec;
+use force_eth_types::generated::{basic, witness};
 use force_sdk::cell_collector::{get_live_cell_by_lockscript, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::TxHelper;
