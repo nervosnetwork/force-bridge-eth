@@ -215,13 +215,6 @@ pub fn dev_init(
                 index: 0,
             },
         },
-        light_client_typescript: ScriptConf {
-            code_hash: light_client_typescript_code_hash_hex,
-            outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
-                index: 0,
-            },
-        },
         bridge_lockscript: ScriptConf {
             code_hash: bridge_lockscript_code_hash_hex,
             outpoint: OutpointConf {
@@ -229,11 +222,18 @@ pub fn dev_init(
                 index: 1,
             },
         },
+        light_client_typescript: ScriptConf {
+            code_hash: light_client_typescript_code_hash_hex,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex.clone(),
+                index: 2,
+            },
+        },
         sudt: ScriptConf {
             code_hash: sudt_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex,
-                index: 2,
+                index: 3,
             },
         },
     };
