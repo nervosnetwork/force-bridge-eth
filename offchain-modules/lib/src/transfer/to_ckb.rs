@@ -79,10 +79,24 @@ pub async fn lock_eth(
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lockETH".to_owned(),
-        inputs: vec![Param {
-            name: "ckbAddress".to_owned(),
-            kind: ParamType::String,
-        }],
+        inputs: vec![
+            Param {
+                name: "bridgeFee".to_owned(),
+                kind: ParamType::Uint(256),
+            },
+            Param {
+                name: "recipientLockscript".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "replayResistOutpoint".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "sudtExtraData".to_owned(),
+                kind: ParamType::Bytes,
+            },
+        ],
         outputs: vec![],
         constant: false,
     };

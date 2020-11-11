@@ -97,7 +97,13 @@ pub struct LockEthArgs {
     #[clap(short, long)]
     pub amount: u128,
     #[clap(short, long)]
-    pub ckb_address: String,
+    pub bridge_fee: u128,
+    #[clap(short, long)]
+    pub recipient_lockscript: String,
+    #[clap(short, long)]
+    pub replay_resist_outpoint: String,
+    #[clap(short, long)]
+    pub sudt_extra_data: String,
 }
 
 #[derive(Clap, Clone, Debug)]

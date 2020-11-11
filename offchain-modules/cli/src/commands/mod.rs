@@ -92,7 +92,12 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
     let to = convert_eth_address(&args.to)?;
-    let data = [Token::String(args.ckb_address)];
+    let data = [
+        Token::Uint(U256::from(args.bridge_fee)),
+        Token::Bytes(args.recipient_lockscript.as_bytes().to_vec()),
+        Token::Bytes(args.replay_resist_outpoint.as_bytes().to_vec()),
+        Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
+    ];
     let hash = lock_eth(
         to,
         args.rpc_url.clone(),
