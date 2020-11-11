@@ -57,33 +57,6 @@ pub fn deploy(
     sign(tx, rpc_client, privkey)
 }
 
-pub fn generate_public_bridge_cell_tx(
-    rpc_client: &mut HttpRpcClient,
-    indexer_client: &mut IndexerRpcClient,
-    privkey: &SecretKey,
-    lockscript: Script,
-) -> Result<TransactionView, String> {
-    let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
-    let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
-    let fromscript = Script::from(&from_address_payload);
-    let mut tx_helper = TxHelper::default();
-    let output = CellOutput::new_builder().lock(lockscript).build();
-    tx_helper.add_output_with_auto_capacity(output, ckb_types::bytes::Bytes::default());
-    let genesis_block: BlockView = rpc_client
-        .get_block_by_number(0)?
-        .expect("Can not get genesis block?")
-        .into();
-    let genesis_info = GenesisInfo::from_block(&genesis_block)?;
-    let tx = tx_helper.supply_capacity(
-        rpc_client,
-        indexer_client,
-        fromscript,
-        &genesis_info,
-        99_999_999,
-    )?;
-    sign(tx, rpc_client, privkey)
-}
-
 #[allow(clippy::mutable_key_type)]
 pub fn sign(
     tx: TransactionView,

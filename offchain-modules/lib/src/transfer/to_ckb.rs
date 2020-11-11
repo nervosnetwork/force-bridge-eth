@@ -9,7 +9,7 @@ use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity};
 use ethabi::{Function, Param, ParamType, Token};
 use force_sdk::indexer::IndexerRpcClient;
-use force_sdk::tx_helper::{deploy, generate_public_bridge_cell_tx, sign};
+use force_sdk::tx_helper::{deploy, sign};
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use web3::types::{H160, H256, U256};
 
