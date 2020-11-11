@@ -185,27 +185,22 @@ pub fn dev_init(
         light_client_typescript_bin,
         sudt_bin,
     ];
-
-    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
-        .map_err(|err| anyhow!(err))?;
-    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
-    let tx_hash_hex = hex::encode(tx_hash.as_bytes());
-
-    //FIXME: Need to generate a public bridge cell in advance.
-    let lockscript = Script::new_builder()
+    let cell_script = Script::new_builder()
         .code_hash(Byte32::from_slice(&bridge_lockscript_code_hash)?)
         .hash_type(DepType::Code.into())
         // FIXME: add script args
         .args(ckb_types::packed::Bytes::default())
         .build();
-    let tx_bridge_cell = generate_public_bridge_cell_tx(
+    let tx = deploy(
         &mut rpc_client,
         &mut indexer_client,
         &private_key,
-        lockscript,
+        data,
+        cell_script,
     )
     .map_err(|err| anyhow!(err))?;
-    send_tx_sync(&mut rpc_client, &tx_bridge_cell, 60).map_err(|err| anyhow!(err))?;
+    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
+    let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
     let settings = Settings {
         bridge_typescript: ScriptConf {

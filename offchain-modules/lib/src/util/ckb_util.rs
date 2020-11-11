@@ -189,6 +189,7 @@ impl Generator {
             let outpoints = vec![
                 self.settings.bridge_lockscript.outpoint.clone(),
                 self.settings.bridge_typescript.outpoint.clone(),
+                self.settings.sudt.outpoint.clone(),
             ];
             self.add_cell_deps(&mut helper, outpoints)
                 .map_err(|err| anyhow!(err))?;

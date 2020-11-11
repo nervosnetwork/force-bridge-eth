@@ -28,6 +28,7 @@ pub fn deploy(
     indexer_client: &mut IndexerRpcClient,
     privkey: &SecretKey,
     data: Vec<Vec<u8>>,
+    cell_script: Script,
 ) -> Result<TransactionView, String> {
     let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
     let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
@@ -39,6 +40,8 @@ pub fn deploy(
             .build();
         tx_helper.add_output_with_auto_capacity(output, data.into());
     }
+    let output = CellOutput::new_builder().lock(cell_script).build();
+    tx_helper.add_output_with_auto_capacity(output, ckb_types::bytes::Bytes::default());
     let genesis_block: BlockView = rpc_client
         .get_block_by_number(0)?
         .expect("Can not get genesis block?")
