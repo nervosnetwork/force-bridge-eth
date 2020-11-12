@@ -1356,6 +1356,7 @@ dependencies = [
  "hex 0.4.2",
  "int-enum",
  "log",
+ "molecule",
  "rusty-receipt-proof-maker",
  "tokio 0.2.22",
  "web3",

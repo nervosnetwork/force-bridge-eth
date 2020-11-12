@@ -7,10 +7,11 @@ use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{burn, parse_ckb_proof};
-use force_eth_lib::util::ckb_util::{ETHSPVProofJson, Generator};
+use force_eth_lib::util::ckb_util::{build_outpoint, ETHSPVProofJson, Generator};
 use force_eth_lib::util::eth_util::convert_eth_address;
 use force_eth_lib::util::settings::Settings;
 use log::debug;
+use molecule::prelude::Entity;
 use rusty_receipt_proof_maker::generate_eth_proof;
 use std::convert::TryFrom;
 use types::*;
@@ -58,6 +59,7 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.bridge_typescript_path,
         args.bridge_lockscript_path,
         args.light_client_typescript_path,
+        args.recipient_lockscript_path,
         args.sudt_path,
     )
 }
@@ -91,11 +93,13 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
+    let settings = Settings::new(&args.config_path)?;
+    let outpoint = build_outpoint(settings.replay_resist_lockscript.outpoint)?;
     let to = convert_eth_address(&args.to)?;
     let data = [
         Token::Uint(U256::from(args.bridge_fee)),
-        Token::Bytes(args.recipient_lockscript.as_bytes().to_vec()),
-        Token::Bytes(args.replay_resist_outpoint.as_bytes().to_vec()),
+        Token::Bytes(hex::decode(settings.recipient_lockscript.code_hash)?),
+        Token::Bytes(outpoint.as_slice().to_vec()),
         Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
     ];
     let hash = lock_eth(

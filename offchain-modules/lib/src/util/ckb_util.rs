@@ -381,6 +381,17 @@ pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256> {
     H256::from_slice(&bytes).map_err(|e| anyhow::anyhow!("failed to covert tx hash: {}", e))
 }
 
+pub fn build_outpoint(outpoint_conf: OutpointConf) -> Result<OutPoint> {
+    let outpoint = OutPoint::new_builder()
+        .tx_hash(
+            Byte32::from_slice(&hex::decode(outpoint_conf.tx_hash).map_err(|e| anyhow!(e))?)
+                .map_err(|e| anyhow!(e))?,
+        )
+        .index(outpoint_conf.index.pack())
+        .build();
+    Ok(outpoint)
+}
+
 pub fn parse_cell(cell: &str) -> Result<Script> {
     let cell_bytes =
         hex::decode(cell).map_err(|e| anyhow!("cell shoule be hex format, err: {}", e))?;

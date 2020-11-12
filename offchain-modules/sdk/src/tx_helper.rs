@@ -23,6 +23,9 @@ use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since, SE
 use ckb_types::core::BlockView;
 use secp256k1::SecretKey;
 
+pub const CKB_UNITS: u64 = 100_000_000;
+pub const PUBLIC_BRIDGE_CELL: u64 = 1000 * CKB_UNITS;
+
 pub fn deploy(
     rpc_client: &mut HttpRpcClient,
     indexer_client: &mut IndexerRpcClient,
@@ -40,7 +43,10 @@ pub fn deploy(
             .build();
         tx_helper.add_output_with_auto_capacity(output, data.into());
     }
-    let output = CellOutput::new_builder().lock(cell_script).build();
+    let output = CellOutput::new_builder()
+        .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
+        .lock(cell_script)
+        .build();
     tx_helper.add_output_with_auto_capacity(output, ckb_types::bytes::Bytes::default());
     let genesis_block: BlockView = rpc_client
         .get_block_by_number(0)?

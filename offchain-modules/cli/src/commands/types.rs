@@ -51,6 +51,11 @@ pub struct DevInitArgs {
         default_value = "../ckb-contracts/build/release/eth-light-client-typescript"
     )]
     pub light_client_typescript_path: String,
+    #[clap(
+        long,
+        default_value = "../ckb-contracts/build/release/eth-recipient-typescript"
+    )]
+    pub recipient_lockscript_path: String,
     #[clap(long, default_value = "cli/deps/simple_udt")]
     pub sudt_path: String,
 }
@@ -92,17 +97,15 @@ pub struct LockEthArgs {
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
     pub private_key_path: String,
     #[clap(short, long)]
     pub amount: u128,
     #[clap(short, long)]
     pub bridge_fee: u128,
-    #[clap(short, long)]
-    pub recipient_lockscript: String,
-    #[clap(short, long)]
-    pub replay_resist_outpoint: String,
-    #[clap(short, long)]
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
     pub sudt_extra_data: String,
 }
 

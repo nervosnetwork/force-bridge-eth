@@ -163,6 +163,7 @@ pub fn dev_init(
     bridge_typescript_path: String,
     bridge_lockscript_path: String,
     light_client_typescript_path: String,
+    recipient_lockscript_path: String,
     sudt_path: String,
 ) -> Result<()> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
@@ -173,6 +174,7 @@ pub fn dev_init(
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
     let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
+    let recipient_lockscript_bin = std::fs::read(recipient_lockscript_path)?;
     let sudt_bin = std::fs::read(sudt_path)?;
 
     let bridge_typescript_code_hash = blake2b_256(&bridge_typescript_bin);
@@ -183,6 +185,10 @@ pub fn dev_init(
 
     let bridge_lockscript_code_hash = blake2b_256(&bridge_lockscript_bin);
     let bridge_lockscript_code_hash_hex = hex::encode(&bridge_lockscript_code_hash);
+
+    let recipient_lockscript_code_hash = blake2b_256(&recipient_lockscript_bin);
+    let recipient_lockscript_code_hash_hex = hex::encode(&recipient_lockscript_code_hash);
+
     let sudt_code_hash = blake2b_256(&sudt_bin);
     let sudt_code_hash_hex = hex::encode(&sudt_code_hash);
 
@@ -190,6 +196,7 @@ pub fn dev_init(
         bridge_typescript_bin,
         bridge_lockscript_bin,
         light_client_typescript_bin,
+        recipient_lockscript_bin,
         sudt_bin,
     ];
     let cell_script = Script::new_builder()
@@ -218,7 +225,7 @@ pub fn dev_init(
             },
         },
         bridge_lockscript: ScriptConf {
-            code_hash: bridge_lockscript_code_hash_hex,
+            code_hash: bridge_lockscript_code_hash_hex.clone(),
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
@@ -231,11 +238,25 @@ pub fn dev_init(
                 index: 2,
             },
         },
+        recipient_lockscript: ScriptConf {
+            code_hash: recipient_lockscript_code_hash_hex,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex.clone(),
+                index: 3,
+            },
+        },
         sudt: ScriptConf {
             code_hash: sudt_code_hash_hex,
             outpoint: OutpointConf {
+                tx_hash: tx_hash_hex.clone(),
+                index: 4,
+            },
+        },
+        replay_resist_lockscript: ScriptConf {
+            code_hash: bridge_lockscript_code_hash_hex,
+            outpoint: OutpointConf {
                 tx_hash: tx_hash_hex,
-                index: 3,
+                index: 5,
             },
         },
     };
