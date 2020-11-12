@@ -47,6 +47,9 @@ contract CKBChain is ICKBChain, ICKBSpv {
     uint64 public initBlockNumber;
     BlockHeader latestHeader;
 
+    // Todo will remove the governance when optimistic phase
+    address public governance;
+
     /// Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
     /// entries.
     /// header number -> header hash
@@ -74,6 +77,17 @@ contract CKBChain is ICKBChain, ICKBSpv {
         _;
     }
 
+    /**
+     * @dev Throws if called by any account other than the governance.
+     */
+    modifier onlyGov() {
+        require(msg.sender == governance, "caller is not the governance");
+        _;
+    }
+
+    constructor() public {
+        governance = msg.sender;
+    }
 
     // query
     function getLatestBlockNumber() public returns (uint64) {
@@ -100,7 +114,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         return latestHeader.epoch;
     }
 
-    function initWithHeader(bytes calldata data, bytes32 blockHash, uint64 finalizedGcThreshold, uint64 canonicalGcThreshold) external {
+    function initWithHeader(bytes calldata data, bytes32 blockHash, uint64 finalizedGcThreshold, uint64 canonicalGcThreshold) external onlyGov {
         require(!initialized, "Contract is already initialized");
         initialized = true;
 
@@ -132,6 +146,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     /// # ICKBChain
+    // TODO add onlyGov for phase1 production
     function addHeaders(bytes calldata data) external {
         require(initialized, "Contract is not initialized");
 
@@ -342,6 +357,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     // TODO remove all mock function before production ready
     // mock for test
     function mockForProveTxExist(uint64 _latestBlockNumber, uint64 spvBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
+        governance = msg.sender;
         initialized = true;
         latestBlockNumber = _latestBlockNumber;
         canonicalHeaderHashes[spvBlockNumber] = blockHash;
