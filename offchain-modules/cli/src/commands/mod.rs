@@ -79,10 +79,15 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
     let to = convert_eth_address(&args.to)?;
     let token_addr = convert_eth_address(&args.token)?;
+    let settings = Settings::new(&args.config_path)?;
+    let outpoint = build_outpoint(settings.replay_resist_lockscript.outpoint)?;
     let data = [
         Token::Address(token_addr),
         Token::Uint(U256::from(args.amount)),
-        Token::String(args.ckb_address),
+        Token::Uint(U256::from(args.bridge_fee)),
+        Token::Bytes(hex::decode(settings.recipient_lockscript.code_hash)?),
+        Token::Bytes(outpoint.as_slice().to_vec()),
+        Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
     ];
     let hash = lock_token(to, args.rpc_url, args.private_key_path, &data)
         .await

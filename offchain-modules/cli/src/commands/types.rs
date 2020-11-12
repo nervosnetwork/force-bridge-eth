@@ -88,7 +88,11 @@ pub struct LockTokenArgs {
     #[clap(short, long)]
     pub amount: u128,
     #[clap(short, long)]
-    pub ckb_address: String,
+    pub bridge_fee: u128,
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub sudt_extra_data: String,
 }
 
 #[derive(Clap, Clone, Debug)]

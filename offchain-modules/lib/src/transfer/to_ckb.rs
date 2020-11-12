@@ -55,8 +55,20 @@ pub async fn lock_token(to: H160, url: String, key_path: String, data: &[Token])
                 kind: ParamType::Uint(256),
             },
             Param {
-                name: "ckbAddress".to_owned(),
-                kind: ParamType::String,
+                name: "bridgeFee".to_owned(),
+                kind: ParamType::Uint(256),
+            },
+            Param {
+                name: "recipientLockscript".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "replayResistOutpoint".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "sudtExtraData".to_owned(),
+                kind: ParamType::Bytes,
             },
         ],
         outputs: vec![],
