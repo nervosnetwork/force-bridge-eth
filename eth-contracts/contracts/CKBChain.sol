@@ -49,6 +49,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     // Todo will remove the governance when optimistic phase
     address public governance;
+    uint256 MOCK_DIFFICULTY = 1;
 
     /// Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
     /// entries.
@@ -172,7 +173,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // calc blockHash
         bytes memory headerBytes = headerView.clone();
-        bytes32 blockHash = CKBCrypto.digest(abi.encodePacked(headerBytes, new bytes(48)), 208);
+        bytes32 blockHash = CKBCrypto.digest(headerBytes, 208);
 
         // ## verify blockHash should not exist
         if (canonicalTransactionsRoots[blockHash] != bytes32(0) || blockHeaders[blockHash].number == blockNumber) {
@@ -187,7 +188,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
         require(parentHeader.totalDifficulty > 0 && parentHeader.number + 1 == blockNumber, "block's parent block mismatch");
 
         // ## verify pow
-        uint256 difficulty = _verifyPow(headerView, rawHeaderView, parentHeader);
+        // uint256 difficulty = _verifyPow(headerView, rawHeaderView, parentHeader);
+        uint256 difficulty = MOCK_DIFFICULTY;
 
         // ## insert header to storage
         // 1. insert to blockHeaders
@@ -216,7 +218,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     /// @param parentHeader         parent header of the header
     /// @return                     the difficulty of the header
     function _verifyPow(bytes29 headerView, bytes29 rawHeaderView, BlockHeader memory parentHeader) internal view returns (uint256) {
-        bytes32 rawHeaderHash = CKBCrypto.digest(abi.encodePacked(rawHeaderView.clone(), new bytes(64)), 192);
+        bytes32 rawHeaderHash = CKBCrypto.digest(rawHeaderView.clone(), 192);
 
         // - 1. calc powMessage
         bytes memory powMessage = abi.encodePacked(rawHeaderHash, headerView.slice(192, 16, uint40(ViewCKB.CKBTypes.Nonce)).clone());
@@ -308,9 +310,9 @@ contract CKBChain is ICKBChain, ICKBSpv {
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
             if (index < sibling) {
-                rawTxRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, lemmas.indexH256Array(lemmasIndex), new bytes(64)), 64);
+                rawTxRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, lemmas.indexH256Array(lemmasIndex)), 64);
             } else {
-                rawTxRoot = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), rawTxRoot, new bytes(64)), 64);
+                rawTxRoot = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), rawTxRoot), 64);
             }
 
             lemmasIndex++;
@@ -319,7 +321,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
 
         // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
-        bytes32 transactionsRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, proofView.witnessesRoot(), new bytes(64)), 64);
+        bytes32 transactionsRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, proofView.witnessesRoot()), 64);
         require(transactionsRoot == canonicalTransactionsRoots[blockHash], "proof not passed");
         return true;
     }
