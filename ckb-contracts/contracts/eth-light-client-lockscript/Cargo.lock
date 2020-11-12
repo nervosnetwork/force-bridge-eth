@@ -48,15 +48,6 @@ version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "ckb-std 0.7.0 (git+https://github.com/nervosnetwork/ckb-std?rev=b56b362)",
- "force-eth-types 0.1.0",
- "molecule 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "force-eth-types"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "molecule 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
