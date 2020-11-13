@@ -1,55 +1,39 @@
-// We require the Buidler Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-// When running the script with `buidler run <script>` you'll find the Buidler
-// Runtime Environment's members available in the global scope.
-const { waitingForReceipt } = require("../../test/utils");
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const { log } = require("../../test/utils");
 
 async function main() {
-  // Buidler always runs the compile task when running scripts through it.
-  // If this runs in a standalone fashion you may want to call compile manually
-  // to make sure everything is compiled
-  // await bre.run('compile');
+    // deploy hamstersong
+    let factory = await ethers.getContractFactory(
+        "contracts/Eaglesong.sol:Eaglesong"
+    );
+    const hamstersong = await factory.deploy();
+    await hamstersong.deployTransaction.wait(1)
+    const hamAddr = hamstersong.address;
+    const provider = hamstersong.provider
+    log(`hamstersong address: ${hamAddr}`)
 
-  // deploy TestBlake2b
-  const factory = await ethers.getContractFactory(
-    "contracts/test/TestEaglesong.sol:TestEaglesong"
-  );
-  const contract = await factory.deploy();
-  await contract.deployed();
-  const contractAddr = contract.address;
-  console.log("TestEaglesong deployed to:", contractAddr);
+    // deploy TestEaglesong
+    factory = await ethers.getContractFactory(
+        "contracts/test/TestEaglesong.sol:TestHamstersong"
+    );
+    const testEaglesong = await factory.deploy(hamAddr)
+    await testEaglesong.deployTransaction.wait(1)
+    log(`testHam address: ${testEaglesong.address}`)
 
-  // calc Eaglesong
-  let res = await contract.callStatic.ckbEaglesong(
-    "0xcbecbaf6a2deee59b2eab3bbae5388128ce9f30183336526c9081419f163fc6076030000312b000000000000216033d2"
-  );
+    // calc Eaglesong
+    let res = await testEaglesong.callStatic.ckbEaglesong('0xcbecbaf6a2deee59b2eab3bbae5388128ce9f30183336526c9081419f163fc6076030000312b000000000000216033d2');
+    log(res)
 
-  assert(
-    res ===
-      "0x000000000000053ee598839a89638a5b37a7cf98ecf0ce6d02d3d9287f008b84",
-    `${res} !== 0x000000000000053ee598839a89638a5b37a7cf98ecf0ce6d02d3d9287f008b84`
-  );
-
-  // calc Eaglesong for hamster
-  res = await contract.callStatic.ckbEaglesong(
-    "0x6162636465666768696a6b6c6d6e6f707172737475767778797a303132333435363738396162636465666768696a6b6c"
-  );
-
-  console.log(`hamster res = ${res}`);
-
-  const txReceipt = await waitingForReceipt(contract.provider, res);
-  console.log("txReceipt: ", txReceipt);
-  console.log("gasUsed: ", txReceipt.gasUsed.toString());
+    // calc gas
+    res = await testEaglesong.ckbEaglesong('0xcbecbaf6a2deee59b2eab3bbae5388128ce9f30183336526c9081419f163fc6076030000312b000000000000216033d2');
+    const receipt = await res.wait(1)
+    log(`gasUsed: ${receipt.gasUsed}`)
 }
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
 main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });

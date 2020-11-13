@@ -9,7 +9,7 @@ Any RODENTS CAN CODE!
 */
 pragma solidity =0.7.4;
 
-contract Hamstersong {
+contract Eaglesong {
 
     //0x858a7ea48900c468bfadb33366d01cd6b1c27bb719aaccda300cbdba515cbec3 == keccak256("HashResult(bytes32)"
     event HashResult(bytes32 res);
