@@ -7,7 +7,7 @@ A Golden Hamster saves them!
 
 Any RODENTS CAN CODE!
 */
-pragma solidity =0.7.4;
+pragma solidity ^0.7.4;
 
 contract Eaglesong {
 

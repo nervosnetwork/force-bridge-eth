@@ -14,8 +14,10 @@ contract TestEaglesong {
             data
         );
 
-        (bool success, bytes memory returnData) = songAddr.staticcall(payload);
+        (, bytes memory returnData) = songAddr.staticcall(payload);
+
         assembly {
+        // solium-disable-previous-line security/no-inline-assembly
             result := mload(add(returnData, 0x20))
         }
     }

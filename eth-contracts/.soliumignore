@@ -3,3 +3,4 @@ contracts/Migrations.sol
 contracts/libraries/CKBCrypto.sol
 contracts/libraries/Address.sol
 contracts/libraries/EaglesongLib.sol
+contracts/Eaglesong.sol
