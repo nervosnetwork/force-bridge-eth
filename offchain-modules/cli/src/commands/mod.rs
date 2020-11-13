@@ -6,7 +6,7 @@ use force_eth_lib::relay::eth_relay::ETHRelayer;
 use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
-use force_eth_lib::transfer::to_eth::{burn, get_balance, get_ckb_proof_info, transfer_sudt};
+use force_eth_lib::transfer::to_eth::{burn, get_balance, get_ckb_proof_info, mock_transfer_sudt};
 use force_eth_lib::util::ckb_util::{ETHSPVProofJson, Generator};
 use force_eth_lib::util::eth_util::convert_eth_address;
 use force_eth_lib::util::settings::Settings;
@@ -37,6 +37,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args),
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
+        SubCommand::TransferSudt(args) => mock_transfer_sudt_handler(args),
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args),
 
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
@@ -51,6 +52,7 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
             &args.config_path
         ));
     }
+    let token_addr = convert_eth_address(&args.token)?;
     dev_init(
         args.config_path,
         args.rpc_url,
@@ -61,6 +63,7 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.light_client_typescript_path,
         args.eth_recipient_typescript_path,
         args.sudt_path,
+        token_addr,
     )
 }
 
@@ -207,14 +210,19 @@ pub fn unlock_handler(args: UnlockArgs) -> Result<()> {
 
 pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
+    todo!()
+}
+pub fn mock_transfer_sudt_handler(args: MockTransferSudtArgs) -> Result<()> {
+    debug!("mock_transfer_sudt_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
-    transfer_sudt(
+    mock_transfer_sudt(
         args.private_key_path,
         args.ckb_rpc_url,
         args.indexer_rpc_url,
         args.config_path,
         args.to_addr,
         args.tx_fee,
+        args.ckb_amount,
         args.sudt_amount,
         token_addr,
     )?;

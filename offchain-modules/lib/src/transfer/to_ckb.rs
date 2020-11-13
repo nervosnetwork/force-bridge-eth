@@ -1,12 +1,11 @@
-use crate::util::ckb_util::{ETHSPVProofJson, Generator};
+use crate::util::ckb_util::{get_eth_bridge_lock_script, ETHSPVProofJson, Generator};
 use crate::util::eth_util::Web3Client;
 use crate::util::settings::{OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1};
-use ckb_types::core::DepType;
-use ckb_types::packed::{Byte32, Script};
-use ckb_types::prelude::{Builder, Entity};
+use ckb_types::packed::Script;
+use ckb_types::prelude::Entity;
 use ethabi::{Function, Param, ParamType, Token};
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{deploy, sign};
@@ -158,6 +157,7 @@ pub fn dev_init(
     light_client_typescript_path: String,
     eth_recipient_typescript_path: String,
     sudt_path: String,
+    token_addr: H160,
 ) -> Result<()> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
@@ -190,12 +190,8 @@ pub fn dev_init(
         eth_recipient_typescript_bin,
         sudt_bin,
     ];
-    let cell_script = Script::new_builder()
-        .code_hash(Byte32::from_slice(&bridge_lockscript_code_hash)?)
-        .hash_type(DepType::Code.into())
-        // FIXME: add script args
-        .args(ckb_types::packed::Bytes::default())
-        .build();
+
+    let cell_script = get_eth_bridge_lock_script(bridge_lockscript_code_hash.as_ref(), token_addr)?;
     let tx = deploy(
         &mut rpc_client,
         &mut indexer_client,
@@ -208,21 +204,21 @@ pub fn dev_init(
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
     let settings = Settings {
-        bridge_typescript: ScriptConf {
-            code_hash:bridge_lockscript_code_hash_hex ,
+        bridge_lockscript: ScriptConf {
+            code_hash: bridge_lockscript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
             },
         },
-        light_client_typescript: ScriptConf {
+        bridge_typescript: ScriptConf {
             code_hash: bridge_typescript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
             },
         },
-        bridge_lockscript: ScriptConf {
+        light_client_typescript: ScriptConf {
             code_hash: light_client_typescript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),

@@ -152,13 +152,14 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn transfer_sudt(
+pub fn mock_transfer_sudt(
     privkey_path: String,
     rpc_url: String,
     indexer_url: String,
     config_path: String,
     to_addr: String,
     tx_fee: String,
+    ckb_amount: String,
     transfer_amount: u128,
     token_addr: H160,
 ) -> Result<String> {
@@ -178,6 +179,9 @@ pub fn transfer_sudt(
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
         .map_err(|e| anyhow!(e))?
         .into();
+    let ckb_amount: u64 = HumanCapacity::from_str(&ckb_amount)
+        .map_err(|e| anyhow!(e))?
+        .into();
 
     let unsigned_tx = generator
         .transfer_sudt(
@@ -185,7 +189,7 @@ pub fn transfer_sudt(
             token_addr,
             to_lockscript,
             transfer_amount,
-            200,
+            ckb_amount,
             tx_fee,
         )
         .map_err(|e| anyhow!("failed to build transfer token tx: {}", e))?;
