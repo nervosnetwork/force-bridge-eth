@@ -71,7 +71,7 @@ pub struct ApproveArgs {
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
 }
 
@@ -81,7 +81,7 @@ pub struct LockTokenArgs {
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
     #[clap(long)]
     pub token: String,
@@ -101,7 +101,7 @@ pub struct LockEthArgs {
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
-    #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
     #[clap(short, long)]
     pub amount: u128,

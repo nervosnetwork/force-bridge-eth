@@ -40,6 +40,7 @@ impl Web3Client {
         data: Vec<u8>,
         eth_value: U256,
     ) -> Result<H256> {
+        dbg!(3);
         let signed_tx = self.build_sign_tx(to, key_path, data, eth_value).await?;
         let tx_hash = self
             .client()
@@ -58,6 +59,7 @@ impl Web3Client {
         eth_value: U256,
     ) -> Result<Vec<u8>> {
         let private_key = &parse_private_key(&key_path)?;
+        dbg!(private_key);
         let key = SecretKey::from_slice(&private_key.0).unwrap();
         let from = secret_key_address(&key);
         let nonce = self.client().eth().transaction_count(from, None).await?;

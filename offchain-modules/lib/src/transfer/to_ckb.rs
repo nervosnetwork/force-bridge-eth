@@ -19,11 +19,11 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Res
         name: "approve".to_owned(),
         inputs: vec![
             Param {
-                name: "_spender".to_owned(),
+                name: "spender".to_owned(),
                 kind: ParamType::Address,
             },
             Param {
-                name: "_value".to_owned(),
+                name: "value".to_owned(),
                 kind: ParamType::Uint(256),
             },
         ],
@@ -33,8 +33,10 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Res
         }],
         constant: false,
     };
-    let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
+    dbg!(1);
+    let tokens = [Token::Address(from), Token::Uint(U256::from(1000))];
     let input_data = function.encode_input(&tokens)?;
+    dbg!(2);
     let res = rpc_client
         .send_transaction(to, key_path, input_data, U256::from(0))
         .await?;
@@ -44,7 +46,7 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Res
 pub async fn lock_token(to: H160, url: String, key_path: String, data: &[Token]) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
-        name: "lock".to_owned(),
+        name: "lockToken".to_owned(),
         inputs: vec![
             Param {
                 name: "token".to_owned(),
