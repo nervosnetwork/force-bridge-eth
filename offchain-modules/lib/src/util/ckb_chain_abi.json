@@ -1,0 +1,263 @@
+[{
+    "constant": true,
+    "inputs": [],
+    "name": "mockHeaders",
+    "outputs": [{
+      "name": "",
+      "type": "bytes"
+    }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{
+      "name": "data",
+      "type": "bytes"
+    }],
+    "name": "addHeaders",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "CanonicalGcThreshold",
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "initialized",
+    "outputs": [{
+      "name": "",
+      "type": "bool"
+    }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [{
+        "name": "txProofData",
+        "type": "bytes"
+      },
+      {
+        "name": "numConfirmations",
+        "type": "uint64"
+      }
+    ],
+    "name": "proveTxExist",
+    "outputs": [{
+      "name": "",
+      "type": "bool"
+    }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{
+      "name": "blockNumber",
+      "type": "uint64"
+    }],
+    "name": "getCanonicalHeaderHash",
+    "outputs": [{
+      "name": "",
+      "type": "bytes32"
+    }],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "latestBlockNumber",
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "CHAIN_VERSION",
+    "outputs": [{
+      "name": "",
+      "type": "uint32"
+    }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "FinalizedGcThreshold",
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{
+        "name": "data",
+        "type": "bytes"
+      },
+      {
+        "name": "blockHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "finalizedGcThreshold",
+        "type": "uint64"
+      },
+      {
+        "name": "canonicalGcThreshold",
+        "type": "uint64"
+      }
+    ],
+    "name": "initWithHeader",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{
+      "name": "blockNumber",
+      "type": "uint64"
+    }],
+    "name": "getHeaderHash",
+    "outputs": [{
+      "name": "",
+      "type": "bytes32"
+    }],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{
+      "name": "blockNumber",
+      "type": "uint64"
+    }],
+    "name": "setHeight",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [],
+    "name": "getLatestEpoch",
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [{
+        "name": "",
+        "type": "uint64"
+      },
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "allHeaderHashes",
+    "outputs": [{
+      "name": "",
+      "type": "bytes32"
+    }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [],
+    "name": "getLatestBlockNumber",
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [{
+      "name": "blockHash",
+      "type": "bytes32"
+    }],
+    "name": "getCanonicalTransactionsRoot",
+    "outputs": [{
+      "name": "",
+      "type": "bytes32"
+    }],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [{
+        "indexed": true,
+        "name": "blockNumber",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "name": "blockHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "BlockHashAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [{
+        "indexed": true,
+        "name": "blockNumber",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "name": "blockHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "BlockHashReverted",
+    "type": "event"
+  }
+]

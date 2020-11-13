@@ -1,9 +1,11 @@
 pragma solidity ^0.5.10;
+pragma experimental ABIEncoderV2;
 
 import "./interfaces/IERC20.sol";
+import {CKBCrypto} from "./libraries/CKBCrypto.sol";
 import {TypedMemView} from "./libraries/TypedMemView.sol";
 import {SafeMath} from "./libraries/SafeMath.sol";
-import {ViewCKB} from "./libraries/ViewCKB.sol";
+import {CKBTxView} from "./libraries/CKBTxView.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {Address} from "./libraries/Address.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
@@ -11,14 +13,15 @@ import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 contract TokenLocker {
     using SafeMath for uint256;
     using Address for address;
-
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
-    using ViewCKB for bytes29;
+    using CKBTxView for bytes29;
     using ViewSpv for bytes29;
 
     uint64 public numConfirmations_;
     ICKBSpv public ckbSpv_;
+    bytes32 public recipientCellTypescriptCodeHash_;
+    uint8 public recipientCellTypescriptHashType_;
 
     // txHash -> Used
     mapping(bytes32 => bool) public usedTx_;
@@ -26,70 +29,114 @@ contract TokenLocker {
     event Locked(
         address indexed token,
         address indexed sender,
-        uint256 amount,
-        string accountId
+        uint256 lockedAmount,
+        uint256 bridgeFee,
+        bytes  recipientLockscript,
+        bytes replayResistOutpoint,
+        bytes sudtExtraData
     );
 
     event Unlocked(
         address indexed token,
-        uint128 amount,
-        address recipient
+        address indexed recipient,
+        address indexed sender,
+        uint256 receivedAmount,
+        uint256 bridgeFee
     );
 
-    // Function output from burning fungible token on Near side.
-    struct BurnResult {
-        uint128 amount;
-        address token;
-        address recipient;
-    }
-
-    constructor(address ckbSpvAddress, uint64 numConfirmations) public {
+    constructor(address ckbSpvAddress, uint64 numConfirmations, bytes32 typescriptCodeHash, uint8 typescriptHashType) public {
         ckbSpv_ = ICKBSpv(ckbSpvAddress);
         numConfirmations_ = numConfirmations;
+        recipientCellTypescriptCodeHash_ = typescriptCodeHash;
+        recipientCellTypescriptHashType_ = typescriptHashType;
     }
 
-    function _decodeBurnResult(bytes memory txInfo) internal pure returns (BurnResult memory result) {
-        // TODO
-        // 1. check if txInfo matches  ckbTxProof.txHash
-        // 2. _decodeBurnResult from txInfo
-        uint128 mockAmount = 111100000000000000;
-        address mockToken = address(0);
-        address mockRecipient = address(0);
-        result = BurnResult(mockAmount, mockToken, mockRecipient);
+    function lockETH(
+        uint256 bridgeFee,
+        bytes memory recipientLockscript,
+        bytes memory replayResistOutpoint,
+        bytes memory sudtExtraData
+    ) public payable {
+        require(msg.value > bridgeFee, "fee should not exceed bridge amount");
+        emit Locked(
+            address(0),
+            msg.sender,
+            msg.value,
+            bridgeFee,
+            recipientLockscript,
+            replayResistOutpoint,
+            sudtExtraData
+        );
     }
 
     // before lockToken, user should approve -> TokenLocker Contract with 0xffffff token
-    function lockToken(address token, uint256 amount, string memory ckbAddress) public {
+    function lockToken(
+        address token,
+        uint256 amount,
+        uint256 bridgeFee,
+        bytes memory recipientLockscript,
+        bytes memory replayResistOutpoint,
+        bytes memory sudtExtraData
+    ) public {
+        require(amount > bridgeFee, "fee should not exceed bridge amount");
         // TODO modify `transferFrom` to `safeTransferFrom`
         IERC20(token).transferFrom(msg.sender, address(this), amount);
-        emit Locked(token, msg.sender, amount, ckbAddress);
+        emit Locked(
+            token,
+            msg.sender,
+            amount,
+            bridgeFee,
+            recipientLockscript,
+            replayResistOutpoint,
+            sudtExtraData
+        );
     }
 
-    function lockETH(string memory ckbAddress) public payable {
-        emit Locked(address(0), msg.sender, msg.value, ckbAddress);
-    }
-
-    function unlockToken(bytes memory ckbTxProof, bytes memory txInfo) public {
+    function unlockToken(bytes memory ckbTxProof, bytes memory ckbTx) public {
         require(ckbSpv_.proveTxExist(ckbTxProof, numConfirmations_), "tx from proofData should exist");
 
-        // Unpack the proof and extract the execution outcome.
         bytes29 proof = ckbTxProof.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
-
-        // TODO modify `mockTxHash` to `txHash`
-        bytes32 txHash = proof.mockTxHash();
+        bytes32 txHash = proof.txHash();
         require(!usedTx_[txHash], "The burn tx cannot be reused");
         usedTx_[txHash] = true;
+        require((txHash == CKBCrypto.digest(ckbTx, ckbTx.length)), "ckbTx mismatched with ckbTxProof");
 
-        BurnResult memory result = _decodeBurnResult(txInfo);
+        (uint256 bridgeAmount, uint256 bridgeFee, address tokenAddress, address recipientAddress) = decodeBurnResult(ckbTx);
+        require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
+        uint256 receivedAmount = bridgeAmount - bridgeFee;
+
         // TODO modify `transfer` to `safeTransfer`
-        if (result.token == address(0)) {
-            // it means token == Eth
-            result.recipient.toPayable().transfer(result.amount);
+        // if token == ETH
+        if (tokenAddress == address(0)) {
+            recipientAddress.toPayable().transfer(receivedAmount);
+            msg.sender.transfer(bridgeFee);
         } else {
-            IERC20(result.token).transfer(result.recipient, result.amount);
+            IERC20(tokenAddress).transfer(recipientAddress, receivedAmount);
+            IERC20(tokenAddress).transfer(msg.sender, bridgeFee);
         }
 
-        emit Unlocked(address(result.token), result.amount, result.recipient);
+        emit Unlocked(tokenAddress, recipientAddress, msg.sender, receivedAmount, bridgeFee);
     }
 
+    // TODO refund function
+
+    function decodeBurnResult(bytes memory ckbTx) public view returns (
+        uint256 bridgeAmount,
+        uint256 bridgeFee,
+        address token,
+        address recipient
+    ){
+        bytes29 rawTx = ckbTx.ref(uint40(CKBTxView.CKBTxTypes.RawTx));
+        bytes29 recipientCellTypescript = rawTx.outputs().recipientCellOutput().typescript();
+        require((recipientCellTypescript.codeHash() == recipientCellTypescriptCodeHash_), "invalid recipient cell typescript code hash");
+        require((recipientCellTypescript.hashType() == recipientCellTypescriptHashType_), "invalid recipient cell typescript hash type");
+        require((recipientCellTypescript.args() == address(this)), "invalid recipient cell typescript args");
+        bytes29 recipientCellData = rawTx.outputsData().recipientCellData();
+        return (
+            recipientCellData.bridgeAmount(),
+            recipientCellData.bridgeFee(),
+            recipientCellData.tokenAddress(),
+            recipientCellData.recipientAddress()
+        );
+    }
 }
