@@ -173,7 +173,20 @@ pub struct GenerateCkbProofArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct UnlockArgs {}
+pub struct UnlockArgs {
+    #[clap(short, long)]
+    pub from: String,
+    #[clap(short, long)]
+    pub to: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long)]
+    pub tx_proof: String,
+    #[clap(long)]
+    pub tx_info: String,
+    #[clap(long, default_value = "http://localhost:8545")]
+    pub eth_rpc_url: String,
+}
 
 #[derive(Clap, Clone, Debug)]
 pub struct EthRelayArgs {

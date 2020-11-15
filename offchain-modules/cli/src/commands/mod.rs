@@ -6,7 +6,9 @@ use force_eth_lib::relay::eth_relay::ETHRelayer;
 use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
-use force_eth_lib::transfer::to_eth::{burn, get_balance, get_ckb_proof_info, mock_transfer_sudt};
+use force_eth_lib::transfer::to_eth::{
+    burn, get_balance, get_ckb_proof_info, mock_transfer_sudt, unlock,
+};
 use force_eth_lib::util::ckb_util::{ETHSPVProofJson, Generator};
 use force_eth_lib::util::eth_util::convert_eth_address;
 use force_eth_lib::util::settings::Settings;
@@ -35,7 +37,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         // parse ckb spv proof from tx_hash.
         SubCommand::GenerateCkbProof(args) => generate_ckb_proof_handler(args),
         // verify ckb spv proof && unlock erc20 token.
-        SubCommand::Unlock(args) => unlock_handler(args),
+        SubCommand::Unlock(args) => unlock_handler(args).await,
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
         SubCommand::TransferSudt(args) => mock_transfer_sudt_handler(args),
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args),
@@ -203,9 +205,21 @@ pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn unlock_handler(args: UnlockArgs) -> Result<()> {
+pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
     debug!("unlock_handler args: {:?}", &args);
-    todo!()
+    let from = convert_eth_address(&args.from)?;
+    let to = convert_eth_address(&args.to)?;
+    let result = unlock(
+        from,
+        to,
+        args.private_key_path,
+        args.tx_proof,
+        args.tx_info,
+        args.eth_rpc_url,
+    )
+    .await?;
+    println!("unlock tx hash : {:?}", result);
+    Ok(())
 }
 
 pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {

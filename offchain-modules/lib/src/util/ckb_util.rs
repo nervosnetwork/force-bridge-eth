@@ -609,7 +609,7 @@ pub fn get_sudt_type_script(
 
     let sudt_typescript_code_hash = hex::decode(sudt_code_hash).map_err(|err| anyhow!(err))?;
     Ok(Script::new_builder()
-        .code_hash(Byte32::from_slice(&sudt_typescript_code_hash).unwrap())
+        .code_hash(Byte32::from_slice(&sudt_typescript_code_hash).map_err(|err| anyhow!(err))?)
         .hash_type(DepType::Code.into())
         .args(bridge_lockscript.calc_script_hash().as_bytes().pack())
         .build())

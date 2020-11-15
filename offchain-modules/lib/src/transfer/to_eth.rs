@@ -1,5 +1,6 @@
 use crate::util::ckb_types::CkbTxProof;
 use crate::util::ckb_util::{covert_to_h256, parse_privkey, Generator};
+use crate::util::eth_util::Web3Client;
 use crate::util::generated::ckb_tx_proof;
 use crate::util::settings::Settings;
 use anyhow::anyhow;
@@ -10,7 +11,8 @@ use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Entity, Pack, Unpack};
 use ckb_types::utilities::CBMT;
 use ckb_types::{packed, H256};
-use ethabi::{Function, Param, ParamType};
+use ethabi::{Function, Param, ParamType, Token};
+use ethereum_types::U256;
 use force_sdk::util::{ensure_indexer_sync, parse_privkey_path};
 use log::{debug, info};
 use serde::export::Clone;
@@ -48,8 +50,40 @@ pub fn burn(
     generator.sign_and_send_transaction(unsigned_tx, from_privkey)
 }
 
-pub fn unlock() -> Result<()> {
-    todo!()
+pub async fn unlock(
+    from: H160,
+    to: H160,
+    key_path: String,
+    tx_proof: String,
+    raw_tx: String,
+    eth_url: String,
+) -> Result<String> {
+    let mut rpc_client = Web3Client::new(eth_url);
+    let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
+    let tx_info = hex::decode(raw_tx).map_err(|err| anyhow!(err))?;
+
+    let function = Function {
+        name: "unlockToken".to_owned(),
+        inputs: vec![
+            Param {
+                name: "ckbTxProof".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "txInfo".to_owned(),
+                kind: ParamType::Bytes,
+            },
+        ],
+        outputs: vec![],
+        constant: false,
+    };
+    let tokens = [Token::Bytes(proof), Token::Bytes(tx_info)];
+    let input_data = function.encode_input(&tokens)?;
+    let res = rpc_client
+        .send_transaction(from, to, key_path, input_data, U256::from(0))
+        .await?;
+    let tx_hash = hex::encode(res);
+    Ok(tx_hash)
 }
 
 pub fn get_add_ckb_headers_func() -> Function {
