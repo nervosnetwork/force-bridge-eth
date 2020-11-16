@@ -6,7 +6,7 @@ import {SafeMath} from "./libraries/SafeMath.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {CKBPow} from "./libraries/CKBPow.sol";
-import {EaglesongLib} from "./libraries/EaglesongLib.sol";
+import {EaglesongLib} from "./libraries/EaglesongLib.sol.bak";
 import {ICKBChain} from "./interfaces/ICKBChain.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
