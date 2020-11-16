@@ -128,7 +128,7 @@ pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()
     let header_rlp = get_header_rlp(
         args.rpc_url,
         H256::from_slice(
-            hex::decode(args.hash.clone())
+            hex::decode(&args.hash[2..])
                 .map_err(|e| anyhow::anyhow!("invalid cmd args `hash`. FromHexError: {:?}", e))?
                 .as_slice(),
         ),

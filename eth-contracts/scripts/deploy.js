@@ -1,46 +1,45 @@
-// We require the Buidler Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-// When running the script with `buidler run <script>` you'll find the Buidler
-// Runtime Environment's members available in the global scope.
+const fs = require('fs');
+const toml = require('toml');
+// const utils = require("@nervosnetwork/ckb-sdk-utils");
+const utils = require("../test/utils");
 
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const forceConfigPath = '/tmp/.force-bridge-cli/config.toml';
+const forceConfig = toml.parse(fs.readFileSync(forceConfigPath));
+const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
+// console.log(bridge_lockscript_code_hash);
 
 async function main() {
-    // Buidler always runs the compile task when running scripts through it.
-    // If this runs in a standalone fashion you may want to call compile manually
-    // to make sure everything is compiled
-    // await bre.run('compile');
-
-    // deploy MockCKBSpv
-    const MockCKBSpv = await ethers.getContractFactory(
-        "contracts/MockCKBSpv.sol:MockCKBSpv"
+    let factory = await ethers.getContractFactory(
+        "contracts/test/MockCKBSpv.sol:MockCKBSpv"
     );
-    const mockSpv = await MockCKBSpv.deploy();
+    const mockSpv = await factory.deploy();
     await mockSpv.deployed();
-    const mockSpvAddr = mockSpv.address;
-    console.log("mockSpv deployed to:", mockSpvAddr);
 
-    // deploy TokenLocker
-    const TokenLocker = await ethers.getContractFactory(
+    factory = await ethers.getContractFactory(
         "contracts/TokenLocker.sol:TokenLocker"
     );
-    const locker = await TokenLocker.deploy(mockSpvAddr, 20);
-    await locker.deployed();
-    const lockerAddr = locker.address;
-    console.log("locker deployed to:", lockerAddr);
-    console.log("waiting for block confirmations, about 1 minute");
-    await sleep(60 * 1000);
+    const tokenLocker = await factory.deploy(
+        mockSpv.address,
+        123,
+        '0x' + bridge_lockscript_code_hash,
+        0
+    );
+    await tokenLocker.deployed();
+    console.log("tokenLocker deployed to:", tokenLocker.address);
+    let provider = tokenLocker.provider;
 
     // lockETH 0.123
     let amount = ethers.utils.parseEther("0.123");
-    let res = await locker.lockETH("0.123 ether just for lockETH test", {
-        value: amount,
-    });
-    console.log("lockETH res: ", res);
-    console.log("waiting for block confirmations, about 1 minute");
-    await sleep(60 * 1000);
+    const res = await tokenLocker.lockETH(
+        ethers.utils.parseEther("0.001"),
+        "0x12345600",
+        "0x12345611",
+        "0x12345622",
+        { value: amount }
+    );
+    // console.log("lockETH res: ", res);
+    const receipt = await utils.waitingForReceipt(provider, res);
+    console.log(`receipt:`, receipt);
 
     // unlockETH
     // res = await locker.unlockToken([0], [0]);

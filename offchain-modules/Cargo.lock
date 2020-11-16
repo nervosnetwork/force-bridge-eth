@@ -1356,7 +1356,7 @@ dependencies = [
  "hex 0.4.2",
  "int-enum",
  "log",
- "rusty-receipt-proof-maker",
+ "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa)",
  "tokio 0.2.22",
  "web3",
 ]
@@ -1383,7 +1383,7 @@ dependencies = [
  "hex 0.4.2",
  "log",
  "rlp",
- "rusty-receipt-proof-maker",
+ "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git)",
  "secp256k1",
  "serde 1.0.117",
  "serde_derive",
@@ -3140,6 +3140,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
  "semver",
+]
+
+[[package]]
+name = "rusty-receipt-proof-maker"
+version = "0.1.0"
+source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa#510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa"
+dependencies = [
+ "chrono",
+ "docopt",
+ "dotenv",
+ "ethabi",
+ "ethereum-types",
+ "hex 0.3.2",
+ "log",
+ "reqwest",
+ "rlp",
+ "serde 1.0.117",
+ "serde_derive",
+ "serde_json",
+ "serial_test_derive",
+ "simple_logger",
+ "simplelog",
+ "tiny-keccak 1.5.0",
 ]
 
 [[package]]
