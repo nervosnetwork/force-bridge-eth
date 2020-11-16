@@ -158,6 +158,7 @@ pub fn dev_init(
     eth_recipient_typescript_path: String,
     sudt_path: String,
     token_addr: H160,
+    lock_contract_addr: H160,
 ) -> Result<()> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
@@ -191,7 +192,11 @@ pub fn dev_init(
         sudt_bin,
     ];
 
-    let cell_script = get_eth_bridge_lock_script(bridge_lockscript_code_hash.as_ref(), token_addr)?;
+    let cell_script = get_eth_bridge_lock_script(
+        bridge_lockscript_code_hash.as_ref(),
+        token_addr,
+        lock_contract_addr,
+    )?;
     let tx = deploy(
         &mut rpc_client,
         &mut indexer_client,

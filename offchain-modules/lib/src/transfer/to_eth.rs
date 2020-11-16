@@ -26,9 +26,11 @@ pub fn burn(
     indexer_url: String,
     config_path: String,
     tx_fee: String,
+    unlock_fee: u128,
     amount: u128,
     token_addr: H160,
     receive_addr: H160,
+    lock_contract_addr: H160,
 ) -> Result<String> {
     let settings = Settings::new(&config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings)
@@ -44,7 +46,15 @@ pub fn burn(
         .into();
 
     let unsigned_tx = generator
-        .burn(tx_fee, from_lockscript, amount, token_addr, receive_addr)
+        .burn(
+            tx_fee,
+            from_lockscript,
+            unlock_fee,
+            amount,
+            token_addr,
+            lock_contract_addr,
+            receive_addr,
+        )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
 
     generator.sign_and_send_transaction(unsigned_tx, from_privkey)
@@ -196,6 +206,7 @@ pub fn mock_transfer_sudt(
     ckb_amount: String,
     transfer_amount: u128,
     token_addr: H160,
+    lock_contract_addr: H160,
 ) -> Result<String> {
     let settings = Settings::new(&config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings).map_err(|e| anyhow!(e))?;
@@ -219,8 +230,9 @@ pub fn mock_transfer_sudt(
 
     let unsigned_tx = generator
         .transfer_sudt(
-            from_lockscript,
+            lock_contract_addr,
             token_addr,
+            from_lockscript,
             to_lockscript,
             transfer_amount,
             ckb_amount,
@@ -237,13 +249,14 @@ pub fn get_balance(
     config_path: String,
     address: String,
     token_addr: H160,
+    lock_contract_addr: H160,
 ) -> Result<u128> {
     let settings = Settings::new(&config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings).map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
     let balance = generator
-        .get_sudt_balance(address.clone(), token_addr)
+        .get_sudt_balance(address.clone(), token_addr, lock_contract_addr)
         .map_err(|e| anyhow!("failed to get balance of {:?}  : {}", address, e))?;
     Ok(balance)
 }

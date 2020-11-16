@@ -55,6 +55,7 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         ));
     }
     let token_addr = convert_eth_address(&args.token)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
     dev_init(
         args.config_path,
         args.rpc_url,
@@ -66,6 +67,7 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.eth_recipient_typescript_path,
         args.sudt_path,
         token_addr,
+        lock_contract_addr,
     )
 }
 
@@ -183,15 +185,18 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
     debug!("burn_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
     let receive_addr = convert_eth_address(&args.receive_addr)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
     let ckb_tx_hash = burn(
         args.private_key_path,
         args.ckb_rpc_url,
         args.indexer_rpc_url,
         args.config_path,
         args.tx_fee,
-        args.amount,
+        args.unlock_fee,
+        args.burn_amount,
         token_addr,
         receive_addr,
+        lock_contract_addr,
     )?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
     todo!()
@@ -229,6 +234,7 @@ pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
 pub fn mock_transfer_sudt_handler(args: MockTransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
     mock_transfer_sudt(
         args.private_key_path,
         args.ckb_rpc_url,
@@ -239,6 +245,7 @@ pub fn mock_transfer_sudt_handler(args: MockTransferSudtArgs) -> Result<()> {
         args.ckb_amount,
         args.sudt_amount,
         token_addr,
+        lock_contract_addr,
     )?;
     Ok(())
 }
@@ -246,6 +253,7 @@ pub fn mock_transfer_sudt_handler(args: MockTransferSudtArgs) -> Result<()> {
 pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
     debug!("query sudt balance handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
 
     let result = get_balance(
         args.ckb_rpc_url,
@@ -253,6 +261,7 @@ pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
         args.config_path,
         args.addr,
         token_addr,
+        lock_contract_addr,
     )?;
     info!("sudt balance is {} ", result);
     Ok(())

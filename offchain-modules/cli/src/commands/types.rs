@@ -62,6 +62,8 @@ pub struct DevInitArgs {
     pub sudt_path: String,
     #[clap(long)]
     pub token: String,
+    #[clap(long)]
+    pub lock_contract_addr: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -159,9 +161,13 @@ pub struct BurnArgs {
     #[clap(long)]
     pub token_addr: String,
     #[clap(long)]
-    pub amount: u128,
-    #[clap(long)]
     pub receive_addr: String,
+    #[clap(long)]
+    pub lock_contract_addr: String,
+    #[clap(long)]
+    pub burn_amount: u128,
+    #[clap(long)]
+    pub unlock_fee: u128,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -243,6 +249,8 @@ pub struct MockTransferSudtArgs {
     pub token_addr: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
+    #[clap(long)]
+    pub lock_contract_addr: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -257,4 +265,6 @@ pub struct SudtGetBalanceArgs {
     pub addr: String,
     #[clap(long)]
     pub token_addr: String,
+    #[clap(long)]
+    pub lock_contract_addr: String,
 }

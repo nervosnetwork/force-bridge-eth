@@ -367,12 +367,16 @@ impl Generator {
         let mol_headers = HeaderVec::new_builder().set(mol_header_vec).build();
         Ok(Vec::from(mol_headers.as_slice()))
     }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn burn(
         &mut self,
         tx_fee: u64,
         from_lockscript: Script,
+        unlock_fee: u128,
         burn_sudt_amount: u128,
         token_addr: H160,
+        lock_contract_addr: H160,
         eth_receiver_addr: H160,
     ) -> Result<TransactionView> {
         let mut helper = TxHelper::default();
@@ -392,6 +396,7 @@ impl Generator {
             &self.settings.bridge_lockscript.code_hash,
             &self.settings.sudt.code_hash,
             token_addr,
+            lock_contract_addr,
         )?;
 
         // gen output of eth_recipient cell
@@ -402,7 +407,7 @@ impl Generator {
                 eth_token_address: ETHAddress::try_from(token_addr.as_bytes().to_vec())
                     .map_err(|err| anyhow!(err))?,
                 token_amount: burn_sudt_amount,
-                fee: tx_fee as u128,
+                fee: unlock_fee,
             };
 
             log::info!(
@@ -421,11 +426,9 @@ impl Generator {
             let recipient_typescript: Script = Script::new_builder()
                 .code_hash(Byte32::from_slice(&recipient_typescript_code_hash)?)
                 .hash_type(DepType::Code.into())
-                // TODO : eth_contract_address
-                .args(eth_receiver_addr.as_bytes().pack())
+                .args(lock_contract_addr.as_bytes().pack())
                 .build();
 
-            // check_capacity(ckb_amount, eth_recipient_data.len())?;
             let eth_recipient_output = CellOutput::new_builder()
                 .lock(from_lockscript.clone())
                 .type_(Some(recipient_typescript).pack())
@@ -457,11 +460,12 @@ impl Generator {
         Ok(tx)
     }
 
-    #[allow(clippy::mutable_key_type)]
+    #[allow(clippy::mutable_key_type, clippy::too_many_arguments)]
     pub fn transfer_sudt(
         &mut self,
-        from_lockscript: Script,
+        lock_contract_addr: H160,
         token_addr: H160,
+        from_lockscript: Script,
         to_lockscript: Script,
         sudt_amount: u128,
         ckb_amount: u64,
@@ -481,10 +485,11 @@ impl Generator {
             let bridge_lockscript_code_hash =
                 hex::decode(&self.settings.bridge_lockscript.code_hash)
                     .map_err(|err| anyhow!(err))?;
-            let lockscript =
-                get_eth_bridge_lock_script(bridge_lockscript_code_hash.as_slice(), token_addr)?;
-
-            // log::info!("bridge code hash :{:?}", hex::encode(lockscript.code_hash().as_slice()));
+            let lockscript = get_eth_bridge_lock_script(
+                bridge_lockscript_code_hash.as_slice(),
+                token_addr,
+                lock_contract_addr,
+            )?;
 
             // input bridge cells to mint by sudt owner mode
             let rpc_client = &mut self.rpc_client;
@@ -517,6 +522,7 @@ impl Generator {
             &self.settings.bridge_lockscript.code_hash,
             &self.settings.sudt.code_hash,
             token_addr,
+            lock_contract_addr,
         )?;
 
         let sudt_output = CellOutput::new_builder()
@@ -549,7 +555,12 @@ impl Generator {
         Ok(tx)
     }
 
-    pub fn get_sudt_balance(&mut self, address: String, token_addr: H160) -> Result<u128> {
+    pub fn get_sudt_balance(
+        &mut self,
+        address: String,
+        token_addr: H160,
+        lock_contract_addr: H160,
+    ) -> Result<u128> {
         let addr_lockscript: Script = Address::from_str(&address)
             .map_err(|err| anyhow!(err))?
             .payload()
@@ -559,6 +570,7 @@ impl Generator {
             &self.settings.bridge_lockscript.code_hash,
             &self.settings.sudt.code_hash,
             token_addr,
+            lock_contract_addr,
         )?;
         collect_sudt_amount(&mut self.indexer_client, addr_lockscript, sudt_typescript)
             .map_err(|err| anyhow!(err))
@@ -597,15 +609,15 @@ pub fn get_sudt_type_script(
     bridge_lock_code_hash: &str,
     sudt_code_hash: &str,
     token_addr: H160,
+    lock_contract_addr: H160,
 ) -> Result<Script> {
     let bridge_lockscript_code_hash =
         hex::decode(bridge_lock_code_hash).map_err(|err| anyhow!(err))?;
-    let bridge_lockscript =
-        get_eth_bridge_lock_script(bridge_lockscript_code_hash.as_slice(), token_addr)?;
-    log::info!(
-        "bridge_lockscript calc_script_hash :{:?}",
-        bridge_lockscript.calc_script_hash()
-    );
+    let bridge_lockscript = get_eth_bridge_lock_script(
+        bridge_lockscript_code_hash.as_slice(),
+        token_addr,
+        lock_contract_addr,
+    )?;
 
     let sudt_typescript_code_hash = hex::decode(sudt_code_hash).map_err(|err| anyhow!(err))?;
     Ok(Script::new_builder()
@@ -618,10 +630,11 @@ pub fn get_sudt_type_script(
 pub fn get_eth_bridge_lock_script(
     bridge_lock_code_hash: &[u8],
     token_addr: H160,
+    lock_contract_addr: H160,
 ) -> Result<Script> {
     let args = ETHBridgeLockArgs::new_builder()
         .eth_contract_address(
-            ETHAddress::try_from(token_addr.as_bytes().to_vec())
+            ETHAddress::try_from(lock_contract_addr.as_bytes().to_vec())
                 .map_err(|err| anyhow!(err))?
                 .get_address()
                 .into(),
@@ -634,15 +647,10 @@ pub fn get_eth_bridge_lock_script(
         )
         .build();
 
-    log::info!("ETHBridgeLockArgs : {}", args);
-
     Ok(Script::new_builder()
         .code_hash(Byte32::from_slice(bridge_lock_code_hash).map_err(|err| anyhow!(err))?)
         .hash_type(DepType::Code.into())
-        // TODO : eth_lock_contract_address and eth_token_addr
-        .args(ckb_types::packed::Bytes::new_unchecked(
-            args.as_bytes().to_vec().into(),
-        ))
+        .args(args.as_bytes().pack())
         .build())
 }
 
