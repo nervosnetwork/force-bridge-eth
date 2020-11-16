@@ -17,7 +17,7 @@ pub enum SubCommand {
     GenerateEthProof(GenerateEthProofArgs),
     Mint(MintArgs),
     TransferFromCkb(TransferFromCkbArgs),
-    TransferSudt(MockTransferSudtArgs),
+    TransferSudt(TransferSudtArgs),
     Burn(BurnArgs),
     GenerateCkbProof(GenerateCkbProofArgs),
     Unlock(UnlockArgs),
@@ -230,7 +230,7 @@ pub struct CkbRelayArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct MockTransferSudtArgs {
+pub struct TransferSudtArgs {
     #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
     pub config_path: String,
     #[clap(short = 'k', long)]

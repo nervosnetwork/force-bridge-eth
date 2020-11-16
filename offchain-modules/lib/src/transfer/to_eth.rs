@@ -196,7 +196,7 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn mock_transfer_sudt(
+pub fn transfer_sudt(
     privkey_path: String,
     rpc_url: String,
     indexer_url: String,

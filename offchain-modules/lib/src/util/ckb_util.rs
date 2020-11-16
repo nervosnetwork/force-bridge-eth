@@ -460,7 +460,7 @@ impl Generator {
         Ok(tx)
     }
 
-    #[allow(clippy::mutable_key_type, clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub fn transfer_sudt(
         &mut self,
         lock_contract_addr: H160,
@@ -480,43 +480,6 @@ impl Generator {
         ];
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
-        //TODO : mock mint token  for test burn and transfer sudt
-        {
-            let bridge_lockscript_code_hash =
-                hex::decode(&self.settings.bridge_lockscript.code_hash)
-                    .map_err(|err| anyhow!(err))?;
-            let lockscript = get_eth_bridge_lock_script(
-                bridge_lockscript_code_hash.as_slice(),
-                token_addr,
-                lock_contract_addr,
-            )?;
-
-            // input bridge cells to mint by sudt owner mode
-            let rpc_client = &mut self.rpc_client;
-            let indexer_client = &mut self.indexer_client;
-            let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
-                Default::default();
-            let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
-                get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
-                    .map(|(output, _)| output)
-            };
-            let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())
-                .map_err(|err| anyhow!(err))?
-                .ok_or_else(|| anyhow!("there are no remaining public cells available "))?;
-            helper
-                .add_input(
-                    OutPoint::from(cell.out_point),
-                    None,
-                    &mut get_live_cell_fn,
-                    &self.genesis_info,
-                    true,
-                )
-                .map_err(|err| anyhow!(err))?;
-
-            // 1 bridge cells
-            let to_output = CellOutput::new_builder().lock(lockscript).build();
-            helper.add_output_with_auto_capacity(to_output, ckb_types::bytes::Bytes::default());
-        }
 
         let sudt_typescript = get_sudt_type_script(
             &self.settings.bridge_lockscript.code_hash,
@@ -527,20 +490,22 @@ impl Generator {
 
         let sudt_output = CellOutput::new_builder()
             .capacity(Capacity::shannons(ckb_amount).pack())
-            .type_(Some(sudt_typescript).pack())
+            .type_(Some(sudt_typescript.clone()).pack())
             .lock(to_lockscript)
             .build();
 
         helper.add_output(sudt_output, sudt_amount.to_le_bytes().to_vec().into());
 
-        // helper.supply_sudt(
-        //     &mut self.rpc_client,
-        //     &mut self.indexer_client,
-        //     from_lockscript.clone(),
-        //     &self.genesis_info,
-        //     sudt_amount,
-        //     sudt_typescript,
-        // )?;
+        helper
+            .supply_sudt(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript.clone(),
+                &self.genesis_info,
+                sudt_amount,
+                sudt_typescript,
+            )
+            .map_err(|err| anyhow!(err))?;
 
         // add signature to pay tx fee
         let tx = helper

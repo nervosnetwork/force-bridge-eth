@@ -7,7 +7,7 @@ use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
-    burn, get_balance, get_ckb_proof_info, mock_transfer_sudt, unlock,
+    burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock,
 };
 use force_eth_lib::util::ckb_util::{ETHSPVProofJson, Generator};
 use force_eth_lib::util::eth_util::convert_eth_address;
@@ -39,7 +39,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args).await,
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
-        SubCommand::TransferSudt(args) => mock_transfer_sudt_handler(args),
+        SubCommand::TransferSudt(args) => transfer_sudt_handler(args),
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args),
 
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
@@ -231,11 +231,11 @@ pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
     todo!()
 }
-pub fn mock_transfer_sudt_handler(args: MockTransferSudtArgs) -> Result<()> {
+pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
     let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
-    mock_transfer_sudt(
+    transfer_sudt(
         args.private_key_path,
         args.ckb_rpc_url,
         args.indexer_rpc_url,
