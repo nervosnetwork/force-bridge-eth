@@ -19,7 +19,7 @@ impl Adapter for ChainAdapter {
         load_cell_lock(0, Source::Output).expect("load output cell lock fail")
     }
 
-    fn check_input_owner(&self, owner_script: Bytes) -> bool {
+    fn check_input_owner(&self, owner_script: &Bytes) -> bool {
         QueryIter::new(load_cell_lock, Source::Input)
             .filter(|lock| lock.as_slice() == owner_script.as_ref())
             .count()
