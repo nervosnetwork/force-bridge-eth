@@ -1,26 +1,21 @@
-use super::{Adapter, BridgeCellDataTuple};
+use super::Adapter;
 use ckb_std::ckb_constants::Source;
-use ckb_std::error::SysError;
-use ckb_std::high_level::{load_cell_data, load_cell_lock_hash, load_cell_type, load_script, load_script_hash, load_witness_args, QueryIter, load_input_out_point, load_cell};
 use ckb_std::ckb_types::{
     bytes::Bytes,
-    packed::{Byte32, Script},
+    packed::{Byte32, Script, CellOutput},
     prelude::Pack,
 };
-use molecule::prelude::Entity;
+use ckb_std::error::SysError;
+use ckb_std::high_level::{load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_input_out_point, load_script, load_script_hash, load_witness_args, QueryIter, load_cell_type_hash};
+use molecule::prelude::{Entity, Reader};
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-
+use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeArgsReader};
 
 pub struct ChainAdapter {}
 
 impl Adapter for ChainAdapter {
-    fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError> {
-        let tuple = BridgeCellDataTuple(Some(load_input_data()), load_data_from_output()?);
-        Ok(tuple)
-    }
-
     fn load_input_data(&self) -> Vec<u8> {
         load_input_data()
     }
@@ -37,13 +32,38 @@ impl Adapter for ChainAdapter {
         Ok(witness_args.raw_data())
     }
 
+    fn load_script_args(&self) -> ETHBridgeTypeArgs {
+        let args = load_script().unwrap().args().raw_data();
+        ETHBridgeTypeArgsReader::verify(args.as_ref(), false).expect("invalid script args");
+        ETHBridgeTypeArgs::new_unchecked(args)
+    }
+
     fn load_cell_dep_data(&self, index: usize) -> Result<Vec<u8>, SysError> {
-        load_cell_data(index, Source::CellDep)
+        self.load_cell_data(index, Source::CellDep)
+    }
+
+    fn load_cell(&self, index: usize, source: Source) -> Result<CellOutput, SysError> {
+        load_cell(index, source)
+    }
+
+    fn load_cell_type(&self, index: usize, source: Source) -> Result<Option<Script>, SysError> {
+        load_cell_type(index, source)
+    }
+
+    fn load_cell_type_hash(&self, index: usize, source: Source) -> Result<Option<[u8; 32]>, SysError> {
+        load_cell_type_hash(index, source)
+    }
+
+    fn load_cell_lock_hash(&self, index: usize, source: Source) -> Result<[u8; 32], SysError> {
+        load_cell_lock_hash(index, source)
+    }
+
+    fn load_cell_data(&self, index: usize, source: Source) -> Result<Vec<u8>, SysError> {
+        load_cell_data(index, source)
     }
 
     fn lock_hash_exists_in_inputs(&self, data: &[u8]) -> bool {
-        QueryIter::new(load_cell_lock_hash, Source::Input)
-            .any(|hash| hash.as_ref() == data)
+        QueryIter::new(load_cell_lock_hash, Source::Input).any(|hash| hash.as_ref() == data)
     }
 
     fn typescript_exists_in_outputs(&self, data: &[u8]) -> bool {
@@ -57,7 +77,11 @@ impl Adapter for ChainAdapter {
             .any(|outpoint| outpoint.as_slice() == data)
     }
 
-    fn load_cell_type_lock_data(&self, index: usize, source: Source) -> Result<(Option<Script>, Script, Vec<u8>), SysError> {
+    fn load_cell_type_lock_data(
+        &self,
+        index: usize,
+        source: Source,
+    ) -> Result<(Option<Script>, Script, Vec<u8>), SysError> {
         let cell = load_cell(index, source)?;
         let data = load_cell_data(index, source)?;
         Ok((cell.type_().to_opt(), cell.lock(), data))
@@ -70,30 +94,4 @@ fn load_input_data() -> Vec<u8> {
         panic!("inputs have more than 1 bridge cell");
     }
     data_list[0].clone()
-}
-
-fn load_data_from_output() -> Result<Option<Vec<u8>>, SysError> {
-    let script_hash = load_script_hash()?;
-    let mut output_index = 0;
-    let mut output_num = 0;
-    let mut data = None;
-
-    loop {
-        let cell_lock_hash = load_cell_lock_hash(output_index, Source::Output);
-        match cell_lock_hash {
-            Err(SysError::IndexOutOfBound) => break,
-            Err(_err) => panic!("iter output return an error"),
-            Ok(cell_lock_hash) => {
-                if cell_lock_hash == script_hash {
-                    data = Some(load_cell_data(output_index, Source::Output)?);
-                    output_num += 1;
-                    if output_num > 1 {
-                        panic!("outputs have more than 1 bridge cell")
-                    }
-                }
-                output_index += 1;
-            }
-        }
-    }
-    Ok(data)
 }

@@ -1147,6 +1147,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "eth-bridge-typescript-lib"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "ckb-std",
+ "eth-spv-lib",
+ "ethereum-types",
+ "force-eth-types",
+ "hex",
+ "mockall",
+ "molecule",
+ "no-std-compat",
+ "rlp",
+]
+
+[[package]]
 name = "eth-recipient-typescript-lib"
 version = "0.1.0"
 dependencies = [

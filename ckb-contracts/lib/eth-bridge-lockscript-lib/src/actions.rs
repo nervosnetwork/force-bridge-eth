@@ -18,53 +18,33 @@ use force_eth_types::{
 use molecule::prelude::*;
 use std::convert::TryInto;
 
-pub enum Mode {
-    Owner,
-    Mint,
-}
-
-/// if the first 32 bytes of data match any of input lockscript hash,
-/// it is owner mode, otherwise it is mint mode.
-pub fn check_mode<T: Adapter>(data_loader: &T) -> Mode {
+/// if the first 32 bytes of data is 0 or match any of input lockscript hash,
+/// the tx is sent from owner.
+/// Missing bytes will be filled with 0.
+pub fn verify_is_owner<T: Adapter>(data_loader: &T) {
     let input_data = data_loader.load_input_data();
-    if input_data.len() >= 32 && data_loader.lock_hash_exists_in_inputs(&input_data[..32]) {
-        Mode::Owner
-    } else {
-        Mode::Mint
+    let mut owner = [0u8; 32];
+    owner.copy_from_slice(&input_data[..32]);
+    if owner != [0u8; 32] && !data_loader.lock_hash_exists_in_inputs(&owner) {
+        panic!("not authorized to unlock the cell");
     }
 }
 
-/// In owner mode, mint associated sudt is forbidden.
+/// In manage mode, mint associated sudt is forbidden.
 /// Owners can do options like destroy the cell or supply capacity for it,
 /// which means put an identical cell in output with higher capacity.
-pub fn verify_owner_mode<T: Adapter>(data_loader: &T) {
+pub fn verify_manage_mode<T: Adapter>(data_loader: &T) {
     let udt_script = data_loader.get_associated_udt_script();
     if data_loader.typescript_exists_in_outputs(udt_script.as_slice()) {
         panic!("mint sudt is forbidden in owner mode");
     }
 }
 
-pub fn verify_mint_token<T: Adapter>(data_loader: &T) {
+pub fn verify_mint_token<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader) {
     verify_eth_light_client();
-    let eth_receipt_info = verify_witness(data_loader);
+    let eth_receipt_info = verify_witness(data_loader, witness);
     verify_eth_receipt_info(data_loader, eth_receipt_info);
 }
-
-pub fn verify_destroy_cell<T: Adapter>(_data_loader: &T, _input_data: &[u8]) -> i8 {
-    0
-}
-
-fn verify_data(input_data: &[u8], output_data: &[u8]) {
-    if input_data != output_data {
-        panic!("data changed")
-    }
-}
-
-// fn verify_signature<T: Adapter>(data_loader: &T, data: &[u8]) {
-//     if !data_loader.check_inputs_lock_hash(data) {
-//         panic!("verify signature fail")
-//     }
-// }
 
 fn verify_eth_light_client() {
     // todo!()
@@ -75,16 +55,9 @@ fn verify_eth_light_client() {
 /// 2. Verify that the user's cross-chain transaction is legal and really exists (based spv proof).
 /// 3. Get ETHLockEvent from spv proof.
 ///
-fn verify_witness<T: Adapter>(data_loader: &T) -> ETHLockEvent {
-    let witness_args = data_loader
-        .load_input_witness_args()
-        .expect("load witness args error");
-    MintTokenWitnessReader::verify(&witness_args, false).expect("witness is invalid");
-    let witness = MintTokenWitnessReader::new_unchecked(&witness_args);
-    debug!("witness: {:?}", witness);
+fn verify_witness<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader) -> ETHLockEvent {
     let proof = witness.spv_proof().raw_data();
     let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
-
     verify_eth_spv_proof(data_loader, proof, cell_dep_index_list)
 }
 

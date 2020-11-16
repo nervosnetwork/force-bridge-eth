@@ -10,19 +10,17 @@ use mockall::*;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::{
     bytes::Bytes,
-    packed::{Byte32, Script},
+    packed::{Byte32, CellOutput, Script},
     prelude::Pack,
 };
 use ckb_std::error::SysError;
 use force_eth_types::config::SUDT_CODE_HASH;
+use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 use molecule::prelude::{Builder, Entity};
-
-#[derive(Debug, Clone)]
-pub struct BridgeCellDataTuple(pub Option<Vec<u8>>, pub Option<Vec<u8>>);
 
 #[cfg_attr(feature = "std", automock)]
 pub trait Adapter {
-    fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError>;
+    // fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError>;
 
     fn load_input_data(&self) -> Vec<u8>;
 
@@ -30,7 +28,19 @@ pub trait Adapter {
 
     fn load_input_witness_args(&self) -> Result<Bytes, SysError>;
 
+    fn load_script_args(&self) -> ETHBridgeTypeArgs;
+
     fn load_cell_dep_data(&self, index: usize) -> Result<Vec<u8>, SysError>;
+
+    fn load_cell(&self, index: usize, source: Source) -> Result<CellOutput, SysError>;
+
+    fn load_cell_type(&self, index: usize, source: Source) -> Result<Option<Script>, SysError>;
+
+    fn load_cell_type_hash(&self, index: usize, source: Source) -> Result<Option<[u8; 32]>, SysError>;
+
+    fn load_cell_lock_hash(&self, index: usize, source: Source) -> Result<[u8; 32], SysError>;
+
+    fn load_cell_data(&self, index: usize, source: Source) -> Result<Vec<u8>, SysError>;
 
     /// check whether there is any input lock hash matches the given one
     fn lock_hash_exists_in_inputs(&self, hash: &[u8]) -> bool;

@@ -1,0 +1,8 @@
+import basic;
+
+struct ETHBridgeTypeArgs {
+    bridge_lock_hash: Byte32,
+    recipient_lock_hash: Byte32,
+    owner_lock_hash: Byte32,
+    fee: Uint128,
+}

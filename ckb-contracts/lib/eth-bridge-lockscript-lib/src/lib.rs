@@ -10,6 +10,8 @@ mod test;
 
 use adapter::Adapter;
 use adapter::BridgeCellDataTuple;
+use force_eth_types::generated::witness::MintTokenWitnessReader;
+use molecule::prelude::Reader;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "std")] {
@@ -26,13 +28,22 @@ pub fn verify() -> i8 {
 }
 
 pub fn _verify<T: Adapter>(data_loader: T) {
-    let mode = actions::check_mode(&data_loader);
+    // load and parse witness
+    let witness_args = data_loader
+        .load_input_witness_args()
+        .expect("load witness args error");
+    MintTokenWitnessReader::verify(&witness_args, false).expect("witness is invalid");
+    let witness = MintTokenWitnessReader::new_unchecked(&witness_args);
+    debug!("witness: {:?}", witness);
+
+    // check mode
+    let mode: u8 = witness.mode().into();
     match mode {
-        actions::Mode::Owner => {
-            actions::verify_owner_mode(&data_loader);
+        0 => {
+            actions::verify_mint_token(&data_loader, &witness);
         }
-        actions::Mode::Mint => {
-            actions::verify_mint_token(&data_loader);
+        _ => {
+            actions::verify_manage_mode(&data_loader);
         }
     }
 }

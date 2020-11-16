@@ -17,5 +17,9 @@ name = "eth-bridge-lockscript"
 template_type = "Rust"
 
 [[contracts]]
+name = "eth-bridge-typescript"
+template_type = "Rust"
+
+[[contracts]]
 name = "eth-recipient-typescript"
 template_type = "Rust"

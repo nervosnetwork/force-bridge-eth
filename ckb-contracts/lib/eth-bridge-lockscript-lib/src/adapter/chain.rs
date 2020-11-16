@@ -30,10 +30,11 @@ impl Adapter for ChainAdapter {
     }
 
     fn load_input_witness_args(&self) -> Result<Bytes, SysError> {
-        let witness_args = load_witness_args(0, Source::GroupInput)?
+        let witness_args = load_witness_args(0, Source::GroupInput)
+            .expect("no witness provided")
             .lock()
             .to_opt()
-            .expect("proof witness is none");
+            .expect("proof witness lock field is none");
         Ok(witness_args.raw_data())
     }
 

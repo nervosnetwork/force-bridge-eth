@@ -7,7 +7,8 @@ pub mod adapter;
 pub mod debug;
 
 use adapter::Adapter;
-use adapter::BridgeCellDataTuple;
+use force_eth_types::generated::witness::MintTokenWitnessReader;
+use molecule::prelude::{Entity, Reader};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "std")] {
@@ -24,62 +25,25 @@ pub fn verify() -> i8 {
 }
 
 pub fn _verify<T: Adapter>(data_loader: T) {
-    // let cell_data_tuple = data_loader
-    //     .load_input_output_data()
-    //     .expect("inputs or outputs cell num invalid");
-    //
-    // match cell_data_tuple {
-    //     BridgeCellDataTuple(Some(input_data), Some(output_data)) => {
-    //         actions::verify_mint_token(data_loader, input_data.as_slice(), output_data.as_slice())
-    //     }
-    //     // BridgeCellDataTuple(Some(input_data), None) => {
-    //     //     actions::verify_destroy_cell(data_loader, input_data.as_slice())
-    //     // }
-    //     _ => panic!("input and output should not be none"),
-    // }
-    let mode = actions::check_mode(&data_loader);
+    // load and parse witness
+    let witness_args = data_loader
+        .load_input_witness_args()
+        .expect("load witness args error");
+    MintTokenWitnessReader::verify(&witness_args, false).expect("witness is invalid");
+    let witness = MintTokenWitnessReader::new_unchecked(&witness_args);
+    debug!("witness: {:?}", witness);
+
+    // load script args
+    let script_args = data_loader.load_script_args();
+
+    // check mode
+    let mode: u8 = witness.mode().into();
     match mode {
-        actions::Mode::Owner => {
-            actions::verify_owner_mode(&data_loader);
+        0 => {
+            actions::verify_mint_token(&data_loader, &witness, &script_args);
         }
-        actions::Mode::Mint => {
-            actions::verify_mint_token(&data_loader);
+        _ => {
+            actions::verify_manage_mode(&data_loader, script_args.owner_lock_hash().as_slice());
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::_verify;
-    use crate::adapter::*;
-
-    // #[test]
-    // fn mock_return_ok() {
-    //     let mut mock = MockAdapter::new();
-    //     mock.expect_load_input_output_data()
-    //         .times(1)
-    //         .returning(|| Ok(BridgeCellDataTuple(Some([].to_vec()), Some([].to_vec()))));
-    //     let return_code = _verify(mock);
-    //     assert_eq!(return_code, 0);
-    // }
-
-    #[test]
-    #[should_panic]
-    fn mock_return_err_when_input_is_none() {
-        let mut mock = MockAdapter::new();
-        mock.expect_load_input_output_data()
-            .times(1)
-            .returning(|| Ok(BridgeCellDataTuple(None, Some([0].to_vec()))));
-        _verify(mock);
-    }
-
-    #[test]
-    #[should_panic]
-    fn mock_return_err_when_data_changed() {
-        let mut mock = MockAdapter::new();
-        mock.expect_load_input_output_data()
-            .times(1)
-            .returning(|| Ok(BridgeCellDataTuple(Some([0].to_vec()), Some([1].to_vec()))));
-        _verify(mock);
     }
 }

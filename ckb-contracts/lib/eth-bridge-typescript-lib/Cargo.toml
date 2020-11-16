@@ -8,7 +8,7 @@ edition = "2018"
 
 [features]
 default = ["std"]
-std = ["mockall"]
+std = ["mockall", "no-std-compat/std"]
 #std = ["molecule/std", "int-enum/std", "ckb-server"]
 
 [dependencies]
