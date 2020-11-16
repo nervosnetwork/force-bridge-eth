@@ -31,36 +31,34 @@ pub fn verify_add_headers<T: Adapter>(data_loader: T) {
         .load_data_from_source(Source::GroupOutput)
         .expect("output should not be none");
 
-    verify_witness(data_loader, &input_data, &output_data);
-}
-
-/// ensure the new header is valid.
-fn verify_witness<T: Adapter>(
-    data_loader: T,
-    input: &Option<ETHHeaderCellDataView>,
-    output: &ETHHeaderCellDataView,
-) {
-    debug!("verify verify_witness data.");
     let witness_args = data_loader.load_witness_args();
     if ETHLightClientWitnessReader::verify(&witness_args, false).is_err() {
-        panic!("verify_witness, invalid witness");
+        panic!("get_witness_reader, invalid witness");
     }
-    let witness = ETHLightClientWitnessReader::new_unchecked(&witness_args);
-    // parse header
-    let header_raw = witness.header().raw_data();
-    // check input && output data
-    let (header, prev) = match input {
-        Some(data) => verify_input_output_data(data, output, header_raw),
+    let witness_reader = ETHLightClientWitnessReader::new_unchecked(&witness_args);
+    let header_raw = witness_reader.header().raw_data();
+
+    let (header, prev) = match input_data {
+        Some(data) => verify_push_header(&data, &output_data, header_raw),
         None => {
             assert_eq!(
                 data_loader.load_first_outpoint(),
                 data_loader.load_script_args(),
                 "invalid first cell id"
             );
-            init_header_info(output, header_raw)
+            verify_init_header(&output_data, header_raw)
         }
     };
-    // parse merkle proof
+
+    verify_merkle_proof(data_loader, witness_reader, &header, prev)
+}
+
+fn verify_merkle_proof<T: Adapter>(
+    data_loader: T,
+    witness: ETHLightClientWitnessReader,
+    header: &BlockHeader,
+    prev: Option<BlockHeader>,
+) {
     let mut proofs = vec![];
     for i in 0..witness.merkle_proof().len() {
         let proof_raw = witness.merkle_proof().get_unchecked(i).raw_data();
@@ -74,14 +72,14 @@ fn verify_witness<T: Adapter>(
     }
 }
 
-fn init_header_info(
+fn verify_init_header(
     output: &ETHHeaderCellDataView,
     header_raw: &[u8],
 ) -> (BlockHeader, Option<BlockHeader>) {
     debug!("init header list.");
     let header: BlockHeader = rlp::decode(header_raw.to_vec().as_slice()).unwrap();
     if ETHChainReader::verify(&output.headers, false).is_err() {
-        panic!("init_header_info, invalid output headers");
+        panic!("verify_init_header, invalid output headers");
     }
     let chain_reader = ETHChainReader::new_unchecked(&output.headers);
     let main_reader = chain_reader.main();
@@ -90,7 +88,7 @@ fn init_header_info(
     assert_eq!(uncle_reader.is_empty(), true, "invalid uncle chain");
     let main_tail_info = main_reader.get_unchecked(0).raw_data();
     if ETHHeaderInfoReader::verify(&main_tail_info, false).is_err() {
-        panic!("init_header_info, invalid main tail info");
+        panic!("verify_init_header, invalid main tail info");
     }
     let main_tail_reader = ETHHeaderInfoReader::new_unchecked(main_tail_info);
     let main_tail_raw = main_tail_reader.header().raw_data();
@@ -111,7 +109,7 @@ fn init_header_info(
     (header, Option::None)
 }
 
-fn verify_input_output_data(
+fn verify_push_header(
     input: &ETHHeaderCellDataView,
     output: &ETHHeaderCellDataView,
     header_raw: &[u8],
