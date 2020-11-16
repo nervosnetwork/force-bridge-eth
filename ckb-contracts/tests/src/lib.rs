@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 mod eth_recipient_typescript;
+
 #[cfg(test)]
 mod tests;
 

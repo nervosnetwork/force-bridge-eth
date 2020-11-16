@@ -3,11 +3,18 @@
 use ckb_testtool::context::Context;
 pub use ckb_tool::ckb_types::bytes::Bytes;
 use ckb_tool::ckb_types::{packed::*, prelude::*};
-use force_eth_types::generated::{basic, eth_recipient_cell::ETHRecipientCellData};
+use force_eth_types::{
+    eth_recipient_cell::ETHAddress,
+    generated::{
+        basic, eth_bridge_lock_cell::ETHBridgeLockArgs, eth_recipient_cell::ETHRecipientCellData,
+    },
+};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::mem::replace;
 use std::vec::Vec;
 
+pub const ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY: &str = "eth_bridge_lockcript_outpoint_key";
 pub const ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY: &str = "eth_recipient_typescript_outpoint_key";
 pub const SUDT_TYPESCRIPT_OUTPOINT_KEY: &str = "sudt_typescript_key";
 pub const ALWAYS_SUCCESS_OUTPOINT_KEY: &str = "always_success_outpoint_key";
@@ -113,6 +120,7 @@ pub struct ETHRecipientCell {
     pub capacity: u64,
     pub data: ETHRecipientDataView,
     pub index: usize,
+    pub args: String,
 }
 
 impl ETHRecipientCell {
@@ -120,7 +128,7 @@ impl ETHRecipientCell {
         context
             .build_script(
                 &outpoints[ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY],
-                Bytes::new(),
+                str_to_eth_address(self.args.as_str()).as_bytes(),
             )
             .expect("build eth recipient typescript")
     }
@@ -169,14 +177,16 @@ pub struct ETHRecipientDataView {
     pub eth_recipient_address: String,
     pub eth_token_address: String,
     pub token_amount: u128,
+    pub fee: u128,
 }
 
 impl ETHRecipientDataView {
     pub fn as_molecule_bytes(&self) -> Bytes {
         let data = ETHRecipientCellData::new_builder()
-            .eth_recipient_address(str_to_molecule_bytes(self.eth_recipient_address.as_str()))
-            .eth_token_address(str_to_molecule_bytes(self.eth_token_address.as_str()))
+            .eth_recipient_address(str_to_eth_address(self.eth_recipient_address.as_str()))
+            .eth_token_address(str_to_eth_address(self.eth_token_address.as_str()))
             .token_amount(self.token_amount.into())
+            .fee(self.fee.into())
             .build();
         data.as_bytes()
     }
@@ -201,6 +211,20 @@ impl ScriptView {
         context
             .build_script(&outpoints[self.outpoint_key], self.args.clone())
             .expect("build script succ")
+    }
+
+    pub fn build_sudt_owner(eth_contract_address: &str, eth_token_address: &str) -> Self {
+        let eth_contract_address = str_to_eth_address(eth_contract_address);
+        let eth_token_address = str_to_eth_address(eth_token_address);
+        let args = ETHBridgeLockArgs::new_builder()
+            .eth_contract_address(eth_contract_address)
+            .eth_token_address(eth_token_address)
+            .build()
+            .as_bytes();
+        Self {
+            outpoint_key: ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY,
+            args,
+        }
     }
 }
 
@@ -227,8 +251,7 @@ impl SudtCell {
                 self.owner_script.args.clone(),
             )
             .expect("build owner script");
-        let args: [u8; 32] = owner_script.calc_script_hash().unpack();
-        let args: Bytes = args.to_vec().into();
+        let args: [u8; 32] = owner_script.calc_script_hash().unpack().to_vec().into();
         context
             .build_script(&outpoints[SUDT_TYPESCRIPT_OUTPOINT_KEY], args)
             .expect("build sudt typescript succ")
@@ -295,14 +318,7 @@ impl Witness {
     }
 }
 
-fn str_to_molecule_bytes(s: &str) -> basic::Bytes {
-    basic::Bytes::new_builder()
-        .set(
-            s.as_bytes()
-                .iter()
-                .map(|c| Byte::new(*c))
-                .collect::<Vec<_>>()
-                .into(),
-        )
-        .build()
+fn str_to_eth_address(s: &str) -> basic::ETHAddress {
+    let address: ETHAddress = ETHAddress::try_from(hex::decode(s).unwrap()).expect("decode fail");
+    address.get_address().into()
 }

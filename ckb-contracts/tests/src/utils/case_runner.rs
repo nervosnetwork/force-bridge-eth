@@ -2,7 +2,8 @@
 
 use super::case_builder::{
     CellBuilder, OutpointsContext, TestCase, ALWAYS_SUCCESS_OUTPOINT_KEY,
-    ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY, FIRST_INPUT_OUTPOINT_KEY, SUDT_TYPESCRIPT_OUTPOINT_KEY,
+    ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY, ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY,
+    FIRST_INPUT_OUTPOINT_KEY, SUDT_TYPESCRIPT_OUTPOINT_KEY,
 };
 use crate::*;
 use ckb_testtool::{builtin::ALWAYS_SUCCESS, context::Context};
@@ -109,12 +110,19 @@ pub fn run_test(case: TestCase) {
 }
 
 fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContext) {
+    // let eth_bridge_lockscript_bin: Bytes = Loader::default().load_binary("eth-bridge-lockscript");
+    // let eth_bridge_lockscript_point = context.deploy_cell(eth_bridge_lockscript_bin);
+    let eth_bridge_lockscript_point = context.deploy_cell(ALWAYS_SUCCESS.clone());
     let eth_recipient_typescript_bin: Bytes =
         Loader::default().load_binary("eth-recipient-typescript");
     let eth_recipient_typescript_point = context.deploy_cell(eth_recipient_typescript_bin);
     let sudt_typescript_bin = include_bytes!("../../deps/simple_udt");
     let sudt_typescript_out_point = context.deploy_cell(Bytes::from(sudt_typescript_bin.as_ref()));
     let always_success_out_point = context.deploy_cell(ALWAYS_SUCCESS.clone());
+    outpoints_context.insert(
+        ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY,
+        eth_bridge_lockscript_point.clone(),
+    );
     outpoints_context.insert(
         ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY,
         eth_recipient_typescript_point.clone(),
