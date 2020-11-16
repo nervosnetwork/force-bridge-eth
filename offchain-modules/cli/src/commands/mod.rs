@@ -7,7 +7,7 @@ use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
-    burn, get_balance, get_ckb_proof_info, parse_ckb_proof, transfer_sudt, unlock,
+    burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock,
 };
 use force_eth_lib::util::ckb_util::{
     build_lockscript_from_address, build_outpoint, ETHSPVProofJson, Generator,
@@ -226,10 +226,8 @@ pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
 
 pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
     debug!("unlock_handler args: {:?}", &args);
-    let from = convert_eth_address(&args.from)?;
     let to = convert_eth_address(&args.to)?;
     let result = unlock(
-        from,
         to,
         args.private_key_path,
         args.tx_proof,

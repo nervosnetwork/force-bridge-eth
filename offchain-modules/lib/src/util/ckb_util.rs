@@ -406,7 +406,6 @@ impl Generator {
 
         // gen output of eth_recipient cell
         {
-            use force_eth_types::eth_recipient_cell::ETHAddress;
             let eth_recipient_data = ETHRecipientDataView {
                 eth_recipient_address: ETHAddress::try_from(eth_receiver_addr.as_bytes().to_vec())
                     .map_err(|err| anyhow!(err))?,

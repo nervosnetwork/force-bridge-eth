@@ -61,7 +61,6 @@ pub fn burn(
 }
 
 pub async fn unlock(
-    from: H160,
     to: H160,
     key_path: String,
     tx_proof: String,
