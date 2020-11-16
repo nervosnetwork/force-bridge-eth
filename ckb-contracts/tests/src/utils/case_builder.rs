@@ -255,7 +255,7 @@ impl SudtCell {
         let args: Bytes = args.to_vec().into();
         context
             .build_script(&outpoints[SUDT_TYPESCRIPT_OUTPOINT_KEY], args)
-            .expect("build sudt typescript succ")
+            .expect("build sudt typescript fail")
     }
 }
 

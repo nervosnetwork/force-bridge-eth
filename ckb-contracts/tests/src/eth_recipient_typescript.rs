@@ -10,7 +10,7 @@ fn test_correct_tx() {
 #[test]
 fn test_tx_when_inputs_less_than_outputs() {
     let mut case = get_correct_case();
-    case.sudt_cells.inputs[0].amount = 99;
+    case.sudt_cells.inputs[0].amount = 50;
     case.expect_return_error_info = "input sudt less than output sudt".to_string();
     case_runner::run_test(case);
 }
@@ -82,7 +82,10 @@ fn get_correct_case() -> TestCase {
         capacity_cells: CapacityCells {
             inputs: vec![CapacityCell {
                 capacity: 200 * CKB_UNITS,
-                lockscript: Default::default(),
+                lockscript: ScriptView::build_sudt_owner(
+                    "74381D4533cc43121abFef7566010dD9FB7c9F7a",
+                    "e404831459e3aCec0440F5c5462827e0Bccc2Ff1",
+                ),
                 index: 0,
             }],
             outputs: vec![],

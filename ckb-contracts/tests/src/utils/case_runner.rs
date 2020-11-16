@@ -18,7 +18,7 @@ pub const MAX_CYCLES: u64 = 100_000_000;
 
 pub fn run_test(case: TestCase) {
     let mut context = Context::default();
-    // set capture_debug == true to compare panic info.
+    // set capture_debug = true to compare panic info.
     context.set_capture_debug(true);
     let mut outpoints_context = OutpointsContext::new();
 
