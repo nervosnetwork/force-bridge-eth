@@ -10,7 +10,7 @@ import {EaglesongLib} from "./libraries/EaglesongLib.sol";
 import {ICKBChain} from "./interfaces/ICKBChain.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
-// TODO tools below just for test, they will be removed before production ready
+// tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
 contract CKBChain is ICKBChain, ICKBSpv {
@@ -61,7 +61,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
     /// header hash -> transactionRoots from the header
     mapping(bytes32 => bytes32) canonicalTransactionsRoots;
 
-
     /// All known header hashes. Stores up to `finalized_gc_threshold`.
     /// header number -> hashes of all headers with this number.
     mapping(uint64 => bytes32[]) allHeaderHashes;
@@ -96,17 +95,26 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     // query
-    function getHeadersByNumber(uint64 blockNumber) public returns (bytes32[] memory) {
+    function getHeadersByNumber(uint64 blockNumber)
+        public
+        returns (bytes32[] memory)
+    {
         return allHeaderHashes[blockNumber];
     }
 
     // query
-    function getCanonicalHeaderHash(uint64  blockNumber) public returns (bytes32) {
+    function getCanonicalHeaderHash(uint64 blockNumber)
+        public
+        returns (bytes32)
+    {
         return canonicalHeaderHashes[blockNumber];
     }
 
     // query
-    function getCanonicalTransactionsRoot(bytes32 blockHash) public returns (bytes32) {
+    function getCanonicalTransactionsRoot(bytes32 blockHash)
+        public
+        returns (bytes32)
+    {
         return canonicalTransactionsRoots[blockHash];
     }
 
@@ -115,7 +123,12 @@ contract CKBChain is ICKBChain, ICKBSpv {
         return latestHeader.epoch;
     }
 
-    function initWithHeader(bytes calldata data, bytes32 blockHash, uint64 finalizedGcThreshold, uint64 canonicalGcThreshold) external onlyGov {
+    function initWithHeader(
+        bytes calldata data,
+        bytes32 blockHash,
+        uint64 finalizedGcThreshold,
+        uint64 canonicalGcThreshold
+    ) external onlyGov {
         require(!initialized, "Contract is already initialized");
         initialized = true;
 
@@ -124,8 +137,12 @@ contract CKBChain is ICKBChain, ICKBSpv {
         CanonicalGcThreshold = canonicalGcThreshold;
 
         // decoder init header
-        bytes29 rawHeaderView = data.ref(uint40(ViewCKB.CKBTypes.Header)).rawHeader();
-        (uint256 target,) = CKBPow.compactToTarget(rawHeaderView.compactTarget());
+        bytes29 rawHeaderView = data
+            .ref(uint40(ViewCKB.CKBTypes.Header))
+            .rawHeader();
+        (uint256 target, ) = CKBPow.compactToTarget(
+            rawHeaderView.compactTarget()
+        );
         uint256 difficulty = CKBPow.targetToDifficulty(target);
         uint64 blockNumber = rawHeaderView.blockNumber();
         initBlockNumber = blockNumber;
@@ -143,7 +160,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
         // set canonical chain
         _refreshCanonicalChain(header, blockHash);
-        canonicalTransactionsRoots[blockHash] = rawHeaderView.transactionsRoot();
+        canonicalTransactionsRoots[blockHash] = rawHeaderView
+            .transactionsRoot();
     }
 
     /// # ICKBChain
@@ -173,16 +191,26 @@ contract CKBChain is ICKBChain, ICKBSpv {
         bytes32 blockHash = CKBCrypto.digest(headerBytes, 208);
 
         // ## verify blockHash should not exist
-        if (canonicalTransactionsRoots[blockHash] != bytes32(0) || blockHeaders[blockHash].number == blockNumber) {
+        if (
+            canonicalTransactionsRoots[blockHash] != bytes32(0) ||
+            blockHeaders[blockHash].number == blockNumber
+        ) {
             return;
         }
 
         // ## verify blockNumber
-        require(blockNumber + CanonicalGcThreshold >= latestBlockNumber, "block is too old");
+        require(
+            blockNumber + CanonicalGcThreshold >= latestBlockNumber,
+            "block is too old"
+        );
         bytes32 parentHash = rawHeaderView.parentHash();
 
         BlockHeader memory parentHeader = blockHeaders[parentHash];
-        require(parentHeader.totalDifficulty > 0 && parentHeader.number + 1 == blockNumber, "block's parent block mismatch");
+        require(
+            parentHeader.totalDifficulty > 0 &&
+                parentHeader.number + 1 == blockNumber,
+            "block's parent block mismatch"
+        );
 
         // ## verify pow
         // uint256 difficulty = _verifyPow(headerView, rawHeaderView, parentHeader);
@@ -205,7 +233,8 @@ contract CKBChain is ICKBChain, ICKBSpv {
         // 3. refresh canonicalChain
         if (header.totalDifficulty > latestHeader.totalDifficulty) {
             _refreshCanonicalChain(header, blockHash);
-            canonicalTransactionsRoots[blockHash] = rawHeaderView.transactionsRoot();
+            canonicalTransactionsRoots[blockHash] = rawHeaderView
+                .transactionsRoot();
         }
     }
 
@@ -214,37 +243,59 @@ contract CKBChain is ICKBChain, ICKBSpv {
     /// @param headerView           the bytes29 view of the header
     /// @param parentHeader         parent header of the header
     /// @return                     the difficulty of the header
-    function _verifyPow(bytes29 headerView, bytes29 rawHeaderView, BlockHeader memory parentHeader) internal view returns (uint256) {
+    function _verifyPow(
+        bytes29 headerView,
+        bytes29 rawHeaderView,
+        BlockHeader memory parentHeader
+    ) internal view returns (uint256) {
         bytes32 rawHeaderHash = CKBCrypto.digest(rawHeaderView.clone(), 192);
 
         // - 1. calc powMessage
-        bytes memory powMessage = abi.encodePacked(rawHeaderHash, headerView.slice(192, 16, uint40(ViewCKB.CKBTypes.Nonce)).clone());
+        bytes memory powMessage = abi.encodePacked(
+            rawHeaderHash,
+            headerView.slice(192, 16, uint40(ViewCKB.CKBTypes.Nonce)).clone()
+        );
 
         // - 2. calc EaglesongHash to output
         bytes32 output = EaglesongLib.EaglesongHash(powMessage);
 
         // - 3. calc block_target, check if target > 0
-        (uint256 target, bool overflow) = CKBPow.compactToTarget(rawHeaderView.compactTarget());
+        (uint256 target, bool overflow) = CKBPow.compactToTarget(
+            rawHeaderView.compactTarget()
+        );
         require(target > 0 && !overflow, "block target is zero or overflow");
 
         // - 4. check if EaglesongHash <= block target
         // @dev the smaller the target value, the greater the difficulty
-        require(uint256(output) <= target, "block difficulty should greater or equal the target difficulty");
+        require(
+            uint256(output) <= target,
+            "block difficulty should greater or equal the target difficulty"
+        );
 
         // - 5. verify_difficulty
         uint256 difficulty = CKBPow.targetToDifficulty(target);
         uint64 epoch = rawHeaderView.epoch();
         if (epoch == parentHeader.epoch) {
-            require(difficulty == parentHeader.difficulty, "difficulty should equal parent's difficulty");
+            require(
+                difficulty == parentHeader.difficulty,
+                "difficulty should equal parent's difficulty"
+            );
         } else {
             // we are using dampening factor τ = 2 in CKB, the difficulty adjust range will be [previous / (τ * τ) .. previous * (τ * τ)]
-            require(difficulty >= parentHeader.difficulty / 4 && difficulty <= parentHeader.difficulty * 4, "difficulty invalid");
+            require(
+                difficulty >= parentHeader.difficulty / 4 &&
+                    difficulty <= parentHeader.difficulty * 4,
+                "difficulty invalid"
+            );
         }
 
         return difficulty;
     }
 
-    function _refreshCanonicalChain(BlockHeader memory header, bytes32 blockHash) internal {
+    function _refreshCanonicalChain(
+        BlockHeader memory header,
+        bytes32 blockHash
+    ) internal {
         // remove lower difficulty canonical branch
         for (uint64 i = header.number + 1; i <= latestBlockNumber; i++) {
             emit BlockHashReverted(i, canonicalHeaderHashes[i]);
@@ -264,7 +315,10 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint64 parentNumber = latestBlockNumber - 1;
         bytes32 parentHash = latestHeader.parentHash;
         while (parentNumber > 0) {
-            if (canonicalHeaderHashes[parentNumber] == bytes32(0) || canonicalHeaderHashes[parentNumber] == parentHash) {
+            if (
+                canonicalHeaderHashes[parentNumber] == bytes32(0) ||
+                canonicalHeaderHashes[parentNumber] == parentHash
+            ) {
                 break;
             }
             canonicalHeaderHashes[parentNumber] = parentHash;
@@ -284,17 +338,32 @@ contract CKBChain is ICKBChain, ICKBSpv {
     }
 
     /// #ICKBSpv
-    function proveTxExist(bytes calldata txProofData, uint64 numConfirmations) external view returns (bool) {
+    function proveTxExist(bytes calldata txProofData, uint64 numConfirmations)
+        external
+        view
+        returns (bool)
+    {
         require(initialized, "Contract is not initialized");
 
-        bytes29 proofView = txProofData.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
+        bytes29 proofView = txProofData.ref(
+            uint40(ViewSpv.SpvTypes.CKBTxProof)
+        );
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
 
         // TODO use safeMath for blockNumber + numConfirmations calc
-        require(blockNumber + numConfirmations <= latestBlockNumber, "blockNumber from txProofData is too ahead of the latestBlockNumber");
-        require(canonicalHeaderHashes[blockNumber] == blockHash, "blockNumber and blockHash mismatch");
-        require(canonicalTransactionsRoots[blockHash] != bytes32(0), "blockHash invalid or too old");
+        require(
+            blockNumber + numConfirmations <= latestBlockNumber,
+            "blockNumber from txProofData is too ahead of the latestBlockNumber"
+        );
+        require(
+            canonicalHeaderHashes[blockNumber] == blockHash,
+            "blockNumber and blockHash mismatch"
+        );
+        require(
+            canonicalTransactionsRoots[blockHash] != bytes32(0),
+            "blockHash invalid or too old"
+        );
         uint16 index = proofView.txMerkleIndex();
         uint16 sibling;
         uint256 lemmasIndex = 0;
@@ -307,9 +376,21 @@ contract CKBChain is ICKBChain, ICKBSpv {
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
             if (index < sibling) {
-                rawTxRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, lemmas.indexH256Array(lemmasIndex)), 64);
+                rawTxRoot = CKBCrypto.digest(
+                    abi.encodePacked(
+                        rawTxRoot,
+                        lemmas.indexH256Array(lemmasIndex)
+                    ),
+                    64
+                );
             } else {
-                rawTxRoot = CKBCrypto.digest(abi.encodePacked(lemmas.indexH256Array(lemmasIndex), rawTxRoot), 64);
+                rawTxRoot = CKBCrypto.digest(
+                    abi.encodePacked(
+                        lemmas.indexH256Array(lemmasIndex),
+                        rawTxRoot
+                    ),
+                    64
+                );
             }
 
             lemmasIndex++;
@@ -318,8 +399,14 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
 
         // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
-        bytes32 transactionsRoot = CKBCrypto.digest(abi.encodePacked(rawTxRoot, proofView.witnessesRoot()), 64);
-        require(transactionsRoot == canonicalTransactionsRoots[blockHash], "proof not passed");
+        bytes32 transactionsRoot = CKBCrypto.digest(
+            abi.encodePacked(rawTxRoot, proofView.witnessesRoot()),
+            64
+        );
+        require(
+            transactionsRoot == canonicalTransactionsRoots[blockHash],
+            "proof not passed"
+        );
         return true;
     }
 
@@ -355,7 +442,12 @@ contract CKBChain is ICKBChain, ICKBSpv {
 
     // TODO remove all mock function before production ready
     // mock for test
-    function mockForProveTxExist(uint64 _latestBlockNumber, uint64 spvBlockNumber, bytes32 blockHash, bytes32 transactionsRoot) public {
+    function mockForProveTxExist(
+        uint64 _latestBlockNumber,
+        uint64 spvBlockNumber,
+        bytes32 blockHash,
+        bytes32 transactionsRoot
+    ) public {
         governance = msg.sender;
         initialized = true;
         latestBlockNumber = _latestBlockNumber;

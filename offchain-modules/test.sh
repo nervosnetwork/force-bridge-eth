@@ -40,8 +40,25 @@ start_ganache
 truffle version
 cd ../eth-contracts && truffle migrate --reset
 cd ../offchain-modules
-RUST_LOG="debug" target/debug/force-eth-cli lock-eth --from 848582DCe45547981B29957A9C6Fe390386476D2 --to 0Ef621E386a0F30CBFa3AbDC6363bc4219627162 --amount 10000 --ckb-address ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37 --private-key-path cli/privkeys/eth_key
-# ckb-relay example
+
+ETH_CONTRACT_ADDRESS=0x963C9Ee211373B902402467B58B407d2065dA671
+TOKEN_ADDRESS=0xEaddfCa0A3C33cd4e7A5F56bCF1cE31944dD0D0d
+LOCK_TOKEN_PATH=/tmp/lock_token.log
+LOCK_ETH_PATH=/tmp/lock_eth.log
+
+target/debug/force-eth-cli dev-init -f --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --eth-token-address "${TOKEN_ADDRESS}"
+target/debug/force-eth-cli approve --from "${ETH_CONTRACT_ADDRESS}" --to "${TOKEN_ADDRESS}"
+
+target/debug/force-eth-cli lock-token  --to "${ETH_CONTRACT_ADDRESS}" --token  "${TOKEN_ADDRESS}" --amount 100 --bridge-fee 10 --sudt-extra-data sudt_extra_data > "${LOCK_TOKEN_PATH}"
+lock_token_hash=`cat "${LOCK_TOKEN_PATH}"| awk '{print $5}'`
+echo "${lock_token_hash}"
+target/debug/force-eth-cli mint --hash "${lock_token_hash}" --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --cell depend_on_eth_relay
+
+target/debug/force-eth-cli lock-eth --to "${ETH_CONTRACT_ADDRESS}" --amount 10000 --bridge-fee 1000  --sudt-extra-data sudt_extra_data > "${LOCK_ETH_PATH}"
+lock_eth_hash=`cat "${LOCK_ETH_PATH}"| awk '{print $4}'`
+echo "${lock_eth_hash}"
+target/debug/force-eth-cli mint --hash "${lock_eth_hash}" --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --cell depend_on_eth_relay
+
 #target/debug/force-eth-cli ckb-relay --from 0x627306090abaB3A6e1400e9345bC60c78a8BEf57 --to 0xeec918d74c746167564401103096D45BbD494B74  --eth-rpc-url http://172.18.0.51:8545 --private-key-path cli/privkeys/key
 # ckb dev_init : deploy ckb contract and prepare
 #RUST_LOG=info ./target/debug/force-eth-cli dev-init  --token 0xCa5e43317e18c98b83aB1406818310A683Dcd9D1  --lock-contract-addr 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 -f
