@@ -103,7 +103,6 @@ impl CKBRelayer {
         let signed_tx = self
             .web3_client
             .build_sign_tx(
-                self.from,
                 self.contract_addr,
                 self.priv_key_path.clone(),
                 add_headers_abi,

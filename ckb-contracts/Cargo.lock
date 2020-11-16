@@ -1163,6 +1163,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "eth-light-client-lockscript-lib"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "ckb-std",
+ "mockall",
+ "molecule",
+]
+
+[[package]]
 name = "eth-recipient-typescript-lib"
 version = "0.1.0"
 dependencies = [
