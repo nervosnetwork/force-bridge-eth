@@ -19,4 +19,8 @@ pub trait Adapter {
     fn load_data_from_dep(&self, index: usize) -> Vec<u8>;
 
     fn load_witness_args(&self) -> Bytes;
+
+    fn load_script_args(&self) -> Bytes;
+
+    fn load_first_outpoint(&self) -> Bytes;
 }

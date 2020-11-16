@@ -51,7 +51,14 @@ fn verify_witness<T: Adapter>(
     // check input && output data
     let (header, prev) = match input {
         Some(data) => verify_input_output_data(data, output, header_raw),
-        None => init_header_info(output, header_raw),
+        None => {
+            assert_eq!(
+                data_loader.load_first_outpoint(),
+                data_loader.load_script_args(),
+                "invalid first cell id"
+            );
+            init_header_info(output, header_raw)
+        }
     };
     // parse merkle proof
     let mut proofs = vec![];
