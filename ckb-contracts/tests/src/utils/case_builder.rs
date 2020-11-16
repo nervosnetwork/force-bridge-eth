@@ -251,7 +251,8 @@ impl SudtCell {
                 self.owner_script.args.clone(),
             )
             .expect("build owner script");
-        let args: [u8; 32] = owner_script.calc_script_hash().unpack().to_vec().into();
+        let args: [u8; 32] = owner_script.calc_script_hash().unpack();
+        let args: Bytes = args.to_vec().into();
         context
             .build_script(&outpoints[SUDT_TYPESCRIPT_OUTPOINT_KEY], args)
             .expect("build sudt typescript succ")

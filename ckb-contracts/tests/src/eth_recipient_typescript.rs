@@ -1,4 +1,3 @@
-#[allow(unused_imports)]
 use crate::utils::{case_builder::*, case_runner};
 use force_eth_types::config::CKB_UNITS;
 
@@ -8,7 +7,6 @@ fn test_correct_tx() {
     case_runner::run_test(case);
 }
 
-#[allow(dead_code)]
 fn get_correct_case() -> TestCase {
     TestCase {
         cell_deps: vec![],
