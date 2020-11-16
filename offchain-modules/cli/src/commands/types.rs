@@ -55,9 +55,13 @@ pub struct DevInitArgs {
         long,
         default_value = "../ckb-contracts/build/release/eth-recipient-typescript"
     )]
-    pub recipient_lockscript_path: String,
+    pub recipient_typescript_path: String,
     #[clap(long, default_value = "cli/deps/simple_udt")]
     pub sudt_path: String,
+    #[clap(long)]
+    pub eth_contract_address: String,
+    #[clap(long)]
+    pub eth_token_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -93,6 +97,8 @@ pub struct LockTokenArgs {
     pub config_path: String,
     #[clap(long)]
     pub sudt_extra_data: String,
+    #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
+    pub ckb_recipient_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -111,6 +117,8 @@ pub struct LockEthArgs {
     pub config_path: String,
     #[clap(long)]
     pub sudt_extra_data: String,
+    #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
+    pub ckb_recipient_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -137,6 +145,8 @@ pub struct MintArgs {
     pub private_key_path: String,
     #[clap(short, long)]
     pub cell: String,
+    #[clap(long)]
+    pub eth_contract_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]

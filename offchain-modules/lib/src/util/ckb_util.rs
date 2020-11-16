@@ -12,7 +12,8 @@ use ckb_types::{
 };
 use ethereum_types::H160;
 use faster_hex::hex_decode;
-use force_eth_types::generated::basic::BytesVec;
+use force_eth_types::generated::basic::{BytesVec, ETHAddress};
+use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::{basic, witness};
 use force_sdk::cell_collector::{get_live_cell_by_lockscript, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
@@ -194,26 +195,34 @@ impl Generator {
             self.add_cell_deps(&mut helper, outpoints)
                 .map_err(|err| anyhow!(err))?;
 
-            let cell_script = parse_cell(cell_dep.as_str())?;
-            let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
-                .map_err(|err| anyhow!(err))?
-                .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
-            let mut builder = helper.transaction.as_advanced_builder();
-            builder = builder.cell_dep(
-                CellDep::new_builder()
-                    .out_point(cell.out_point.into())
-                    .dep_type(DepType::Code.into())
-                    .build(),
-            );
-            helper.transaction = builder.build();
+            // let cell_script = parse_cell(cell_dep.as_str())?;
+            // let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
+            //     .map_err(|err| anyhow!(err))?
+            //     .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
+            // let mut builder = helper.transaction.as_advanced_builder();
+            // builder = builder.cell_dep(
+            //     CellDep::new_builder()
+            //         .out_point(cell.out_point.into())
+            //         .dep_type(DepType::Code.into())
+            //         .build(),
+            // );
+            // helper.transaction = builder.build();
         }
 
         let lockscript_code_hash = hex::decode(&self.settings.bridge_lockscript.code_hash)?;
+        let args = ETHBridgeLockArgs::new_builder()
+            .eth_token_address(
+                ETHAddress::from_slice(&eth_proof.token.as_bytes()).map_err(|err| anyhow!(err))?,
+            )
+            .eth_contract_address(
+                ETHAddress::from_slice(&eth_proof.eth_address.as_bytes())
+                    .map_err(|err| anyhow!(err))?,
+            )
+            .build();
         let lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
             .hash_type(DepType::Code.into())
-            // FIXME: add script args
-            .args(ckb_types::packed::Bytes::default())
+            .args(args.as_bytes().pack())
             .build();
 
         // input bridge cells
@@ -239,20 +248,16 @@ impl Generator {
                 )
                 .map_err(|err| anyhow!(err))?;
         }
-
         // 1 bridge cells
         {
             let to_output = CellOutput::new_builder().lock(lockscript).build();
             helper.add_output_with_auto_capacity(to_output, ckb_types::bytes::Bytes::default());
         }
-
         // 2 xt cells
         {
-            let recipient_lockscript = Script::from(
-                Address::from_str(&eth_proof.ckb_recipient)
-                    .map_err(|err| anyhow!(err))?
-                    .payload(),
-            );
+            let recipient_lockscript =
+                Script::new_unchecked(Bytes::from(eth_proof.recipient_lockscript.clone()));
+
             let sudt_typescript_code_hash = hex::decode(&self.settings.sudt.code_hash)?;
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
@@ -267,7 +272,6 @@ impl Generator {
             let to_user_amount_data = eth_proof.lock_amount.to_le_bytes().to_vec().into();
             helper.add_output_with_auto_capacity(sudt_user_output, to_user_amount_data);
         }
-
         // add witness
         {
             let witness_data = EthWitness {
@@ -400,6 +404,15 @@ pub fn parse_cell(cell: &str) -> Result<Script> {
     Ok(cell_typescript)
 }
 
+pub fn build_lockscript_from_address(address: &str) -> Result<Script> {
+    let recipient_lockscript = Script::from(
+        Address::from_str(address)
+            .map_err(|err| anyhow!(err))?
+            .payload(),
+    );
+    Ok(recipient_lockscript)
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct ETHSPVProofJson {
     pub log_index: u64,
@@ -410,7 +423,8 @@ pub struct ETHSPVProofJson {
     pub proof: Vec<Vec<u8>>,
     pub token: H160,
     pub lock_amount: u128,
-    pub ckb_recipient: String,
+    pub recipient_lockscript: Vec<u8>,
+    pub eth_address: H160,
 }
 
 impl TryFrom<ETHSPVProofJson> for witness::ETHSPVProof {

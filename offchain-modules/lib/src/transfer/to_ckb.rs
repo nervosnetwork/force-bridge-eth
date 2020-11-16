@@ -1,13 +1,15 @@
 use crate::util::ckb_util::{ETHSPVProofJson, Generator};
-use crate::util::eth_util::Web3Client;
+use crate::util::eth_util::{convert_eth_address, Web3Client};
 use crate::util::settings::{OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1};
 use ckb_types::core::DepType;
 use ckb_types::packed::{Byte32, Script};
-use ckb_types::prelude::{Builder, Entity};
+use ckb_types::prelude::{Builder, Entity, Pack};
 use ethabi::{Function, Param, ParamType, Token};
+use force_eth_types::generated::basic::ETHAddress;
+use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{deploy, sign};
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
@@ -33,10 +35,8 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Res
         }],
         constant: false,
     };
-    dbg!(1);
-    let tokens = [Token::Address(from), Token::Uint(U256::from(1000))];
+    let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
     let input_data = function.encode_input(&tokens)?;
-    dbg!(2);
     let res = rpc_client
         .send_transaction(to, key_path, input_data, U256::from(0))
         .await?;
@@ -177,8 +177,10 @@ pub fn dev_init(
     bridge_typescript_path: String,
     bridge_lockscript_path: String,
     light_client_typescript_path: String,
-    recipient_lockscript_path: String,
+    recipient_typescript_path: String,
     sudt_path: String,
+    eth_contract_address_str: String,
+    eth_token_address_str: String,
 ) -> Result<()> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
@@ -188,7 +190,7 @@ pub fn dev_init(
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
     let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
-    let recipient_lockscript_bin = std::fs::read(recipient_lockscript_path)?;
+    let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
     let sudt_bin = std::fs::read(sudt_path)?;
 
     let bridge_typescript_code_hash = blake2b_256(&bridge_typescript_bin);
@@ -200,8 +202,8 @@ pub fn dev_init(
     let bridge_lockscript_code_hash = blake2b_256(&bridge_lockscript_bin);
     let bridge_lockscript_code_hash_hex = hex::encode(&bridge_lockscript_code_hash);
 
-    let recipient_lockscript_code_hash = blake2b_256(&recipient_lockscript_bin);
-    let recipient_lockscript_code_hash_hex = hex::encode(&recipient_lockscript_code_hash);
+    let recipient_typescript_code_hash = blake2b_256(&recipient_typescript_bin);
+    let recipient_typescript_code_hash_hex = hex::encode(&recipient_typescript_code_hash);
 
     let sudt_code_hash = blake2b_256(&sudt_bin);
     let sudt_code_hash_hex = hex::encode(&sudt_code_hash);
@@ -210,14 +212,25 @@ pub fn dev_init(
         bridge_typescript_bin,
         bridge_lockscript_bin,
         light_client_typescript_bin,
-        recipient_lockscript_bin,
+        recipient_typescript_bin,
         sudt_bin,
     ];
+
+    let eth_contract_address = convert_eth_address(eth_contract_address_str.as_str())?;
+    let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
+    let args = ETHBridgeLockArgs::new_builder()
+        .eth_token_address(
+            ETHAddress::from_slice(eth_token_address.as_bytes()).map_err(|err| anyhow!(err))?,
+        )
+        .eth_contract_address(
+            ETHAddress::from_slice(eth_contract_address.as_bytes()).map_err(|err| anyhow!(err))?,
+        )
+        .build();
+
     let cell_script = Script::new_builder()
         .code_hash(Byte32::from_slice(&bridge_lockscript_code_hash)?)
         .hash_type(DepType::Code.into())
-        // FIXME: add script args
-        .args(ckb_types::packed::Bytes::default())
+        .args(args.as_bytes().pack())
         .build();
     let tx = deploy(
         &mut rpc_client,
@@ -252,8 +265,8 @@ pub fn dev_init(
                 index: 2,
             },
         },
-        recipient_lockscript: ScriptConf {
-            code_hash: recipient_lockscript_code_hash_hex,
+        recipient_typescript: ScriptConf {
+            code_hash: recipient_typescript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 3,

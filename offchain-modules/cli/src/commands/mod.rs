@@ -7,7 +7,9 @@ use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{burn, parse_ckb_proof};
-use force_eth_lib::util::ckb_util::{build_outpoint, ETHSPVProofJson, Generator};
+use force_eth_lib::util::ckb_util::{
+    build_lockscript_from_address, build_outpoint, ETHSPVProofJson, Generator,
+};
 use force_eth_lib::util::eth_util::convert_eth_address;
 use force_eth_lib::util::settings::Settings;
 use log::debug;
@@ -59,8 +61,10 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.bridge_typescript_path,
         args.bridge_lockscript_path,
         args.light_client_typescript_path,
-        args.recipient_lockscript_path,
+        args.recipient_typescript_path,
         args.sudt_path,
+        args.eth_contract_address,
+        args.eth_token_address,
     )
 }
 
@@ -81,11 +85,12 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     let token_addr = convert_eth_address(&args.token)?;
     let settings = Settings::new(&args.config_path)?;
     let outpoint = build_outpoint(settings.replay_resist_lockscript.outpoint)?;
+    let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
         Token::Address(token_addr),
         Token::Uint(U256::from(args.amount)),
         Token::Uint(U256::from(args.bridge_fee)),
-        Token::Bytes(hex::decode(settings.recipient_lockscript.code_hash)?),
+        Token::Bytes(recipient_lockscript.as_slice().to_vec()),
         Token::Bytes(outpoint.as_slice().to_vec()),
         Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
     ];
@@ -101,9 +106,10 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     let settings = Settings::new(&args.config_path)?;
     let outpoint = build_outpoint(settings.replay_resist_lockscript.outpoint)?;
     let to = convert_eth_address(&args.to)?;
+    let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
         Token::Uint(U256::from(args.bridge_fee)),
-        Token::Bytes(hex::decode(settings.recipient_lockscript.code_hash)?),
+        Token::Bytes(recipient_lockscript.as_slice().to_vec()),
         Token::Bytes(outpoint.as_slice().to_vec()),
         Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
     ];
@@ -158,6 +164,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     let eth_spv_proof = generate_eth_proof(args.hash.clone(), args.eth_rpc_url.clone())
         .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
     let header_rlp = get_header_rlp(args.eth_rpc_url, eth_spv_proof.block_hash).await?;
+
     let eth_proof = ETHSPVProofJson {
         log_index: u64::try_from(eth_spv_proof.log_index).unwrap(),
         log_entry_data: eth_spv_proof.log_entry_data,
@@ -167,7 +174,8 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         proof: vec![eth_spv_proof.proof.into_bytes()],
         token: eth_spv_proof.token,
         lock_amount: eth_spv_proof.lock_amount,
-        ckb_recipient: eth_spv_proof.ckb_recipient,
+        recipient_lockscript: eth_spv_proof.recipient_lockscript,
+        eth_address: convert_eth_address(args.eth_contract_address.as_str())?,
     };
     let settings = Settings::new(&args.config_path)?;
     let mut generator = Generator::new(args.ckb_rpc_url, args.indexer_url, settings)
