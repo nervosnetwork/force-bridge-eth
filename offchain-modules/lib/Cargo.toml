@@ -33,3 +33,4 @@ faster-hex = "0.4"
 eth-spv-lib = { git = "https://github.com/LeonLi000/eth-spv-lib.git", default-features = false }
 cmd_lib = "0.8.5"
 force-eth-types = { path = "../../ckb-contracts/types" }
+molecule = { version = "0.6", default-features = false }

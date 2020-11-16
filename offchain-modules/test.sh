@@ -42,4 +42,12 @@ cd ../eth-contracts && truffle migrate --reset
 cd ../offchain-modules
 RUST_LOG="debug" target/debug/force-eth-cli lock-eth --from 848582DCe45547981B29957A9C6Fe390386476D2 --to 0Ef621E386a0F30CBFa3AbDC6363bc4219627162 --amount 10000 --ckb-address ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37 --private-key-path cli/privkeys/eth_key
 # ckb-relay example
-# target/debug/force-eth-cli ckb-relay --from 0x627306090abaB3A6e1400e9345bC60c78a8BEf57 --to 0xeec918d74c746167564401103096D45BbD494B74  --eth-rpc-url http://172.18.0.51:8545 --private-key-path cli/privkeys/key
+#target/debug/force-eth-cli ckb-relay --from 0x627306090abaB3A6e1400e9345bC60c78a8BEf57 --to 0xeec918d74c746167564401103096D45BbD494B74  --eth-rpc-url http://172.18.0.51:8545 --private-key-path cli/privkeys/key
+# ckb dev_init : deploy ckb contract and prepare
+#RUST_LOG=info ./target/debug/force-eth-cli dev-init  --token 0xCa5e43317e18c98b83aB1406818310A683Dcd9D1  --lock-contract-addr 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 -f
+
+#RUST_LOG=info  ./target/debug/force-eth-cli  query-sudt-blance --addr ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37 --token-addr 0xCa5e43317e18c98b83aB1406818310A683Dcd9D1 --lock-contract-addr 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2
+
+#RUST_LOG=info ./target/debug/force-eth-cli burn --burn-amount 9000 --receive-addr 0xCa5e43317e18c98b83aB1406818310A683Dcd9D1 --token-addr 0xCa5e43317e18c98b83aB1406818310A683Dcd9D1   --lock-contract-addr 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 --unlock-fee 10 --private-key-path cli/privkeys/ckb_key
+
+#./target/debug/force-eth-cli  generate-ckb-proof --tx-hash 0395143a90bf9a1ac669c146211724e33797cb36ff0bec0048c17d2d9a11592d

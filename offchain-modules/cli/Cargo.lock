@@ -319,7 +319,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0940dc441f31689269e10ac70eb1002a3a1d3ad1390e030043662eb7fe4688b"
 dependencies = [
- "block-padding 0.1.5",
+ "block-padding",
  "byte-tools",
  "byteorder",
  "generic-array 0.12.3",
@@ -331,7 +331,6 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
 dependencies = [
- "block-padding 0.2.1",
  "generic-array 0.14.4",
 ]
 
@@ -352,12 +351,6 @@ checksum = "fa79dedbb091f449f1f39e53edf88d5dbe95f895dae6135a8d7b881fb5af73f5"
 dependencies = [
  "byte-tools",
 ]
-
-[[package]]
-name = "block-padding"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blocking"
@@ -819,33 +812,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cmd_lib"
-version = "0.8.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42443b644d30f401746fb4483fba96b13076e1ef6cb5bca7d6a14d1d8f9f2bd9"
-dependencies = [
- "cmd_lib_core",
- "cmd_lib_macros",
-]
-
-[[package]]
-name = "cmd_lib_core"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c50c50a1536e882455aeaff22015146ea143b9106fc8e116669dd078ec7b7fc8"
-
-[[package]]
-name = "cmd_lib_macros"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d202b0cfc28d8928ba89138c0a8248cf921b9870c6c9d60c9951092df5b62b2"
-dependencies = [
- "cmd_lib_core",
- "proc-macro2 1.0.24",
- "quote 1.0.7",
-]
-
-[[package]]
 name = "colored"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1190,19 +1156,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eth-spv-lib"
-version = "0.1.0"
-source = "git+https://github.com/LeonLi000/eth-spv-lib.git#1f8c2d3b75cf2e10bcc65d7e82ad6449a93b0f94"
-dependencies = [
- "derive_more",
- "ethereum-types",
- "rlp",
- "rlp-derive",
- "sha2",
- "sha3",
-]
-
-[[package]]
 name = "ethabi"
 version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1366,25 +1319,19 @@ name = "force-eth-lib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ckb-hash",
  "ckb-jsonrpc-types",
  "ckb-sdk",
  "ckb-types",
- "cmd_lib",
  "config",
- "eth-spv-lib",
  "ethabi",
  "ethereum-tx-sign",
  "ethereum-types",
  "faster-hex 0.4.1",
- "force-eth-types",
  "force-sdk",
  "futures 0.3.8",
  "hex 0.4.2",
  "log",
- "molecule",
  "rlp",
- "rusty-receipt-proof-maker",
  "secp256k1",
  "serde 1.0.117",
  "serde_derive",
@@ -1392,14 +1339,6 @@ dependencies = [
  "tokio 0.2.22",
  "toml",
  "web3",
-]
-
-[[package]]
-name = "force-eth-types"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10",
- "molecule",
 ]
 
 [[package]]
@@ -1413,7 +1352,6 @@ dependencies = [
  "ckb-sdk",
  "ckb-types",
  "config",
- "env_logger",
  "failure",
  "hex 0.4.2",
  "int-enum",
@@ -2053,12 +1991,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
 ]
-
-[[package]]
-name = "keccak"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67c21572b4949434e4fc1e1978b99c5f77064153c59d998bf13ecd96fb5ecba7"
 
 [[package]]
 name = "kernel32-sys"
@@ -3086,17 +3018,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rlp-derive"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e33d7b2abe0c340d8797fe2907d3f20d3b5ea5908683618bfe80df7f621f672a"
-dependencies = [
- "proc-macro2 1.0.24",
- "quote 1.0.7",
- "syn 1.0.48",
-]
-
-[[package]]
 name = "rust-argon2"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3138,7 +3059,7 @@ dependencies = [
 [[package]]
 name = "rusty-receipt-proof-maker"
 version = "0.1.0"
-source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git#2824caec83bda4bcc7eeccc507198823fc15fd9d"
+source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git#09112d2ca3461e6b067597e5e392625fe6241a13"
 dependencies = [
  "chrono",
  "docopt",
@@ -3391,18 +3312,6 @@ dependencies = [
  "digest 0.8.1",
  "fake-simd",
  "opaque-debug 0.2.3",
-]
-
-[[package]]
-name = "sha3"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f81199417d4e5de3f04b1e871023acea7389672c4135918f05aa9cbf2f2fa809"
-dependencies = [
- "block-buffer 0.9.0",
- "digest 0.9.0",
- "keccak",
- "opaque-debug 0.3.0",
 ]
 
 [[package]]

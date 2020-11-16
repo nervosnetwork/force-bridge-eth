@@ -6,11 +6,13 @@ use force_eth_lib::relay::eth_relay::ETHRelayer;
 use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
-use force_eth_lib::transfer::to_eth::{burn, parse_ckb_proof};
+use force_eth_lib::transfer::to_eth::{
+    burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock,
+};
 use force_eth_lib::util::ckb_util::{ETHSPVProofJson, Generator};
 use force_eth_lib::util::eth_util::convert_eth_address;
 use force_eth_lib::util::settings::Settings;
-use log::debug;
+use log::{debug, info};
 use rusty_receipt_proof_maker::generate_eth_proof;
 use std::convert::TryFrom;
 use types::*;
@@ -35,8 +37,10 @@ pub async fn handler(opt: Opts) -> Result<()> {
         // parse ckb spv proof from tx_hash.
         SubCommand::GenerateCkbProof(args) => generate_ckb_proof_handler(args),
         // verify ckb spv proof && unlock erc20 token.
-        SubCommand::Unlock(args) => unlock_handler(args),
+        SubCommand::Unlock(args) => unlock_handler(args).await,
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
+        SubCommand::TransferSudt(args) => transfer_sudt_handler(args),
+        SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args),
 
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
@@ -50,6 +54,8 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
             &args.config_path
         ));
     }
+    let token_addr = convert_eth_address(&args.token)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
     dev_init(
         args.config_path,
         args.rpc_url,
@@ -58,7 +64,10 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.bridge_typescript_path,
         args.bridge_lockscript_path,
         args.light_client_typescript_path,
+        args.eth_recipient_typescript_path,
         args.sudt_path,
+        token_addr,
+        lock_contract_addr,
     )
 }
 
@@ -174,26 +183,88 @@ pub fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
 
 pub fn burn_handler(args: BurnArgs) -> Result<()> {
     debug!("burn_handler args: {:?}", &args);
-    let ckb_tx_hash = burn(args.private_key_path, args.rpc_url)?;
+    let token_addr = convert_eth_address(&args.token_addr)?;
+    let receive_addr = convert_eth_address(&args.receive_addr)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    let ckb_tx_hash = burn(
+        args.private_key_path,
+        args.ckb_rpc_url,
+        args.indexer_rpc_url,
+        args.config_path,
+        args.tx_fee,
+        args.unlock_fee,
+        args.burn_amount,
+        token_addr,
+        receive_addr,
+        lock_contract_addr,
+    )?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
     todo!()
 }
 
 pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     debug!("generate_ckb_proof_handler args: {:?}", &args);
-    let proof = parse_ckb_proof(&args.tx_hash, args.ckb_rpc_url)?;
-    log::info!("ckb tx proof: {:?}", proof);
+    let (header, tx) = get_ckb_proof_info(&args.tx_hash, args.ckb_rpc_url)?;
+    println!("headers : {:?}", header);
+    println!("tx : {:?}", tx);
     Ok(())
 }
 
-pub fn unlock_handler(args: UnlockArgs) -> Result<()> {
+pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
     debug!("unlock_handler args: {:?}", &args);
-    todo!()
+    let from = convert_eth_address(&args.from)?;
+    let to = convert_eth_address(&args.to)?;
+    let result = unlock(
+        from,
+        to,
+        args.private_key_path,
+        args.tx_proof,
+        args.tx_info,
+        args.eth_rpc_url,
+    )
+    .await?;
+    println!("unlock tx hash : {:?}", result);
+    Ok(())
 }
 
 pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
     todo!()
+}
+pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
+    debug!("mock_transfer_sudt_handler args: {:?}", &args);
+    let token_addr = convert_eth_address(&args.token_addr)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    transfer_sudt(
+        args.private_key_path,
+        args.ckb_rpc_url,
+        args.indexer_rpc_url,
+        args.config_path,
+        args.to_addr,
+        args.tx_fee,
+        args.ckb_amount,
+        args.sudt_amount,
+        token_addr,
+        lock_contract_addr,
+    )?;
+    Ok(())
+}
+
+pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
+    debug!("query sudt balance handler args: {:?}", &args);
+    let token_addr = convert_eth_address(&args.token_addr)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+
+    let result = get_balance(
+        args.ckb_rpc_url,
+        args.indexer_rpc_url,
+        args.config_path,
+        args.addr,
+        token_addr,
+        lock_contract_addr,
+    )?;
+    info!("sudt balance is {} ", result);
+    Ok(())
 }
 
 pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
