@@ -15,5 +15,5 @@ pub trait Adapter {
 
     fn load_output_script(&self) -> Script;
 
-    fn check_input_owner(&self, owner_script: Bytes) -> bool;
+    fn check_input_owner(&self, owner_script: &Bytes) -> bool;
 }

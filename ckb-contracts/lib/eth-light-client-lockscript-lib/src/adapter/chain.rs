@@ -1,7 +1,7 @@
 use super::Adapter;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::Script;
-use ckb_std::high_level::{load_cell_lock, load_script, QueryIter};
+use ckb_std::high_level::{load_cell_lock, load_cell_lock_hash, load_script, QueryIter};
 
 use molecule::bytes::Bytes;
 
@@ -20,8 +20,8 @@ impl Adapter for ChainAdapter {
     }
 
     fn check_input_owner(&self, owner_script: &Bytes) -> bool {
-        QueryIter::new(load_cell_lock, Source::Input)
-            .filter(|lock| lock.as_slice() == owner_script.as_ref())
+        QueryIter::new(load_cell_lock_hash, Source::Input)
+            .filter(|lock| lock == owner_script.as_ref())
             .count()
             > 0
     }
