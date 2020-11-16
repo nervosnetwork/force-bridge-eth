@@ -180,7 +180,7 @@ impl Generator {
         &mut self,
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
-        cell_dep: String,
+        _cell_dep: String,
     ) -> Result<TransactionView> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
