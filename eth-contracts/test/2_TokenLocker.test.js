@@ -15,7 +15,7 @@ contract("TokenLocker", () => {
     this.timeout(0);
 
     let factory = await ethers.getContractFactory(
-      "contracts/MockCKBSpv.sol:MockCKBSpv"
+      "contracts/test/MockCKBSpv.sol:MockCKBSpv"
     );
     const mockSpv = await factory.deploy();
     await mockSpv.deployed();
@@ -60,7 +60,7 @@ contract("TokenLocker", () => {
     // disable timeout
     this.timeout(0);
     it("should decode burn tx verified", async () => {
-      for (testcase of decodeBurnTxTestCases) {
+      for (const testcase of decodeBurnTxTestCases) {
         let [
           bridgeAmount,
           bridgeFee,
