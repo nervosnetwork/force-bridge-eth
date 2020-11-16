@@ -40,7 +40,7 @@ module.exports = {
             url: `http://127.0.0.1:8545`,
             // address [`0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2`]
             // Mnemonic [`dignity vehicle fuel siren cool machine video spice oppose olympic polar discover`]
-            accounts: [`0xc4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a`],
+            accounts: [`0xd00c06bfd800d27397002dca6fb0993d5ba6399b4238b2f29ee9deb97593d2bc`],
         },
         ganache: {
             url: `http://127.0.0.1:7545`,
