@@ -7,6 +7,40 @@ fn test_correct_tx() {
     case_runner::run_test(case);
 }
 
+#[test]
+fn test_tx_when_inputs_less_than_outputs() {
+    let mut case = get_correct_case();
+    case.sudt_cells.inputs[0].amount = 99;
+    case.expect_return_error_info = "input sudt less than output sudt".to_string();
+    case_runner::run_test(case);
+}
+
+#[test]
+fn test_tx_when_burned_amount_not_match_data_amount() {
+    let mut case = get_correct_case();
+    case.sudt_cells.inputs[0].amount = 300;
+    case.expect_return_error_info = "burned token amount not match data amount".to_string();
+    case_runner::run_test(case);
+}
+
+#[test]
+fn test_tx_when_fee_bigger_than_burned_amount() {
+    let mut case = get_correct_case();
+    let ScriptCellView::ETHRecipientScript(script) = &mut case.script_cells;
+    script.outputs[0].data.fee = 100;
+    case.expect_return_error_info = "fee is too much".to_string();
+    case_runner::run_test(case);
+}
+
+#[test]
+fn test_tx_when_eth_address_is_invalid() {
+    let mut case = get_correct_case();
+    let ScriptCellView::ETHRecipientScript(script) = &mut case.script_cells;
+    script.outputs[0].args = "1234".to_string();
+    case.expect_return_error_info = "eth_contract_address in witness length wrong".to_string();
+    case_runner::run_test(case);
+}
+
 fn get_correct_case() -> TestCase {
     TestCase {
         cell_deps: vec![],
@@ -54,6 +88,6 @@ fn get_correct_case() -> TestCase {
             outputs: vec![],
         },
         witnesses: vec![],
-        expect_return_code: 0,
+        expect_return_error_info: String::default(),
     }
 }

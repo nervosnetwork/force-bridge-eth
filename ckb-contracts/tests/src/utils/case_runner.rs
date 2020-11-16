@@ -18,6 +18,8 @@ pub const MAX_CYCLES: u64 = 100_000_000;
 
 pub fn run_test(case: TestCase) {
     let mut context = Context::default();
+    // set capture_debug == true to compare panic info.
+    context.set_capture_debug(true);
     let mut outpoints_context = OutpointsContext::new();
 
     // Cell deps
@@ -103,9 +105,8 @@ pub fn run_test(case: TestCase) {
     // Test tx
     let res = context.verify_tx(&tx, MAX_CYCLES);
     dbg!(&res);
-    match res {
-        Ok(_cycles) => assert_eq!(case.expect_return_code, 0),
-        Err(err) => assert!(check_err(err, case.expect_return_code)),
+    if res.is_err() {
+        assert!(check_err(&context, case.expect_return_error_info));
     }
 }
 
@@ -174,9 +175,13 @@ fn build_output_cell<I, B>(
     }
 }
 
-fn check_err(err: ckb_tool::ckb_error::Error, code: i8) -> bool {
-    let get = format!("{}", err);
-    let expected = format!("Script(ValidationFailure({}))", code);
-    dbg!(&get, &expected);
-    get == expected
+fn check_err(context: &Context, info: String) -> bool {
+    let expected = format!("panic occurred: {}", info);
+    dbg!(expected.clone(), context.captured_messages());
+    for message in context.captured_messages() {
+        if message.message.contains(&expected.clone()) {
+            return true;
+        }
+    }
+    false
 }

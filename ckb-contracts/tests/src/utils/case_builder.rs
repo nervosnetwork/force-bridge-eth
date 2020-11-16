@@ -51,7 +51,7 @@ pub struct TestCase {
     pub sudt_cells: SudtCells,
     pub capacity_cells: CapacityCells,
     pub witnesses: Vec<Witness>,
-    pub expect_return_code: i8,
+    pub expect_return_error_info: String,
 }
 
 pub enum ScriptCellView {
@@ -128,7 +128,7 @@ impl ETHRecipientCell {
         context
             .build_script(
                 &outpoints[ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY],
-                str_to_eth_address(self.args.as_str()).as_bytes(),
+                hex::decode(self.args.as_str()).unwrap().into(),
             )
             .expect("build eth recipient typescript")
     }

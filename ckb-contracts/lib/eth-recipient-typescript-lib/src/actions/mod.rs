@@ -27,14 +27,23 @@ pub fn verify_burn_token<T: Adapter>(data_loader: T, data: ETHRecipientDataView)
     let output_sudt_num =
         data_loader.get_sudt_amount_from_source(Source::Output, &eth_bridge_lock_hash);
     if input_sudt_num < output_sudt_num {
-        panic!("input sudt less than output sudt")
+        panic!(
+            "input sudt less than output sudt, input {:?}, output {:?}",
+            input_sudt_num, output_sudt_num
+        )
     }
     if input_sudt_num - output_sudt_num != data.token_amount {
-        panic!("burned token amount invalid")
+        panic!(
+            "burned token amount not match data amount, input {:?}, output {:?}, data {:?}",
+            input_sudt_num, output_sudt_num, data.token_amount
+        )
     }
 
     if data.fee >= data.token_amount {
-        panic!("fee is too much")
+        panic!(
+            "fee is too much, fee {:?}, burned {:?}",
+            data.fee, data.token_amount
+        )
     }
 }
 
