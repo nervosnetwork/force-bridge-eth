@@ -21,13 +21,13 @@ async function main() {
 
   // calc Eaglesong
   let res = await testEaglesong.callStatic.ckbEaglesong(
-    "0xcbecbaf6a2deee59b2eab3bbae5388128ce9f30183336526c9081419f163fc6076030000312b000000000000216033d2"
+    "0xcbecbaf6a2deee59b2eab3bbae5388128ce9f30183336526c9081419f163fc6076030000312b000000000000216033d200000000000000000000000000000000"
   );
   log(res);
 
   // calc gas
   res = await testEaglesong.ckbEaglesong(
-    "0xcbecbaf6a2deee59b2eab3bbae5388128ce9f30183336526c9081419f163fc6076030000312b000000000000216033d2"
+    "0xcbecbaf6a2deee59b2eab3bbae5388128ce9f30183336526c9081419f163fc6076030000312b000000000000216033d200000000000000000000000000000000"
   );
   const receipt = await res.wait(1);
   log(`gasUsed: ${receipt.gasUsed}`);
