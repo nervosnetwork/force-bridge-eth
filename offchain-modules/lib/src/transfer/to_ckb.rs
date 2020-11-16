@@ -1,4 +1,4 @@
-use crate::util::ckb_util::{ETHSPVProofJson, Generator};
+use crate::util::ckb_util::{get_eth_bridge_lock_script, ETHSPVProofJson, Generator};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use crate::util::settings::{OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
@@ -208,9 +208,12 @@ pub fn dev_init(
     let sudt_code_hash = blake2b_256(&sudt_bin);
     let sudt_code_hash_hex = hex::encode(&sudt_code_hash);
 
+    let recipient_typescript_code_hash = blake2b_256(&recipient_typescript_bin);
+    let recipient_code_hash_hex = hex::encode(&recipient_typescript_code_hash);
+
     let data = vec![
-        bridge_typescript_bin,
         bridge_lockscript_bin,
+        bridge_typescript_bin,
         light_client_typescript_bin,
         recipient_typescript_bin,
         sudt_bin,
@@ -236,15 +239,15 @@ pub fn dev_init(
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
     let settings = Settings {
-        bridge_typescript: ScriptConf {
-            code_hash: bridge_typescript_code_hash_hex,
+        bridge_lockscript: ScriptConf {
+            code_hash: bridge_lockscript_code_hash_hex.clone(),
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
             },
         },
-        bridge_lockscript: ScriptConf {
-            code_hash: bridge_lockscript_code_hash_hex.clone(),
+        bridge_typescript: ScriptConf {
+            code_hash: bridge_typescript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
