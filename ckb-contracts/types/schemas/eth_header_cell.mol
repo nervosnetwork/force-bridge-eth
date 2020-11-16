@@ -1,3 +1,5 @@
+// TODO replace Bytes, BytesVec with structure schema
+
 import basic;
 
 table ETHHeaderCellData {
