@@ -11,7 +11,7 @@
     "posttest": "npm run stop-geth",
     "test:coverage": "solidity-coverage",
     "lint": "solium -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js --check",
-    "lint:fix": "solium --fix -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js --write"
+    "lint:fix": "solium --fix -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write"
   },
   "author": "cosinlink",
   "devDependencies": {
