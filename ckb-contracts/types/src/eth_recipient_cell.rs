@@ -100,7 +100,6 @@ impl ETHRecipientDataView {
 mod tests {
     use super::{ETHAddress, ETHRecipientDataView};
     use core::convert::TryFrom;
-    use molecule::bytes::Bytes;
 
     #[test]
     fn test_eth_recipient_data() {
