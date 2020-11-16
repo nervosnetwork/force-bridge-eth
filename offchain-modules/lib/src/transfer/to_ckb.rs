@@ -218,26 +218,18 @@ pub fn dev_init(
 
     let eth_contract_address = convert_eth_address(eth_contract_address_str.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
-    let args = ETHBridgeLockArgs::new_builder()
-        .eth_token_address(
-            ETHAddress::from_slice(eth_token_address.as_bytes()).map_err(|err| anyhow!(err))?,
-        )
-        .eth_contract_address(
-            ETHAddress::from_slice(eth_contract_address.as_bytes()).map_err(|err| anyhow!(err))?,
-        )
-        .build();
-
-    let cell_script = Script::new_builder()
-        .code_hash(Byte32::from_slice(&bridge_lockscript_code_hash)?)
-        .hash_type(DepType::Code.into())
-        .args(args.as_bytes().pack())
-        .build();
+    let eth_address = convert_eth_address("0x0000000000000000000000000000000000000000")?;
+    let token_args = build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
+    let eth_args = build_eth_bridge_lock_args(eth_address, eth_contract_address)?;
+    let token_cell_script = build_cell_script(token_args, &bridge_lockscript_code_hash)?;
+    let eth_cell_script = build_cell_script(eth_args, &bridge_lockscript_code_hash)?;
     let tx = deploy(
         &mut rpc_client,
         &mut indexer_client,
         &private_key,
         data,
-        cell_script,
+        token_cell_script,
+        eth_cell_script,
     )
     .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
@@ -291,4 +283,28 @@ pub fn dev_init(
     settings.write(&config_path).map_err(|e| anyhow!(e))?;
     println!("force-bridge-eth config written to {}", &config_path);
     Ok(())
+}
+
+pub fn build_eth_bridge_lock_args(
+    eth_token_address: H160,
+    eth_contract_address: H160,
+) -> Result<ETHBridgeLockArgs> {
+    let args = ETHBridgeLockArgs::new_builder()
+        .eth_token_address(
+            ETHAddress::from_slice(eth_token_address.as_bytes()).map_err(|err| anyhow!(err))?,
+        )
+        .eth_contract_address(
+            ETHAddress::from_slice(eth_contract_address.as_bytes()).map_err(|err| anyhow!(err))?,
+        )
+        .build();
+    Ok(args)
+}
+
+fn build_cell_script(args: ETHBridgeLockArgs, code_hash: &[u8]) -> Result<Script> {
+    let script = Script::new_builder()
+        .code_hash(Byte32::from_slice(&code_hash)?)
+        .hash_type(DepType::Code.into())
+        .args(args.as_bytes().pack())
+        .build();
+    Ok(script)
 }

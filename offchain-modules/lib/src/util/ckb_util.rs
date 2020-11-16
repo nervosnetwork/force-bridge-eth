@@ -210,6 +210,7 @@ impl Generator {
         }
 
         let lockscript_code_hash = hex::decode(&self.settings.bridge_lockscript.code_hash)?;
+        dbg!(&eth_proof.token);
         let args = ETHBridgeLockArgs::new_builder()
             .eth_token_address(
                 ETHAddress::from_slice(&eth_proof.token.as_bytes()).map_err(|err| anyhow!(err))?,

@@ -9,7 +9,7 @@ import {ICKBChain} from "./interfaces/ICKBChain.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
 // tools below just for test, they will be removed before production ready
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract CKBChain is ICKBChain, ICKBSpv {
     using TypedMemView for bytes;

@@ -122,15 +122,15 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     )
     .await
     .map_err(|e| anyhow::anyhow!("Failed to call lock_eth. {:?}", e))?;
-    println!("lock erc20 token tx_hash: {:?}", &hash);
-    let eth_spv_proof =
-        generate_eth_proof(format!("0x{}", hex::encode(hash.0)), args.rpc_url.clone())
-            .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
-    println!(
-        "generate eth proof with hash: {:?}, eth_spv_proof: {:?}",
-        hash.clone(),
-        eth_spv_proof
-    );
+    println!("lock eth tx_hash: {:?}", &hash);
+    // let eth_spv_proof =
+    //     generate_eth_proof(format!("0x{}", hex::encode(hash.0)), args.rpc_url.clone())
+    //         .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
+    // println!(
+    //     "generate eth proof with hash: {:?}, eth_spv_proof: {:?}",
+    //     hash.clone(),
+    //     eth_spv_proof
+    // );
     Ok(())
 }
 
