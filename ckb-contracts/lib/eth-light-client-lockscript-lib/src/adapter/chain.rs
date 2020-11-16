@@ -5,9 +5,6 @@ use ckb_std::high_level::{load_cell_lock, load_cell_lock_hash, load_script, Quer
 
 use molecule::bytes::Bytes;
 
-#[cfg(not(feature = "std"))]
-use molecule::prelude::Entity;
-
 pub struct ChainAdapter {}
 
 impl Adapter for ChainAdapter {
