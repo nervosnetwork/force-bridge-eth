@@ -168,9 +168,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
         bytes29 rawHeaderView = headerView.rawHeader();
         uint64 blockNumber = rawHeaderView.blockNumber();
 
-        // ## verify version
-        require(rawHeaderView.version() == CHAIN_VERSION, "chain version invalid");
-
         // calc blockHash
         bytes memory headerBytes = headerView.clone();
         bytes32 blockHash = CKBCrypto.digest(headerBytes, 208);
