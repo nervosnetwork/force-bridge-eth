@@ -18,3 +18,4 @@ hex = "0.4"
 env_logger = "0.7.1"
 rusty-receipt-proof-maker = { git = "https://github.com/LeonLi000/ethereum-receipt-proof-maker.git" }
 tokio = { version = "0.2.9", features = ["full"]}
+molecule = "0.6"

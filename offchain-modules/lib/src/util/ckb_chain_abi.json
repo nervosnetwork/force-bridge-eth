@@ -1,26 +1,21 @@
-[
-  {
+[{
     "constant": true,
     "inputs": [],
     "name": "mockHeaders",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "bytes"
+    }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
   },
   {
     "constant": false,
-    "inputs": [
-      {
-        "name": "data",
-        "type": "bytes"
-      }
-    ],
+    "inputs": [{
+      "name": "data",
+      "type": "bytes"
+    }],
     "name": "addHeaders",
     "outputs": [],
     "payable": false,
@@ -31,12 +26,10 @@
     "constant": true,
     "inputs": [],
     "name": "CanonicalGcThreshold",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
@@ -45,20 +38,17 @@
     "constant": true,
     "inputs": [],
     "name": "initialized",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "bool"
+    }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
   },
   {
     "constant": true,
-    "inputs": [
-      {
+    "inputs": [{
         "name": "txProofData",
         "type": "bytes"
       },
@@ -68,31 +58,25 @@
       }
     ],
     "name": "proveTxExist",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "bool"
+    }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
   },
   {
     "constant": false,
-    "inputs": [
-      {
-        "name": "blockNumber",
-        "type": "uint64"
-      }
-    ],
+    "inputs": [{
+      "name": "blockNumber",
+      "type": "uint64"
+    }],
     "name": "getCanonicalHeaderHash",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "bytes32"
+    }],
     "payable": false,
     "stateMutability": "nonpayable",
     "type": "function"
@@ -101,12 +85,10 @@
     "constant": true,
     "inputs": [],
     "name": "latestBlockNumber",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
@@ -115,12 +97,10 @@
     "constant": true,
     "inputs": [],
     "name": "CHAIN_VERSION",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint32"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "uint32"
+    }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
@@ -129,20 +109,17 @@
     "constant": true,
     "inputs": [],
     "name": "FinalizedGcThreshold",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
   },
   {
     "constant": false,
-    "inputs": [
-      {
+    "inputs": [{
         "name": "data",
         "type": "bytes"
       },
@@ -167,31 +144,25 @@
   },
   {
     "constant": false,
-    "inputs": [
-      {
-        "name": "blockNumber",
-        "type": "uint64"
-      }
-    ],
+    "inputs": [{
+      "name": "blockNumber",
+      "type": "uint64"
+    }],
     "name": "getHeaderHash",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "bytes32"
+    }],
     "payable": false,
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "constant": false,
-    "inputs": [
-      {
-        "name": "blockNumber",
-        "type": "uint64"
-      }
-    ],
+    "inputs": [{
+      "name": "blockNumber",
+      "type": "uint64"
+    }],
     "name": "setHeight",
     "outputs": [],
     "payable": false,
@@ -202,20 +173,17 @@
     "constant": false,
     "inputs": [],
     "name": "getLatestEpoch",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
     "payable": false,
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "constant": true,
-    "inputs": [
-      {
+    "inputs": [{
         "name": "",
         "type": "uint64"
       },
@@ -225,12 +193,10 @@
       }
     ],
     "name": "allHeaderHashes",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "bytes32"
+    }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
@@ -239,39 +205,32 @@
     "constant": false,
     "inputs": [],
     "name": "getLatestBlockNumber",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "uint64"
+    }],
     "payable": false,
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "constant": false,
-    "inputs": [
-      {
-        "name": "blockHash",
-        "type": "bytes32"
-      }
-    ],
+    "inputs": [{
+      "name": "blockHash",
+      "type": "bytes32"
+    }],
     "name": "getCanonicalTransactionsRoot",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
+    "outputs": [{
+      "name": "",
+      "type": "bytes32"
+    }],
     "payable": false,
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "anonymous": false,
-    "inputs": [
-      {
+    "inputs": [{
         "indexed": true,
         "name": "blockNumber",
         "type": "uint64"
@@ -287,8 +246,7 @@
   },
   {
     "anonymous": false,
-    "inputs": [
-      {
+    "inputs": [{
         "indexed": true,
         "name": "blockNumber",
         "type": "uint64"

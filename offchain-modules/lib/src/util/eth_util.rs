@@ -1,11 +1,13 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
+use eth_spv_lib::eth_types::my_keccak256;
 use ethabi::{FixedBytes, Uint};
 use ethereum_tx_sign::RawTransaction;
 use log::{debug, info};
-use rlp::RlpStream;
+use rlp::{DecoderError, Rlp, RlpStream};
+use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
-use web3::types::{Address, Block, BlockId, BlockNumber, Bytes, H160, H256, U256};
+use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256};
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
@@ -33,15 +35,12 @@ impl Web3Client {
 
     pub async fn send_transaction(
         &mut self,
-        from: H160,
         to: H160,
         key_path: String,
         data: Vec<u8>,
         eth_value: U256,
     ) -> Result<H256> {
-        let signed_tx = self
-            .build_sign_tx(from, to, key_path, data, eth_value)
-            .await?;
+        let signed_tx = self.build_sign_tx(to, key_path, data, eth_value).await?;
         let tx_hash = self
             .client()
             .eth()
@@ -53,12 +52,14 @@ impl Web3Client {
     }
     pub async fn build_sign_tx(
         &mut self,
-        from: H160,
         to: H160,
         key_path: String,
         data: Vec<u8>,
         eth_value: U256,
     ) -> Result<Vec<u8>> {
+        let private_key = &parse_private_key(&key_path)?;
+        let key = SecretKey::from_slice(&private_key.0).unwrap();
+        let from = secret_key_address(&key);
         let nonce = self.client().eth().transaction_count(from, None).await?;
         info!("tx current nonce :{}", &nonce);
         let chain_id = self.client().eth().chain_id().await?;
@@ -68,35 +69,19 @@ impl Web3Client {
         Ok(signed_tx)
     }
 
-    pub async fn get_header_rlp_with_hash(&mut self, hash: H256) -> Result<String> {
-        let block_header = self.client.eth().block(BlockId::Hash(hash)).await?;
-        match block_header {
-            Some(header) => {
-                let mut stream = RlpStream::new();
-                rlp_append(&header, &mut stream);
-                let header_vec = stream.out();
-                Ok(hex::encode(header_vec))
-            }
-            None => Err(Error::msg("the block is not exist.")),
+    pub async fn get_block(&mut self, hash_or_number: BlockId) -> Result<Block<H256>> {
+        let block = self.client.eth().block(hash_or_number).await?;
+        match block {
+            Some(block) => Ok(block),
+            None => anyhow::bail!("the block is not exist."),
         }
     }
 
-    pub async fn get_block_with_number(&mut self, number: usize) -> Result<(Vec<u8>, H256)> {
-        let block_header = self
-            .client
-            .eth()
-            .block(BlockId::Number(BlockNumber::Number((number as u64).into())))
-            .await?;
-        match block_header {
-            Some(header) => {
-                let mut stream = RlpStream::new();
-                rlp_append(&header, &mut stream);
-                let header_vec = stream.out();
-                log::debug!("header rlp: {:?}", hex::encode(header_vec.clone()));
-                Ok((header_vec, H256(header.hash.unwrap().0)))
-            }
-            None => Err(Error::msg("the block is not exist.")),
-        }
+    pub async fn get_header_rlp(&mut self, hash_or_number: BlockId) -> Result<String> {
+        let block = self.get_block(hash_or_number).await?;
+        let mut stream = RlpStream::new();
+        rlp_append(&block, &mut stream);
+        Ok(hex::encode(stream.out().as_slice()))
     }
 
     pub async fn get_contract_height(
@@ -193,6 +178,32 @@ pub fn parse_private_key(path: &str) -> Result<ethereum_types::H256> {
     ));
 }
 
+/// Gets the public address of a private key.
+fn secret_key_address(key: &SecretKey) -> Address {
+    let secp = Secp256k1::signing_only();
+    let public_key = PublicKey::from_secret_key(&secp, key);
+    public_key_address(&public_key)
+}
+
+fn public_key_address(public_key: &PublicKey) -> Address {
+    let public_key = public_key.serialize_uncompressed();
+
+    debug_assert_eq!(public_key[0], 0x04);
+    let hash = keccak256(&public_key[1..]);
+
+    Address::from_slice(&hash[12..])
+}
+
+/// Compute the Keccak-256 hash of input bytes.
+pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
+    use tiny_keccak::{Hasher, Keccak};
+    let mut output = [0u8; 32];
+    let mut hasher = Keccak::v256();
+    hasher.update(bytes);
+    hasher.finalize(&mut output);
+    output
+}
+
 fn convert_u256(value: web3::types::U256) -> ethereum_types::U256 {
     let web3::types::U256(ref arr) = value;
     let mut ret = [0; 4];
@@ -213,7 +224,7 @@ fn rlp_append<TX>(header: &Block<TX>, stream: &mut RlpStream) {
     stream.append(&header.state_root);
     stream.append(&header.transactions_root);
     stream.append(&header.receipts_root);
-    stream.append(&header.logs_bloom);
+    stream.append(&header.logs_bloom.unwrap());
     stream.append(&header.difficulty);
     stream.append(&header.number.unwrap());
     stream.append(&header.gas_limit);
@@ -222,6 +233,29 @@ fn rlp_append<TX>(header: &Block<TX>, stream: &mut RlpStream) {
     stream.append(&header.extra_data.0);
     stream.append(&header.mix_hash.unwrap());
     stream.append(&header.nonce.unwrap());
+}
+
+pub fn decode_block_header(serialized: &Rlp) -> Result<BlockHeader, DecoderError> {
+    let block_header = BlockHeader {
+        parent_hash: serialized.val_at(0)?,
+        uncles_hash: serialized.val_at(1)?,
+        author: serialized.val_at(2)?,
+        state_root: serialized.val_at(3)?,
+        transactions_root: serialized.val_at(4)?,
+        receipts_root: serialized.val_at(5)?,
+        logs_bloom: serialized.val_at(6)?,
+        difficulty: serialized.val_at(7)?,
+        number: Some(serialized.val_at(8)?),
+        gas_limit: serialized.val_at(9)?,
+        gas_used: serialized.val_at(10)?,
+        timestamp: serialized.val_at(11)?,
+        extra_data: Bytes::from(serialized.as_raw()),
+        mix_hash: Some(serialized.val_at(13)?),
+        nonce: Some(serialized.val_at(14)?),
+        hash: Some(my_keccak256(serialized.as_raw()).into()),
+    };
+
+    Ok(block_header)
 }
 
 pub fn convert_eth_address(mut address: &str) -> Result<H160> {
@@ -234,11 +268,37 @@ pub fn convert_eth_address(mut address: &str) -> Result<H160> {
     Ok(H160::from_slice(hex::decode(address)?.as_slice()))
 }
 
+pub fn convert_hex_to_h256(hex: String) -> Result<H256> {
+    let bytes = strip_hex_prefix(&hex).and_then(decode_hex)?;
+    Ok(H256::from_slice(&bytes))
+}
+
+pub fn strip_hex_prefix(prefixed_hex: &str) -> Result<String> {
+    let res = str::replace(prefixed_hex, "0x", "");
+    match res.len() % 2 {
+        0 => Ok(res),
+        _ => left_pad_with_zero(&res),
+    }
+}
+
+fn left_pad_with_zero(string: &str) -> Result<String> {
+    Ok(format!("0{}", string))
+}
+
+pub fn decode_hex(hex_to_decode: String) -> Result<Vec<u8>> {
+    Ok(hex::decode(hex_to_decode)?)
+}
+
 #[tokio::test]
 async fn test_get_block() {
+    use cmd_lib::run_cmd;
+    use web3::types::{BlockNumber, U64};
     let mut client = Web3Client::new(String::from(
-        "https://mainnet.infura.io/v3/9c7178cede9f4a8a84a151d058bd609c",
+        "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
     ));
-    let res = client.get_block_with_number(10).await;
+    let res = client.get_header_rlp((U64::from(3)).into()).await;
     println!("{:?}", res);
+    let header_rlp = format!("0x{}", res.unwrap());
+    println!("{:?}", header_rlp);
+    run_cmd!(src/vendor/relayer ${header_rlp} > /tmp/data.json);
 }
