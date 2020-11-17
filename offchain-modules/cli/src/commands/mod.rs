@@ -76,7 +76,7 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
     let from = convert_eth_address(&args.from)?;
     let to = convert_eth_address(&args.to)?;
-    let hash = approve(from, to, args.rpc_url, args.private_key_path)
+    let hash = approve(from, to, args.rpc_url, args.private_key_path, args.wait)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to call approve. {:?}", e))?;
     println!("approve tx_hash: {:?}", &hash);
@@ -98,7 +98,7 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
         Token::Bytes(outpoint.as_slice().to_vec()),
         Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
     ];
-    let hash = lock_token(to, args.rpc_url, args.private_key_path, &data)
+    let hash = lock_token(to, args.rpc_url, args.private_key_path, &data, args.wait)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to call lock_token. {:?}", e))?;
     println!("lock erc20 token tx_hash: {:?}", &hash);
@@ -123,6 +123,7 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
         args.private_key_path,
         &data,
         U256::from(args.amount),
+        args.wait,
     )
     .await
     .map_err(|e| anyhow::anyhow!("Failed to call lock_eth. {:?}", e))?;
@@ -233,6 +234,7 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
         args.tx_proof,
         args.tx_info,
         args.eth_rpc_url,
+        args.wait,
     )
     .await?;
     println!("unlock tx hash : {:?}", result);

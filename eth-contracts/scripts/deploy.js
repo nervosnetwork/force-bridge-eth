@@ -10,6 +10,13 @@ const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
 
 async function main() {
     let factory = await ethers.getContractFactory(
+        "contracts/test/ERC20.sol:ERC20"
+    );
+    const erc20 = await factory.deploy();
+    await erc20.deployed();
+    console.error("erc20 deployed to:", erc20.address);
+
+    factory = await ethers.getContractFactory(
         "contracts/test/MockCKBSpv.sol:MockCKBSpv"
     );
     const mockSpv = await factory.deploy();
@@ -25,21 +32,26 @@ async function main() {
         0
     );
     await tokenLocker.deployed();
-    console.log("tokenLocker deployed to:", tokenLocker.address);
-    let provider = tokenLocker.provider;
+    console.error("tokenLocker deployed to:", tokenLocker.address);
+    const output = {
+        tokenLocker: tokenLocker.address,
+        erc20: erc20.address,
+    };
+    console.log(JSON.stringify(output));
 
     // lockETH 0.123
-    let amount = ethers.utils.parseEther("0.123");
-    const res = await tokenLocker.lockETH(
-        ethers.utils.parseEther("0.001"),
-        "0x12345600",
-        "0x12345611",
-        "0x12345622",
-        { value: amount }
-    );
-    // console.log("lockETH res: ", res);
-    const receipt = await utils.waitingForReceipt(provider, res);
-    console.log(`receipt:`, receipt);
+    // let provider = tokenLocker.provider;
+    // let amount = ethers.utils.parseEther("0.123");
+    // const res = await tokenLocker.lockETH(
+    //     ethers.utils.parseEther("0.001"),
+    //     "0x12345600",
+    //     "0x12345611",
+    //     "0x12345622",
+    //     { value: amount }
+    // );
+    // // console.log("lockETH res: ", res);
+    // const receipt = await utils.waitingForReceipt(provider, res);
+    // console.log(`receipt:`, receipt);
 
     // unlockETH
     // res = await locker.unlockToken([0], [0]);

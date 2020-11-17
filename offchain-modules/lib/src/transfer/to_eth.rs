@@ -66,6 +66,7 @@ pub async fn unlock(
     tx_proof: String,
     raw_tx: String,
     eth_url: String,
+    wait: bool,
 ) -> Result<String> {
     let mut rpc_client = Web3Client::new(eth_url);
     let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
@@ -89,7 +90,7 @@ pub async fn unlock(
     let tokens = [Token::Bytes(proof), Token::Bytes(tx_info)];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0))
+        .send_transaction(to, key_path, input_data, U256::from(0), wait)
         .await?;
     let tx_hash = hex::encode(res);
     Ok(tx_hash)

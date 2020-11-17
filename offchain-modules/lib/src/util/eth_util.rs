@@ -5,6 +5,7 @@ use ethereum_tx_sign::RawTransaction;
 use log::{debug, info};
 use rlp::{DecoderError, Rlp, RlpStream};
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
+use std::time::Duration;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
 use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256};
@@ -39,17 +40,28 @@ impl Web3Client {
         key_path: String,
         data: Vec<u8>,
         eth_value: U256,
+        wait: bool,
     ) -> Result<H256> {
         let signed_tx = self.build_sign_tx(to, key_path, data, eth_value).await?;
-        let tx_hash = self
-            .client()
-            .eth()
-            // .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(5, 100), 10)
-            .send_raw_transaction(Bytes::from(signed_tx))
-            .await?;
+        let tx_hash = if wait {
+            self.client()
+                .send_raw_transaction_with_confirmation(
+                    Bytes::from(signed_tx),
+                    Duration::new(1, 0),
+                    1,
+                )
+                .await?
+                .transaction_hash
+        } else {
+            self.client()
+                .eth()
+                .send_raw_transaction(Bytes::from(signed_tx))
+                .await?
+        };
         debug!("tx hash: {:?}", tx_hash);
         Ok(tx_hash)
     }
+
     pub async fn build_sign_tx(
         &mut self,
         to: H160,
