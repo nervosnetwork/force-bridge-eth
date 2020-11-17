@@ -22,7 +22,7 @@ impl TryFrom<Vec<u8>> for ETHAddress {
         if v.len() != 20 {
             return Err(VerificationError::TotalSizeNotMatch(
                 "ETHAddress".to_owned(),
-                32,
+                20,
                 v.len(),
             ));
         }
