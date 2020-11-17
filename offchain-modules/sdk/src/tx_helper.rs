@@ -23,12 +23,16 @@ use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since, SE
 use ckb_types::core::BlockView;
 use secp256k1::SecretKey;
 
+pub const CKB_UNITS: u64 = 100_000_000;
+pub const PUBLIC_BRIDGE_CELL: u64 = 1000 * CKB_UNITS;
+
 pub fn deploy(
     rpc_client: &mut HttpRpcClient,
     indexer_client: &mut IndexerRpcClient,
     privkey: &SecretKey,
     data: Vec<Vec<u8>>,
-    cell_script: Script,
+    token_cell_script: Script,
+    eth_cell_script: Script,
 ) -> Result<TransactionView, String> {
     let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
     let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
@@ -40,8 +44,16 @@ pub fn deploy(
             .build();
         tx_helper.add_output_with_auto_capacity(output, data.into());
     }
-    let output = CellOutput::new_builder().lock(cell_script).build();
-    tx_helper.add_output_with_auto_capacity(output, ckb_types::bytes::Bytes::default());
+    let output_token = CellOutput::new_builder()
+        .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
+        .lock(token_cell_script)
+        .build();
+    tx_helper.add_output_with_auto_capacity(output_token, ckb_types::bytes::Bytes::default());
+    let output_eth = CellOutput::new_builder()
+        .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
+        .lock(eth_cell_script)
+        .build();
+    tx_helper.add_output_with_auto_capacity(output_eth, ckb_types::bytes::Bytes::default());
     let genesis_block: BlockView = rpc_client
         .get_block_by_number(0)?
         .expect("Can not get genesis block?")

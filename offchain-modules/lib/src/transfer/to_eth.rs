@@ -61,7 +61,6 @@ pub fn burn(
 }
 
 pub async fn unlock(
-    from: H160,
     to: H160,
     key_path: String,
     tx_proof: String,
@@ -90,7 +89,7 @@ pub async fn unlock(
     let tokens = [Token::Bytes(proof), Token::Bytes(tx_info)];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
-        .send_transaction(from, to, key_path, input_data, U256::from(0))
+        .send_transaction(to, key_path, input_data, U256::from(0))
         .await?;
     let tx_hash = hex::encode(res);
     Ok(tx_hash)

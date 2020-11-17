@@ -13,6 +13,10 @@ name = "eth-bridge-typescript"
 template_type = "Rust"
 
 [[contracts]]
+name = "eth-light-client-lockscript"
+template_type = "Rust"
+
+[[contracts]]
 name = "eth-light-client-typescript"
 template_type = "Rust"
 

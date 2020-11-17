@@ -57,13 +57,13 @@ pub struct DevInitArgs {
         long,
         default_value = "../ckb-contracts/build/release/eth-recipient-typescript"
     )]
-    pub eth_recipient_typescript_path: String,
+    pub recipient_typescript_path: String,
     #[clap(long, default_value = "cli/deps/simple_udt")]
     pub sudt_path: String,
     #[clap(long)]
-    pub token: String,
+    pub eth_contract_address: String,
     #[clap(long)]
-    pub lock_contract_addr: String,
+    pub eth_token_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -77,42 +77,50 @@ pub struct ApproveArgs {
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
 pub struct LockTokenArgs {
     #[clap(short, long)]
-    pub from: String,
-    #[clap(short, long)]
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
     #[clap(long)]
     pub token: String,
     #[clap(short, long)]
     pub amount: u128,
     #[clap(short, long)]
-    pub ckb_address: String,
+    pub bridge_fee: u128,
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub sudt_extra_data: String,
+    #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
+    pub ckb_recipient_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
 pub struct LockEthArgs {
     #[clap(short, long)]
-    pub from: String,
-    #[clap(short, long)]
     pub to: String,
     #[clap(long, default_value = "http://127.0.0.1:9545")]
     pub rpc_url: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
     #[clap(short, long)]
     pub amount: u128,
     #[clap(short, long)]
-    pub ckb_address: String,
+    pub bridge_fee: u128,
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub sudt_extra_data: String,
+    #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
+    pub ckb_recipient_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -139,6 +147,8 @@ pub struct MintArgs {
     pub private_key_path: String,
     #[clap(short, long)]
     pub cell: String,
+    #[clap(long)]
+    pub eth_contract_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]

@@ -4,6 +4,7 @@ use ethabi::{FixedBytes, Uint};
 use ethereum_tx_sign::RawTransaction;
 use log::{debug, info};
 use rlp::{DecoderError, Rlp, RlpStream};
+use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
 use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256};
@@ -34,15 +35,12 @@ impl Web3Client {
 
     pub async fn send_transaction(
         &mut self,
-        from: H160,
         to: H160,
         key_path: String,
         data: Vec<u8>,
         eth_value: U256,
     ) -> Result<H256> {
-        let signed_tx = self
-            .build_sign_tx(from, to, key_path, data, eth_value)
-            .await?;
+        let signed_tx = self.build_sign_tx(to, key_path, data, eth_value).await?;
         let tx_hash = self
             .client()
             .eth()
@@ -54,12 +52,14 @@ impl Web3Client {
     }
     pub async fn build_sign_tx(
         &mut self,
-        from: H160,
         to: H160,
         key_path: String,
         data: Vec<u8>,
         eth_value: U256,
     ) -> Result<Vec<u8>> {
+        let private_key = &parse_private_key(&key_path)?;
+        let key = SecretKey::from_slice(&private_key.0).unwrap();
+        let from = secret_key_address(&key);
         let nonce = self.client().eth().transaction_count(from, None).await?;
         info!("tx current nonce :{}", &nonce);
         let chain_id = self.client().eth().chain_id().await?;
@@ -176,6 +176,32 @@ pub fn parse_private_key(path: &str) -> Result<ethereum_types::H256> {
     return Ok(ethereum_types::H256::from_slice(
         hex::decode(private_key_string)?.as_slice(),
     ));
+}
+
+/// Gets the public address of a private key.
+fn secret_key_address(key: &SecretKey) -> Address {
+    let secp = Secp256k1::signing_only();
+    let public_key = PublicKey::from_secret_key(&secp, key);
+    public_key_address(&public_key)
+}
+
+fn public_key_address(public_key: &PublicKey) -> Address {
+    let public_key = public_key.serialize_uncompressed();
+
+    debug_assert_eq!(public_key[0], 0x04);
+    let hash = keccak256(&public_key[1..]);
+
+    Address::from_slice(&hash[12..])
+}
+
+/// Compute the Keccak-256 hash of input bytes.
+pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
+    use tiny_keccak::{Hasher, Keccak};
+    let mut output = [0u8; 32];
+    let mut hasher = Keccak::v256();
+    hasher.update(bytes);
+    hasher.finalize(&mut output);
+    output
 }
 
 fn convert_u256(value: web3::types::U256) -> ethereum_types::U256 {
