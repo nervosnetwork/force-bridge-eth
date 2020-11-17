@@ -162,7 +162,7 @@ pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>, eth_value: U256) -
         to: Some(convert_account(to)),
         value: eth_value,
         gas_price: U256::from(1000000000),
-        gas: U256::from(2100000),
+        gas: U256::from(11000000),
         data,
     }
 }

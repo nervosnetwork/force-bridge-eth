@@ -7,7 +7,7 @@ use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
-    burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock,
+    burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock, wait_block_submit,
 };
 use force_eth_lib::util::ckb_util::{
     build_lockscript_from_address, build_outpoint, ETHSPVProofJson, Generator,
@@ -41,7 +41,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::GenerateCkbProof(args) => generate_ckb_proof_handler(args),
         // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args).await,
-        SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args),
+        SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args).await,
         SubCommand::TransferSudt(args) => transfer_sudt_handler(args),
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args),
 
@@ -239,9 +239,47 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
+pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
-    todo!()
+    let token_addr = convert_eth_address(&args.token_addr)?;
+    let receive_addr = convert_eth_address(&args.receive_addr)?;
+    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    let ckb_tx_hash = burn(
+        args.ckb_privkey_path,
+        args.ckb_rpc_url.clone(),
+        args.indexer_rpc_url,
+        args.config_path,
+        args.tx_fee,
+        args.unlock_fee,
+        args.burn_amount,
+        token_addr,
+        receive_addr,
+        lock_contract_addr,
+    )?;
+    log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
+
+    let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, args.ckb_rpc_url.clone())?;
+
+    let light_client = convert_eth_address(&args.light_client_addr)?;
+    let to = convert_eth_address(&args.lock_contract_addr)?;
+
+    wait_block_submit(
+        args.eth_rpc_url.clone(),
+        args.ckb_rpc_url,
+        light_client,
+        ckb_tx_hash,
+    )
+    .await?;
+    let result = unlock(
+        to,
+        args.eth_privkey_path,
+        tx_proof,
+        tx_info,
+        args.eth_rpc_url,
+    )
+    .await?;
+    println!("unlock tx hash : {:?}", result);
+    Ok(())
 }
 pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
@@ -301,18 +339,16 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
-    let from = convert_eth_address(&args.from)?;
     let to = convert_eth_address(&args.to)?;
     let mut ckb_relayer = CKBRelayer::new(
         args.ckb_rpc_url,
         args.indexer_rpc_url,
         args.eth_rpc_url,
-        from,
         to,
         args.private_key_path,
     )?;
     loop {
-        ckb_relayer.start().await?;
+        ckb_relayer.start(args.gap).await?;
         std::thread::sleep(std::time::Duration::from_secs(10 * 60));
     }
 }

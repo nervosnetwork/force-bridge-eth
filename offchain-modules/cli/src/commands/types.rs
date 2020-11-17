@@ -152,7 +152,34 @@ pub struct MintArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct TransferFromCkbArgs {}
+pub struct TransferFromCkbArgs {
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+    #[clap(long)]
+    pub ckb_privkey_path: String,
+    #[clap(long)]
+    pub eth_privkey_path: String,
+    #[clap(long, default_value = "http://localhost:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8545")]
+    pub eth_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8116")]
+    pub indexer_rpc_url: String,
+    #[clap(long)]
+    pub token_addr: String,
+    #[clap(long)]
+    pub receive_addr: String,
+    #[clap(long)]
+    pub lock_contract_addr: String,
+    #[clap(long)]
+    pub light_client_addr: String,
+    #[clap(long)]
+    pub burn_amount: u128,
+    #[clap(long)]
+    pub unlock_fee: u128,
+}
 
 #[derive(Clap, Clone, Debug)]
 pub struct BurnArgs {
@@ -191,8 +218,6 @@ pub struct GenerateCkbProofArgs {
 #[derive(Clap, Clone, Debug)]
 pub struct UnlockArgs {
     #[clap(short, long)]
-    pub from: String,
-    #[clap(short, long)]
     pub to: String,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
@@ -226,7 +251,7 @@ pub struct EthRelayArgs {
 #[derive(Clap, Clone, Debug)]
 pub struct CkbRelayArgs {
     #[clap(short, long)]
-    pub from: String,
+    pub gap: u64,
     #[clap(short, long)]
     pub to: String,
     #[clap(short = 'k', long)]

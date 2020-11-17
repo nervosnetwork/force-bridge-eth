@@ -252,7 +252,7 @@ impl Generator {
         }
         // 1 bridge cells
         {
-            let to_output = CellOutput::new_builder().lock(lockscript).build();
+            let to_output = CellOutput::new_builder().lock(lockscript.clone()).build();
             helper.add_output_with_auto_capacity(to_output, ckb_types::bytes::Bytes::default());
         }
         // 2 xt cells
@@ -264,7 +264,7 @@ impl Generator {
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
                 .hash_type(DepType::Code.into())
-                .args(recipient_lockscript.calc_script_hash().as_bytes().pack())
+                .args(lockscript.calc_script_hash().as_bytes().pack())
                 .build();
             let sudt_user_output = CellOutput::new_builder()
                 .type_(Some(sudt_typescript).pack())

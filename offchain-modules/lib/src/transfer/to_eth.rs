@@ -60,6 +60,45 @@ pub fn burn(
     generator.sign_and_send_transaction(unsigned_tx, from_privkey)
 }
 
+#[allow(clippy::never_loop)]
+pub async fn wait_block_submit(
+    eth_url: String,
+    ckb_url: String,
+    contract_addr: H160,
+    tx_hash: String,
+) -> Result<()> {
+    let mut ckb_client = HttpRpcClient::new(ckb_url);
+    let hash = covert_to_h256(&tx_hash)?;
+    let block_hash = ckb_client
+        .get_transaction(hash)
+        .map_err(|err| anyhow!(err))?
+        .ok_or_else(|| anyhow!("tx is none"))?
+        .tx_status
+        .block_hash
+        .ok_or_else(|| anyhow!("block hash is none"))?;
+    let ckb_height = ckb_client
+        .get_block(block_hash)
+        .map_err(|err| anyhow!(err))?
+        .ok_or_else(|| anyhow!("block is none"))?
+        .header
+        .inner
+        .number;
+    let mut web3_client = Web3Client::new(eth_url);
+    loop {
+        let client_block_number = web3_client
+            .get_contract_height("latestBlockNumber", contract_addr)
+            .await?;
+        info!(
+            "client_block_number : {:?},ckb_height :{:?}",
+            client_block_number, ckb_height
+        );
+        if client_block_number < ckb_height {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        }
+        return Ok(());
+    }
+}
+
 pub async fn unlock(
     to: H160,
     key_path: String,
