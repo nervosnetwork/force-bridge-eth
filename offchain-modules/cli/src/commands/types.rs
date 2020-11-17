@@ -10,6 +10,7 @@ pub struct Opts {
 #[derive(Clap, Clone, Debug)]
 pub enum SubCommand {
     DevInit(DevInitArgs),
+    CreateBridgeCell(CreateBridgeCellArgs),
     TransferToCkb(TransferToCkbArgs),
     Approve(ApproveArgs),
     LockToken(LockTokenArgs),
@@ -24,6 +25,24 @@ pub enum SubCommand {
     QuerySudtBlance(SudtGetBalanceArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct CreateBridgeCellArgs {
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "http://127.0.0.1:8114")]
+    pub rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8116")]
+    pub indexer_url: String,
+    #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
+    pub private_key_path: String,
+    #[clap(long)]
+    pub eth_contract_address: String,
+    #[clap(long)]
+    pub eth_token_address: String,
+    #[clap(long)]
+    pub recipient_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -60,10 +79,6 @@ pub struct DevInitArgs {
     pub recipient_typescript_path: String,
     #[clap(long, default_value = "cli/deps/simple_udt")]
     pub sudt_path: String,
-    #[clap(long)]
-    pub eth_contract_address: String,
-    #[clap(long)]
-    pub eth_token_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -104,6 +119,8 @@ pub struct LockTokenArgs {
     #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
     pub ckb_recipient_address: String,
     #[clap(long)]
+    pub replay_resist_outpoint: String,
+    #[clap(long)]
     pub wait: bool,
 }
 
@@ -125,6 +142,8 @@ pub struct LockEthArgs {
     pub sudt_extra_data: String,
     #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
     pub ckb_recipient_address: String,
+    #[clap(long)]
+    pub replay_resist_outpoint: String,
     #[clap(long)]
     pub wait: bool,
 }

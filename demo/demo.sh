@@ -10,12 +10,11 @@ export RUST_LOG=info,force=debug
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
 FORTH_ETH_CONFIG_PATH=/tmp/force-eth-config.json
-ETH_CONTRACT_ADDRESS=0x963C9Ee211373B902402467B58B407d2065dA671
-TOKEN_ADDRESS=0xEaddfCa0A3C33cd4e7A5F56bCF1cE31944dD0D0d
+BRIDGE_CELL_CONFIG_PATH=/tmp/bridge-cell-config.json
 LOCK_TOKEN_PATH=/tmp/lock_token.log
 LOCK_ETH_PATH=/tmp/lock_eth.log
-cd "$DIR"/offchain-modules
-target/debug/force-eth-cli dev-init -f --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --eth-token-address "${TOKEN_ADDRESS}"
+#cd "$DIR"/offchain-modules
+#target/debug/force-eth-cli dev-init -f
 
 #cd "$DIR"/eth-contracts
 #npx hardhat run scripts/deploy.js --network geth > "${FORTH_ETH_CONFIG_PATH}"
@@ -23,8 +22,10 @@ ETH_CONTRACT_ADDRESS=$(cat ${FORTH_ETH_CONFIG_PATH} | jq -r .tokenLocker)
 TOKEN_ADDRESS=$(cat ${FORTH_ETH_CONFIG_PATH} | jq -r .erc20)
 
 cd "$DIR"/offchain-modules
-target/debug/force-eth-cli approve --from "${ETH_CONTRACT_ADDRESS}" --to "${TOKEN_ADDRESS}" --wait
-target/debug/force-eth-cli lock-token  --to "${ETH_CONTRACT_ADDRESS}" --token  "${TOKEN_ADDRESS}" --amount 100 --bridge-fee 10 --sudt-extra-data sudt_extra_data --wait > "${LOCK_TOKEN_PATH}"
+#target/debug/force-eth-cli approve --from "${ETH_CONTRACT_ADDRESS}" --to "${TOKEN_ADDRESS}" --wait
+#target/debug/force-eth-cli create-bridge-cell --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --eth-token-address "${TOKEN_ADDRESS}" --recipient-address eth > "${BRIDGE_CELL_CONFIG_PATH}"
+#bridge_cell_outpoint=$(cat "${BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
+#target/debug/force-eth-cli lock-token --replay-resist-outpoint "${bridge_cell_outpoint}" --to "${ETH_CONTRACT_ADDRESS}" --token  "${TOKEN_ADDRESS}" --amount 100 --bridge-fee 10 --sudt-extra-data sudt_extra_data --wait > "${LOCK_TOKEN_PATH}"
 lock_token_hash=`cat "${LOCK_TOKEN_PATH}"| awk '{print $5}'`
 echo "${lock_token_hash}"
 target/debug/force-eth-cli mint --hash "${lock_token_hash}" --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --cell depend_on_eth_relay

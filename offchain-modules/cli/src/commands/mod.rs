@@ -1,11 +1,9 @@
 pub mod types;
-use anyhow::Result;
+use anyhow::{anyhow, Result, bail};
 use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::ETHRelayer;
-use force_eth_lib::transfer::to_ckb::{
-    approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
-};
+use force_eth_lib::transfer::to_ckb::{approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx, create_bridge_cell};
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock,
 };
@@ -24,6 +22,7 @@ use web3::types::{H256, U256};
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         SubCommand::DevInit(args) => dev_init_handler(args),
+        SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args),
         // transfer erc20 to ckb
         SubCommand::Approve(args) => approve_handler(args).await,
         // lock erc20 token && wait the tx is commit.
@@ -52,10 +51,10 @@ pub async fn handler(opt: Opts) -> Result<()> {
 
 pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
     if std::path::Path::new(&args.config_path).exists() && !args.force {
-        return Err(anyhow::anyhow!(
+        bail!(
             "force-bridge-eth config already exists at {}, use `-f` in command if you want to overwrite it",
             &args.config_path
-        ));
+        );
     }
     dev_init(
         args.config_path,
@@ -67,8 +66,18 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.light_client_typescript_path,
         args.recipient_typescript_path,
         args.sudt_path,
+    )
+}
+
+pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
+    create_bridge_cell(
+        args.config_path,
+        args.rpc_url,
+        args.indexer_url,
+        args.private_key_path,
         args.eth_contract_address,
         args.eth_token_address,
+        args.recipient_address,
     )
 }
 
@@ -88,14 +97,13 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     let to = convert_eth_address(&args.to)?;
     let token_addr = convert_eth_address(&args.token)?;
     let settings = Settings::new(&args.config_path)?;
-    let outpoint = build_outpoint(settings.replay_resist_lockscript.outpoint)?;
     let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
         Token::Address(token_addr),
         Token::Uint(U256::from(args.amount)),
         Token::Uint(U256::from(args.bridge_fee)),
         Token::Bytes(recipient_lockscript.as_slice().to_vec()),
-        Token::Bytes(outpoint.as_slice().to_vec()),
+        Token::Bytes(hex::decode(args.replay_resist_outpoint)?),
         Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
     ];
     let hash = lock_token(to, args.rpc_url, args.private_key_path, &data, args.wait)
@@ -107,14 +115,12 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let settings = Settings::new(&args.config_path)?;
-    let outpoint = build_outpoint(settings.replay_resist_lockscript.outpoint)?;
     let to = convert_eth_address(&args.to)?;
     let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
         Token::Uint(U256::from(args.bridge_fee)),
         Token::Bytes(recipient_lockscript.as_slice().to_vec()),
-        Token::Bytes(outpoint.as_slice().to_vec()),
+        Token::Bytes(hex::decode(args.replay_resist_outpoint)?),
         Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
     ];
     let hash = lock_eth(
