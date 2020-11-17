@@ -4,8 +4,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+mod eth_light_client_lockscript;
 mod eth_recipient_typescript;
-
 mod utils;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
