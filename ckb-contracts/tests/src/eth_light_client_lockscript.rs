@@ -10,7 +10,7 @@ fn test_correct_tx_when_in_owner_mode() {
 #[test]
 fn test_correct_tx_when_change_owner() {
     let mut case = get_correct_case();
-    if let ScriptCell::ETHLightClientLockScriptCell(script) = &mut case.script_cells.outputs[0] {
+    if let CustomCell::ETHLightClientLockCustomCell(script) = &mut case.script_cells.outputs[0] {
         script.args[0] = 0;
     }
     case_runner::run_test(case);
@@ -19,7 +19,7 @@ fn test_correct_tx_when_change_owner() {
 #[test]
 fn test_correct_tx_when_change_owner_to_none() {
     let mut case = get_correct_case();
-    if let ScriptCell::ETHLightClientLockScriptCell(script) = &mut case.script_cells.outputs[0] {
+    if let CustomCell::ETHLightClientLockCustomCell(script) = &mut case.script_cells.outputs[0] {
         script.args = Vec::default();
     }
     case_runner::run_test(case);
@@ -28,10 +28,10 @@ fn test_correct_tx_when_change_owner_to_none() {
 #[test]
 fn test_correct_tx_when_owner_from_none_to_none() {
     let mut case = get_correct_case();
-    if let ScriptCell::ETHLightClientLockScriptCell(script) = &mut case.script_cells.inputs[0] {
+    if let CustomCell::ETHLightClientLockCustomCell(script) = &mut case.script_cells.inputs[0] {
         script.args = Vec::default();
     }
-    if let ScriptCell::ETHLightClientLockScriptCell(script) = &mut case.script_cells.outputs[0] {
+    if let CustomCell::ETHLightClientLockCustomCell(script) = &mut case.script_cells.outputs[0] {
         script.args = Vec::default();
     }
     case_runner::run_test(case);
@@ -40,7 +40,7 @@ fn test_correct_tx_when_owner_from_none_to_none() {
 #[test]
 fn test_wrong_tx_when_owner_from_none_to_some() {
     let mut case = get_correct_case();
-    if let ScriptCell::ETHLightClientLockScriptCell(script) = &mut case.script_cells.inputs[0] {
+    if let CustomCell::ETHLightClientLockCustomCell(script) = &mut case.script_cells.inputs[0] {
         script.args = Vec::default();
     }
     case.expect_return_error_info = "owner changed from none to some".to_string();
@@ -50,7 +50,7 @@ fn test_wrong_tx_when_owner_from_none_to_some() {
 #[test]
 fn test_wrong_tx_when_not_in_owner_mode() {
     let mut case = get_correct_case();
-    if let ScriptCell::ETHLightClientLockScriptCell(script) = &mut case.script_cells.inputs[0] {
+    if let CustomCell::ETHLightClientLockCustomCell(script) = &mut case.script_cells.inputs[0] {
         script.args[0] = 0;
     }
     case.expect_return_error_info = "not owner lock".to_string();
@@ -66,15 +66,15 @@ fn get_correct_case() -> TestCase {
     .to_vec();
     TestCase {
         cell_deps: vec![],
-        script_cells: ScriptCells {
-            inputs: vec![ScriptCell::ETHLightClientLockScriptCell(
+        script_cells: CustomCells {
+            inputs: vec![CustomCell::ETHLightClientLockCustomCell(
                 ETHLightClientLockCell {
                     capacity: 100 * CKB_UNITS,
                     index: 0,
                     args: always_success_hash.clone(),
                 },
             )],
-            outputs: vec![ScriptCell::ETHLightClientLockScriptCell(
+            outputs: vec![CustomCell::ETHLightClientLockCustomCell(
                 ETHLightClientLockCell {
                     capacity: 100 * CKB_UNITS,
                     index: 0,

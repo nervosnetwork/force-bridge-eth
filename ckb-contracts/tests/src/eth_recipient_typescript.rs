@@ -26,7 +26,7 @@ fn test_tx_when_burned_amount_not_match_data_amount() {
 #[test]
 fn test_tx_when_fee_bigger_than_burned_amount() {
     let mut case = get_correct_case();
-    if let ScriptCell::ETHRecipientScriptCell(script) = &mut case.script_cells.outputs[0] {
+    if let CustomCell::ETHRecipientCustomCell(script) = &mut case.script_cells.outputs[0] {
         script.data.fee = 100;
         case.expect_return_error_info = "fee is too much".to_string();
         case_runner::run_test(case);
@@ -36,7 +36,7 @@ fn test_tx_when_fee_bigger_than_burned_amount() {
 #[test]
 fn test_tx_when_eth_address_is_invalid() {
     let mut case = get_correct_case();
-    if let ScriptCell::ETHRecipientScriptCell(script) = &mut case.script_cells.outputs[0] {
+    if let CustomCell::ETHRecipientCustomCell(script) = &mut case.script_cells.outputs[0] {
         script.args = "1234".to_string();
         case.expect_return_error_info = "eth_contract_address in witness length wrong".to_string();
         case_runner::run_test(case);
@@ -46,9 +46,9 @@ fn test_tx_when_eth_address_is_invalid() {
 fn get_correct_case() -> TestCase {
     TestCase {
         cell_deps: vec![],
-        script_cells: ScriptCells {
+        script_cells: CustomCells {
             inputs: vec![],
-            outputs: vec![ScriptCell::ETHRecipientScriptCell(ETHRecipientCell {
+            outputs: vec![CustomCell::ETHRecipientCustomCell(ETHRecipientCell {
                 capacity: 100 * CKB_UNITS,
                 data: ETHRecipientDataView {
                     eth_recipient_address: "5Dc158c90EBE46FfC9f03f1174f36c44497976D4".to_string(),

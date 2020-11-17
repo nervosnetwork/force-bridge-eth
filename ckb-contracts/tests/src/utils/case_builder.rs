@@ -48,57 +48,43 @@ pub trait CellBuilder {
 
 pub struct TestCase {
     pub cell_deps: Vec<CellDepView>,
-    pub script_cells: ScriptCells,
+    pub script_cells: CustomCells,
     pub sudt_cells: SudtCells,
     pub capacity_cells: CapacityCells,
     pub witnesses: Vec<Witness>,
     pub expect_return_error_info: String,
 }
 
-pub struct ScriptCells {
-    pub inputs: Vec<ScriptCell>,
-    pub outputs: Vec<ScriptCell>,
+pub struct CustomCells {
+    pub inputs: Vec<CustomCell>,
+    pub outputs: Vec<CustomCell>,
 }
 
-pub enum ScriptCell {
-    ETHRecipientScriptCell(ETHRecipientCell),
-    ETHLightClientLockScriptCell(ETHLightClientLockCell),
+pub enum CustomCell {
+    ETHRecipientCustomCell(ETHRecipientCell),
+    ETHLightClientLockCustomCell(ETHLightClientLockCell),
 }
 
-impl CellBuilder for ScriptCell {
+impl CellBuilder for CustomCell {
     fn build_output_cell(
         &self,
         context: &mut Context,
         outpoints: &OutpointsContext,
     ) -> (Bytes, CellOutput) {
         match self {
-            ScriptCell::ETHRecipientScriptCell(eth_recipient_cell) => {
-                let output_cell = CellOutput::new_builder()
-                    .capacity(eth_recipient_cell.capacity.pack())
-                    .type_(Some(eth_recipient_cell.build_typescript(context, outpoints)).pack())
-                    .lock(eth_recipient_cell.build_lockscript(context, outpoints))
-                    .build();
-                let output_data = eth_recipient_cell.data.as_molecule_bytes();
-                (output_data, output_cell)
+            CustomCell::ETHRecipientCustomCell(eth_recipient_cell) => {
+                eth_recipient_cell.build_output_cell(context, outpoints)
             }
-            ScriptCell::ETHLightClientLockScriptCell(eth_light_client_lock_cell) => {
-                let output_cell = CellOutput::new_builder()
-                    .capacity(eth_light_client_lock_cell.capacity.pack())
-                    .type_(
-                        Some(eth_light_client_lock_cell.build_typescript(context, outpoints))
-                            .pack(),
-                    )
-                    .lock(eth_light_client_lock_cell.build_lockscript(context, outpoints))
-                    .build();
-                (Default::default(), output_cell)
+            CustomCell::ETHLightClientLockCustomCell(eth_light_client_lock_cell) => {
+                eth_light_client_lock_cell.build_output_cell(context, outpoints)
             }
         }
     }
 
     fn get_index(&self) -> usize {
         match self {
-            ScriptCell::ETHRecipientScriptCell(eth_recipient_cell) => eth_recipient_cell.index,
-            ScriptCell::ETHLightClientLockScriptCell(eth_light_client_lock_cell) => {
+            CustomCell::ETHRecipientCustomCell(eth_recipient_cell) => eth_recipient_cell.index,
+            CustomCell::ETHLightClientLockCustomCell(eth_light_client_lock_cell) => {
                 eth_light_client_lock_cell.index
             }
         }
@@ -121,6 +107,20 @@ pub struct ETHRecipientCell {
 }
 
 impl ETHRecipientCell {
+    fn build_output_cell(
+        &self,
+        context: &mut Context,
+        outpoints: &OutpointsContext,
+    ) -> (Bytes, CellOutput) {
+        let output_cell = CellOutput::new_builder()
+            .capacity(self.capacity.pack())
+            .type_(Some(self.build_typescript(context, outpoints)).pack())
+            .lock(self.build_lockscript(context, outpoints))
+            .build();
+        let output_data = self.data.as_molecule_bytes();
+        (output_data, output_cell)
+    }
+
     fn build_typescript(&self, context: &mut Context, outpoints: &OutpointsContext) -> Script {
         context
             .build_script(
@@ -163,6 +163,25 @@ pub struct ETHLightClientLockCell {
 }
 
 impl ETHLightClientLockCell {
+    fn build_output_cell(
+        &self,
+        context: &mut Context,
+        outpoints: &OutpointsContext,
+    ) -> (Bytes, CellOutput) {
+        let output_cell = CellOutput::new_builder()
+            .capacity(self.capacity.pack())
+            .type_(Some(self.build_typescript(context, outpoints)).pack())
+            .lock(self.build_lockscript(context, outpoints))
+            .build();
+        (Default::default(), output_cell)
+    }
+
+    fn build_typescript(&self, context: &mut Context, outpoints: &OutpointsContext) -> Script {
+        context
+            .build_script(&outpoints[ALWAYS_SUCCESS_OUTPOINT_KEY], Default::default())
+            .expect("build eth light client typescript")
+    }
+
     fn build_lockscript(&self, context: &mut Context, outpoints: &OutpointsContext) -> Script {
         context
             .build_script(
@@ -170,12 +189,6 @@ impl ETHLightClientLockCell {
                 Bytes::from(self.args.clone()),
             )
             .expect("build eth light client lockscript")
-    }
-
-    fn build_typescript(&self, context: &mut Context, outpoints: &OutpointsContext) -> Script {
-        context
-            .build_script(&outpoints[ALWAYS_SUCCESS_OUTPOINT_KEY], Default::default())
-            .expect("build eth light client typescript")
     }
 }
 
