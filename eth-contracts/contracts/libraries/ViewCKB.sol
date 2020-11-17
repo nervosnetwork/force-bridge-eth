@@ -1,7 +1,6 @@
 pragma solidity ^0.5.10;
 
 import {TypedMemView} from "./TypedMemView.sol";
-import {CKBCrypto} from "./CKBCrypto.sol";
 import {SafeMath} from "./SafeMath.sol";
 
 library ViewCKB {
@@ -9,7 +8,7 @@ library ViewCKB {
     using SafeMath for uint;
     uint256 public constant PERIOD_BLOCKS = 24 * 450 * 7;  // 1 week in blocks
     uint8 public constant NUMBER_SIZE = 4; // Size of Number in ckb molecule
-
+    uint64 public constant NUMBER_MASK = 16777215;
     enum CKBTypes {
         Unknown, // 0x0
         Script, // 0x1
@@ -20,7 +19,7 @@ library ViewCKB {
         H256,
         H160,
         Header,
-
+        Nonce,
         RawHeader,
         Version,
         CompactTarget,
@@ -30,7 +29,6 @@ library ViewCKB {
         ParentHash,
         TransactionsRoot,
         UnclesHash,
-        Dao,
 
         HeaderVec,
         Transaction
@@ -130,7 +128,7 @@ library ViewCKB {
     /// @param _input   the RawHeader
     /// @return         the epoch
     function epoch(bytes29 _input) internal pure typeAssert(_input, CKBTypes.RawHeader) returns (uint64) {
-        return uint64(_input.indexLEUint(24, 8));
+        return uint64(_input.indexLEUint(24, 8)) & NUMBER_MASK;
     }
 
     /// @notice         extracts the parentHash from a RawHeader
@@ -154,13 +152,6 @@ library ViewCKB {
         return _input.index(128, 32);
     }
 
-    /// @notice         extracts the dao from a RawHeader
-    /// @param _input   the RawHeader
-    /// @return         the dao
-    function dao(bytes29 _input) internal pure typeAssert(_input, CKBTypes.RawHeader) returns (bytes32) {
-        return _input.index(160, 32);
-    }
-
     /// @notice         Index a header vector.
     /// @dev            Errors on overruns
     /// @param _headers The header vector
@@ -179,4 +170,3 @@ library ViewCKB {
         return uint32(_headers.indexLEUint(0, 4));
     }
 }
-

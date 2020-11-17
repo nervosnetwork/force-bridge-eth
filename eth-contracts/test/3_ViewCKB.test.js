@@ -24,7 +24,6 @@ const {
   extractParentHash,
   extractTransactionsRoot,
   extractUnclesHash,
-  extractDao,
   indexHeaderVec,
 } = vectors;
 
@@ -186,15 +185,6 @@ contract("ViewCKB", () => {
       for (let i = 0; i < extractUnclesHash.length; i += 1) {
         const res = await instance.unclesHash(extractUnclesHash[i].input);
         assert.strictEqual(extractUnclesHash[i].output, res);
-      }
-    });
-  });
-
-  describe("#dao", async () => {
-    it("extracts the dao from a RawHeader", async () => {
-      for (let i = 0; i < extractDao.length; i += 1) {
-        const res = await instance.dao(extractDao[i].input);
-        assert.strictEqual(extractDao[i].output, res);
       }
     });
   });

@@ -20,6 +20,18 @@ async function waitingForReceipt(provider, res) {
   return txReceipt;
 }
 
+const deployContract = async (factoryPath) => {
+  // const factory = await ethers.getContractFactory("contracts/token/NFI.sol:NFI");
+  const factory = await ethers.getContractFactory(factoryPath);
+  const contract = await factory.deploy();
+
+  // await contract.deployed();
+  await contract.deployTransaction.wait(1);
+  const contractAddr = contract.address;
+  console.log(`${factoryPath} deployed to: ${contractAddr}`);
+  return contract;
+};
+
 const { log } = console;
 
-module.exports = { sleep, log, waitingForReceipt };
+module.exports = { sleep, log, waitingForReceipt, deployContract };

@@ -73,10 +73,6 @@ contract ViewCKBTest {
         return _input.ref(uint40(ViewCKB.CKBTypes.RawHeader)).unclesHash();
     }
 
-    function dao(bytes memory _input) public pure returns (bytes32) {
-        return _input.ref(uint40(ViewCKB.CKBTypes.RawHeader)).dao();
-    }
-
     function indexHeaderVec(bytes memory _input, uint256 index) public view returns (bytes memory) {
         return _input.ref(uint40(ViewCKB.CKBTypes.HeaderVec)).indexHeaderVec(index).clone();
     }
