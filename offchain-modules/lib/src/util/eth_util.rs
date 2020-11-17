@@ -156,6 +156,33 @@ impl Web3Client {
     }
 }
 
+pub fn transfer_to_header(block: &Block<H256>) -> BlockHeader {
+    BlockHeader {
+        hash: block.hash,
+        parent_hash: block.parent_hash,
+        uncles_hash: block.uncles_hash,
+        author: block.author,
+        state_root: block.state_root,
+        transactions_root: block.transactions_root,
+        receipts_root: block.receipts_root,
+        number: block.number,
+        gas_used: block.gas_used,
+        gas_limit: block.gas_limit,
+        extra_data: block.extra_data.clone(),
+        logs_bloom: block.logs_bloom.unwrap(),
+        timestamp: block.timestamp,
+        difficulty: block.difficulty,
+        mix_hash: block.mix_hash,
+        nonce: block.nonce,
+    }
+}
+
+pub fn convert_to_header_rlp(block: &Block<H256>) -> Result<String> {
+    let mut stream = RlpStream::new();
+    rlp_append(&block, &mut stream);
+    Ok(hex::encode(stream.out().as_slice()))
+}
+
 pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>, eth_value: U256) -> RawTransaction {
     RawTransaction {
         nonce: convert_u256(nonce),

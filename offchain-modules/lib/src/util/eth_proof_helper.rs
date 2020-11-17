@@ -1,6 +1,10 @@
+use anyhow::Result;
 use eth_spv_lib::eth_types::{hash256, H128, H256, H512};
+use force_eth_types::generated::basic::{Bytes, BytesVec};
 use hex::FromHex;
+use molecule::prelude::{Builder, Entity};
 use serde::{Deserialize, Deserializer};
+use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub struct Hex(pub Vec<u8>);
@@ -97,6 +101,34 @@ impl BlockWithProofs {
                     .to_vec(),
             })
             .collect()
+    }
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct DoubleNodeWithMerkleProofJson {
+    pub dag_nodes: Vec<String>, // [H512; 2]
+    pub proof: Vec<String>,
+}
+
+impl TryFrom<DoubleNodeWithMerkleProofJson>
+    for force_eth_types::generated::eth_header_cell::DoubleNodeWithMerkleProof
+{
+    type Error = anyhow::Error;
+    fn try_from(proof: DoubleNodeWithMerkleProofJson) -> Result<Self> {
+        let mut dag_nodes_vec: Vec<Bytes> = vec![];
+        for i in 0..proof.dag_nodes.len() {
+            dag_nodes_vec.push(hex::decode(&proof.dag_nodes[i])?.into());
+        }
+        let mut proof_vec: Vec<Bytes> = vec![];
+        for i in 0..proof.proof.len() {
+            proof_vec.push(hex::decode(&proof.proof[i])?.into());
+        }
+        Ok(
+            force_eth_types::generated::eth_header_cell::DoubleNodeWithMerkleProof::new_builder()
+                .dag_nodes(BytesVec::new_builder().set(dag_nodes_vec).build())
+                .proof(BytesVec::new_builder().set(proof_vec).build())
+                .build(),
+        )
     }
 }
 

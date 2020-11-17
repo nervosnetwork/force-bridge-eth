@@ -1,29 +1,25 @@
-use crate::util::ckb_util::{parse_cell, Generator};
+use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, Generator};
 use crate::util::eth_proof_helper::{read_block, Witness};
-use crate::util::eth_util::{decode_block_header, Web3Client};
+use crate::util::eth_util::Web3Client;
 use crate::util::settings::Settings;
 use anyhow::{anyhow, Result};
 use ckb_sdk::{AddressPayload, SECP256K1};
-use ckb_types::bytes::Bytes;
 use ckb_types::core::DepType;
 use ckb_types::packed::{self};
 use ckb_types::packed::{Byte32, Script};
-use ckb_types::prelude::{Builder, Entity, Reader};
+use ckb_types::prelude::{Builder, Entity};
 use cmd_lib::run_cmd;
 use ethereum_types::{H256, U64};
-use force_eth_types::generated::eth_header_cell::ETHChainReader;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::Cell;
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use log::info;
-use rlp::Rlp;
 use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
 pub const INIT_ETH_HEIGHT: u64 = 10000;
-pub const CONFIRM: usize = 10;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -273,23 +269,4 @@ impl ETHRelayer {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
-}
-
-pub fn parse_main_chain_headers(data: Bytes) -> Result<(Vec<BlockHeader>, Vec<Vec<u8>>)> {
-    ETHChainReader::verify(&data, false).map_err(|err| anyhow!(err))?;
-    let chain_reader = ETHChainReader::new_unchecked(&data);
-    let main_reader = chain_reader.main();
-    let mut un_confirmed = vec![];
-    let mut confirmed = vec![];
-    let len = main_reader.len();
-    for i in (0..len).rev() {
-        if (len - i) < CONFIRM {
-            let rlp = Rlp::new(main_reader.get_unchecked(i).raw_data());
-            let header: BlockHeader = decode_block_header(&rlp).map_err(|err| anyhow!(err))?;
-            un_confirmed.push(header);
-        } else {
-            confirmed.push(main_reader.get_unchecked(i).raw_data().to_vec())
-        }
-    }
-    Ok((un_confirmed, confirmed))
 }
