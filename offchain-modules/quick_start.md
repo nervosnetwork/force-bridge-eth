@@ -69,7 +69,7 @@
    npx hardhat run scripts/geth/deployAll.js --network geth
   ```
 
-  ```json
+  ```
   {
     "ERC20Deploy": "0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c",
     "CKBChainDeploy": "0x4414f183026502850203cE9df08f2648E1C39b32",
@@ -87,7 +87,7 @@
 RUST_LOG=info ./target/debug/force-eth-cli  ckb-relay  -k ~/account/relay-sk -g 20 --to 0x3C049b35392D20e5C1E7bB6B32E26f07093A6923
 ```
 
-```json
+```
 CkbRelayArgs {
     gap: 20,  // 每次提交多少个块
     to: "0x3C049b35392D20e5C1E7bB6B32E26f07093A6923",
@@ -110,7 +110,7 @@ CkbRelayArgs {
 RUST_LOG=info ./target/debug/force-eth-cli dev-init --eth-contract-address 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0 --eth-token-address 0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c --private-key-path cli/privkeys/ckb_key -f
 ```
 
-```json
+```
 DevInitArgs {
     force: true,
     config_path: "/tmp/.force-bridge-cli/config.toml",
@@ -135,7 +135,7 @@ DevInitArgs {
 RUST_LOG=debug ./target/debug/force-eth-cli approve --from 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0 --to 0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c  -k cli/privkeys/eth_key
 ```
 
-```json
+```
 ApproveArgs {
     from: "0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0",
     to: "0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c",
@@ -152,7 +152,7 @@ ApproveArgs {
 RUST_LOG=debug ./target/debug/force-eth-cli lock-token --to 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0 --token 0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c --amount 100 --bridge-fee 10 --sudt-extra-data sudt_extra_data  -k cli/privkeys/eth_key
 ```
 
-```json
+```
 LockTokenArgs {
     to: "0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0",
     rpc_url: "http://172.18.0.51:8545",
@@ -178,7 +178,7 @@ export LOCKHASH=0x81ec8d6d14fc5bbd573e70d2fb3aa162b7106e7f246d0a40209ecd059baec9
 RUST_LOG=debug ./target/debug/force-eth-cli mint --hash $LOCKHASH --eth-contract-address 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0 --cell depend_on_eth_relay 
 ```
 
-```json
+```
 MintArgs {
     hash: "0x81ec8d6d14fc5bbd573e70d2fb3aa162b7106e7f246d0a40209ecd059baec928",
     eth_rpc_url: "http://172.18.0.51:8545",
@@ -199,7 +199,7 @@ MintArgs {
 RUST_LOG=info  ./target/debug/force-eth-cli  query-sudt-blance --addr ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37 --token-addr 0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c --lock-contract-addr 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0
 ```
 
-```json
+```
 SudtGetBalanceArgs {
     config_path: "/tmp/.force-bridge-cli/config.toml",
     ckb_rpc_url: "http://localhost:8114",
@@ -218,7 +218,7 @@ SudtGetBalanceArgs {
 RUST_LOG=info ./target/debug/force-eth-cli burn --burn-amount 15 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d --token-addr 0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c   --lock-contract-addr 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0 --unlock-fee 5 --private-key-path cli/privkeys/ckb_key
 ```
 
-```json
+```
 BurnArgs {
     config_path: "/tmp/.force-bridge-cli/config.toml",
     tx_fee: "0.1",
@@ -260,7 +260,7 @@ export BURNINFO=5d0300001c00000020000000b8000000bc00000018010000e902000000000000
 RUST_LOG=info ./target/debug/force-eth-cli  unlock --from f --to 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0 --tx-info $BURNPROOF --tx-proof $BURNPROOF -k ~/account/sk
 ```
 
-```json
+```
 UnlockArgs {
     from: "f",
     to: "0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0",
@@ -279,7 +279,7 @@ UnlockArgs {
 RUST_LOG=info ./target/debug/force-eth-cli transfer-from-ckb --burn-amount 5 --unlock-fee 1 --ckb-privkey-path cli/privkeys/ckb_key --eth-privkey-path cli/privkeys/eth_key --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr 0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c --lock-contract-addr 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0 --light-client-addr 0x3C049b35392D20e5C1E7bB6B32E26f07093A6923
 ```
 
-```json
+```
 TransferFromCkbArgs {
     config_path: "/tmp/.force-bridge-cli/config.toml",
     tx_fee: "0.1",
