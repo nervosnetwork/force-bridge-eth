@@ -50,18 +50,23 @@ pub fn verify_add_headers<T: Adapter>(data_loader: T) {
         }
     };
 
-    verify_merkle_proof(data_loader, witness_reader, &header, prev)
+    verify_merkle_proof(data_loader, witness_reader, &output_data, &header, prev)
 }
 
 fn verify_merkle_proof<T: Adapter>(
     data_loader: T,
     witness: ETHLightClientWitnessReader,
+    output: &ETHHeaderCellDataView,
     header: &BlockHeader,
     prev: Option<BlockHeader>,
 ) {
+    if BytesVecReader::verify(&output.merkle_proof, false).is_err() {
+        panic!("verify_merkle_proof, invalid output.merkle_proof");
+    }
+    let merkle_proof_vec = BytesVecReader::new_unchecked(&output.merkle_proof);
     let mut proofs = vec![];
-    for i in 0..witness.merkle_proof().len() {
-        let proof_raw = witness.merkle_proof().get_unchecked(i).raw_data();
+    for i in 0..merkle_proof_vec.len() {
+        let proof_raw = merkle_proof_vec.get_unchecked(i).raw_data();
         let proof = parse_proof(proof_raw);
         proofs.push(proof);
     }
