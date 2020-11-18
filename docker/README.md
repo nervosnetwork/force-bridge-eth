@@ -24,8 +24,6 @@ docker run --rm -it -p 8116:8116 ckb-indexer
 
 # Geth private chain
 
-
-
 ### 1. docker build
 ```shell script
 cd docker/geth
