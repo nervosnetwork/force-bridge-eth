@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
 use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
-use ckb_types::prelude::{Builder, Entity, Pack, Reader};
+use ckb_types::prelude::{Builder, Entity, Pack, Reader, PackVec};
 use ckb_types::{
     bytes::Bytes,
     packed::{self, Byte32, CellDep, CellOutput, OutPoint, Script},
@@ -28,6 +28,8 @@ use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 use web3::types::{Block, BlockHeader};
+use crate::transfer::to_ckb::build_eth_bridge_lock_args;
+use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 
 pub struct Generator {
     pub rpc_client: HttpRpcClient,
@@ -229,7 +231,6 @@ impl Generator {
             .build();
 
         // input bridge cells
-        {
             let rpc_client = &mut self.rpc_client;
             let indexer_client = &mut self.indexer_client;
             let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
@@ -241,21 +242,24 @@ impl Generator {
             // let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())
             //     .map_err(|err| anyhow!(err))?
             //     .ok_or_else(|| anyhow!("there are no remaining public cells available"))?;
+            let outpoint = OutPoint::from_slice(&eth_proof.replay_resist_outpoint).expect("replay resist outpoint in lock event is invalid");
+            // let bridge_cell = get_live_cell_fn(outpoint, false)?;
+            // let bridge_type_args = bridge_cell.type_().to_opt().expect("unsupported bridge cell").args();
+            // let owner_lock_hash = ETHBridgeTypeArgs::from_slice(bridge_type_args.as_slice())?;
             helper
                 .add_input(
-                    OutPoint::from_slice(&eth_proof.replay_resist_outpoint).expect("replay resist outpoint in lock event is invalid"),
+                    outpoint,
                     None,
                     &mut get_live_cell_fn,
                     &self.genesis_info,
                     true,
                 )
                 .map_err(|err| anyhow!(err))?;
-        }
         // 1 bridge cells
-        {
-            let to_output = CellOutput::new_builder().lock(lockscript.clone()).build();
-            helper.add_output_with_auto_capacity(to_output, ckb_types::bytes::Bytes::default());
-        }
+        // {
+        //     let to_output = CellOutput::new_builder().lock(lockscript.clone()).build();
+        //     helper.add_output_with_auto_capacity(to_output, ckb_types::bytes::Bytes::default());
+        // }
         // 2 xt cells
         {
             let recipient_lockscript =
@@ -269,15 +273,20 @@ impl Generator {
                 .build();
 
             // recipient
+            dbg!(&recipient_lockscript, &from_lockscript);
             let sudt_user_output = CellOutput::new_builder()
-                .type_(Some(sudt_typescript).pack())
+                .type_(Some(sudt_typescript.clone()).pack())
                 .lock(recipient_lockscript)
                 .build();
-            let mut to_user_amount_data = eth_proof.lock_amount.to_le_bytes().to_vec();
+            let mut to_user_amount_data = (eth_proof.lock_amount - eth_proof.bridge_fee).to_le_bytes().to_vec();
             to_user_amount_data.extend(eth_proof.sudt_extra_data.clone());
             helper.add_output_with_auto_capacity(sudt_user_output, to_user_amount_data.into());
             // fee
-            // todo
+            let sudt_fee_output = CellOutput::new_builder()
+                .type_(Some(sudt_typescript).pack())
+                .lock(from_lockscript.clone())
+                .build();
+            helper.add_output_with_auto_capacity(sudt_fee_output, eth_proof.bridge_fee.to_le_bytes().to_vec().into());
         }
         // add witness
         {
@@ -373,6 +382,62 @@ impl Generator {
         }
         let mol_headers = HeaderVec::new_builder().set(mol_header_vec).build();
         Ok(Vec::from(mol_headers.as_slice()))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_bridge_cell(
+        &mut self,
+        tx_fee: u64,
+        from_lockscript: Script,
+        eth_token_address: H160,
+        eth_contract_address: H160,
+        recipient_lockscript: Script,
+        bridge_fee: u128,
+    ) -> Result<TransactionView> {
+        let mut tx_helper = TxHelper::default();
+        // add cell deps
+        let outpoints = vec![
+            self.settings.bridge_lockscript.outpoint.clone(),
+            self.settings.bridge_typescript.outpoint.clone(),
+        ];
+        self.add_cell_deps(&mut tx_helper, outpoints)
+            .map_err(|err| anyhow!(err))?;
+        // build lockscript
+        let bridge_lockscript_args = build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
+        let bridge_lockscript = Script::new_builder()
+            .code_hash(Byte32::from_slice(&hex::decode(&self.settings.bridge_lockscript.code_hash)?)?)
+            .args(bridge_lockscript_args.as_bytes().pack())
+            .build();
+        // build typescript
+        let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
+            .bridge_lock_hash(basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap())
+            .recipient_lock_hash(basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice()).unwrap())
+            .owner_lock_hash(basic::Byte32::from_slice(from_lockscript.calc_script_hash().as_slice()).unwrap())
+            .fee(bridge_fee.into())
+            .build();
+        let bridge_typescript = Script::new_builder()
+            .code_hash(Byte32::from_slice(&hex::decode(&self.settings.bridge_typescript.code_hash).unwrap())?)
+            .args(bridge_typescript_args.as_bytes().pack())
+            .build();
+        // build output
+        let capacity: u64 = 500_0000_0000;
+        let output = CellOutput::new_builder()
+            .capacity(capacity.pack())
+            .type_(Some(bridge_typescript).pack())
+            .lock(bridge_lockscript)
+            .build();
+        tx_helper.add_output(output, ckb_types::bytes::Bytes::default());
+        // build tx
+        let tx = tx_helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self.genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
+        Ok(tx)
     }
 
     #[allow(clippy::too_many_arguments)]

@@ -41,8 +41,12 @@ pub struct CreateBridgeCellArgs {
     pub eth_contract_address: String,
     #[clap(long)]
     pub eth_token_address: String,
-    #[clap(long)]
+    #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
     pub recipient_address: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+    #[clap(long, default_value = "1")]
+    pub bridge_fee: u128,
 }
 
 #[derive(Clap, Clone, Debug)]

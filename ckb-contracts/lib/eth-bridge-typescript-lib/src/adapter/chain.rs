@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use super::Adapter;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::{
@@ -8,9 +11,6 @@ use ckb_std::ckb_types::{
 use ckb_std::error::SysError;
 use ckb_std::high_level::{load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_cell_type_hash, load_input_out_point, load_script, load_script_hash, load_witness_args, QueryIter, load_cell_capacity};
 use molecule::prelude::{Builder, Entity, Reader};
-
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 use force_eth_types::generated::eth_bridge_type_cell::{
     ETHBridgeTypeArgs, ETHBridgeTypeArgsReader,
 };

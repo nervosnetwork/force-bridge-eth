@@ -127,6 +127,7 @@ fn test_mint_mode_with_typescript() {
         197, 102, 196, 56, 92, 59, 222, 178, 25, 215,
     ])
         .unwrap();
+    dbg!(hex::encode(recipient_lockscript.as_slice()));
     let bridge_lock_args = ETHBridgeLockArgs::new_builder().build();
     let bridge_lock_script = context
         .build_script(&bridge_lock_out_point, bridge_lock_args.as_bytes())
