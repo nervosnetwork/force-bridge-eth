@@ -106,13 +106,27 @@ pub async fn wait_block_submit(
 ) -> Result<()> {
     let mut ckb_client = HttpRpcClient::new(ckb_url);
     let hash = covert_to_h256(&tx_hash)?;
-    let block_hash = ckb_client
-        .get_transaction(hash)
-        .map_err(|err| anyhow!(err))?
-        .ok_or_else(|| anyhow!("tx is none"))?
-        .tx_status
-        .block_hash
-        .ok_or_else(|| anyhow!("block hash is none"))?;
+    let block_hash;
+
+    loop {
+        let block_hash_opt = ckb_client
+            .get_transaction(hash.clone())
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("tx is none"))?
+            .tx_status
+            .block_hash;
+        match block_hash_opt {
+            Some(hash) => {
+                block_hash = hash;
+                break;
+            }
+            None => {
+                info!("the transaction is not in block yet");
+                std::thread::sleep(std::time::Duration::from_secs(30));
+            }
+        }
+    }
+
     let ckb_height = ckb_client
         .get_block(block_hash)
         .map_err(|err| anyhow!(err))?

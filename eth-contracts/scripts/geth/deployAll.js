@@ -40,15 +40,6 @@ async function main() {
   const EaglesongDeployAddr = EaglesongDeploy.address;
   console.log("Eaglesong deployed to:", EaglesongDeployAddr);
 
-  // deploy Migrations
-  const Migrations = await ethers.getContractFactory(
-    "contracts/Migrations.sol:Migrations"
-  );
-  const MigrationsDeploy = await Migrations.deploy();
-  await MigrationsDeploy.deployed();
-  const MigrationsDeployAddr = MigrationsDeploy.address;
-  console.log("Migrations deployed to:", MigrationsDeployAddr);
-
   const receipent_code_hash =
     "0x17fb928d15bf98064304f2126f6b387e33d0c3c6572d293143ca373929ec3b5c";
   // deploy TokenLocker
