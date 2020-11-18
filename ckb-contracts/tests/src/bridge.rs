@@ -5,7 +5,7 @@ use force_eth_types::generated::basic;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
 
-const MAX_CYCLES: u64 = 1000_000_000;
+const MAX_CYCLES: u64 = 1_000_000_000;
 
 #[test]
 fn test_mint_mode_without_typescript() {
@@ -48,7 +48,7 @@ fn test_mint_mode_without_typescript() {
             bridge_lock_script.calc_script_hash().as_bytes(),
         )
         .unwrap();
-    let recipient_lockscript = Script::from_slice(&vec![
+    let recipient_lockscript = Script::from_slice(&[
         73u8, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0, 0, 49, 0, 0, 0, 155, 215, 224, 111, 62, 207, 75, 224,
         242, 252, 210, 24, 139, 35, 241, 185, 252, 200, 142, 93, 75, 101, 168, 99, 123, 23, 114,
         59, 189, 163, 204, 232, 1, 20, 0, 0, 0, 200, 50, 138, 171, 205, 155, 158, 142, 100, 251,
@@ -63,7 +63,7 @@ fn test_mint_mode_without_typescript() {
             .build(),
         CellOutput::new_builder()
             .capacity(500u64.pack())
-            .type_(Some(sudt_typescript.clone()).pack())
+            .type_(Some(sudt_typescript).pack())
             .lock(Script::new_builder().build())
             .build(),
     ];
@@ -119,7 +119,7 @@ fn test_mint_mode_with_typescript() {
         .build();
 
     // build input
-    let recipient_lockscript = Script::from_slice(&vec![
+    let recipient_lockscript = Script::from_slice(&[
         73u8, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0, 0, 49, 0, 0, 0, 155, 215, 224, 111, 62, 207, 75, 224,
         242, 252, 210, 24, 139, 35, 241, 185, 252, 200, 142, 93, 75, 101, 168, 99, 123, 23, 114,
         59, 189, 163, 204, 232, 1, 20, 0, 0, 0, 200, 50, 138, 171, 205, 155, 158, 142, 100, 251,
@@ -149,7 +149,7 @@ fn test_mint_mode_with_typescript() {
     let input_out_point = context.create_cell(
         CellOutput::new_builder()
             .capacity(1000u64.pack())
-            .type_(Some(bridge_type_script.clone()).pack())
+            .type_(Some(bridge_type_script).pack())
             .lock(bridge_lock_script.clone())
             .build(),
         bridge_data.as_bytes(),
@@ -174,7 +174,7 @@ fn test_mint_mode_with_typescript() {
             .build(),
         CellOutput::new_builder()
             .capacity(500u64.pack())
-            .type_(Some(sudt_typescript.clone()).pack())
+            .type_(Some(sudt_typescript).pack())
             .lock(Script::new_builder().build())
             .build(),
     ];

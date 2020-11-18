@@ -2,7 +2,7 @@ ci: check-format-and-convention test-contract
 
 check-format-and-convention:
 	cargo fmt -- --check
-	cargo clippy -- -D warnings
+	cargo clippy --all --tests -- -D warnings
 	for c in $$(ls contracts); do echo "enter $$c"; cd contracts/$$c; cargo fmt -- --check; echo "check fmt done"; cd ../..; done
 
 fmt:
