@@ -1,10 +1,10 @@
 use super::*;
 use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::{bytes::Bytes, core::TransactionBuilder, packed::*, prelude::*};
-use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use std::hash::Hash;
-use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 use force_eth_types::generated::basic;
+use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
+use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
+use std::hash::Hash;
 
 const MAX_CYCLES: u64 = 1000_000_000;
 
@@ -126,16 +126,23 @@ fn test_mint_mode_with_typescript() {
         59, 189, 163, 204, 232, 1, 20, 0, 0, 0, 200, 50, 138, 171, 205, 155, 158, 142, 100, 251,
         197, 102, 196, 56, 92, 59, 222, 178, 25, 215,
     ])
-        .unwrap();
+    .unwrap();
     dbg!(hex::encode(recipient_lockscript.as_slice()));
     let bridge_lock_args = ETHBridgeLockArgs::new_builder().build();
     let bridge_lock_script = context
         .build_script(&bridge_lock_out_point, bridge_lock_args.as_bytes())
         .expect("script");
     let bridge_type_args = ETHBridgeTypeArgs::new_builder()
-        .bridge_lock_hash(basic::Byte32::from_slice(bridge_lock_script.calc_script_hash().as_slice()).unwrap())
-        .recipient_lock_hash(basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice()).unwrap())
-        .owner_lock_hash(basic::Byte32::from_slice(Script::new_builder().build().calc_script_hash().as_slice()).unwrap())
+        .bridge_lock_hash(
+            basic::Byte32::from_slice(bridge_lock_script.calc_script_hash().as_slice()).unwrap(),
+        )
+        .recipient_lock_hash(
+            basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice()).unwrap(),
+        )
+        .owner_lock_hash(
+            basic::Byte32::from_slice(Script::new_builder().build().calc_script_hash().as_slice())
+                .unwrap(),
+        )
         .fee(10.into())
         .build();
     let bridge_type_script = context

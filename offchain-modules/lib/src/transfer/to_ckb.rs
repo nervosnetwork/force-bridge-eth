@@ -1,25 +1,25 @@
-use crate::util::ckb_util::{ETHSPVProofJson, Generator, parse_privkey};
+use crate::util::ckb_util::{parse_privkey, ETHSPVProofJson, Generator};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use crate::util::settings::{OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
-use ckb_sdk::{AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1, Address, HumanCapacity};
+use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
 use ckb_types::core::{BlockView, DepType};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use ethabi::{Function, Param, ParamType, Token};
+use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::ETHAddress;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
+use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{deploy, sign, TxHelper};
-use force_sdk::util::{parse_privkey_path, send_tx_sync, ensure_indexer_sync};
+use force_sdk::util::{ensure_indexer_sync, parse_privkey_path, send_tx_sync};
 use log::info;
 use serde_json::json;
 use std::default::Default;
-use web3::types::{H160, H256, U256};
-use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
-use force_eth_types::generated::basic;
 use std::str::FromStr;
+use web3::types::{H160, H256, U256};
 
 pub async fn approve(
     from: H160,
@@ -322,7 +322,8 @@ pub fn create_bridge_cell(
             bridge_fee,
         )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
-    let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|e| anyhow!("sign error {}", e))?;
+    let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
+        .map_err(|e| anyhow!("sign error {}", e))?;
     log::info!(
         "tx: \n{}",
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))

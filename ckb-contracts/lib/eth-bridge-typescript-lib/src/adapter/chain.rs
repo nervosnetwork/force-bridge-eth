@@ -9,12 +9,16 @@ use ckb_std::ckb_types::{
     prelude::Pack,
 };
 use ckb_std::error::SysError;
-use ckb_std::high_level::{load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_cell_type_hash, load_input_out_point, load_script, load_script_hash, load_witness_args, QueryIter, load_cell_capacity};
-use molecule::prelude::{Builder, Entity, Reader};
+use ckb_std::high_level::{
+    load_cell, load_cell_capacity, load_cell_data, load_cell_lock_hash, load_cell_type,
+    load_cell_type_hash, load_input_out_point, load_script, load_script_hash, load_witness_args,
+    QueryIter,
+};
+use force_eth_types::config::SUDT_CODE_HASH;
 use force_eth_types::generated::eth_bridge_type_cell::{
     ETHBridgeTypeArgs, ETHBridgeTypeArgsReader,
 };
-use force_eth_types::config::SUDT_CODE_HASH;
+use molecule::prelude::{Builder, Entity, Reader};
 
 pub struct ChainAdapter {}
 

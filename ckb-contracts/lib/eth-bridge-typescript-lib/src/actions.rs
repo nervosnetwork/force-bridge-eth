@@ -43,7 +43,8 @@ pub fn verify_mint_token<T: Adapter>(
         data_loader.load_script_hash(),
     );
 
-    let udt_typescript = data_loader.get_associated_udt_script(script_args.bridge_lock_hash().as_slice());
+    let udt_typescript =
+        data_loader.get_associated_udt_script(script_args.bridge_lock_hash().as_slice());
     let sudt_typescript_slice = udt_typescript.as_slice();
     // verify 1st output is recipient sudt cell
     let first_output_typescript = data_loader
