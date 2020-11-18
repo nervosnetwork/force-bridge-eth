@@ -13,8 +13,9 @@ FORTH_ETH_CONFIG_PATH=/tmp/force-eth-config.json
 BRIDGE_CELL_CONFIG_PATH=/tmp/bridge-cell-config.json
 LOCK_TOKEN_PATH=/tmp/lock_token.log
 LOCK_ETH_PATH=/tmp/lock_eth.log
-#cd "$DIR"/offchain-modules
-#target/debug/force-eth-cli dev-init -f
+
+cd "$DIR"/offchain-modules
+target/debug/force-eth-cli dev-init -f
 
 cd "$DIR"/eth-contracts
 #npx hardhat run scripts/deploy.js --network geth > "${FORTH_ETH_CONFIG_PATH}"

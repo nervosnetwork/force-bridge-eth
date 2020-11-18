@@ -1150,7 +1150,6 @@ dependencies = [
 name = "eth-bridge-typescript-lib"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
  "ckb-std",
  "eth-spv-lib",
  "ethereum-types",

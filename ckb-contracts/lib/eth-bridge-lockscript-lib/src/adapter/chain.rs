@@ -1,14 +1,10 @@
 use super::Adapter;
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::{
-    bytes::Bytes,
-    packed::{Byte32, Script},
-    prelude::Pack,
-};
+use ckb_std::ckb_types::{bytes::Bytes, packed::Script};
 use ckb_std::error::SysError;
 use ckb_std::high_level::{
     load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_input_out_point,
-    load_script, load_script_hash, load_witness_args, QueryIter,
+    load_script_hash, load_witness_args, QueryIter,
 };
 use molecule::prelude::Entity;
 use std::prelude::v1::*;
@@ -69,30 +65,4 @@ fn load_input_data() -> Vec<u8> {
         panic!("inputs have more than 1 bridge cell");
     }
     load_cell_data(0, Source::GroupInput).unwrap()
-}
-
-fn load_data_from_output() -> Result<Option<Vec<u8>>, SysError> {
-    let script_hash = load_script_hash()?;
-    let mut output_index = 0;
-    let mut output_num = 0;
-    let mut data = None;
-
-    loop {
-        let cell_lock_hash = load_cell_lock_hash(output_index, Source::Output);
-        match cell_lock_hash {
-            Err(SysError::IndexOutOfBound) => break,
-            Err(_err) => panic!("iter output return an error"),
-            Ok(cell_lock_hash) => {
-                if cell_lock_hash == script_hash {
-                    data = Some(load_cell_data(output_index, Source::Output)?);
-                    output_num += 1;
-                    if output_num > 1 {
-                        panic!("outputs have more than 1 bridge cell")
-                    }
-                }
-                output_index += 1;
-            }
-        }
-    }
-    Ok(data)
 }

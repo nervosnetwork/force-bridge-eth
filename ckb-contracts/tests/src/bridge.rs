@@ -3,8 +3,7 @@ use ckb_testtool::context::Context;
 use ckb_tool::ckb_types::{bytes::Bytes, core::TransactionBuilder, packed::*, prelude::*};
 use force_eth_types::generated::basic;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
-use std::hash::Hash;
+use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
 
 const MAX_CYCLES: u64 = 1000_000_000;
 
@@ -81,8 +80,8 @@ fn test_mint_mode_without_typescript() {
     let witness = hex::decode(raw_witness).unwrap();
     dbg!(witness.len());
     let tx = TransactionBuilder::default()
-        .cell_dep(bridge_lock_script_dep)
         .cell_dep(sudt_dep)
+        .cell_dep(bridge_lock_script_dep)
         .input(input)
         .outputs(outputs)
         .outputs_data(outputs_data)
@@ -139,9 +138,10 @@ fn test_mint_mode_with_typescript() {
         .recipient_lock_hash(
             basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice()).unwrap(),
         )
-        .owner_lock_hash(
-            basic::Byte32::from_slice(Script::new_builder().build().calc_script_hash().as_slice())
-                .unwrap(),
+        .build();
+    let bridge_data = ETHBridgeTypeData::new_builder()
+        .owner_lock_script(
+            Script::new_builder().build().as_slice().to_vec().into()
         )
         .fee(10.into())
         .build();
@@ -154,7 +154,7 @@ fn test_mint_mode_with_typescript() {
             .type_(Some(bridge_type_script.clone()).pack())
             .lock(bridge_lock_script.clone())
             .build(),
-        Bytes::new(),
+        bridge_data.as_bytes(),
     );
     let input_outpoint_hex = hex::encode(input_out_point.as_slice());
     let input = CellInput::new_builder()

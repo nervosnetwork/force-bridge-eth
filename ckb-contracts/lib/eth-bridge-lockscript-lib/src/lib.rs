@@ -26,10 +26,10 @@ pub fn _verify<T: Adapter>(data_loader: T) {
     let witness_args = data_loader
         .load_input_witness_args()
         .expect("load witness args error");
-    debug!("witness args: {:?}", &witness_args);
+    // debug!("witness args: {:?}", &witness_args);
     MintTokenWitnessReader::verify(&witness_args, false).expect("witness is invalid");
     let witness = MintTokenWitnessReader::new_unchecked(&witness_args);
-    debug!("witness: {:?}", witness);
+    // debug!("witness: {:?}", witness);
 
     // check mode
     let mode: u8 = witness.mode().into();

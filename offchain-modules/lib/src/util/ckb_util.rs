@@ -16,7 +16,7 @@ use faster_hex::hex_decode;
 use force_eth_types::eth_recipient_cell::{ETHAddress, ETHRecipientDataView};
 use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
+use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
 use force_eth_types::generated::{basic, witness};
 use force_sdk::cell_collector::{
     collect_sudt_amount, get_live_cell_by_lockscript, get_live_cell_by_typescript,
@@ -425,8 +425,10 @@ impl Generator {
                 basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice())
                     .unwrap(),
             )
-            .owner_lock_hash(
-                basic::Byte32::from_slice(from_lockscript.calc_script_hash().as_slice()).unwrap(),
+            .build();
+        let bridge_data = ETHBridgeTypeData::new_builder()
+            .owner_lock_script(
+                from_lockscript.as_slice().to_vec().into()
             )
             .fee(bridge_fee.into())
             .build();
@@ -443,7 +445,7 @@ impl Generator {
             .type_(Some(bridge_typescript).pack())
             .lock(bridge_lockscript)
             .build();
-        tx_helper.add_output(output, ckb_types::bytes::Bytes::default());
+        tx_helper.add_output(output, bridge_data.as_bytes());
         // build tx
         let tx = tx_helper
             .supply_capacity(

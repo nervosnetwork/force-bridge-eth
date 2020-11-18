@@ -9,12 +9,8 @@ edition = "2018"
 [features]
 default = ["std"]
 std = ["mockall", "no-std-compat/std"]
-#std = ["molecule/std", "int-enum/std", "ckb-server"]
 
 [dependencies]
-#molecule = { version = "0.6", default-features = false }
-#int-enum = { version = "0.4", default-features = false }
-cfg-if = "0.1"
 ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
 mockall = { version = "0.8", optional = true }
 molecule = { version = "0.6", default-features = false }
