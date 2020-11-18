@@ -1,3 +1,5 @@
+#![allow(clippy::erasing_op)]
+#![allow(clippy::identity_op)]
 use eth_spv_lib::eth_types::LogEntry;
 /// Associated eth event:
 ///

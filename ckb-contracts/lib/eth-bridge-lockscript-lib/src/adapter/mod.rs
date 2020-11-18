@@ -1,11 +1,5 @@
 #[cfg(target_arch = "riscv64")]
 pub mod chain;
-#[cfg(feature = "std")]
-use mockall::predicate::*;
-#[cfg(feature = "std")]
-use mockall::*;
-use std::prelude::v1::*;
-
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::{
     bytes::Bytes,
@@ -14,15 +8,15 @@ use ckb_std::ckb_types::{
 };
 use ckb_std::error::SysError;
 use force_eth_types::config::SUDT_CODE_HASH;
+#[cfg(feature = "std")]
+use mockall::predicate::*;
+#[cfg(feature = "std")]
+use mockall::*;
 use molecule::prelude::{Builder, Entity};
-
-#[derive(Debug, Clone)]
-pub struct BridgeCellDataTuple(pub Option<Vec<u8>>, pub Option<Vec<u8>>);
+use std::prelude::v1::*;
 
 #[cfg_attr(feature = "std", automock)]
 pub trait Adapter {
-    fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError>;
-
     fn load_input_data(&self) -> Vec<u8>;
 
     fn load_script_hash(&self) -> [u8; 32];

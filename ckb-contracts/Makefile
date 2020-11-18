@@ -1,27 +1,18 @@
+ci: test-contract check-format-and-convention
 
-ci: test-contract
+check-format-and-convention:
 	cargo fmt -- --check
 	cargo clippy -- -D warnings
-	cd contracts/eth-bridge-lockscript && cargo fmt -- --check
-	cd contracts/eth-light-client-typescript && cargo fmt -- --check
-	cd contracts/eth-recipient-typescript && cargo fmt -- --check
+	for c in $(ls contracts); do echo "enter $c"; cd contracts/$c; cargo fmt -- --check; echo "check fmt done"; cd ../..; done
 
 fmt:
 	cargo fmt
-	cd contracts/eth-bridge-lockscript && cargo fmt
-	cd contracts/eth-light-client-typescript && cargo fmt
-	cd contracts/eth-recipient-typescript && cargo fmt
+	for c in $(ls contracts); do echo "enter $c"; cd contracts/$c; cargo fmt; echo "fmt done"; cd ../..; done
 
 build-contract:
 	capsule build
 
 test-contract: build-contract
 	cargo test -- --nocapture
-
-test-contract-lib:
-	cd lib/eth-bridge-typescript-lib && cargo test -- --nocapture
-
-check-contract-lib: test-contract-lib
-	cd lib/eth-bridge-typescript-lib && cargo fmt -- --check && cargo clippy -- -D warnings
 
 .PHONY: ci

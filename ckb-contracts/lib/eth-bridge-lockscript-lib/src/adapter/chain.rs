@@ -1,4 +1,4 @@
-use super::{Adapter, BridgeCellDataTuple};
+use super::Adapter;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::{
     bytes::Bytes,
@@ -16,11 +16,6 @@ use std::prelude::v1::*;
 pub struct ChainAdapter {}
 
 impl Adapter for ChainAdapter {
-    fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError> {
-        let tuple = BridgeCellDataTuple(Some(load_input_data()), load_data_from_output()?);
-        Ok(tuple)
-    }
-
     fn load_input_data(&self) -> Vec<u8> {
         load_input_data()
     }

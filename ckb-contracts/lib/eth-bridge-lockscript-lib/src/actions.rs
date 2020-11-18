@@ -1,18 +1,11 @@
 use crate::adapter::Adapter;
 use crate::debug;
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::{
-    bytes::Bytes,
-    packed::{Byte32, Script},
-    prelude::Pack,
-};
 use ckb_std::high_level::QueryIter;
 use eth_spv_lib::{eth_types::*, ethspv};
-use force_eth_types::generated::eth_header_cell::{
-    ETHHeaderCellData, ETHHeaderCellDataReader, ETHHeaderInfoReader,
-};
+use force_eth_types::eth_lock_event::ETHLockEvent;
+use force_eth_types::generated::eth_header_cell::{ETHHeaderCellDataReader, ETHHeaderInfoReader};
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
-use force_eth_types::{config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent};
 use molecule::prelude::*;
 use std::convert::TryInto;
 
@@ -65,10 +58,10 @@ fn verify_eth_spv_proof<T: Adapter>(
     let proof_reader = ETHSPVProofReader::new_unchecked(proof);
     let header_data = proof_reader.header_data().raw_data().to_vec();
     let header: BlockHeader = rlp::decode(header_data.as_slice()).expect("invalid header data");
-    // debug!("the spv proof header data: {:?}", header);
+    debug!("the spv proof header data: {:?}", header);
 
     //verify the header is on main chain.
-    // verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list);
+    verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list);
 
     get_eth_receipt_info(proof_reader, header)
 }
@@ -163,16 +156,16 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
     let receipt: Receipt = rlp::decode(receipt_data.as_slice()).expect("rlp decode receipt failed");
     debug!("receipt_data is {:?}", &receipt);
 
-    // if !ethspv::verify_log_entry(
-    //     u64::from_le_bytes(log_index),
-    //     log_entry_data,
-    //     u64::from_le_bytes(receipt_index),
-    //     receipt_data,
-    //     header.receipts_root,
-    //     proof,
-    // ) {
-    //     panic!("wrong merkle proof");
-    // }
+    if !ethspv::verify_log_entry(
+        u64::from_le_bytes(log_index),
+        log_entry_data,
+        u64::from_le_bytes(receipt_index),
+        receipt_data,
+        header.receipts_root,
+        proof,
+    ) {
+        panic!("wrong merkle proof");
+    }
 
     let eth_receipt_info = ETHLockEvent::parse_from_event_data(&log_entry);
     debug!("log data eth_receipt_info: {:?}", eth_receipt_info);
