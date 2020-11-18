@@ -7,7 +7,8 @@ use force_eth_lib::transfer::to_ckb::{
     approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
-    burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock, wait_block_submit,
+    burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
+    wait_block_submit,
 };
 use force_eth_lib::util::ckb_util::{
     build_lockscript_from_address, build_outpoint, ETHSPVProofJson, Generator,
@@ -23,6 +24,7 @@ use web3::types::{H256, U256};
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
+        SubCommand::InitLightContract(args) => init_light_contract_handler(args).await,
         SubCommand::DevInit(args) => dev_init_handler(args),
         // transfer erc20 to ckb
         SubCommand::Approve(args) => approve_handler(args).await,
@@ -48,6 +50,23 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
     }
+}
+
+pub async fn init_light_contract_handler(args: InitLightContractArgs) -> Result<()> {
+    let to = convert_eth_address(&args.to)?;
+    let hash = init_light_client(
+        args.ckb_rpc_url,
+        args.indexer_url,
+        args.eth_rpc_url,
+        args.init_height,
+        args.finalized_gc,
+        args.canonical_gc,
+        to,
+        args.private_key_path,
+    )
+    .await?;
+    println!("init tx_hash: {:?}", &hash);
+    Ok(())
 }
 
 pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
@@ -348,7 +367,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         args.private_key_path,
     )?;
     loop {
-        ckb_relayer.start(args.gap).await?;
+        ckb_relayer.start(args.per_amount).await?;
         std::thread::sleep(std::time::Duration::from_secs(10 * 60));
     }
 }

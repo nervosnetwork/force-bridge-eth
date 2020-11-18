@@ -9,6 +9,7 @@ pub struct Opts {
 
 #[derive(Clap, Clone, Debug)]
 pub enum SubCommand {
+    InitLightContract(InitLightContractArgs),
     DevInit(DevInitArgs),
     TransferToCkb(TransferToCkbArgs),
     Approve(ApproveArgs),
@@ -24,6 +25,26 @@ pub enum SubCommand {
     QuerySudtBlance(SudtGetBalanceArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct InitLightContractArgs {
+    #[clap(short, long)]
+    pub init_height: u64,
+    #[clap(short, long)]
+    pub to: String,
+    #[clap(short, long)]
+    pub finalized_gc: u64,
+    #[clap(short, long)]
+    pub canonical_gc: u64,
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
+    pub eth_rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8116")]
+    pub indexer_url: String,
+    #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
+    pub private_key_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -251,7 +272,7 @@ pub struct EthRelayArgs {
 #[derive(Clap, Clone, Debug)]
 pub struct CkbRelayArgs {
     #[clap(short, long)]
-    pub gap: u64,
+    pub per_amount: u64,
     #[clap(short, long)]
     pub to: String,
     #[clap(short = 'k', long)]

@@ -34,7 +34,7 @@ impl CKBRelayer {
             web3_client,
         })
     }
-    pub async fn start(&mut self, block_gap: u64) -> Result<()> {
+    pub async fn start(&mut self, per_amount: u64) -> Result<()> {
         let mut client_block_number = self
             .web3_client
             .get_contract_height("latestBlockNumber", self.contract_addr)
@@ -76,9 +76,9 @@ impl CKBRelayer {
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
 
-        while block_height < ckb_current_height {
-            let height_range = block_height..block_height + block_gap;
-            block_height += block_gap;
+        while block_height + per_amount < ckb_current_height {
+            let height_range = block_height..block_height + per_amount;
+            block_height += per_amount;
 
             let heights: Vec<u64> = height_range.clone().collect();
             self.relay_headers(heights).await?;

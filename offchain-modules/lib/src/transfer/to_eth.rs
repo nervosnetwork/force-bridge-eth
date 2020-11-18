@@ -20,6 +20,43 @@ use std::str::FromStr;
 use web3::types::H160;
 
 #[allow(clippy::too_many_arguments)]
+pub async fn init_light_client(
+    ckb_rpc_url: String,
+    indexer_url: String,
+    eth_rpc_url: String,
+    height: u64,
+    finalized_gc_threshold: u64,
+    canonical_gc_threshold: u64,
+    to: H160,
+    key_path: String,
+) -> Result<String> {
+    let mut ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
+        .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+    let mut web3_client = Web3Client::new(eth_rpc_url);
+
+    let header = ckb_client
+        .rpc_client
+        .get_header_by_number(height)
+        .map_err(|e| anyhow::anyhow!("failed to get header: {}", e))?
+        .ok_or_else(|| anyhow::anyhow!("failed to get header which is none"))?;
+
+    let mol_header: packed::Header = header.clone().inner.into();
+
+    let init_func = get_init_ckb_headers_func();
+    let init_header_abi = init_func.encode_input(&[
+        Token::Bytes(Vec::from(mol_header.raw().as_slice())),
+        Token::FixedBytes(Vec::from(header.hash.as_bytes())),
+        Token::Uint(U256::from(finalized_gc_threshold)),
+        Token::Uint(U256::from(canonical_gc_threshold)),
+    ])?;
+    let res = web3_client
+        .send_transaction(to, key_path, init_header_abi, U256::from(0))
+        .await?;
+    let tx_hash = hex::encode(res);
+    Ok(tx_hash)
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn burn(
     privkey_path: String,
     rpc_url: String,
@@ -135,13 +172,38 @@ pub async fn unlock(
 }
 
 pub fn get_add_ckb_headers_func() -> Function {
-    //TODO : addHeader is mock function for test feature which set header data in eth contract
     Function {
         name: "addHeaders".to_owned(),
         inputs: vec![Param {
             name: "data".to_owned(),
             kind: ParamType::Bytes,
         }],
+        outputs: vec![],
+        constant: false,
+    }
+}
+
+pub fn get_init_ckb_headers_func() -> Function {
+    Function {
+        name: "initWithHeader".to_owned(),
+        inputs: vec![
+            Param {
+                name: "data".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "blockHash".to_owned(),
+                kind: ParamType::FixedBytes(32),
+            },
+            Param {
+                name: "finalizedGcThreshold".to_owned(),
+                kind: ParamType::Uint(64),
+            },
+            Param {
+                name: "canonicalGcThreshold".to_owned(),
+                kind: ParamType::Uint(64),
+            },
+        ],
         outputs: vec![],
         constant: false,
     }

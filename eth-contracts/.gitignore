@@ -7,3 +7,4 @@
 artifacts
 cache
 package-lock.json
+scripts/geth/address.json

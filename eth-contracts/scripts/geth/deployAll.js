@@ -21,16 +21,6 @@ async function main() {
   await ERC20Deploy.deployed();
   const ERC20DeployAddr = ERC20Deploy.address;
   console.log("ERC20 deployed to:", ERC20DeployAddr);
-  console.log("waiting for block confirmations, about 1 minute");
-  await sleep(60 * 1000);
-
-  const contractBalance = await ERC20Deploy.callStatic.balanceOf(
-    "0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2"
-  );
-
-  console.log(
-    `tokenLocker contract erc20 balance: ${contractBalance.toString()}`
-  );
 
   // deploy CKBChin
   const CKBChain = await ethers.getContractFactory(
@@ -40,25 +30,6 @@ async function main() {
   await CKBChinDeploy.deployed();
   const CKBChinDeployAddr = CKBChinDeploy.address;
   console.log("CKBChin deployed to:", CKBChinDeployAddr);
-  console.log("waiting for block confirmations, about 1 minute");
-  await sleep(60 * 1000);
-
-  const finalizedGcThreshold = 500;
-  const canonicalGcThreshold = 40000;
-
-  const initHeaderData =
-    "0x0000000000000820a9daa6d47501000036100000000000000200004605080700b3f696ffbda4feb72731b797a135c5cc779200acea4aa45cac7df07e856403f350f98d988b232747c7f757a4b48b733754d063101934fe69a4128b5ad25855a300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000de4a62557a97a32ef49cf85a678723000df76dee6b82000000e9fbaead700a0741571b602446aa2a2135177404285c15";
-  const initBlockHash =
-    "0x94e9522537032ef62fd21043ae1b1247738ffe264b16392ea5e2fe752376b5e0";
-  let res = await CKBChinDeploy.initWithHeader(
-    initHeaderData,
-    initBlockHash,
-    finalizedGcThreshold,
-    canonicalGcThreshold
-  );
-  console.log("initHeader :", res.hash);
-  console.log("waiting for block confirmations, about 1 minute");
-  await sleep(60 * 1000);
 
   // deploy Eaglesong
   const Eaglesong = await ethers.getContractFactory(
@@ -68,8 +39,6 @@ async function main() {
   await EaglesongDeploy.deployed();
   const EaglesongDeployAddr = EaglesongDeploy.address;
   console.log("Eaglesong deployed to:", EaglesongDeployAddr);
-  console.log("waiting for block confirmations, about 1 minute");
-  await sleep(60 * 1000);
 
   // deploy Migrations
   const Migrations = await ethers.getContractFactory(
@@ -79,9 +48,9 @@ async function main() {
   await MigrationsDeploy.deployed();
   const MigrationsDeployAddr = MigrationsDeploy.address;
   console.log("Migrations deployed to:", MigrationsDeployAddr);
-  console.log("waiting for block confirmations, about 1 minute");
-  await sleep(60 * 1000);
 
+  const receipent_code_hash =
+    "0x17fb928d15bf98064304f2126f6b387e33d0c3c6572d293143ca373929ec3b5c";
   // deploy TokenLocker
   const TokenLocker = await ethers.getContractFactory(
     "contracts/TokenLocker.sol:TokenLocker"
@@ -89,30 +58,25 @@ async function main() {
   const locker = await TokenLocker.deploy(
     CKBChinDeployAddr,
     1,
-    "0x17fb928d15bf98064304f2126f6b387e33d0c3c6572d293143ca373929ec3b5c",
+    receipent_code_hash,
     0
   );
   await locker.deployed();
   const lockerAddr = locker.address;
   console.log("locker deployed to:", lockerAddr);
-  console.log("waiting for block confirmations, about 1 minute");
-  await sleep(60 * 1000);
 
   const fs = require("fs");
-  // create a JSON object
   const address = {
     ERC20Deploy: ERC20DeployAddr,
-    CKBChainDeploy: EaglesongDeployAddr,
+    CKBChainDeploy: CKBChinDeployAddr,
     EaglesongDeploy: EaglesongDeployAddr,
     MigrationsDeploy: MigrationsDeployAddr,
     TokenLockerDepoly: lockerAddr,
   };
 
-  // convert JSON object to string
   const data = JSON.stringify(address);
 
-  // write JSON string to a file
-  fs.writeFile("address.json", data, (err) => {
+  fs.writeFile("./scripts/geth/address.json", data, (err) => {
     if (err) {
       throw err;
     }
