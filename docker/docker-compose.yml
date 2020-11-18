@@ -1,4 +1,4 @@
-version: "3.0"
+version: "3.3"
 services:
   ckb:
     image: tockb/ckb-dev:v0.36.0
@@ -15,8 +15,14 @@ services:
       - ckb
   geth:
     image: tockb/geth-priv:v1.9.23
+
     volumes:
-    - geth-dag:/root/.ethash
+      - type: volume
+        source: geth-dag
+        target: /root/.ethash
+      - type: bind
+        source: ./geth
+        target: /config
     ports:
       - "8545:8545"
 
