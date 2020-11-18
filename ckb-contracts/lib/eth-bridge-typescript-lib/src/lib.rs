@@ -25,6 +25,11 @@ pub fn verify() -> i8 {
 }
 
 pub fn _verify<T: Adapter>(data_loader: T) {
+    // if the script does not exist in input, ignore the check.
+    // which enables user to create bridge cell with this typescript.
+    if data_loader.get_group_input_num() == 0 {
+        return;
+    }
     // load and parse witness
     let witness_args = data_loader
         .load_input_witness_args()

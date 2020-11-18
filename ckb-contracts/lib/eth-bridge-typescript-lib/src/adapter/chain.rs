@@ -6,21 +6,23 @@ use ckb_std::ckb_types::{
     prelude::Pack,
 };
 use ckb_std::error::SysError;
-use ckb_std::high_level::{
-    load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_cell_type_hash,
-    load_input_out_point, load_script, load_script_hash, load_witness_args, QueryIter,
-};
-use molecule::prelude::{Entity, Reader};
+use ckb_std::high_level::{load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_cell_type_hash, load_input_out_point, load_script, load_script_hash, load_witness_args, QueryIter, load_cell_capacity};
+use molecule::prelude::{Builder, Entity, Reader};
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use force_eth_types::generated::eth_bridge_type_cell::{
     ETHBridgeTypeArgs, ETHBridgeTypeArgsReader,
 };
+use force_eth_types::config::SUDT_CODE_HASH;
 
 pub struct ChainAdapter {}
 
 impl Adapter for ChainAdapter {
+    fn get_group_input_num(&self) -> usize {
+        QueryIter::new(load_cell_capacity, Source::GroupInput).count()
+    }
+
     fn load_input_data(&self) -> Vec<u8> {
         load_input_data()
     }
@@ -94,6 +96,13 @@ impl Adapter for ChainAdapter {
         let cell = load_cell(index, source)?;
         let data = load_cell_data(index, source)?;
         Ok((cell.type_().to_opt(), cell.lock(), data))
+    }
+
+    fn get_associated_udt_script(&self, bridge_lock_hash: &[u8]) -> Script {
+        Script::new_builder()
+            .code_hash(Byte32::from_slice(SUDT_CODE_HASH.as_ref()).unwrap())
+            .args(Bytes::from(bridge_lock_hash).pack())
+            .build()
     }
 }
 

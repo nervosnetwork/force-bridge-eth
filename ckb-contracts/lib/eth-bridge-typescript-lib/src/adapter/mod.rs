@@ -20,7 +20,7 @@ use molecule::prelude::{Builder, Entity};
 
 #[cfg_attr(feature = "std", automock)]
 pub trait Adapter {
-    // fn load_input_output_data(&self) -> Result<BridgeCellDataTuple, SysError>;
+    fn get_group_input_num(&self) -> usize;
 
     fn load_input_data(&self) -> Vec<u8>;
 
@@ -61,11 +61,5 @@ pub trait Adapter {
         source: Source,
     ) -> Result<(Option<Script>, Script, Vec<u8>), SysError>;
 
-    fn get_associated_udt_script(&self) -> Script {
-        let script_hash = self.load_script_hash();
-        Script::new_builder()
-            .code_hash(Byte32::from_slice(SUDT_CODE_HASH.as_ref()).unwrap())
-            .args(Bytes::from(script_hash.to_vec()).pack())
-            .build()
-    }
+    fn get_associated_udt_script(&self, bridge_lock_hash: &[u8]) -> Script;
 }
