@@ -28,9 +28,6 @@ pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
 mod tests {
     use super::_verify;
     use crate::adapter::*;
-    use ckb_std::ckb_constants::Source;
-    use force_eth_types::eth_header_cell::ETHHeaderCellDataView;
-    use molecule::bytes::Bytes;
 
     #[test]
     #[should_panic]
@@ -38,13 +35,7 @@ mod tests {
         let mut mock = MockAdapter::new();
         mock.expect_load_data_from_source()
             .times(2)
-            .returning(|source| {
-                if source == Source::GroupInput {
-                    None
-                } else {
-                    None
-                }
-            });
+            .returning(|_| None);
         let return_code = _verify(mock);
         assert_eq!(return_code, 0);
     }

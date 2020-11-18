@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 mod eth_light_client_lockscript;
+mod eth_light_client_typescript;
 mod eth_recipient_typescript;
 mod utils;
 

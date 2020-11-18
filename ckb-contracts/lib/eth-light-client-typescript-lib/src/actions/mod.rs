@@ -97,15 +97,8 @@ fn verify_init_header(
     }
     let main_tail_reader = ETHHeaderInfoReader::new_unchecked(main_tail_info);
     let main_tail_raw = main_tail_reader.header().raw_data();
-    let total_difficulty = main_tail_reader.total_difficulty().raw_data();
-    let difficulty: u64 = header.difficulty.0.as_u64();
     let hash = main_tail_reader.hash().raw_data();
     assert_eq!(main_tail_raw, header_raw, "invalid header raw data");
-    assert_eq!(
-        to_u64(&total_difficulty),
-        difficulty,
-        "invalid total difficulty"
-    );
     assert_eq!(
         hash,
         header.hash.expect("header hash is none").0.as_bytes(),
@@ -573,7 +566,10 @@ fn parse_dep_data<T: Adapter>(
     let dep_data = data_loader.load_data_from_dep(cell_dep_index_list[0].into());
     // debug!("dep data is {:?}", &dep_data);
     if DagsMerkleRootsReader::verify(&dep_data, false).is_err() {
-        panic!("parse_dep_data, invalid dags");
+        panic!(
+            "parse_dep_data, invalid dags {:?} {:?}",
+            dep_data, cell_dep_index_list[0]
+        );
     }
     let dags_reader = DagsMerkleRootsReader::new_unchecked(&dep_data);
     let idx: usize = (number / 30000) as usize;
