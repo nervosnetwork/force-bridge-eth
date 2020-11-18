@@ -8,6 +8,9 @@ use std::str::FromStr;
 mod bridge;
 #[cfg(test)]
 mod tests;
+mod eth_light_client_lockscript;
+mod eth_recipient_typescript;
+mod utils;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
 

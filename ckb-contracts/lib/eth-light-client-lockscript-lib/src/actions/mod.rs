@@ -12,6 +12,8 @@ pub fn verify_client_owner<T: Adapter>(data_loader: T) {
     if args.is_empty() {
         // eth-light-client requires the first output cell is eth_light_client_cell
         let output_script = data_loader.load_output_script();
-        assert_eq!(input_script.as_slice(), output_script.as_slice());
+        if input_script.as_slice() != output_script.as_slice() {
+            panic!("owner changed from none to some")
+        }
     }
 }
