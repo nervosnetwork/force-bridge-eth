@@ -254,7 +254,7 @@ impl Generator {
         let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
             .expect("invalid bridge data")
             .owner_lock_script();
-        assert_eq!(owner_lock_script.as_slice(), from_lockscript.as_slice(),);
+        assert_eq!(owner_lock_script.raw_data(), from_lockscript.as_bytes());
         // 1 bridge cells
         // {
         //     let to_output = CellOutput::new_builder().lock(lockscript.clone()).build();

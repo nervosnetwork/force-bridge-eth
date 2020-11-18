@@ -3,7 +3,7 @@
 # Exit script as soon as a command fails.
 set -o errexit
 set -o xtrace
-#export RUST_BACKTRACE=1
+export RUST_BACKTRACE=1
 export RUST_LOG=info,force=debug
 
 # project root directory
@@ -18,9 +18,9 @@ cd "$DIR"/offchain-modules
 target/debug/force-eth-cli dev-init -f
 
 cd "$DIR"/eth-contracts
-#npx hardhat run scripts/deploy.js --network geth > "${FORTH_ETH_CONFIG_PATH}"
-ETH_CONTRACT_ADDRESS=$(cat ${FORTH_ETH_CONFIG_PATH} | jq -r .tokenLocker)
-TOKEN_ADDRESS=$(cat ${FORTH_ETH_CONFIG_PATH} | jq -r .erc20)
+npx hardhat run scripts/deploy.js --network geth > "${FORTH_ETH_CONFIG_PATH}"
+ETH_CONTRACT_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .tokenLocker)
+TOKEN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .erc20)
 ETH_ADDRESS="0x0000000000000000000000000000000000000000"
 RECIPIENT_ADDR="ckt1qyqt6tdevvfgllmzpkz8v9dz3zv082v7ttxqly2899"
 bridge_fee=2
