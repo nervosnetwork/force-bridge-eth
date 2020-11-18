@@ -9,7 +9,6 @@ use std::time::Duration;
 use web3::types::{Bytes, H160};
 
 pub struct CKBRelayer {
-    pub from: H160,
     pub contract_addr: H160,
     pub priv_key_path: String,
     pub ckb_client: Generator,
@@ -21,7 +20,6 @@ impl CKBRelayer {
         ckb_rpc_url: String,
         indexer_url: String,
         eth_rpc_url: String,
-        from: H160,
         contract_addr: H160,
         priv_key_path: String,
     ) -> Result<CKBRelayer> {
@@ -30,14 +28,13 @@ impl CKBRelayer {
         let web3_client = Web3Client::new(eth_rpc_url);
 
         Ok(CKBRelayer {
-            from,
             contract_addr,
             priv_key_path,
             ckb_client,
             web3_client,
         })
     }
-    pub async fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self, block_gap: u64) -> Result<()> {
         let mut client_block_number = self
             .web3_client
             .get_contract_height("latestBlockNumber", self.contract_addr)
@@ -72,7 +69,6 @@ impl CKBRelayer {
         }
 
         let mut block_height = client_block_number + 1;
-        let block_gap = 1;
 
         let ckb_current_height = self
             .ckb_client
@@ -103,7 +99,6 @@ impl CKBRelayer {
         let signed_tx = self
             .web3_client
             .build_sign_tx(
-                self.from,
                 self.contract_addr,
                 self.priv_key_path.clone(),
                 add_headers_abi,
