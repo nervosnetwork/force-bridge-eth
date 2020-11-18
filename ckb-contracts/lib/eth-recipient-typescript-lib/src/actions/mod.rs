@@ -12,6 +12,9 @@ use force_eth_types::{
 };
 use molecule::prelude::{Builder, Byte, Entity};
 
+#[cfg(not(feature = "std"))]
+use alloc::vec;
+
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 
 pub fn verify_burn_token<T: Adapter>(data_loader: T, data: ETHRecipientDataView) {
@@ -24,14 +27,23 @@ pub fn verify_burn_token<T: Adapter>(data_loader: T, data: ETHRecipientDataView)
     let output_sudt_num =
         data_loader.get_sudt_amount_from_source(Source::Output, &eth_bridge_lock_hash);
     if input_sudt_num < output_sudt_num {
-        panic!("input sudt less than output sudt")
+        panic!(
+            "input sudt less than output sudt, input {:?}, output {:?}",
+            input_sudt_num, output_sudt_num
+        )
     }
     if input_sudt_num - output_sudt_num != data.token_amount {
-        panic!("burned token amount invalid")
+        panic!(
+            "burned token amount not match data amount, input {:?}, output {:?}, data {:?}",
+            input_sudt_num, output_sudt_num, data.token_amount
+        )
     }
 
     if data.fee >= data.token_amount {
-        panic!("fee is too much")
+        panic!(
+            "fee is too much, fee {:?}, burned {:?}",
+            data.fee, data.token_amount
+        )
     }
 }
 
@@ -39,20 +51,31 @@ fn calc_eth_bridge_lock_hash(
     eth_contract_address: ETHAddress,
     eth_token_address: ETHAddress,
 ) -> [u8; 32] {
-    debug!("eth_token_address {:?}", eth_token_address);
     let args = ETHBridgeLockArgs::new_builder()
         .eth_contract_address(eth_contract_address.get_address().into())
         .eth_token_address(eth_token_address.get_address().into())
         .build();
+
+    let mut bytes_vec = vec![];
+    for item in args.as_slice().iter() {
+        bytes_vec.push(Byte::new(*item));
+    }
+
     let eth_bridge_lockscript = Script::new_builder()
         .code_hash(
             Byte32::from_slice(&ETH_BRIDGE_LOCKSCRIPT_CODE_HASH)
                 .expect("eth bridge lockscript hash invalid"),
         )
         .hash_type(Byte::new(0))
-        .args(Bytes::new_unchecked(args.as_bytes()))
+        .args(Bytes::new_builder().set(bytes_vec).build())
         .build();
 
+    debug!(
+        "bridge lock {:?}, {:?}, {:?}",
+        eth_bridge_lockscript.code_hash(),
+        eth_bridge_lockscript.hash_type(),
+        eth_bridge_lockscript.args().as_slice()
+    );
     blake2b_256(eth_bridge_lockscript.as_slice())
 }
 

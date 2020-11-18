@@ -1,6 +1,7 @@
 use anyhow::Result;
 use eth_spv_lib::eth_types::{hash256, H128, H256, H512};
 use force_eth_types::generated::basic::{Bytes, BytesVec};
+use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
 use hex::FromHex;
 use molecule::prelude::{Builder, Entity};
 use serde::{Deserialize, Deserializer};
@@ -25,6 +26,57 @@ impl<'de> Deserialize<'de> for Hex {
             serde::de::Error::custom(err.to_string())
         })?))
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RootsCollectionRaw {
+    pub dag_merkle_roots: Vec<Hex>, // H128
+}
+
+#[derive(Default, Clone, Deserialize, Debug)]
+pub struct RootsCollectionJson {
+    pub dag_merkle_roots: Vec<String>,
+}
+
+impl TryFrom<RootsCollectionJson> for DagsMerkleRoots {
+    type Error = anyhow::Error;
+    fn try_from(roots: RootsCollectionJson) -> Result<Self> {
+        let mut roots_vec: Vec<Bytes> = vec![];
+        for i in 0..roots.dag_merkle_roots.len() {
+            roots_vec.push(hex::decode(&roots.dag_merkle_roots[i])?.into());
+        }
+        Ok(DagsMerkleRoots::new_builder()
+            .dags_merkle_roots(BytesVec::new_builder().set(roots_vec).build())
+            .build())
+    }
+}
+
+#[derive(Debug)]
+pub struct RootsCollection {
+    pub dag_merkle_roots: Vec<H128>,
+}
+
+impl From<RootsCollectionRaw> for RootsCollection {
+    fn from(item: RootsCollectionRaw) -> Self {
+        Self {
+            dag_merkle_roots: item
+                .dag_merkle_roots
+                .iter()
+                .map(|e| H128::from(&e.0))
+                .collect(),
+        }
+    }
+}
+
+pub fn read_roots_collection() -> RootsCollection {
+    read_roots_collection_raw().into()
+}
+
+pub fn read_roots_collection_raw() -> RootsCollectionRaw {
+    serde_json::from_reader(
+        std::fs::File::open(std::path::Path::new("cli/deps/dag_merkle_roots.json")).unwrap(),
+    )
+    .unwrap()
 }
 
 #[derive(Debug, Deserialize)]

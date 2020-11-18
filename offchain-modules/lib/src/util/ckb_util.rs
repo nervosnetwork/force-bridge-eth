@@ -2,6 +2,7 @@ use crate::util::eth_proof_helper::{DoubleNodeWithMerkleProofJson, Witness};
 use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use crate::util::settings::{OutpointConf, Settings};
 use anyhow::{anyhow, bail, Result};
+use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
 use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
@@ -17,8 +18,8 @@ use force_eth_types::eth_recipient_cell::{ETHAddress, ETHRecipientDataView};
 use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_header_cell::{
-    DoubleNodeWithMerkleProof, ETHChain, ETHChainReader, ETHHeaderCellData, ETHHeaderInfo,
-    ETHHeaderInfoReader, ETHLightClientWitness,
+    DoubleNodeWithMerkleProof, ETHChain, ETHChainReader, ETHHeaderCellData,
+    ETHHeaderCellDataReader, ETHHeaderInfo, ETHHeaderInfoReader, ETHLightClientWitness,
 };
 use force_eth_types::generated::{basic, witness};
 use force_sdk::cell_collector::{
@@ -27,7 +28,7 @@ use force_sdk::cell_collector::{
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
-use rlp::Rlp;
+use rlp::{Encodable, Rlp, RlpStream};
 use secp256k1::SecretKey;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
@@ -67,16 +68,86 @@ impl Generator {
     #[allow(clippy::mutable_key_type)]
     pub fn init_light_client_tx(
         &mut self,
-        _witness: &Witness,
+        block: &Block<ethereum_types::H256>,
+        witness: &Witness,
         from_lockscript: Script,
         typescript: Script,
+        lockscript: Script,
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = 10000;
+        let tx_fee: u64 = ONE_CKB / 2;
         let mut helper = TxHelper::default();
 
-        let outpoints = vec![self.settings.light_client_typescript.outpoint.clone()];
+        let outpoints = vec![
+            self.settings.dag_merkle_roots.clone(),
+            self.settings.light_client_lockscript.outpoint.clone(),
+            self.settings.light_client_typescript.outpoint.clone(),
+        ];
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
+        let output = CellOutput::new_builder()
+            .capacity(Capacity::shannons(1000 * MIN_SECP_CELL_CAPACITY).pack())
+            .build();
+        let header_rlp = convert_to_header_rlp(block)?;
+        let header_info = ETHHeaderInfo::new_builder()
+            .header(hex::decode(header_rlp)?.into())
+            .total_difficulty(block.total_difficulty.unwrap().as_u64().into())
+            .hash(basic::Byte32::from_slice(block.hash.unwrap().as_bytes()).unwrap())
+            .build();
+        let main_chain_data: Vec<basic::Bytes> = vec![header_info.as_slice().to_vec().into()];
+
+        // let proof_vec = &witness.merkle_proof;
+        // let mut proof_json_vec = vec![];
+        // for item in proof_vec {
+        //     let dag_nodes = &item.dag_nodes;
+        //     let mut dag_nodes_string = vec![];
+        //     for node in dag_nodes {
+        //         dag_nodes_string.push(hex::encode(node.0));
+        //     }
+        //     let proofs = &item.proof;
+        //     let mut proof_string = vec![];
+        //     for proof in proofs {
+        //         proof_string.push(hex::encode(proof.0));
+        //     }
+        //     proof_json_vec.push(DoubleNodeWithMerkleProofJson {
+        //         dag_nodes: dag_nodes_string,
+        //         proof: proof_string,
+        //     })
+        // }
+        // let mut merkle_proofs: Vec<DoubleNodeWithMerkleProof> = vec![];
+        // for item in proof_json_vec {
+        //     let p: DoubleNodeWithMerkleProof = item.clone().try_into().unwrap();
+        //     merkle_proofs.push(p);
+        // }
+        // let mut proofs = vec![];
+        // for item in merkle_proofs {
+        //     proofs.push(basic::Bytes::from(item.as_slice().to_vec()));
+        // }
+        let proofs = build_merkle_proofs(&witness)?;
+        let output_data = ETHHeaderCellData::new_builder()
+            .headers(
+                ETHChain::new_builder()
+                    .main(BytesVec::new_builder().set(main_chain_data).build())
+                    .build(),
+            )
+            .merkle_proof(BytesVec::new_builder().set(proofs).build())
+            .build()
+            .as_bytes();
+        helper.add_output(output.clone(), output_data);
+        // add witness
+        {
+            let witness_data = ETHLightClientWitness::new_builder()
+                .header(witness.header.clone().into())
+                .cell_dep_index_list(witness.cell_dep_index_list.clone().into())
+                .build();
+            let witness_args = WitnessArgs::new_builder()
+                .input_type(Some(witness_data.as_bytes()).pack())
+                .build();
+            helper.transaction = helper
+                .transaction
+                .as_advanced_builder()
+                .set_witnesses(vec![witness_args.as_bytes().pack()])
+                .build();
+        }
 
         // build tx
         let tx = helper
@@ -97,12 +168,14 @@ impl Generator {
         let typescript_args = first_outpoint.as_ref();
         let new_typescript = typescript.as_builder().args(typescript_args.pack()).build();
 
-        let output = CellOutput::new_builder()
+        let new_output = CellOutput::new_builder()
+            .capacity(output.capacity())
             .type_(Some(new_typescript).pack())
+            .lock(lockscript)
             .build();
-        let output_data = ckb_types::bytes::Bytes::default();
-        helper.add_output_with_auto_capacity(output, output_data);
-
+        let mut new_outputs = tx.outputs().into_iter().collect::<Vec<_>>();
+        new_outputs[0] = new_output;
+        let tx = tx.as_advanced_builder().set_outputs(new_outputs).build();
         Ok(tx)
     }
 
@@ -115,10 +188,14 @@ impl Generator {
         headers: &[BlockHeader],
         from_lockscript: Script,
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = 10000;
+        let tx_fee: u64 = ONE_CKB / 2;
         let mut helper = TxHelper::default();
 
-        let outpoints = vec![self.settings.light_client_typescript.outpoint.clone()];
+        let outpoints = vec![
+            self.settings.dag_merkle_roots.clone(),
+            self.settings.light_client_lockscript.outpoint.clone(),
+            self.settings.light_client_typescript.outpoint.clone(),
+        ];
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
 
@@ -168,7 +245,7 @@ impl Generator {
                 let input_tail_reader = ETHHeaderInfoReader::new_unchecked(&input_tail_raw);
                 let total_difficulty = input_tail_reader.total_difficulty().raw_data();
                 header_info = ETHHeaderInfo::new_builder()
-                    .header(basic::Bytes::from(header_rlp.as_bytes().to_vec()))
+                    .header(hex::decode(header_rlp)?.into())
                     .total_difficulty(
                         header
                             .difficulty
@@ -216,6 +293,34 @@ impl Generator {
             for item in uncle_raw_data {
                 uncle_chain_data.push(item.to_vec().into());
             }
+            // let proof_vec = &witness.merkle_proof;
+            // let mut proof_json_vec = vec![];
+            // for item in proof_vec {
+            //     let dag_nodes = &item.dag_nodes;
+            //     let mut dag_nodes_string = vec![];
+            //     for node in dag_nodes {
+            //         dag_nodes_string.push(hex::encode(node.0));
+            //     }
+            //     let proofs = &item.proof;
+            //     let mut proof_string = vec![];
+            //     for proof in proofs {
+            //         proof_string.push(hex::encode(proof.0));
+            //     }
+            //     proof_json_vec.push(DoubleNodeWithMerkleProofJson {
+            //         dag_nodes: dag_nodes_string,
+            //         proof: proof_string,
+            //     })
+            // }
+            // let mut merkle_proofs: Vec<DoubleNodeWithMerkleProof> = vec![];
+            // for item in proof_json_vec {
+            //     let p: DoubleNodeWithMerkleProof = item.clone().try_into().unwrap();
+            //     merkle_proofs.push(p);
+            // }
+            // let mut proofs = vec![];
+            // for item in merkle_proofs {
+            //     proofs.push(basic::Bytes::from(item.as_slice().to_vec()));
+            // }
+            let proofs = build_merkle_proofs(&witness)?;
             let output_data = ETHHeaderCellData::new_builder()
                 .headers(
                     ETHChain::new_builder()
@@ -223,6 +328,7 @@ impl Generator {
                         .uncle(BytesVec::new_builder().set(uncle_chain_data).build())
                         .build(),
                 )
+                .merkle_proof(BytesVec::new_builder().set(proofs).build())
                 .build()
                 .as_bytes();
             helper.add_output_with_auto_capacity(output, output_data);
@@ -230,36 +336,8 @@ impl Generator {
 
         {
             // add witness
-            let proof_vec = &witness.merkle_proof;
-            let mut proof_json_vec = vec![];
-            for item in proof_vec {
-                let dag_nodes = &item.dag_nodes;
-                let mut dag_nodes_string = vec![];
-                for node in dag_nodes {
-                    dag_nodes_string.push(hex::encode(node.0));
-                }
-                let proofs = &item.proof;
-                let mut proof_string = vec![];
-                for proof in proofs {
-                    proof_string.push(hex::encode(proof.0));
-                }
-                proof_json_vec.push(DoubleNodeWithMerkleProofJson {
-                    dag_nodes: dag_nodes_string,
-                    proof: proof_string,
-                })
-            }
-            let mut merkle_proofs: Vec<DoubleNodeWithMerkleProof> = vec![];
-            for item in proof_json_vec {
-                let p: DoubleNodeWithMerkleProof = item.clone().try_into().unwrap();
-                merkle_proofs.push(p);
-            }
-            let mut proofs = vec![];
-            for item in merkle_proofs {
-                proofs.push(basic::Bytes::from(item.as_slice().to_vec()));
-            }
             let witness_data = ETHLightClientWitness::new_builder()
                 .header(witness.header.clone().into())
-                .merkle_proof(BytesVec::new_builder().set(proofs).build())
                 .cell_dep_index_list(witness.cell_dep_index_list.clone().into())
                 .build();
 
@@ -272,7 +350,6 @@ impl Generator {
                 .set_witnesses(vec![witness_args.as_bytes().pack()])
                 .build();
         }
-
         // build tx
         let tx = helper
             .supply_capacity(
@@ -674,6 +751,39 @@ impl Generator {
     }
 }
 
+pub fn build_merkle_proofs(
+    witness: &Witness,
+) -> Result<Vec<force_eth_types::generated::basic::Bytes>> {
+    let proof_vec = &witness.merkle_proof;
+    let mut proof_json_vec = vec![];
+    for item in proof_vec {
+        let dag_nodes = &item.dag_nodes;
+        let mut dag_nodes_string = vec![];
+        for node in dag_nodes {
+            dag_nodes_string.push(hex::encode(node.0));
+        }
+        let proofs = &item.proof;
+        let mut proof_string = vec![];
+        for proof in proofs {
+            proof_string.push(hex::encode(proof.0));
+        }
+        proof_json_vec.push(DoubleNodeWithMerkleProofJson {
+            dag_nodes: dag_nodes_string,
+            proof: proof_string,
+        })
+    }
+    let mut merkle_proofs: Vec<DoubleNodeWithMerkleProof> = vec![];
+    for item in proof_json_vec {
+        let p: DoubleNodeWithMerkleProof = item.clone().try_into().unwrap();
+        merkle_proofs.push(p);
+    }
+    let mut proofs = vec![];
+    for item in merkle_proofs {
+        proofs.push(basic::Bytes::from(item.as_slice().to_vec()));
+    }
+    Ok(proofs)
+}
+
 pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256> {
     if tx_hash.starts_with("0x") || tx_hash.starts_with("0X") {
         tx_hash = &tx_hash[2..];
@@ -772,9 +882,9 @@ pub fn build_lockscript_from_address(address: &str) -> Result<Script> {
 
 #[allow(clippy::type_complexity)]
 pub fn parse_main_raw_data(data: &Bytes) -> Result<(Vec<&[u8]>, Vec<&[u8]>)> {
-    ETHChainReader::verify(data, false).map_err(|err| anyhow!(err))?;
-    let chain_reader = ETHChainReader::new_unchecked(data);
-    let main_reader = chain_reader.main();
+    ETHHeaderCellDataReader::verify(data, false).map_err(|err| anyhow!(err))?;
+    let chain_reader = ETHHeaderCellDataReader::new_unchecked(data);
+    let main_reader = chain_reader.headers().main();
     let len = main_reader.len();
     let mut un_confirmed: Vec<&[u8]> = vec![];
     let mut confirmed: Vec<&[u8]> = vec![];
@@ -790,9 +900,9 @@ pub fn parse_main_raw_data(data: &Bytes) -> Result<(Vec<&[u8]>, Vec<&[u8]>)> {
 }
 
 pub fn parse_uncle_raw_data(data: &Bytes) -> Result<Vec<&[u8]>> {
-    ETHChainReader::verify(data, false).map_err(|err| anyhow!(err))?;
-    let chain_reader = ETHChainReader::new_unchecked(data);
-    let uncle_reader = chain_reader.uncle();
+    ETHHeaderCellDataReader::verify(data, false).map_err(|err| anyhow!(err))?;
+    let chain_reader = ETHHeaderCellDataReader::new_unchecked(data);
+    let uncle_reader = chain_reader.headers().uncle();
     let len = uncle_reader.len();
     let mut result = vec![];
     for i in 0..len {
@@ -801,16 +911,20 @@ pub fn parse_uncle_raw_data(data: &Bytes) -> Result<Vec<&[u8]>> {
     Ok(result)
 }
 
-pub fn parse_main_chain_headers(data: Bytes) -> Result<(Vec<BlockHeader>, Vec<Vec<u8>>)> {
-    ETHChainReader::verify(&data, false).map_err(|err| anyhow!(err))?;
-    let chain_reader = ETHChainReader::new_unchecked(&data);
-    let main_reader = chain_reader.main();
+pub fn parse_main_chain_headers(data: Vec<u8>) -> Result<(Vec<BlockHeader>, Vec<Vec<u8>>)> {
+    ETHHeaderCellDataReader::verify(&data, false).map_err(|err| anyhow!(err))?;
+    let chain_reader = ETHHeaderCellDataReader::new_unchecked(&data);
+    let main_reader = chain_reader.headers().main();
     let mut un_confirmed = vec![];
     let mut confirmed = vec![];
     let len = main_reader.len();
     for i in (0..len).rev() {
         if (len - i) < CONFIRM {
-            let rlp = Rlp::new(main_reader.get_unchecked(i).raw_data());
+            // let rlp = Rlp::new(main_reader.get_unchecked(i).raw_data());
+            let header_raw = main_reader.get_unchecked(i).raw_data();
+            ETHHeaderInfoReader::verify(&header_raw, false).map_err(|err| anyhow!(err))?;
+            let header_info_header = ETHHeaderInfoReader::new_unchecked(header_raw);
+            let rlp = Rlp::new(header_info_header.header().raw_data());
             let header: BlockHeader = decode_block_header(&rlp).map_err(|err| anyhow!(err))?;
             un_confirmed.push(header);
         } else {

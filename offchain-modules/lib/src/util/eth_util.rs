@@ -323,9 +323,12 @@ async fn test_get_block() {
     let mut client = Web3Client::new(String::from(
         "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
     ));
-    let res = client.get_header_rlp((U64::from(3)).into()).await;
+    let res = client.get_header_rlp(U64::from(3).into()).await;
     println!("{:?}", res);
     let header_rlp = format!("0x{}", res.unwrap());
     println!("{:?}", header_rlp);
-    run_cmd!(src/vendor/relayer ${header_rlp} > /tmp/data.json);
+    let path = String::from("/tmp/data.json");
+    // let cmd = format!("pwd > {}", path);
+    // println!("{}", cmd);
+    run_cmd!(src/vendor/relayer ${header_rlp} > $path);
 }

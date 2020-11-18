@@ -7,4 +7,6 @@ edition = "2018"
 
 [dependencies]
 ckb-tool = "0.2"
-ckb-testtool = "0.2"
+ckb-testtool = "0.2.2"
+force-eth-types = { path = "../types", default-features = false, features = ["contract"] }
+hex = "0.4"

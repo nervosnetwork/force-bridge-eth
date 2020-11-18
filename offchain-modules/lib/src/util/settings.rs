@@ -24,9 +24,11 @@ pub struct Settings {
     pub bridge_lockscript: ScriptConf,
     pub bridge_typescript: ScriptConf,
     pub light_client_typescript: ScriptConf,
+    pub light_client_lockscript: ScriptConf,
     pub recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
     pub replay_resist_lockscript: ScriptConf,
+    pub dag_merkle_roots: OutpointConf,
 }
 
 impl Settings {

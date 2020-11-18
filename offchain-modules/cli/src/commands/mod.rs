@@ -65,6 +65,7 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.bridge_typescript_path,
         args.bridge_lockscript_path,
         args.light_client_typescript_path,
+        args.light_client_lockscript_path,
         args.recipient_typescript_path,
         args.sudt_path,
         args.eth_contract_address,
@@ -284,8 +285,8 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     let mut eth_relayer = ETHRelayer::new(
         args.config_path,
         args.ckb_rpc_url,
-        args.indexer_rpc_url,
         args.eth_rpc_url,
+        args.indexer_rpc_url,
         args.private_key_path,
         args.proof_data_path,
         args.cell,

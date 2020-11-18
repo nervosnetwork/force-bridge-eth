@@ -22,7 +22,7 @@ impl TryFrom<Vec<u8>> for ETHAddress {
         if v.len() != 20 {
             return Err(VerificationError::TotalSizeNotMatch(
                 "ETHAddress".to_owned(),
-                32,
+                20,
                 v.len(),
             ));
         }
@@ -100,7 +100,6 @@ impl ETHRecipientDataView {
 mod tests {
     use super::{ETHAddress, ETHRecipientDataView};
     use core::convert::TryFrom;
-    use molecule::bytes::Bytes;
 
     #[test]
     fn test_eth_recipient_data() {

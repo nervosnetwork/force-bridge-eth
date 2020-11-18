@@ -55,6 +55,11 @@ pub struct DevInitArgs {
     pub light_client_typescript_path: String,
     #[clap(
         long,
+        default_value = "../ckb-contracts/build/release/eth-light-client-lockscript"
+    )]
+    pub light_client_lockscript_path: String,
+    #[clap(
+        long,
         default_value = "../ckb-contracts/build/release/eth-recipient-typescript"
     )]
     pub recipient_typescript_path: String,
@@ -208,11 +213,14 @@ pub struct UnlockArgs {
 pub struct EthRelayArgs {
     #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
     pub config_path: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
     pub private_key_path: String,
     #[clap(long, default_value = "http://localhost:8114")]
     pub ckb_rpc_url: String,
-    #[clap(long, default_value = "http://localhost:8545")]
+    #[clap(
+        long,
+        default_value = "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2"
+    )]
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8116")]
     pub indexer_rpc_url: String,
