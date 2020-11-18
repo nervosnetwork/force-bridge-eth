@@ -3,21 +3,17 @@ use crate::util::eth_util::{convert_eth_address, Web3Client};
 use crate::util::settings::{OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
-use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
-use ckb_types::core::{BlockView, DepType};
-use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
-use ckb_types::prelude::{Builder, Entity, Pack};
+use ckb_sdk::{Address, AddressPayload, HttpRpcClient, HumanCapacity, SECP256K1};
+use ckb_types::packed::{Byte32, OutPoint, Script};
+use ckb_types::prelude::{Builder, Entity};
 use ethabi::{Function, Param, ParamType, Token};
-use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::ETHAddress;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 use force_sdk::indexer::IndexerRpcClient;
-use force_sdk::tx_helper::{deploy, sign, TxHelper};
+use force_sdk::tx_helper::{deploy, sign};
 use force_sdk::util::{ensure_indexer_sync, parse_privkey_path, send_tx_sync};
 use log::info;
 use serde_json::json;
-use std::default::Default;
 use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
@@ -240,7 +236,7 @@ pub fn dev_init(
 
     let settings = Settings {
         bridge_lockscript: ScriptConf {
-            code_hash: bridge_lockscript_code_hash_hex.clone(),
+            code_hash: bridge_lockscript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
@@ -270,7 +266,7 @@ pub fn dev_init(
         sudt: ScriptConf {
             code_hash: sudt_code_hash_hex,
             outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
+                tx_hash: tx_hash_hex,
                 index: 4,
             },
         },
@@ -281,6 +277,7 @@ pub fn dev_init(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_bridge_cell(
     config_path: String,
     rpc_url: String,

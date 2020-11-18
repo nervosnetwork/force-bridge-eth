@@ -10,9 +10,7 @@ use force_eth_lib::transfer::to_ckb::{
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock,
 };
-use force_eth_lib::util::ckb_util::{
-    build_lockscript_from_address, build_outpoint, ETHSPVProofJson, Generator,
-};
+use force_eth_lib::util::ckb_util::{build_lockscript_from_address, ETHSPVProofJson, Generator};
 use force_eth_lib::util::eth_util::convert_eth_address;
 use force_eth_lib::util::settings::Settings;
 use log::{debug, info};
@@ -92,7 +90,7 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     let to = convert_eth_address(&args.to)?;
     let hash = approve(from, to, args.rpc_url, args.private_key_path, args.wait)
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to call approve. {:?}", e))?;
+        .map_err(|e| anyhow!("Failed to call approve. {:?}", e))?;
     println!("approve tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -101,7 +99,6 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
     let to = convert_eth_address(&args.to)?;
     let token_addr = convert_eth_address(&args.token)?;
-    let settings = Settings::new(&args.config_path)?;
     let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
         Token::Address(token_addr),
@@ -113,7 +110,7 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     ];
     let hash = lock_token(to, args.rpc_url, args.private_key_path, &data, args.wait)
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to call lock_token. {:?}", e))?;
+        .map_err(|e| anyhow!("Failed to call lock_token. {:?}", e))?;
     println!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -137,11 +134,11 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
         args.wait,
     )
     .await
-    .map_err(|e| anyhow::anyhow!("Failed to call lock_eth. {:?}", e))?;
+    .map_err(|e| anyhow!("Failed to call lock_eth. {:?}", e))?;
     println!("lock eth tx_hash: {:?}", &hash);
     // let eth_spv_proof =
     //     generate_eth_proof(format!("0x{}", hex::encode(hash.0)), args.rpc_url.clone())
-    //         .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
+    //         .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
     // println!(
     //     "generate eth proof with hash: {:?}, eth_spv_proof: {:?}",
     //     hash.clone(),
@@ -153,7 +150,7 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
 pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()> {
     debug!("generate_eth_proof_handler args: {:?}", &args);
     let eth_spv_proof = generate_eth_proof(args.hash.clone(), args.rpc_url.clone())
-        .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
+        .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
     println!(
         "generate eth proof with hash: {:?}, eth_spv_proof: {:?}",
         args.hash, eth_spv_proof
@@ -162,12 +159,12 @@ pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()
         args.rpc_url,
         H256::from_slice(
             hex::decode(&args.hash[2..])
-                .map_err(|e| anyhow::anyhow!("invalid cmd args `hash`. FromHexError: {:?}", e))?
+                .map_err(|e| anyhow!("invalid cmd args `hash`. FromHexError: {:?}", e))?
                 .as_slice(),
         ),
     )
     .await
-    .map_err(|e| anyhow::anyhow!("Failed to get header_rlp. {:?}", e))?;
+    .map_err(|e| anyhow!("Failed to get header_rlp. {:?}", e))?;
     println!(
         "generate eth proof with hash: {:?}, header_rlp: {:?}",
         args.hash, header_rlp
@@ -178,7 +175,7 @@ pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()
 pub async fn mint_handler(args: MintArgs) -> Result<()> {
     debug!("mint_handler args: {:?}", &args);
     let eth_spv_proof = generate_eth_proof(args.hash.clone(), args.eth_rpc_url.clone())
-        .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
+        .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
     let header_rlp = get_header_rlp(args.eth_rpc_url, eth_spv_proof.block_hash).await?;
 
     let eth_proof = ETHSPVProofJson {
@@ -197,8 +194,8 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         eth_address: convert_eth_address(args.eth_contract_address.as_str())?,
     };
     let settings = Settings::new(&args.config_path)?;
-    let mut generator = Generator::new(args.ckb_rpc_url, args.indexer_url, settings)
-        .map_err(|e| anyhow::anyhow!(e))?;
+    let mut generator =
+        Generator::new(args.ckb_rpc_url, args.indexer_url, settings).map_err(|e| anyhow!(e))?;
     let tx_hash =
         send_eth_spv_proof_tx(&mut generator, &eth_proof, args.private_key_path, args.cell).await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);

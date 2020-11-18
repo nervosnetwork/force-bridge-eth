@@ -5,7 +5,7 @@ use anyhow::{anyhow, bail, Result};
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
 use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
-use ckb_types::prelude::{Builder, Entity, Pack, PackVec, Reader};
+use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
     bytes::Bytes,
     packed::{self, Byte32, CellDep, CellOutput, OutPoint, Script},
@@ -18,9 +18,7 @@ use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
 use force_eth_types::generated::{basic, witness};
-use force_sdk::cell_collector::{
-    collect_sudt_amount, get_live_cell_by_lockscript, get_live_cell_by_typescript,
-};
+use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
@@ -232,30 +230,31 @@ impl Generator {
 
         // input bridge cells
         let rpc_client = &mut self.rpc_client;
-        let indexer_client = &mut self.indexer_client;
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
         let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
             get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
-        // let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())
-        //     .map_err(|err| anyhow!(err))?
-        //     .ok_or_else(|| anyhow!("there are no remaining public cells available"))?;
         let outpoint = OutPoint::from_slice(&eth_proof.replay_resist_outpoint)
             .expect("replay resist outpoint in lock event is invalid");
-        // let bridge_cell = get_live_cell_fn(outpoint, false)?;
-        // let bridge_type_args = bridge_cell.type_().to_opt().expect("unsupported bridge cell").args();
-        // let owner_lock_hash = ETHBridgeTypeArgs::from_slice(bridge_type_args.as_slice())?;
         helper
             .add_input(
-                outpoint,
+                outpoint.clone(),
                 None,
                 &mut get_live_cell_fn,
                 &self.genesis_info,
                 true,
             )
             .map_err(|err| anyhow!(err))?;
+
+        let (_, bridge_cell_data) =
+            get_live_cell_with_cache(&mut live_cell_cache, &mut self.rpc_client, outpoint, true)
+                .expect("outpoint not exists");
+        let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
+            .expect("invalid bridge data")
+            .owner_lock_script();
+        assert_eq!(owner_lock_script.as_slice(), from_lockscript.as_slice(),);
         // 1 bridge cells
         // {
         //     let to_output = CellOutput::new_builder().lock(lockscript.clone()).build();
@@ -427,9 +426,7 @@ impl Generator {
             )
             .build();
         let bridge_data = ETHBridgeTypeData::new_builder()
-            .owner_lock_script(
-                from_lockscript.as_slice().to_vec().into()
-            )
+            .owner_lock_script(from_lockscript.as_slice().to_vec().into())
             .fee(bridge_fee.into())
             .build();
         let bridge_typescript = Script::new_builder()
