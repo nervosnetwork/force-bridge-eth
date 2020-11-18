@@ -9,7 +9,7 @@ pub struct Opts {
 
 #[derive(Clap, Clone, Debug)]
 pub enum SubCommand {
-    InitLightContract(InitLightContractArgs),
+    InitCkbLightContract(InitCkbLightContractArgs),
     DevInit(DevInitArgs),
     TransferToCkb(TransferToCkbArgs),
     Approve(ApproveArgs),
@@ -28,7 +28,7 @@ pub enum SubCommand {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct InitLightContractArgs {
+pub struct InitCkbLightContractArgs {
     #[clap(short, long)]
     pub init_height: u64,
     #[clap(short, long)]
@@ -45,6 +45,8 @@ pub struct InitLightContractArgs {
     pub indexer_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -100,6 +102,8 @@ pub struct ApproveArgs {
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -122,6 +126,8 @@ pub struct LockTokenArgs {
     pub sudt_extra_data: String,
     #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
     pub ckb_recipient_address: String,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -142,6 +148,8 @@ pub struct LockEthArgs {
     pub sudt_extra_data: String,
     #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
     pub ckb_recipient_address: String,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -200,6 +208,8 @@ pub struct TransferFromCkbArgs {
     pub burn_amount: u128,
     #[clap(long)]
     pub unlock_fee: u128,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -248,6 +258,8 @@ pub struct UnlockArgs {
     pub tx_info: String,
     #[clap(long, default_value = "http://localhost:8545")]
     pub eth_rpc_url: String,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -283,6 +295,8 @@ pub struct CkbRelayArgs {
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8116")]
     pub indexer_rpc_url: String,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]

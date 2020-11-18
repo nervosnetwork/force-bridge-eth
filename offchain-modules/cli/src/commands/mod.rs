@@ -24,7 +24,7 @@ use web3::types::{H256, U256};
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
-        SubCommand::InitLightContract(args) => init_light_contract_handler(args).await,
+        SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::DevInit(args) => dev_init_handler(args),
         // transfer erc20 to ckb
         SubCommand::Approve(args) => approve_handler(args).await,
@@ -52,7 +52,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
     }
 }
 
-pub async fn init_light_contract_handler(args: InitLightContractArgs) -> Result<()> {
+pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> Result<()> {
     let to = convert_eth_address(&args.to)?;
     let hash = init_light_client(
         args.ckb_rpc_url,
@@ -61,6 +61,7 @@ pub async fn init_light_contract_handler(args: InitLightContractArgs) -> Result<
         args.init_height,
         args.finalized_gc,
         args.canonical_gc,
+        args.gas_price,
         to,
         args.private_key_path,
     )
@@ -95,9 +96,15 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
     let from = convert_eth_address(&args.from)?;
     let to = convert_eth_address(&args.to)?;
-    let hash = approve(from, to, args.rpc_url, args.private_key_path)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to call approve. {:?}", e))?;
+    let hash = approve(
+        from,
+        to,
+        args.rpc_url,
+        args.private_key_path,
+        args.gas_price,
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("Failed to call approve. {:?}", e))?;
     println!("approve tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -117,9 +124,15 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
         Token::Bytes(outpoint.as_slice().to_vec()),
         Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
     ];
-    let hash = lock_token(to, args.rpc_url, args.private_key_path, &data)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to call lock_token. {:?}", e))?;
+    let hash = lock_token(
+        to,
+        args.rpc_url,
+        args.private_key_path,
+        args.gas_price,
+        &data,
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("Failed to call lock_token. {:?}", e))?;
     println!("lock erc20 token tx_hash: {:?}", &hash);
     Ok(())
 }
@@ -141,6 +154,7 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
         args.rpc_url.clone(),
         args.private_key_path,
         &data,
+        args.gas_price,
         U256::from(args.amount),
     )
     .await
@@ -252,6 +266,7 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
         args.tx_proof,
         args.tx_info,
         args.eth_rpc_url,
+        args.gas_price,
     )
     .await?;
     println!("unlock tx hash : {:?}", result);
@@ -295,6 +310,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         tx_proof,
         tx_info,
         args.eth_rpc_url,
+        args.gas_price,
     )
     .await?;
     println!("unlock tx hash : {:?}", result);
@@ -365,6 +381,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         args.eth_rpc_url,
         to,
         args.private_key_path,
+        args.gas_price,
     )?;
     loop {
         ckb_relayer.start(args.per_amount).await?;

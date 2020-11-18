@@ -15,7 +15,13 @@ use force_sdk::tx_helper::{deploy, sign};
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
 use web3::types::{H160, H256, U256};
 
-pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Result<H256> {
+pub async fn approve(
+    from: H160,
+    to: H160,
+    url: String,
+    key_path: String,
+    gas_price: u64,
+) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "approve".to_owned(),
@@ -38,12 +44,24 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Res
     let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0))
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            U256::from(0),
+        )
         .await?;
     Ok(res)
 }
 
-pub async fn lock_token(to: H160, url: String, key_path: String, data: &[Token]) -> Result<H256> {
+pub async fn lock_token(
+    to: H160,
+    url: String,
+    key_path: String,
+    gas_price: u64,
+    data: &[Token],
+) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lockToken".to_owned(),
@@ -78,7 +96,13 @@ pub async fn lock_token(to: H160, url: String, key_path: String, data: &[Token])
     };
     let input_data = function.encode_input(data)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0))
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            U256::from(0),
+        )
         .await?;
     Ok(res)
 }
@@ -88,6 +112,7 @@ pub async fn lock_eth(
     url: String,
     key_path: String,
     data: &[Token],
+    gas_price: u64,
     eth_value: U256,
 ) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
@@ -116,7 +141,7 @@ pub async fn lock_eth(
     };
     let input_data = function.encode_input(data)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, eth_value)
+        .send_transaction(to, key_path, input_data, U256::from(gas_price), eth_value)
         .await?;
     Ok(res)
 }

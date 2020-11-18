@@ -2,7 +2,7 @@
 
 ### 运行 ETH 和 CKB节点
 
-[docker 运行](https://github.com/nervosnetwork/force-bridge-eth/tree/main/docker) 即可 ，会运行 `ckb`,   `ckb-indexer`,  `eth`  三个服务，可修改节点相应配置
+[docker-compose 运行](https://github.com/nervosnetwork/force-bridge-eth/tree/main/docker) 即可 ，会运行 `ckb`,   `ckb-indexer`,  `eth`  三个服务
 
 
 ### 账户说明
@@ -34,8 +34,7 @@
   {
     "ERC20Deploy": "0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c",
     "CKBChainDeploy": "0x3C049b35392D20e5C1E7bB6B32E26f07093A6923",
-  // "EaglesongDeploy": "0x4414f183026502850203cE9df08f2648E1C39b32",
-  // "MigrationsDeploy": "0xBE2AB31F46e740f15d93331962f930d39d79920c",
+    "EaglesongDeploy": "0x4414f183026502850203cE9df08f2648E1C39b32",
     "TokenLockerDepoly": "0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0"
   }
   ```

@@ -13,6 +13,7 @@ pub struct CKBRelayer {
     pub priv_key_path: String,
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
+    pub gas_price: U256,
 }
 
 impl CKBRelayer {
@@ -22,16 +23,19 @@ impl CKBRelayer {
         eth_rpc_url: String,
         contract_addr: H160,
         priv_key_path: String,
+        gas_price: u64,
     ) -> Result<CKBRelayer> {
         let ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
             .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
         let web3_client = Web3Client::new(eth_rpc_url);
+        let gas_price = U256::from(gas_price);
 
         Ok(CKBRelayer {
             contract_addr,
             priv_key_path,
             ckb_client,
             web3_client,
+            gas_price,
         })
     }
     pub async fn start(&mut self, per_amount: u64) -> Result<()> {
@@ -102,6 +106,7 @@ impl CKBRelayer {
                 self.contract_addr,
                 self.priv_key_path.clone(),
                 add_headers_abi,
+                self.gas_price,
                 U256::from(0),
             )
             .await?;

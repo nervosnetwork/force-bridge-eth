@@ -27,6 +27,7 @@ pub async fn init_light_client(
     height: u64,
     finalized_gc_threshold: u64,
     canonical_gc_threshold: u64,
+    gas_price: u64,
     to: H160,
     key_path: String,
 ) -> Result<String> {
@@ -50,7 +51,13 @@ pub async fn init_light_client(
         Token::Uint(U256::from(canonical_gc_threshold)),
     ])?;
     let res = web3_client
-        .send_transaction(to, key_path, init_header_abi, U256::from(0))
+        .send_transaction(
+            to,
+            key_path,
+            init_header_abi,
+            U256::from(gas_price),
+            U256::from(0),
+        )
         .await?;
     let tx_hash = hex::encode(res);
     Ok(tx_hash)
@@ -121,7 +128,7 @@ pub async fn wait_block_submit(
                 break;
             }
             None => {
-                info!("the transaction is not in block yet");
+                info!("the transaction is not committed yet");
                 std::thread::sleep(std::time::Duration::from_secs(30));
             }
         }
@@ -156,6 +163,7 @@ pub async fn unlock(
     tx_proof: String,
     raw_tx: String,
     eth_url: String,
+    gas_price: u64,
 ) -> Result<String> {
     let mut rpc_client = Web3Client::new(eth_url);
     let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
@@ -179,7 +187,13 @@ pub async fn unlock(
     let tokens = [Token::Bytes(proof), Token::Bytes(tx_info)];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0))
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            U256::from(0),
+        )
         .await?;
     let tx_hash = hex::encode(res);
     Ok(tx_hash)
