@@ -61,7 +61,6 @@ async function main() {
     ERC20Deploy: ERC20DeployAddr,
     CKBChainDeploy: CKBChinDeployAddr,
     EaglesongDeploy: EaglesongDeployAddr,
-    MigrationsDeploy: MigrationsDeployAddr,
     TokenLockerDepoly: lockerAddr,
   };
 
