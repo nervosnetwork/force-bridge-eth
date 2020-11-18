@@ -1,9 +1,12 @@
 pub mod types;
-use anyhow::{anyhow, Result, bail};
+use anyhow::{anyhow, bail, Result};
 use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::ETHRelayer;
-use force_eth_lib::transfer::to_ckb::{approve, dev_init, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx, create_bridge_cell};
+use force_eth_lib::transfer::to_ckb::{
+    approve, create_bridge_cell, dev_init, get_header_rlp, lock_eth, lock_token,
+    send_eth_spv_proof_tx,
+};
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, transfer_sudt, unlock,
 };
@@ -186,6 +189,9 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         token: eth_spv_proof.token,
         lock_amount: eth_spv_proof.lock_amount,
         recipient_lockscript: eth_spv_proof.recipient_lockscript,
+        sudt_extra_data: eth_spv_proof.sudt_extra_data,
+        bridge_fee: eth_spv_proof.bridge_fee,
+        replay_resist_outpoint: eth_spv_proof.replay_resist_outpoint,
         eth_address: convert_eth_address(args.eth_contract_address.as_str())?,
     };
     let settings = Settings::new(&args.config_path)?;

@@ -1,13 +1,11 @@
 use crate::util::ckb_util::{ETHSPVProofJson, Generator};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use crate::util::settings::{OutpointConf, ScriptConf, Settings};
-use serde_json::json;
-use log::info;
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
-use ckb_sdk::{AddressPayload, HttpRpcClient, SECP256K1, GenesisInfo};
-use ckb_types::core::{DepType, BlockView};
-use ckb_types::packed::{Byte32, Script, CellOutput, OutPoint};
+use ckb_sdk::{AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
+use ckb_types::core::{BlockView, DepType};
+use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use ethabi::{Function, Param, ParamType, Token};
 use force_eth_types::generated::basic::ETHAddress;
@@ -15,10 +13,18 @@ use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{deploy, sign, TxHelper};
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
-use web3::types::{H160, H256, U256};
+use log::info;
+use serde_json::json;
 use std::default::Default;
+use web3::types::{H160, H256, U256};
 
-pub async fn approve(from: H160, to: H160, url: String, key_path: String, wait: bool) -> Result<H256> {
+pub async fn approve(
+    from: H160,
+    to: H160,
+    url: String,
+    key_path: String,
+    wait: bool,
+) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "approve".to_owned(),
@@ -46,7 +52,13 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String, wait: 
     Ok(res)
 }
 
-pub async fn lock_token(to: H160, url: String, key_path: String, data: &[Token], wait: bool) -> Result<H256> {
+pub async fn lock_token(
+    to: H160,
+    url: String,
+    key_path: String,
+    data: &[Token],
+    wait: bool,
+) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lockToken".to_owned(),
@@ -218,13 +230,8 @@ pub fn dev_init(
         sudt_bin,
     ];
 
-    let tx = deploy(
-        &mut rpc_client,
-        &mut indexer_client,
-        &private_key,
-        data,
-    )
-    .map_err(|err| anyhow!(err))?;
+    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
+        .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
@@ -293,7 +300,10 @@ pub fn create_bridge_cell(
     let eth_contract_address = convert_eth_address(eth_contract_address_str.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
     let token_args = build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
-    let token_cell_lockscript = build_cell_script(token_args, &hex::decode(settings.bridge_lockscript.code_hash)?)?;
+    let token_cell_lockscript = build_cell_script(
+        token_args,
+        &hex::decode(settings.bridge_lockscript.code_hash)?,
+    )?;
 
     // build bridge typescript
     // todo
@@ -308,21 +318,26 @@ pub fn create_bridge_cell(
         .expect("Can not get genesis block?")
         .into();
     let genesis_info = GenesisInfo::from_block(&genesis_block).map_err(|e| anyhow!(e))?;
-    let raw_tx = tx_helper.supply_capacity(
-        &mut rpc_client,
-        &mut indexer_client,
-        from_lockscript,
-        &genesis_info,
-        99_999_999,
-    ).map_err(|e| anyhow!(e))?;
+    let raw_tx = tx_helper
+        .supply_capacity(
+            &mut rpc_client,
+            &mut indexer_client,
+            from_lockscript,
+            &genesis_info,
+            99_999_999,
+        )
+        .map_err(|e| anyhow!(e))?;
     let tx = sign(raw_tx, &mut rpc_client, &privkey).map_err(|e| anyhow!("sign error {}", e))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
-    let outpoint = OutPoint::new_builder().tx_hash(Byte32::from_slice(tx_hash.as_ref())?).build();
+    let outpoint = OutPoint::new_builder()
+        .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
+        .build();
     let outpoint_hex = hex::encode(outpoint.as_slice());
-    info!("create bridge cell successfully for {}, outpoint: {}", recipient_address, &outpoint_hex);
-    println!("{}", json!({
-        "outpoint": outpoint_hex
-    }));
+    info!(
+        "create bridge cell successfully for {}, outpoint: {}",
+        recipient_address, &outpoint_hex
+    );
+    println!("{}", json!({ "outpoint": outpoint_hex }));
     Ok(())
 }
 

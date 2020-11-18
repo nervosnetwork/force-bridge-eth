@@ -16,6 +16,8 @@ web3 = "0.13.0"
 ethabi = "12.0.0"
 hex = "0.4"
 env_logger = "0.7.1"
-rusty-receipt-proof-maker = { git = "https://github.com/LeonLi000/ethereum-receipt-proof-maker.git", rev = "510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa" }
+rusty-receipt-proof-maker = { git = "https://github.com/LeonLi000/ethereum-receipt-proof-maker.git", rev = "14eddf2" }
 tokio = { version = "0.2.9", features = ["full"]}
 molecule = "0.6"
+serde = "1.0"
+serde_json = "1.0"

@@ -1357,7 +1357,9 @@ dependencies = [
  "int-enum",
  "log",
  "molecule",
- "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa)",
+ "rusty-receipt-proof-maker",
+ "serde 1.0.117",
+ "serde_json",
  "tokio 0.2.23",
  "web3",
 ]
@@ -1385,7 +1387,7 @@ dependencies = [
  "log",
  "molecule",
  "rlp",
- "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git)",
+ "rusty-receipt-proof-maker",
  "secp256k1",
  "serde 1.0.117",
  "serde_derive",
@@ -1401,6 +1403,7 @@ name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
+ "eth-spv-lib",
  "ethereum-types",
  "molecule",
  "no-std-compat",
@@ -3148,30 +3151,7 @@ dependencies = [
 [[package]]
 name = "rusty-receipt-proof-maker"
 version = "0.1.0"
-source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa#510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa"
-dependencies = [
- "chrono",
- "docopt",
- "dotenv",
- "ethabi",
- "ethereum-types",
- "hex 0.3.2",
- "log",
- "reqwest",
- "rlp",
- "serde 1.0.117",
- "serde_derive",
- "serde_json",
- "serial_test_derive",
- "simple_logger",
- "simplelog",
- "tiny-keccak 1.5.0",
-]
-
-[[package]]
-name = "rusty-receipt-proof-maker"
-version = "0.1.0"
-source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git#510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa"
+source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=14eddf2#14eddf2eff5c628a335136f90a2367558a877c83"
 dependencies = [
  "chrono",
  "docopt",

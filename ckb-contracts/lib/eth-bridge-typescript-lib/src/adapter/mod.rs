@@ -36,7 +36,11 @@ pub trait Adapter {
 
     fn load_cell_type(&self, index: usize, source: Source) -> Result<Option<Script>, SysError>;
 
-    fn load_cell_type_hash(&self, index: usize, source: Source) -> Result<Option<[u8; 32]>, SysError>;
+    fn load_cell_type_hash(
+        &self,
+        index: usize,
+        source: Source,
+    ) -> Result<Option<[u8; 32]>, SysError>;
 
     fn load_cell_lock_hash(&self, index: usize, source: Source) -> Result<[u8; 32], SysError>;
 

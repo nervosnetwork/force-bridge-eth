@@ -1331,11 +1331,13 @@ name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
+ "eth-spv-lib",
  "ethabi",
  "ethereum-types",
  "hex",
  "molecule",
  "no-std-compat",
+ "rlp",
 ]
 
 [[package]]
@@ -3412,6 +3414,8 @@ version = "0.1.0"
 dependencies = [
  "ckb-testtool",
  "ckb-tool",
+ "force-eth-types",
+ "hex",
 ]
 
 [[package]]

@@ -23,6 +23,7 @@ use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
 use secp256k1::SecretKey;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
@@ -237,12 +238,12 @@ impl Generator {
                 get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                     .map(|(output, _)| output)
             };
-            let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())
-                .map_err(|err| anyhow!(err))?
-                .ok_or_else(|| anyhow!("there are no remaining public cells available"))?;
+            // let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())
+            //     .map_err(|err| anyhow!(err))?
+            //     .ok_or_else(|| anyhow!("there are no remaining public cells available"))?;
             helper
                 .add_input(
-                    OutPoint::from(cell.out_point),
+                    OutPoint::from_slice(&eth_proof.replay_resist_outpoint).expect("replay resist outpoint in lock event is invalid"),
                     None,
                     &mut get_live_cell_fn,
                     &self.genesis_info,
@@ -252,43 +253,44 @@ impl Generator {
         }
         // 1 bridge cells
         {
-            let to_output = CellOutput::new_builder().lock(lockscript).build();
+            let to_output = CellOutput::new_builder().lock(lockscript.clone()).build();
             helper.add_output_with_auto_capacity(to_output, ckb_types::bytes::Bytes::default());
         }
         // 2 xt cells
         {
             let recipient_lockscript =
-                Script::new_unchecked(Bytes::from(eth_proof.recipient_lockscript.clone()));
+            Script::from_slice(&eth_proof.recipient_lockscript).unwrap();
 
             let sudt_typescript_code_hash = hex::decode(&self.settings.sudt.code_hash)?;
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
                 .hash_type(DepType::Code.into())
-                .args(recipient_lockscript.calc_script_hash().as_bytes().pack())
+                .args(lockscript.calc_script_hash().as_bytes().pack())
                 .build();
+
+            // recipient
             let sudt_user_output = CellOutput::new_builder()
                 .type_(Some(sudt_typescript).pack())
                 .lock(recipient_lockscript)
                 .build();
-
-            let to_user_amount_data = eth_proof.lock_amount.to_le_bytes().to_vec().into();
-            helper.add_output_with_auto_capacity(sudt_user_output, to_user_amount_data);
+            let mut to_user_amount_data = eth_proof.lock_amount.to_le_bytes().to_vec();
+            to_user_amount_data.extend(eth_proof.sudt_extra_data.clone());
+            helper.add_output_with_auto_capacity(sudt_user_output, to_user_amount_data.into());
+            // fee
+            // todo
         }
         // add witness
         {
-            let witness_data = EthWitness {
+            let witness = EthWitness {
                 cell_dep_index_list: vec![0],
                 spv_proof: eth_proof.clone(),
-            };
-
-            let witness = WitnessArgs::new_builder()
-                .input_type(Some(witness_data.as_bytes()).pack())
-                .build();
-
+            }
+            .as_bytes();
+            log::debug!("witness: {}", hex::encode(witness.as_ref()));
             helper.transaction = helper
                 .transaction
                 .as_advanced_builder()
-                .set_witnesses(vec![witness.as_bytes().pack()])
+                .witness(witness.pack())
                 .build();
         }
         // build tx
@@ -658,7 +660,7 @@ pub fn build_lockscript_from_address(address: &str) -> Result<Script> {
     Ok(recipient_lockscript)
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ETHSPVProofJson {
     pub log_index: u64,
     pub log_entry_data: String,
@@ -668,7 +670,10 @@ pub struct ETHSPVProofJson {
     pub proof: Vec<Vec<u8>>,
     pub token: H160,
     pub lock_amount: u128,
+    pub bridge_fee: u128,
     pub recipient_lockscript: Vec<u8>,
+    pub replay_resist_outpoint: Vec<u8>,
+    pub sudt_extra_data: Vec<u8>,
     pub eth_address: H160,
 }
 
@@ -717,7 +722,7 @@ impl EthWitness {
             .cell_dep_index_list(self.cell_dep_index_list.clone().into())
             .build();
         let witness = WitnessArgs::new_builder()
-            .input_type(Some(witness_data.as_bytes()).pack())
+            .lock(Some(witness_data.as_bytes()).pack())
             .build();
         witness.as_bytes()
     }

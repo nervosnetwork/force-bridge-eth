@@ -6,6 +6,7 @@ use ckb_std::ckb_types::{
     packed::{Byte32, Script},
     prelude::Pack,
 };
+use ckb_std::error::SysError;
 use ckb_std::high_level::QueryIter;
 use eth_spv_lib::{eth_types::*, ethspv};
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
@@ -13,12 +14,9 @@ use force_eth_types::generated::eth_header_cell::{
     ETHHeaderCellData, ETHHeaderCellDataReader, ETHHeaderInfoReader,
 };
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
-use force_eth_types::{
-    config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent, util::eth_to_ckb_amount,
-};
+use force_eth_types::{config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent};
 use molecule::prelude::*;
 use std::convert::TryInto;
-use ckb_std::error::SysError;
 
 pub fn verify_manage_mode<T: Adapter>(data_loader: &T, owner: &[u8]) {
     if !data_loader.lock_hash_exists_in_inputs(owner) {
@@ -38,7 +36,10 @@ pub fn verify_mint_token<T: Adapter>(
         script_args.bridge_lock_hash().as_slice(),
     );
     assert_eq!(
-        data_loader.load_cell_type_hash(0, Source::Input).unwrap().unwrap(),
+        data_loader
+            .load_cell_type_hash(0, Source::Input)
+            .unwrap()
+            .unwrap(),
         data_loader.load_script_hash(),
     );
 
@@ -80,7 +81,7 @@ pub fn verify_mint_token<T: Adapter>(
                     panic!("mint more sudt than expected");
                 }
             }
-            Ok(None) => {},
+            Ok(None) => {}
         }
         index += 1;
     }
@@ -92,7 +93,6 @@ fn parse_event_from_witness(witness: &MintTokenWitnessReader) -> ETHLockEvent {
     let log_entry_data = proof_reader.log_entry_data().raw_data().to_vec();
     let log_entry: LogEntry =
         rlp::decode(log_entry_data.as_slice()).expect("rlp decode log_entry failed");
-    let log_data = log_entry.data;
-    let eth_receipt_info = ETHLockEvent::parse_from_event_data(&log_data);
+    let eth_receipt_info = ETHLockEvent::parse_from_event_data(&log_entry);
     eth_receipt_info
 }

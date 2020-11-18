@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 #[cfg(test)]
-mod bridge_lock;
+mod bridge;
 #[cfg(test)]
 mod tests;
 

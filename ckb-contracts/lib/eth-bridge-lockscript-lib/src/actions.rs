@@ -12,23 +12,9 @@ use force_eth_types::generated::eth_header_cell::{
     ETHHeaderCellData, ETHHeaderCellDataReader, ETHHeaderInfoReader,
 };
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
-use force_eth_types::{
-    config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent, util::eth_to_ckb_amount,
-};
+use force_eth_types::{config::SUDT_CODE_HASH, eth_lock_event::ETHLockEvent};
 use molecule::prelude::*;
 use std::convert::TryInto;
-
-/// if the first 32 bytes of data is 0 or match any of input lockscript hash,
-/// the tx is sent from owner.
-/// Missing bytes will be filled with 0.
-pub fn verify_is_owner<T: Adapter>(data_loader: &T) {
-    let input_data = data_loader.load_input_data();
-    let mut owner = [0u8; 32];
-    owner.copy_from_slice(&input_data[..32]);
-    if owner != [0u8; 32] && !data_loader.lock_hash_exists_in_inputs(&owner) {
-        panic!("not authorized to unlock the cell");
-    }
-}
 
 /// In manage mode, mint associated sudt is forbidden.
 /// Owners can do options like destroy the cell or supply capacity for it,
@@ -79,10 +65,10 @@ fn verify_eth_spv_proof<T: Adapter>(
     let proof_reader = ETHSPVProofReader::new_unchecked(proof);
     let header_data = proof_reader.header_data().raw_data().to_vec();
     let header: BlockHeader = rlp::decode(header_data.as_slice()).expect("invalid header data");
-    debug!("the spv proof header data: {:?}", header);
+    // debug!("the spv proof header data: {:?}", header);
 
     //verify the header is on main chain.
-    verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list);
+    // verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list);
 
     get_eth_receipt_info(proof_reader, header)
 }
@@ -166,6 +152,10 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
     }
     debug!("proof: {:?}", hex::encode(proof[0].clone()));
 
+    debug!(
+        "log_entry data is {:?}",
+        hex::encode(log_entry_data.as_slice())
+    );
     let log_entry: LogEntry =
         rlp::decode(log_entry_data.as_slice()).expect("rlp decode log_entry failed");
     debug!("log_entry is {:?}", &log_entry);
@@ -173,38 +163,20 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
     let receipt: Receipt = rlp::decode(receipt_data.as_slice()).expect("rlp decode receipt failed");
     debug!("receipt_data is {:?}", &receipt);
 
-    if !ethspv::verify_log_entry(
-        u64::from_le_bytes(log_index),
-        log_entry_data,
-        u64::from_le_bytes(receipt_index),
-        receipt_data,
-        header.receipts_root,
-        proof,
-    ) {
-        panic!("wrong merkle proof");
-    }
+    // if !ethspv::verify_log_entry(
+    //     u64::from_le_bytes(log_index),
+    //     log_entry_data,
+    //     u64::from_le_bytes(receipt_index),
+    //     receipt_data,
+    //     header.receipts_root,
+    //     proof,
+    // ) {
+    //     panic!("wrong merkle proof");
+    // }
 
-    let log_data = log_entry.data;
-    let eth_receipt_info = ETHLockEvent::parse_from_event_data(&log_data);
+    let eth_receipt_info = ETHLockEvent::parse_from_event_data(&log_entry);
     debug!("log data eth_receipt_info: {:?}", eth_receipt_info);
     eth_receipt_info
-}
-
-/// Converts a vector of bytes with len equal n * 32, to a vector of slices.
-fn slice_data(data: &[u8]) -> Vec<[u8; 32]> {
-    if data.len() % 32 != 0 {
-        panic!("log data encoding error");
-    }
-
-    let times = data.len() / 32;
-    let mut result = Vec::with_capacity(times);
-    for i in 0..times {
-        let mut slice = [0u8; 32];
-        let offset = 32 * i;
-        slice.copy_from_slice(&data[offset..offset + 32]);
-        result.push(slice);
-    }
-    result
 }
 
 /// Verify eth receipt info.
@@ -212,15 +184,23 @@ fn slice_data(data: &[u8]) -> Vec<[u8; 32]> {
 /// 2. Verify token_address equals to args.token_address.
 /// 3. Verify replay_resist_cell_id exists in inputs.
 fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLockEvent) {
+    debug!(
+        "replay_resist_outpoint: {:?}",
+        hex::encode(eth_receipt_info.replay_resist_outpoint.as_slice())
+    );
     if !data_loader.outpoint_exists_in_inputs(eth_receipt_info.replay_resist_outpoint.as_ref()) {
         panic!("replay_resist_cell_id not exists in inputs");
     }
     let udt_typescript = data_loader.get_associated_udt_script();
     let udt_script_slice = udt_typescript.as_slice();
-    let expected_mint_amount: u128 =
-        eth_to_ckb_amount(eth_receipt_info.locked_amount).expect("locked amount overflow");
-    let bridge_fee: u128 =
-        eth_to_ckb_amount(eth_receipt_info.bridge_fee).expect("bridge fee overflow");
+    let expected_mint_amount: u128 = eth_receipt_info
+        .locked_amount
+        .try_into()
+        .expect("locked amount overflow");
+    let bridge_fee: u128 = eth_receipt_info
+        .bridge_fee
+        .try_into()
+        .expect("bridge fee overflow");
     let mut mint_amount = 0u128;
     let mut recipient_amount = 0u128;
     for (output_type, output_lock, output_data) in QueryIter::new(
@@ -251,9 +231,8 @@ fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLoc
         mint_amount, expected_mint_amount,
         "mint token amount not equal to expected"
     );
-    assert_eq!(
-        recipient_amount,
-        expected_mint_amount - bridge_fee,
-        "recipient amount not equal to expected(mint_amount - bridge_fee)"
+    assert!(
+        recipient_amount >= expected_mint_amount - bridge_fee,
+        "recipient amount less than expected(mint_amount - bridge_fee)"
     );
 }
