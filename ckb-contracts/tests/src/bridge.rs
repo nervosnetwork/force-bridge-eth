@@ -140,9 +140,7 @@ fn test_mint_mode_with_typescript() {
         )
         .build();
     let bridge_data = ETHBridgeTypeData::new_builder()
-        .owner_lock_script(
-            Script::new_builder().build().as_slice().to_vec().into()
-        )
+        .owner_lock_script(Script::new_builder().build().as_slice().to_vec().into())
         .fee(10.into())
         .build();
     let bridge_type_script = context

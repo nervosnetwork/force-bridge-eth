@@ -47,7 +47,9 @@ pub fn verify_mint_token<T: Adapter>(
         .unwrap()
         .unwrap();
     assert_eq!(sudt_typescript_slice, second_output_typescript.as_slice());
-    let second_output_lock_script = data_loader.load_cell_lock_script(1, Source::Output).unwrap();
+    let second_output_lock_script = data_loader
+        .load_cell_lock_script(1, Source::Output)
+        .unwrap();
     assert_eq!(
         second_output_lock_script.as_bytes(),
         data.owner_lock_script().raw_data()

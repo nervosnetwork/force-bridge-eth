@@ -1,13 +1,13 @@
-ci: test-contract check-format-and-convention
+ci: check-format-and-convention test-contract
 
 check-format-and-convention:
 	cargo fmt -- --check
 	cargo clippy -- -D warnings
-	for c in $(ls contracts); do echo "enter $c"; cd contracts/$c; cargo fmt -- --check; echo "check fmt done"; cd ../..; done
+	for c in $$(ls contracts); do echo "enter $$c"; cd contracts/$$c; cargo fmt -- --check; echo "check fmt done"; cd ../..; done
 
 fmt:
 	cargo fmt
-	for c in $(ls contracts); do echo "enter $c"; cd contracts/$c; cargo fmt; echo "fmt done"; cd ../..; done
+	for c in $$(ls contracts); do echo "enter $$c"; cd contracts/$$c; cargo fmt; echo "fmt done"; cd ../..; done
 
 build-contract:
 	capsule build
