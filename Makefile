@@ -1,2 +1,0 @@
-ci:
-	echo ci

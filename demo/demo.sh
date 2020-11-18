@@ -18,7 +18,7 @@ cd "$DIR"/offchain-modules
 target/debug/force-eth-cli dev-init -f
 
 cd "$DIR"/eth-contracts
-npx hardhat run scripts/deploy.js --network geth > "${FORTH_ETH_CONFIG_PATH}"
+npx hardhat run scripts/deploy.js --network demo > "${FORTH_ETH_CONFIG_PATH}"
 ETH_CONTRACT_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .tokenLocker)
 TOKEN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .erc20)
 ETH_ADDRESS="0x0000000000000000000000000000000000000000"
