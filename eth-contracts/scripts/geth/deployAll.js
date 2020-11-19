@@ -1,11 +1,10 @@
-// We require the Buidler Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-// When running the script with `buidler run <script>` you'll find the Buidler
-// Runtime Environment's members available in the global scope.
+const fs = require("fs");
+const TOML = require('@iarna/toml');
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const forceConfigPath = '/tmp/.force-bridge-cli/config.toml';
+const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
+const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
+const recipient_typescript_code_hash = forceConfig.recipient_typescript.code_hash;
 
 async function main() {
   // Buidler always runs the compile task when running scripts through it.
@@ -20,7 +19,7 @@ async function main() {
   const ERC20Deploy = await ERC20.deploy();
   await ERC20Deploy.deployed();
   const ERC20DeployAddr = ERC20Deploy.address;
-  console.log("ERC20 deployed to:", ERC20DeployAddr);
+  console.error("ERC20 deployed to:", ERC20DeployAddr);
 
   // deploy CKBChin
   const CKBChain = await ethers.getContractFactory(
@@ -29,7 +28,7 @@ async function main() {
   const CKBChinDeploy = await CKBChain.deploy();
   await CKBChinDeploy.deployed();
   const CKBChinDeployAddr = CKBChinDeploy.address;
-  console.log("CKBChin deployed to:", CKBChinDeployAddr);
+  console.error("CKBChin deployed to:", CKBChinDeployAddr);
 
   // deploy Eaglesong
   const Eaglesong = await ethers.getContractFactory(
@@ -38,10 +37,8 @@ async function main() {
   const EaglesongDeploy = await Eaglesong.deploy();
   await EaglesongDeploy.deployed();
   const EaglesongDeployAddr = EaglesongDeploy.address;
-  console.log("Eaglesong deployed to:", EaglesongDeployAddr);
+  console.error("Eaglesong deployed to:", EaglesongDeployAddr);
 
-  const receipent_code_hash =
-    "0x17fb928d15bf98064304f2126f6b387e33d0c3c6572d293143ca373929ec3b5c";
   // deploy TokenLocker
   const TokenLocker = await ethers.getContractFactory(
     "contracts/TokenLocker.sol:TokenLocker"
@@ -49,22 +46,21 @@ async function main() {
   const locker = await TokenLocker.deploy(
     CKBChinDeployAddr,
     1,
-    receipent_code_hash,
+    "0x" + recipient_typescript_code_hash,
     0
   );
   await locker.deployed();
   const lockerAddr = locker.address;
-  console.log("locker deployed to:", lockerAddr);
+  console.error("locker deployed to:", lockerAddr);
 
   const address = {
-    ERC20Deploy: ERC20DeployAddr,
-    CKBChainDeploy: CKBChinDeployAddr,
-    EaglesongDeploy: EaglesongDeployAddr,
-    TokenLockerDepoly: lockerAddr,
+    erc20: ERC20DeployAddr,
+    ckb_chain: CKBChinDeployAddr,
+    eaglesong: EaglesongDeployAddr,
+    tokenLocker: lockerAddr,
   };
-  const fs = require("fs");
   const data = JSON.stringify(address);
-  fs.writeFileSync("./scripts/geth/address.json", data);
+  console.log(data);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
