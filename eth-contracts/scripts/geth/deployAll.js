@@ -1,16 +1,14 @@
 const fs = require("fs");
 const TOML = require('@iarna/toml');
 
-const forceConfigPath = '/tmp/.force-bridge-cli/config.toml';
-const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
-const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
-const recipient_typescript_code_hash = forceConfig.recipient_typescript.code_hash;
-
 async function main() {
-  // Buidler always runs the compile task when running scripts through it.
-  // If this runs in a standalone fashion you may want to call compile manually
-  // to make sure everything is compiled
-  // await bre.run('compile');
+  const forceConfigPath = process.env.FORCE_CONFIG_PATH;
+  if (!forceConfigPath) {
+      throw "FORCE_CONFIG_PATH not set";
+  }
+  const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
+  const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
+  const recipient_typescript_code_hash = forceConfig.recipient_typescript.code_hash;
 
   //ERC20
   const ERC20 = await ethers.getContractFactory(
@@ -30,15 +28,6 @@ async function main() {
   const CKBChinDeployAddr = CKBChinDeploy.address;
   console.error("CKBChin deployed to:", CKBChinDeployAddr);
 
-  // deploy Eaglesong
-  const Eaglesong = await ethers.getContractFactory(
-    "contracts/Eaglesong.sol:Eaglesong"
-  );
-  const EaglesongDeploy = await Eaglesong.deploy();
-  await EaglesongDeploy.deployed();
-  const EaglesongDeployAddr = EaglesongDeploy.address;
-  console.error("Eaglesong deployed to:", EaglesongDeployAddr);
-
   // deploy TokenLocker
   const TokenLocker = await ethers.getContractFactory(
     "contracts/TokenLocker.sol:TokenLocker"
@@ -47,7 +36,8 @@ async function main() {
     CKBChinDeployAddr,
     1,
     "0x" + recipient_typescript_code_hash,
-    0
+    0,
+    "0x" + bridge_lockscript_code_hash,
   );
   await locker.deployed();
   const lockerAddr = locker.address;
@@ -55,8 +45,7 @@ async function main() {
 
   const address = {
     erc20: ERC20DeployAddr,
-    ckb_chain: CKBChinDeployAddr,
-    eaglesong: EaglesongDeployAddr,
+    ckbChain: CKBChinDeployAddr,
     tokenLocker: lockerAddr,
   };
   const data = JSON.stringify(address);

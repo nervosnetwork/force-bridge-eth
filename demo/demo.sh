@@ -15,12 +15,12 @@ FORTH_ETH_CONFIG_PATH="${DATA_DIR}"/force-eth-config.json
 BRIDGE_CELL_CONFIG_PATH="${DATA_DIR}"/bridge-cell-config.json
 LOCK_TOKEN_PATH="${DATA_DIR}"/lock_token.log
 LOCK_ETH_PATH="${DATA_DIR}"/lock_eth.log
-echo ${FORTH_ETH_CONFIG_PATH}
 
 cd "$DIR"/demo
-${FORCE_CLI} dev-init -f
+#${FORCE_CLI} dev-init -f
 
 cd "$DIR"/eth-contracts
+export FORCE_CONFIG_PATH="${DIR}"/demo/.force-bridge-cli-config.toml
 npx hardhat run scripts/geth/deployAll.js --network geth > "${FORTH_ETH_CONFIG_PATH}"
 ETH_CONTRACT_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .tokenLocker)
 TOKEN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .erc20)
@@ -37,7 +37,7 @@ lock_token_hash=`cat "${LOCK_TOKEN_PATH}"| awk '{print $5}'`
 echo "${lock_token_hash}"
 ${FORCE_CLI} mint --hash "${lock_token_hash}" --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --cell depend_on_eth_relay
 ${FORCE_CLI} query-sudt-blance --addr ${RECIPIENT_ADDR} --token-addr "${TOKEN_ADDRESS}" --lock-contract-addr "${ETH_CONTRACT_ADDRESS}"
-#${FORCE_CLI} burn --burn-amount 2 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d --token-addr "${TOKEN_ADDRESS}" --lock-contract-addr "${ETH_CONTRACT_ADDRESS}" --unlock-fee 1 --private-key-path cli/privkeys/ckb_key
+#${FORCE_CLI} burn --burn-amount 2 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d --token-addr "${TOKEN_ADDRESS}" --lock-contract-addr "${ETH_CONTRACT_ADDRESS}" --unlock-fee 1
 
 #${FORCE_CLI} transfer-from-ckb --burn-amount 2 --unlock-fee 1 --ckb-privkey-path cli/privkeys/ckb_key --eth-privkey-path cli/privkeys/eth_key --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr $ERC20DeployAddr --lock-contract-addr $TokenLockerDepolyAddr --light-client-addr $CKBChainDeployAddr
 
