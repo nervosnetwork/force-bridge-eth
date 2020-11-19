@@ -466,6 +466,7 @@ impl Generator {
         token_addr: H160,
         lock_contract_addr: H160,
         eth_receiver_addr: H160,
+        eth_bridge_lock_hash: ethereum_types::H256,
     ) -> Result<TransactionView> {
         let mut helper = TxHelper::default();
 
@@ -494,6 +495,11 @@ impl Generator {
                     .map_err(|err| anyhow!(err))?,
                 eth_token_address: ETHAddress::try_from(token_addr.as_bytes().to_vec())
                     .map_err(|err| anyhow!(err))?,
+                eth_lock_contract_address: ETHAddress::try_from(
+                    lock_contract_addr.as_bytes().to_vec(),
+                )
+                .map_err(|err| anyhow!(err))?,
+                eth_bridge_lock_hash: eth_bridge_lock_hash.0,
                 token_amount: burn_sudt_amount,
                 fee: unlock_fee,
             };
@@ -514,7 +520,6 @@ impl Generator {
             let recipient_typescript: Script = Script::new_builder()
                 .code_hash(Byte32::from_slice(&recipient_typescript_code_hash)?)
                 .hash_type(DepType::Code.into())
-                .args(lock_contract_addr.as_bytes().pack())
                 .build();
 
             let eth_recipient_output = CellOutput::new_builder()

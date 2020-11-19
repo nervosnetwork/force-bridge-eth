@@ -12,7 +12,7 @@ use force_eth_lib::transfer::to_eth::{
     wait_block_submit,
 };
 use force_eth_lib::util::ckb_util::{build_lockscript_from_address, ETHSPVProofJson, Generator};
-use force_eth_lib::util::eth_util::convert_eth_address;
+use force_eth_lib::util::eth_util::{convert_eth_address, convert_hex_to_h256};
 use force_eth_lib::util::settings::Settings;
 use log::{debug, info};
 use molecule::prelude::Entity;
@@ -248,6 +248,7 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
     let token_addr = convert_eth_address(&args.token_addr)?;
     let receive_addr = convert_eth_address(&args.receive_addr)?;
     let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    let eth_bridge_lock_hash = convert_hex_to_h256(args.eth_bridge_lock_hash)?;
     let ckb_tx_hash = burn(
         args.private_key_path,
         args.ckb_rpc_url,
@@ -259,6 +260,7 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
         token_addr,
         receive_addr,
         lock_contract_addr,
+        eth_bridge_lock_hash,
     )?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
     todo!()
@@ -294,6 +296,8 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     let token_addr = convert_eth_address(&args.token_addr)?;
     let receive_addr = convert_eth_address(&args.receive_addr)?;
     let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    let eth_bridge_lock_hash = convert_hex_to_h256(args.eth_bridge_lock_hash)?;
+
     let ckb_tx_hash = burn(
         args.ckb_privkey_path,
         args.ckb_rpc_url.clone(),
@@ -305,6 +309,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         token_addr,
         receive_addr,
         lock_contract_addr,
+        eth_bridge_lock_hash,
     )?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
 
