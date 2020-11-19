@@ -41,7 +41,9 @@ async function main() {
   console.log("Eaglesong deployed to:", EaglesongDeployAddr);
 
   const receipent_code_hash =
-    "0x17fb928d15bf98064304f2126f6b387e33d0c3c6572d293143ca373929ec3b5c";
+    "0xa170baee8a38fcc33a83a51db412a51b74101e931f7f90586de1971b11154ad4";
+  const bridge_code_hash =
+    "0xa5ee819012157f00d71b6ff305db7d8ed94705c0f3b90bb911116dd6968a8a2d";
   // deploy TokenLocker
   const TokenLocker = await ethers.getContractFactory(
     "contracts/TokenLocker.sol:TokenLocker"
@@ -50,7 +52,8 @@ async function main() {
     CKBChinDeployAddr,
     1,
     receipent_code_hash,
-    0
+    0,
+    bridge_code_hash
   );
   await locker.deployed();
   const lockerAddr = locker.address;
