@@ -119,7 +119,7 @@ pub struct ApproveArgs {
     pub from: String,
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
@@ -133,7 +133,7 @@ pub struct ApproveArgs {
 pub struct LockTokenArgs {
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
@@ -161,7 +161,7 @@ pub struct LockTokenArgs {
 pub struct LockEthArgs {
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
@@ -187,7 +187,7 @@ pub struct LockEthArgs {
 pub struct GenerateEthProofArgs {
     #[clap(short, long)]
     pub hash: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
 }
 
@@ -195,7 +195,7 @@ pub struct GenerateEthProofArgs {
 pub struct MintArgs {
     #[clap(short, long)]
     pub hash: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8114")]
     pub ckb_rpc_url: String,

@@ -70,10 +70,6 @@ module.exports = {
             // Mnemonic [`dignity vehicle fuel siren cool machine video spice oppose olympic polar discover`]
             accounts: [`0xc4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a`],
         },
-        demo: {
-            url: `http://127.0.0.1:9545`,
-            accounts: [`0xd00c06bfd800d27397002dca6fb0993d5ba6399b4238b2f29ee9deb97593d2bc`],
-        },
         ganache: {
             url: `http://127.0.0.1:7545`,
             // address [`0x10A4c9D160196086Ab8D4247e2D607f910e8cac0`]
