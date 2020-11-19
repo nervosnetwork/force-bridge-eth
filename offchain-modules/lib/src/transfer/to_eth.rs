@@ -30,6 +30,7 @@ pub async fn init_light_client(
     gas_price: u64,
     to: H160,
     key_path: String,
+    wait: bool,
 ) -> Result<String> {
     let mut ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
@@ -56,7 +57,8 @@ pub async fn init_light_client(
             key_path,
             init_header_abi,
             U256::from(gas_price),
-            U256::from(0),
+            U256::zero(),
+            wait,
         )
         .await?;
     let tx_hash = hex::encode(res);
@@ -164,6 +166,7 @@ pub async fn unlock(
     raw_tx: String,
     eth_url: String,
     gas_price: u64,
+    wait: bool,
 ) -> Result<String> {
     let mut rpc_client = Web3Client::new(eth_url);
     let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
@@ -193,6 +196,7 @@ pub async fn unlock(
             input_data,
             U256::from(gas_price),
             U256::from(0),
+            wait,
         )
         .await?;
     let tx_hash = hex::encode(res);

@@ -11,6 +11,7 @@ pub struct Opts {
 pub enum SubCommand {
     InitCkbLightContract(InitCkbLightContractArgs),
     DevInit(DevInitArgs),
+    CreateBridgeCell(CreateBridgeCellArgs),
     TransferToCkb(TransferToCkbArgs),
     Approve(ApproveArgs),
     LockToken(LockTokenArgs),
@@ -25,6 +26,28 @@ pub enum SubCommand {
     QuerySudtBlance(SudtGetBalanceArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct CreateBridgeCellArgs {
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "http://127.0.0.1:8114")]
+    pub rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8116")]
+    pub indexer_url: String,
+    #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
+    pub private_key_path: String,
+    #[clap(long)]
+    pub eth_contract_address: String,
+    #[clap(long)]
+    pub eth_token_address: String,
+    #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
+    pub recipient_address: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+    #[clap(long, default_value = "1")]
+    pub bridge_fee: u128,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -47,6 +70,8 @@ pub struct InitCkbLightContractArgs {
     pub private_key_path: String,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
+    #[clap(long)]
+    pub wait: bool,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -83,10 +108,6 @@ pub struct DevInitArgs {
     pub recipient_typescript_path: String,
     #[clap(long, default_value = "cli/deps/simple_udt")]
     pub sudt_path: String,
-    #[clap(long)]
-    pub eth_contract_address: String,
-    #[clap(long)]
-    pub eth_token_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -98,10 +119,12 @@ pub struct ApproveArgs {
     pub from: String,
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
+    #[clap(long)]
+    pub wait: bool,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
 }
@@ -110,7 +133,7 @@ pub struct ApproveArgs {
 pub struct LockTokenArgs {
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
@@ -126,6 +149,10 @@ pub struct LockTokenArgs {
     pub sudt_extra_data: String,
     #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
     pub ckb_recipient_address: String,
+    #[clap(long)]
+    pub replay_resist_outpoint: String,
+    #[clap(long)]
+    pub wait: bool,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
 }
@@ -134,7 +161,7 @@ pub struct LockTokenArgs {
 pub struct LockEthArgs {
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
@@ -148,6 +175,10 @@ pub struct LockEthArgs {
     pub sudt_extra_data: String,
     #[clap(long, default_value = "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37")]
     pub ckb_recipient_address: String,
+    #[clap(long)]
+    pub replay_resist_outpoint: String,
+    #[clap(long)]
+    pub wait: bool,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
 }
@@ -156,7 +187,7 @@ pub struct LockEthArgs {
 pub struct GenerateEthProofArgs {
     #[clap(short, long)]
     pub hash: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
 }
 
@@ -164,7 +195,7 @@ pub struct GenerateEthProofArgs {
 pub struct MintArgs {
     #[clap(short, long)]
     pub hash: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8114")]
     pub ckb_rpc_url: String,
@@ -210,6 +241,8 @@ pub struct TransferFromCkbArgs {
     pub unlock_fee: u128,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
+    #[clap(long)]
+    pub wait: bool,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -258,6 +291,8 @@ pub struct UnlockArgs {
     pub tx_info: String,
     #[clap(long, default_value = "http://localhost:8545")]
     pub eth_rpc_url: String,
+    #[clap(long)]
+    pub wait: bool,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
 }

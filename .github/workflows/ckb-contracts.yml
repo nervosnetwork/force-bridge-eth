@@ -50,6 +50,6 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
-      - run: cargo clippy -- -D warnings
+      - run: cargo clippy --all --tests -- -D warnings
       - run: capsule build
       - run: cargo test -- --nocapture

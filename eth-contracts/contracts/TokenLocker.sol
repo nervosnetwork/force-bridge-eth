@@ -31,7 +31,7 @@ contract TokenLocker {
         address indexed sender,
         uint256 lockedAmount,
         uint256 bridgeFee,
-        bytes  recipientLockscript,
+        bytes recipientLockscript,
         bytes replayResistOutpoint,
         bytes sudtExtraData
     );
