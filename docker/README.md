@@ -37,7 +37,7 @@ We use docker volume `geth-dag` to store dag data, so the geth will be ready ver
 
 ```shell script
 # cd docker/geth
-docker run --rm -it --mount type=bind,source="$(pwd)",target=/config source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23
+docker run --rm -it --mount type=bind,source="$(pwd)",target=/config --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23
 ```
 
 The privkey of accounts in geth-genesis.json for tests:
