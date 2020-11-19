@@ -9,11 +9,11 @@ use std::time::Duration;
 use web3::types::{Bytes, H160};
 
 pub struct CKBRelayer {
-    pub from: H160,
     pub contract_addr: H160,
     pub priv_key_path: String,
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
+    pub gas_price: U256,
 }
 
 impl CKBRelayer {
@@ -21,23 +21,24 @@ impl CKBRelayer {
         ckb_rpc_url: String,
         indexer_url: String,
         eth_rpc_url: String,
-        from: H160,
         contract_addr: H160,
         priv_key_path: String,
+        gas_price: u64,
     ) -> Result<CKBRelayer> {
         let ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
             .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
         let web3_client = Web3Client::new(eth_rpc_url);
+        let gas_price = U256::from(gas_price);
 
         Ok(CKBRelayer {
-            from,
             contract_addr,
             priv_key_path,
             ckb_client,
             web3_client,
+            gas_price,
         })
     }
-    pub async fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self, per_amount: u64) -> Result<()> {
         let mut client_block_number = self
             .web3_client
             .get_contract_height("latestBlockNumber", self.contract_addr)
@@ -72,7 +73,6 @@ impl CKBRelayer {
         }
 
         let mut block_height = client_block_number + 1;
-        let block_gap = 1;
 
         let ckb_current_height = self
             .ckb_client
@@ -80,9 +80,9 @@ impl CKBRelayer {
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
 
-        while block_height < ckb_current_height {
-            let height_range = block_height..block_height + block_gap;
-            block_height += block_gap;
+        while block_height + per_amount < ckb_current_height {
+            let height_range = block_height..block_height + per_amount;
+            block_height += per_amount;
 
             let heights: Vec<u64> = height_range.clone().collect();
             self.relay_headers(heights).await?;
@@ -106,6 +106,7 @@ impl CKBRelayer {
                 self.contract_addr,
                 self.priv_key_path.clone(),
                 add_headers_abi,
+                self.gas_price,
                 U256::from(0),
             )
             .await?;

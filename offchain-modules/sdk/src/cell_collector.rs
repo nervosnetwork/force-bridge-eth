@@ -155,7 +155,7 @@ pub fn collect_sudt_amount(
         {
             collected_amount += {
                 let mut buf = [0u8; UDT_LEN];
-                buf.copy_from_slice(cell.output_data.as_bytes());
+                buf.copy_from_slice(&cell.output_data.as_bytes()[..UDT_LEN]);
                 u128::from_le_bytes(buf)
             };
         }

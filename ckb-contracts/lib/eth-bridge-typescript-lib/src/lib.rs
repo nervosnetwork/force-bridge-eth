@@ -1,53 +1,51 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+extern crate no_std_compat as std;
+
+pub mod actions;
 pub mod adapter;
 pub mod debug;
 
-pub use adapter::Adapter;
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "std")] {
-    } else {
-        extern crate alloc;
-    }
-}
+use adapter::Adapter;
+use force_eth_types::generated::witness::MintTokenWitnessReader;
+use molecule::prelude::{Entity, Reader};
 
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
     let chain = adapter::chain::ChainAdapter {};
-    _verify(chain)
-}
-
-pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
-    let tx = data_loader.load_tx_hash().expect("load tx hash failed");
-    debug!("tx: {:?}", &tx);
+    _verify(chain);
     0
 }
 
-#[cfg(test)]
-mod tests {
-    use super::_verify;
-    use crate::adapter::*;
-    use ckb_std::error::SysError;
-
-    #[test]
-    fn mock_return_ok() {
-        let mut mock = MockAdapter::new();
-        mock.expect_load_tx_hash()
-            .times(1)
-            .returning(|| Ok([0u8; 32]));
-        let return_code = _verify(mock);
-        assert_eq!(return_code, 0);
+pub fn _verify<T: Adapter>(data_loader: T) {
+    let data = data_loader.load_data();
+    // if the script does not exist in input, ignore the check.
+    // which enables user to create bridge cell with this typescript.
+    if data.is_none() {
+        return;
     }
+    let data = data.unwrap();
+    // load and parse witness
+    let witness_args = data_loader
+        .load_input_witness_args()
+        .expect("load witness args error");
+    MintTokenWitnessReader::verify(&witness_args, false).expect("witness is invalid");
+    let witness = MintTokenWitnessReader::new_unchecked(&witness_args);
+    debug!("witness: {:?}", witness);
 
-    #[test]
-    #[should_panic]
-    fn mock_return_err() {
-        let mut mock = MockAdapter::new();
-        mock.expect_load_tx_hash()
-            .times(1)
-            .returning(|| Err(SysError::Encoding));
-        let return_code = _verify(mock);
-        assert_eq!(return_code, 0);
+    // load script args
+    let script_args = data_loader.load_script_args();
+
+    // check mode
+    let mode: u8 = witness.mode().into();
+    match mode {
+        0 => {
+            actions::verify_mint_token(&data_loader, &script_args, &data);
+        }
+        _ => {
+            actions::verify_manage_mode(&data_loader, data.owner_lock_script().as_slice());
+        }
     }
 }

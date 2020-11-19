@@ -5,12 +5,14 @@ use ethereum_tx_sign::RawTransaction;
 use log::{debug, info};
 use rlp::{DecoderError, Rlp, RlpStream};
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
+use std::time::Duration;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
 use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256};
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
+const MAX_GAS_LIMIT: u64 = 11000000;
 
 pub struct Web3Client {
     url: String,
@@ -38,23 +40,38 @@ impl Web3Client {
         to: H160,
         key_path: String,
         data: Vec<u8>,
+        gas_price: U256,
         eth_value: U256,
+        wait: bool,
     ) -> Result<H256> {
-        let signed_tx = self.build_sign_tx(to, key_path, data, eth_value).await?;
-        let tx_hash = self
-            .client()
-            .eth()
-            // .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(5, 100), 10)
-            .send_raw_transaction(Bytes::from(signed_tx))
+        let signed_tx = self
+            .build_sign_tx(to, key_path, data, gas_price, eth_value)
             .await?;
+        let tx_hash = if wait {
+            self.client()
+                .send_raw_transaction_with_confirmation(
+                    Bytes::from(signed_tx),
+                    Duration::new(1, 0),
+                    1,
+                )
+                .await?
+                .transaction_hash
+        } else {
+            self.client()
+                .eth()
+                .send_raw_transaction(Bytes::from(signed_tx))
+                .await?
+        };
         debug!("tx hash: {:?}", tx_hash);
         Ok(tx_hash)
     }
+
     pub async fn build_sign_tx(
         &mut self,
         to: H160,
         key_path: String,
         data: Vec<u8>,
+        gas_price: U256,
         eth_value: U256,
     ) -> Result<Vec<u8>> {
         let private_key = &parse_private_key(&key_path)?;
@@ -64,7 +81,13 @@ impl Web3Client {
         info!("tx current nonce :{}", &nonce);
         let chain_id = self.client().eth().chain_id().await?;
         debug!("chain id :{}", &chain_id);
-        let tx = make_transaction(to, nonce, data, eth_value);
+        let tx_gas_price;
+        if gas_price.is_zero() {
+            tx_gas_price = self.client.eth().gas_price().await?;
+        } else {
+            tx_gas_price = gas_price;
+        }
+        let tx = make_transaction(to, nonce, data, tx_gas_price, eth_value);
         let signed_tx = tx.sign(&parse_private_key(&key_path)?, &chain_id.as_u32());
         Ok(signed_tx)
     }
@@ -156,13 +179,19 @@ impl Web3Client {
     }
 }
 
-pub fn make_transaction(to: H160, nonce: U256, data: Vec<u8>, eth_value: U256) -> RawTransaction {
+pub fn make_transaction(
+    to: H160,
+    nonce: U256,
+    data: Vec<u8>,
+    gas_price: U256,
+    eth_value: U256,
+) -> RawTransaction {
     RawTransaction {
         nonce: convert_u256(nonce),
         to: Some(convert_account(to)),
         value: eth_value,
-        gas_price: U256::from(1000000000),
-        gas: U256::from(2100000),
+        gas_price,
+        gas: U256::from(MAX_GAS_LIMIT),
         data,
     }
 }

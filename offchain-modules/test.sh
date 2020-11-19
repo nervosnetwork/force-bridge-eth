@@ -68,3 +68,5 @@ target/debug/force-eth-cli mint --hash "${lock_eth_hash}" --eth-contract-address
 #RUST_LOG=info ./target/debug/force-eth-cli burn --burn-amount 9000 --receive-addr 0xCa5e43317e18c98b83aB1406818310A683Dcd9D1 --token-addr 0xCa5e43317e18c98b83aB1406818310A683Dcd9D1   --lock-contract-addr 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 --unlock-fee 10 --private-key-path cli/privkeys/ckb_key
 
 #./target/debug/force-eth-cli  generate-ckb-proof --tx-hash 0395143a90bf9a1ac669c146211724e33797cb36ff0bec0048c17d2d9a11592d
+
+#RUST_LOG=info ./target/debug/force-eth-cli transfer-from-ckb --burn-amount 5 --unlock-fee 1 --ckb-privkey-path cli/privkeys/ckb_key --eth-privkey-path ~/account/sk  --eth-rpc-url http://172.18.0.51:8545 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr 0xE9837e999934E2f61D4148CeEEb1Be3cc00Cb37c --lock-contract-addr 0x30F58CEEEC7Ace3fC2f938F13dD2C0c69B4A19b0 --light-client-addr 0x3C049b35392D20e5C1E7bB6B32E26f07093A6923
