@@ -261,7 +261,7 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
         lock_contract_addr,
     )?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
-    todo!()
+    Ok(())
 }
 
 pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
@@ -403,6 +403,6 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     )?;
     loop {
         ckb_relayer.start(args.per_amount).await?;
-        std::thread::sleep(std::time::Duration::from_secs(10 * 60));
+        std::thread::sleep(std::time::Duration::from_secs(10));
     }
 }

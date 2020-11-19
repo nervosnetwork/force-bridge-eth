@@ -123,7 +123,7 @@ pub fn collect_sudt_cells_by_amout(
         {
             collected_amount += {
                 let mut buf = [0u8; UDT_LEN];
-                buf.copy_from_slice(cell.output_data.as_bytes());
+                buf.copy_from_slice(&cell.output_data.as_bytes()[..16]);
                 u128::from_le_bytes(buf)
             };
             (collected_amount >= need_sudt_amount, true)
