@@ -1,18 +1,20 @@
-// We require the Buidler Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-// When running the script with `buidler run <script>` you'll find the Buidler
-// Runtime Environment's members available in the global scope.
+const fs = require("fs");
+const path = require("path");
+const utils = require("@nervosnetwork/ckb-sdk-utils");
+const log = console.log;
+const ETH_RECIPIENT_TYPESCRIPT_PATH = path.join(
+  __dirname,
+  "../../../ckb-contracts/build/release/eth-recipient-typescript"
+);
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function blake2b(buffer) {
+  return utils
+    .blake2b(32, null, null, utils.PERSONAL)
+    .update(buffer)
+    .digest("binary");
 }
 
 async function main() {
-  // Buidler always runs the compile task when running scripts through it.
-  // If this runs in a standalone fashion you may want to call compile manually
-  // to make sure everything is compiled
-  // await bre.run('compile');
-
   //ERC20
   const ERC20 = await ethers.getContractFactory(
     "contracts/test/ERC20.sol:ERC20"
@@ -20,7 +22,7 @@ async function main() {
   const ERC20Deploy = await ERC20.deploy();
   await ERC20Deploy.deployed();
   const ERC20DeployAddr = ERC20Deploy.address;
-  console.log("ERC20 deployed to:", ERC20DeployAddr);
+  log("ERC20 deployed to:", ERC20DeployAddr);
 
   // deploy CKBChin
   const CKBChain = await ethers.getContractFactory(
@@ -29,27 +31,19 @@ async function main() {
   const CKBChinDeploy = await CKBChain.deploy();
   await CKBChinDeploy.deployed();
   const CKBChinDeployAddr = CKBChinDeploy.address;
-  console.log("CKBChin deployed to:", CKBChinDeployAddr);
+  log("CKBChin deployed to:", CKBChinDeployAddr);
 
-  // deploy Eaglesong
-  const Eaglesong = await ethers.getContractFactory(
-    "contracts/Eaglesong.sol:Eaglesong"
-  );
-  const EaglesongDeploy = await Eaglesong.deploy();
-  await EaglesongDeploy.deployed();
-  const EaglesongDeployAddr = EaglesongDeploy.address;
-  console.log("Eaglesong deployed to:", EaglesongDeployAddr);
-
-  const receipent_code_hash =
-    "0x17fb928d15bf98064304f2126f6b387e33d0c3c6572d293143ca373929ec3b5c";
   // deploy TokenLocker
+  const bin = fs.readFileSync(ETH_RECIPIENT_TYPESCRIPT_PATH);
+  const recipientCodeHash = utils.bytesToHex(blake2b(bin));
+  log("recipientCodeHash", recipientCodeHash);
   const TokenLocker = await ethers.getContractFactory(
     "contracts/TokenLocker.sol:TokenLocker"
   );
   const locker = await TokenLocker.deploy(
     CKBChinDeployAddr,
     1,
-    receipent_code_hash,
+    recipientCodeHash,
     0
   );
   await locker.deployed();
@@ -59,10 +53,9 @@ async function main() {
   const address = {
     ERC20Deploy: ERC20DeployAddr,
     CKBChainDeploy: CKBChinDeployAddr,
-    EaglesongDeploy: EaglesongDeployAddr,
-    TokenLockerDepoly: lockerAddr,
+    TokenLockerDeploy: lockerAddr,
   };
-  const fs = require("fs");
+
   const data = JSON.stringify(address);
   fs.writeFileSync("./scripts/geth/address.json", data);
 }
