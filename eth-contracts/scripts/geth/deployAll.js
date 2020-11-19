@@ -56,23 +56,15 @@ async function main() {
   const lockerAddr = locker.address;
   console.log("locker deployed to:", lockerAddr);
 
-  const fs = require("fs");
   const address = {
     ERC20Deploy: ERC20DeployAddr,
     CKBChainDeploy: CKBChinDeployAddr,
     EaglesongDeploy: EaglesongDeployAddr,
     TokenLockerDepoly: lockerAddr,
   };
-
+  const fs = require("fs");
   const data = JSON.stringify(address);
-
-  fs.writeFile("./scripts/geth/address.json", data, (err) => {
-    if (err) {
-      throw err;
-    }
-    console.log("JSON data is saved.");
-  });
-  await sleep(60 * 1000);
+  fs.writeFileSync("./scripts/geth/address.json", data);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
