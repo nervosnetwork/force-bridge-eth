@@ -1358,6 +1358,8 @@ dependencies = [
  "log",
  "molecule",
  "rusty-receipt-proof-maker",
+ "serde 1.0.117",
+ "serde_json",
  "tokio 0.2.23",
  "web3",
 ]
@@ -1400,8 +1402,10 @@ dependencies = [
 name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
+ "eth-spv-lib",
+ "ethereum-types",
  "molecule",
+ "no-std-compat",
 ]
 
 [[package]]
@@ -2336,6 +2340,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "no-std-compat"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b93853da6d84c2e3c7d730d6473e8817692dd89be387eb01b94d7f108ecb5b8c"
+
+[[package]]
 name = "nom"
 version = "5.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3140,7 +3150,7 @@ dependencies = [
 [[package]]
 name = "rusty-receipt-proof-maker"
 version = "0.1.0"
-source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git#510f8e1fb4d0b9fe4dc8d51e3519df65d9a9c5aa"
+source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=14eddf2#14eddf2eff5c628a335136f90a2367558a877c83"
 dependencies = [
  "chrono",
  "docopt",

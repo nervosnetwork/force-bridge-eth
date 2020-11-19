@@ -1,12 +1,12 @@
-use crate::util::ckb_util::{ETHSPVProofJson, Generator};
+use crate::util::ckb_util::{parse_privkey, ETHSPVProofJson, Generator};
 use crate::util::eth_proof_helper::{read_roots_collection_raw, RootsCollectionJson};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use crate::util::settings::{CellScript, OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
-use ckb_sdk::{AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
+use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
-use ckb_types::packed::{Byte32, CellOutput, Script};
+use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use ethabi::{Function, Param, ParamType, Token};
 use force_eth_types::generated::basic::ETHAddress;
@@ -14,12 +14,22 @@ use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{sign, TxHelper, PUBLIC_BRIDGE_CELL};
-use force_sdk::util::{parse_privkey_path, send_tx_sync};
+use force_sdk::util::{ensure_indexer_sync, parse_privkey_path, send_tx_sync};
+use log::info;
 use secp256k1::SecretKey;
+use serde_json::json;
 use std::convert::TryInto;
+use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
-pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Result<H256> {
+pub async fn approve(
+    from: H160,
+    to: H160,
+    url: String,
+    key_path: String,
+    gas_price: u64,
+    wait: bool,
+) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "approve".to_owned(),
@@ -42,12 +52,26 @@ pub async fn approve(from: H160, to: H160, url: String, key_path: String) -> Res
     let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0))
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            U256::from(0),
+            wait,
+        )
         .await?;
     Ok(res)
 }
 
-pub async fn lock_token(to: H160, url: String, key_path: String, data: &[Token]) -> Result<H256> {
+pub async fn lock_token(
+    to: H160,
+    url: String,
+    key_path: String,
+    gas_price: u64,
+    data: &[Token],
+    wait: bool,
+) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
         name: "lockToken".to_owned(),
@@ -82,7 +106,14 @@ pub async fn lock_token(to: H160, url: String, key_path: String, data: &[Token])
     };
     let input_data = function.encode_input(data)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0))
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            U256::from(0),
+            wait,
+        )
         .await?;
     Ok(res)
 }
@@ -92,7 +123,9 @@ pub async fn lock_eth(
     url: String,
     key_path: String,
     data: &[Token],
+    gas_price: u64,
     eth_value: U256,
+    wait: bool,
 ) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
@@ -120,7 +153,14 @@ pub async fn lock_eth(
     };
     let input_data = function.encode_input(data)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, eth_value)
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            eth_value,
+            wait,
+        )
         .await?;
     Ok(res)
 }
@@ -183,8 +223,6 @@ pub fn dev_init(
     light_client_lockscript_path: String,
     recipient_typescript_path: String,
     sudt_path: String,
-    eth_contract_address_str: String,
-    eth_token_address_str: String,
 ) -> Result<()> {
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
@@ -225,28 +263,14 @@ pub fn dev_init(
         sudt_bin,
     ];
 
-    let eth_contract_address = convert_eth_address(eth_contract_address_str.as_str())?;
-    let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
-    let eth_address = convert_eth_address("0x0000000000000000000000000000000000000000")?;
-    let token_args = build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
-    let eth_args = build_eth_bridge_lock_args(eth_address, eth_contract_address)?;
-    let token_cell_script = build_cell_script(token_args, &bridge_lockscript_code_hash)?;
-    let eth_cell_script = build_cell_script(eth_args, &bridge_lockscript_code_hash)?;
-    let tx = deploy(
-        &mut rpc_client,
-        &mut indexer_client,
-        &private_key,
-        data,
-        token_cell_script,
-        eth_cell_script,
-    )
-    .map_err(|err| anyhow!(err))?;
+    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
+        .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
     let settings = Settings {
         bridge_lockscript: ScriptConf {
-            code_hash: bridge_lockscript_code_hash_hex.clone(),
+            code_hash: bridge_lockscript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
@@ -287,16 +311,16 @@ pub fn dev_init(
                 index: 5,
             },
         },
-        replay_resist_lockscript: ScriptConf {
-            code_hash: bridge_lockscript_code_hash_hex,
-            outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
-                index: 6,
-            },
-        },
+        // replay_resist_lockscript: ScriptConf {
+        //     code_hash: bridge_lockscript_code_hash_hex,
+        //     outpoint: OutpointConf {
+        //         tx_hash: tx_hash_hex.clone(),
+        //         index: 6,
+        //     },
+        // },
         dag_merkle_roots: OutpointConf {
             tx_hash: tx_hash_hex,
-            index: 8,
+            index: 6,
         },
         light_client_cell_script: CellScript {
             cell_script: "".to_string(),
@@ -305,6 +329,68 @@ pub fn dev_init(
     log::info!("settings: {:?}", &settings);
     settings.write(&config_path).map_err(|e| anyhow!(e))?;
     println!("force-bridge-eth config written to {}", &config_path);
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn create_bridge_cell(
+    config_path: String,
+    rpc_url: String,
+    indexer_url: String,
+    private_key_path: String,
+    tx_fee: String,
+    eth_contract_address_str: String,
+    eth_token_address_str: String,
+    recipient_address: String,
+    bridge_fee: u128,
+) -> Result<()> {
+    let settings = Settings::new(&config_path)?;
+    let mut generator = Generator::new(rpc_url, indexer_url, settings)
+        .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+    ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+
+    let from_privkey = parse_privkey_path(&private_key_path)?;
+    let from_lockscript = parse_privkey(&from_privkey);
+
+    let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
+        .map_err(|e| anyhow!(e))?
+        .into();
+
+    let eth_contract_address = convert_eth_address(eth_contract_address_str.as_str())?;
+    let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
+    let recipient_lockscript = Script::from(
+        Address::from_str(&recipient_address)
+            .map_err(|err| anyhow!("invalid recipient address: {}", err))?
+            .payload(),
+    );
+    let unsigned_tx = generator
+        .create_bridge_cell(
+            tx_fee,
+            from_lockscript,
+            eth_token_address,
+            eth_contract_address,
+            recipient_lockscript,
+            bridge_fee,
+        )
+        .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
+    let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
+        .map_err(|e| anyhow!("sign error {}", e))?;
+    log::info!(
+        "tx: \n{}",
+        serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
+            .map_err(|err| anyhow!(err))?
+    );
+    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
+    let outpoint = OutPoint::new_builder()
+        .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
+        .build();
+    let outpoint_hex = hex::encode(outpoint.as_slice());
+    info!(
+        "create bridge cell successfully for {}, outpoint: {}",
+        recipient_address, &outpoint_hex
+    );
+    println!("{}", json!({ "outpoint": outpoint_hex }));
     Ok(())
 }
 
@@ -337,8 +423,8 @@ pub fn deploy(
     indexer_client: &mut IndexerRpcClient,
     privkey: &SecretKey,
     data: Vec<Vec<u8>>,
-    token_cell_script: Script,
-    eth_cell_script: Script,
+    // token_cell_script: Script,
+    // eth_cell_script: Script,
 ) -> Result<TransactionView, String> {
     let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
     let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
@@ -350,16 +436,16 @@ pub fn deploy(
             .build();
         tx_helper.add_output_with_auto_capacity(output, data.into());
     }
-    let output_token = CellOutput::new_builder()
-        .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
-        .lock(token_cell_script)
-        .build();
-    tx_helper.add_output_with_auto_capacity(output_token, ckb_types::bytes::Bytes::default());
-    let output_eth = CellOutput::new_builder()
-        .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
-        .lock(eth_cell_script)
-        .build();
-    tx_helper.add_output_with_auto_capacity(output_eth, ckb_types::bytes::Bytes::default());
+    // let output_token = CellOutput::new_builder()
+    //     .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
+    //     .lock(token_cell_script)
+    //     .build();
+    // tx_helper.add_output_with_auto_capacity(output_token, ckb_types::bytes::Bytes::default());
+    // let output_eth = CellOutput::new_builder()
+    //     .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
+    //     .lock(eth_cell_script)
+    //     .build();
+    // tx_helper.add_output_with_auto_capacity(output_eth, ckb_types::bytes::Bytes::default());
     let output_dag = CellOutput::new_builder().lock(lockscript.clone()).build();
     let dep_data_raw = read_roots_collection_raw();
     let mut dag_root = vec![];

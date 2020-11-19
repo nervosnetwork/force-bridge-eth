@@ -11,11 +11,11 @@
     "petersburgBlock":0,
     "istanbulBlock":0
   },
-  "alloc":{
-    "0x627306090abab3a6e1400e9345bc60c78a8bef57": { "balance": "0x99999999999999999999" },
+  "alloc": {
     "0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2": { "balance": "0x99999999999999999999" },
-    "0xefde3a66ae8a51dffd02fd6e3dff4d0513f9dcbc": { "balance": "0x99999999999999999999" },
-    "0x0000000000000000000000000000000000000009": { "balance": "0x01" }
+    "0x8951a3DdEf2bB36fF3846C3B6968812C269f4561": { "balance": "0x99999999999999999999" },
+    "0x42e8763917A72e07369AD54B158b0FA839f060bc": { "balance": "0x99999999999999999999" },
+    "0xE61438B717b6937388bf66D256395A15B3D169aE": { "balance": "0x99999999999999999999" }
   },
   "difficulty":"42",
   "gasLimit":"99999999999999"

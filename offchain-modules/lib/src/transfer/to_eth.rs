@@ -20,6 +20,52 @@ use std::str::FromStr;
 use web3::types::H160;
 
 #[allow(clippy::too_many_arguments)]
+pub async fn init_light_client(
+    ckb_rpc_url: String,
+    indexer_url: String,
+    eth_rpc_url: String,
+    height: u64,
+    finalized_gc_threshold: u64,
+    canonical_gc_threshold: u64,
+    gas_price: u64,
+    to: H160,
+    key_path: String,
+    wait: bool,
+) -> Result<String> {
+    let mut ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
+        .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+    let mut web3_client = Web3Client::new(eth_rpc_url);
+
+    let header = ckb_client
+        .rpc_client
+        .get_header_by_number(height)
+        .map_err(|e| anyhow::anyhow!("failed to get header: {}", e))?
+        .ok_or_else(|| anyhow::anyhow!("failed to get header which is none"))?;
+
+    let mol_header: packed::Header = header.clone().inner.into();
+
+    let init_func = get_init_ckb_headers_func();
+    let init_header_abi = init_func.encode_input(&[
+        Token::Bytes(Vec::from(mol_header.raw().as_slice())),
+        Token::FixedBytes(Vec::from(header.hash.as_bytes())),
+        Token::Uint(U256::from(finalized_gc_threshold)),
+        Token::Uint(U256::from(canonical_gc_threshold)),
+    ])?;
+    let res = web3_client
+        .send_transaction(
+            to,
+            key_path,
+            init_header_abi,
+            U256::from(gas_price),
+            U256::zero(),
+            wait,
+        )
+        .await?;
+    let tx_hash = hex::encode(res);
+    Ok(tx_hash)
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn burn(
     privkey_path: String,
     rpc_url: String,
@@ -60,12 +106,67 @@ pub fn burn(
     generator.sign_and_send_transaction(unsigned_tx, from_privkey)
 }
 
+#[allow(clippy::never_loop)]
+pub async fn wait_block_submit(
+    eth_url: String,
+    ckb_url: String,
+    contract_addr: H160,
+    tx_hash: String,
+) -> Result<()> {
+    let mut ckb_client = HttpRpcClient::new(ckb_url);
+    let hash = covert_to_h256(&tx_hash)?;
+    let block_hash;
+
+    loop {
+        let block_hash_opt = ckb_client
+            .get_transaction(hash.clone())
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("tx is none"))?
+            .tx_status
+            .block_hash;
+        match block_hash_opt {
+            Some(hash) => {
+                block_hash = hash;
+                break;
+            }
+            None => {
+                info!("the transaction is not committed yet");
+                std::thread::sleep(std::time::Duration::from_secs(30));
+            }
+        }
+    }
+
+    let ckb_height = ckb_client
+        .get_block(block_hash)
+        .map_err(|err| anyhow!(err))?
+        .ok_or_else(|| anyhow!("block is none"))?
+        .header
+        .inner
+        .number;
+    let mut web3_client = Web3Client::new(eth_url);
+    loop {
+        let client_block_number = web3_client
+            .get_contract_height("latestBlockNumber", contract_addr)
+            .await?;
+        info!(
+            "client_block_number : {:?},ckb_height :{:?}",
+            client_block_number, ckb_height
+        );
+        if client_block_number < ckb_height {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        }
+        return Ok(());
+    }
+}
+
 pub async fn unlock(
     to: H160,
     key_path: String,
     tx_proof: String,
     raw_tx: String,
     eth_url: String,
+    gas_price: u64,
+    wait: bool,
 ) -> Result<String> {
     let mut rpc_client = Web3Client::new(eth_url);
     let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
@@ -89,20 +190,52 @@ pub async fn unlock(
     let tokens = [Token::Bytes(proof), Token::Bytes(tx_info)];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0))
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            U256::from(0),
+            wait,
+        )
         .await?;
     let tx_hash = hex::encode(res);
     Ok(tx_hash)
 }
 
 pub fn get_add_ckb_headers_func() -> Function {
-    //TODO : addHeader is mock function for test feature which set header data in eth contract
     Function {
         name: "addHeaders".to_owned(),
         inputs: vec![Param {
             name: "data".to_owned(),
             kind: ParamType::Bytes,
         }],
+        outputs: vec![],
+        constant: false,
+    }
+}
+
+pub fn get_init_ckb_headers_func() -> Function {
+    Function {
+        name: "initWithHeader".to_owned(),
+        inputs: vec![
+            Param {
+                name: "data".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "blockHash".to_owned(),
+                kind: ParamType::FixedBytes(32),
+            },
+            Param {
+                name: "finalizedGcThreshold".to_owned(),
+                kind: ParamType::Uint(64),
+            },
+            Param {
+                name: "canonicalGcThreshold".to_owned(),
+                kind: ParamType::Uint(64),
+            },
+        ],
         outputs: vec![],
         constant: false,
     }

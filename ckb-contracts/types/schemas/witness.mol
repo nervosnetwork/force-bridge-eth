@@ -1,6 +1,11 @@
 import basic;
 
 table MintTokenWitness {
+    // unlock mode:
+    // 0: mint mode, user can mint token with the proof provided
+    // 1: manage mode, user can charge capacity or destroy this cell,
+    //    and the tx can not contains associated sudt in outputs.
+    mode: byte,
     spv_proof: Bytes,
     cell_dep_index_list: Bytes,
 }

@@ -1,16 +1,19 @@
 [workspace]
+
 members = [
     "tests",
     "types",
+    "lib/eth-bridge-lockscript-lib",
     "lib/eth-bridge-typescript-lib",
+    "lib/eth-light-client-typescript-lib",
     "lib/eth-light-client-lockscript-lib",
     "lib/eth-recipient-typescript-lib",
 ]
 
 exclude = [
-    "contracts/eth-bridge-typescript",
     "contracts/eth-light-client-lockscript",
     "contracts/eth-light-client-typescript",
     "contracts/eth-bridge-lockscript",
+    "contracts/eth-bridge-typescript",
     "contracts/eth-recipient-typescript",
 ]

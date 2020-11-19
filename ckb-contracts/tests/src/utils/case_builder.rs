@@ -13,9 +13,14 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::vec::Vec;
 
+use crate::eth_light_client_typescript::types as light_client_types;
+use crate::eth_light_client_typescript::utils as light_client_utils;
+
 pub const ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY: &str = "eth_bridge_lockcript_outpoint_key";
 pub const ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY: &str =
     "eth_light_client_lockcript_outpoint_key";
+pub const ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY: &str =
+    "eth_light_client_typecript_outpoint_key";
 pub const ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY: &str = "eth_recipient_typescript_outpoint_key";
 pub const SUDT_TYPESCRIPT_OUTPOINT_KEY: &str = "sudt_typescript_key";
 pub const ALWAYS_SUCCESS_OUTPOINT_KEY: &str = "always_success_outpoint_key";
@@ -63,6 +68,7 @@ pub struct CustomCells {
 pub enum CustomCell {
     ETHRecipientCustomCell(ETHRecipientCell),
     ETHLightClientLockCustomCell(ETHLightClientLockCell),
+    ETHLightClientTypeCustomCell(ETHLightClientTypeCell),
 }
 
 impl CellBuilder for CustomCell {
@@ -78,6 +84,9 @@ impl CellBuilder for CustomCell {
             CustomCell::ETHLightClientLockCustomCell(eth_light_client_lock_cell) => {
                 eth_light_client_lock_cell.build_output_cell(context, outpoints)
             }
+            CustomCell::ETHLightClientTypeCustomCell(eth_light_client_type_cell) => {
+                eth_light_client_type_cell.build_output_cell(context, outpoints)
+            }
         }
     }
 
@@ -87,15 +96,32 @@ impl CellBuilder for CustomCell {
             CustomCell::ETHLightClientLockCustomCell(eth_light_client_lock_cell) => {
                 eth_light_client_lock_cell.index
             }
+            CustomCell::ETHLightClientTypeCustomCell(eth_light_client_type_cell) => {
+                eth_light_client_type_cell.index
+            }
         }
     }
 }
 
-pub enum CellDepView {}
+pub enum CellDepView {
+    ETHLightClientTypeCellDep(ETHLightClientTypeDep),
+}
 
 impl CellDepView {
     pub fn build_cell_dep(&self, _context: &mut Context) -> CellDep {
-        todo!()
+        match self {
+            CellDepView::ETHLightClientTypeCellDep(cell_dep) => cell_dep.build_cell_dep(_context),
+        }
+    }
+}
+
+pub struct ETHLightClientTypeDep {}
+
+impl ETHLightClientTypeDep {
+    pub fn build_cell_dep(&self, context: &mut Context) -> CellDep {
+        let dep_data = light_client_utils::create_dep_data();
+        let data_out_point = context.deploy_cell(dep_data);
+        CellDep::new_builder().out_point(data_out_point).build()
     }
 }
 
@@ -188,6 +214,78 @@ impl ETHLightClientLockCell {
                 &outpoints[ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY],
                 Bytes::from(self.args.clone()),
             )
+            .expect("build eth light client lockscript")
+    }
+}
+
+pub struct ETHLightClientTypeCell {
+    pub capacity: u64,
+    pub index: usize,
+    pub main: Vec<String>,
+    pub uncle: Vec<String>,
+    pub merkle: Option<String>,
+}
+
+impl ETHLightClientTypeCell {
+    fn build_output_data(&self) -> Bytes {
+        let mut main_vec = vec![];
+        let mut pre_difficulty: u64 = 0;
+        for file in self.main.clone() {
+            let block_with_proof = light_client_types::read_block(file);
+            let (data, difficulty) =
+                light_client_utils::create_data(&block_with_proof, pre_difficulty);
+            pre_difficulty = difficulty;
+            main_vec.push(data);
+        }
+
+        let mut uncle_vec = vec![];
+        for file in self.uncle.clone() {
+            let block_with_proof = light_client_types::read_block(file);
+            let (data, _) = light_client_utils::create_data(&block_with_proof, 0);
+            uncle_vec.push(data);
+        }
+
+        let mut block_with_proof =
+            light_client_types::read_block(self.main.last().unwrap().clone());
+
+        if self.merkle.is_some() {
+            block_with_proof = light_client_types::read_block(self.merkle.clone().unwrap());
+        }
+
+        if uncle_vec.is_empty() {
+            return light_client_utils::create_cell_data(main_vec, None, &block_with_proof)
+                .as_bytes();
+        }
+        return light_client_utils::create_cell_data(main_vec, Some(uncle_vec), &block_with_proof)
+            .as_bytes();
+    }
+
+    fn build_output_cell(
+        &self,
+        context: &mut Context,
+        outpoints: &OutpointsContext,
+    ) -> (Bytes, CellOutput) {
+        let output_cell = CellOutput::new_builder()
+            .capacity(self.capacity.pack())
+            .type_(Some(self.build_typescript(context, outpoints)).pack())
+            .lock(self.build_lockscript(context, outpoints))
+            .build();
+        let output_data = self.build_output_data();
+        (output_data, output_cell)
+    }
+
+    fn build_typescript(&self, context: &mut Context, outpoints: &OutpointsContext) -> Script {
+        context
+            .build_script(
+                &outpoints[ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY],
+                outpoints[FIRST_INPUT_OUTPOINT_KEY].as_bytes(),
+            )
+            .expect("build eth light client typescript")
+    }
+
+    fn build_lockscript(&self, context: &mut Context, outpoints: &OutpointsContext) -> Script {
+        context
+            .build_script(&outpoints[ALWAYS_SUCCESS_OUTPOINT_KEY], Default::default())
             .expect("build eth light client lockscript")
     }
 }
@@ -311,13 +409,37 @@ impl CellBuilder for CapacityCell {
 }
 
 #[derive(Clone)]
-pub enum Witness {}
+#[allow(dead_code)]
+pub enum Witness {
+    ETHLightClientWitness(ETHLightClientTypeWitness),
+    ETHBridgeWitness(ETHBridgeLockWitness),
+}
 
 impl Witness {
     pub fn as_bytes(&self) -> Bytes {
-        todo!()
+        match self {
+            Witness::ETHLightClientWitness(witness) => witness.as_bytes(),
+            Witness::ETHBridgeWitness(_witness) => todo!(),
+        }
     }
 }
+
+#[derive(Clone)]
+pub struct ETHLightClientTypeWitness {
+    pub cell_dep_index_list: Vec<u8>,
+    pub header: String,
+}
+
+impl ETHLightClientTypeWitness {
+    pub fn as_bytes(&self) -> Bytes {
+        let block_with_proof = light_client_types::read_block(self.header.clone());
+        light_client_utils::create_witness(block_with_proof, self.cell_dep_index_list.clone())
+            .into()
+    }
+}
+
+#[derive(Clone)]
+pub struct ETHBridgeLockWitness {}
 
 fn str_to_eth_address(s: &str) -> basic::ETHAddress {
     let address: ETHAddress = ETHAddress::try_from(hex::decode(s).unwrap()).expect("decode fail");

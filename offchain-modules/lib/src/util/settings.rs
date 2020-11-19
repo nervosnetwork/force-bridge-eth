@@ -32,7 +32,7 @@ pub struct Settings {
     pub light_client_lockscript: ScriptConf,
     pub recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
-    pub replay_resist_lockscript: ScriptConf,
+    // pub replay_resist_lockscript: ScriptConf,
     pub dag_merkle_roots: OutpointConf,
     pub light_client_cell_script: CellScript,
 }
