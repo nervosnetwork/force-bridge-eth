@@ -3,6 +3,7 @@ const { log, waitingForReceipt } = require("./utils");
 const testJson = require("./data/testTokenLocker.json");
 
 const recipientCellTypescript = testJson.recipientCellTypescript;
+const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash;
 const decodeBurnTxTestCases = testJson.decodeBurnTxTestCases;
 const lockETHTestCases = testJson.lockETHTestCases;
 const lockTokenTestCases = testJson.lockTokenTestCases;
@@ -27,7 +28,8 @@ contract("TokenLocker", () => {
       mockSpv.address,
       123,
       recipientCellTypescript.codeHash,
-      recipientCellTypescript.hashType
+      recipientCellTypescript.hashType,
+      bridgeCellLockscriptCodeHash
     );
     await tokenLocker.deployed();
     log("tokenLocker deployed to:", tokenLocker.address);
@@ -67,8 +69,10 @@ contract("TokenLocker", () => {
           tokenAddress,
           recipientAddress,
         ] = await tokenLocker.decodeBurnResult(testcase.txData);
-        expect(tokenAddress).to.equal(testcase.tokenAddress);
-        expect(recipientAddress).to.equal(testcase.recipientAddress);
+        expect(tokenAddress.toLowerCase()).to.equal(testcase.tokenAddress);
+        expect(recipientAddress.toLowerCase()).to.equal(
+          testcase.recipientAddress
+        );
         expect(bridgeAmount).to.equal(testcase.bridgeAmount);
         expect(bridgeFee).to.equal(testcase.bridgeFee);
       }
