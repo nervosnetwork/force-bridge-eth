@@ -234,8 +234,6 @@ pub struct TransferFromCkbArgs {
     #[clap(long)]
     pub lock_contract_addr: String,
     #[clap(long)]
-    pub eth_bridge_lock_hash: String,
-    #[clap(long)]
     pub light_client_addr: String,
     #[clap(long)]
     pub burn_amount: u128,
@@ -267,8 +265,6 @@ pub struct BurnArgs {
     pub receive_addr: String,
     #[clap(long)]
     pub lock_contract_addr: String,
-    #[clap(long)]
-    pub eth_bridge_lock_hash: String,
     #[clap(long)]
     pub burn_amount: u128,
     #[clap(long)]

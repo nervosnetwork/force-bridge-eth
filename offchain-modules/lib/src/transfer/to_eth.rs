@@ -77,7 +77,6 @@ pub fn burn(
     token_addr: H160,
     receive_addr: H160,
     lock_contract_addr: H160,
-    eth_bridge_lock_hash: ethereum_types::H256,
 ) -> Result<String> {
     let settings = Settings::new(&config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings)
@@ -101,7 +100,6 @@ pub fn burn(
             token_addr,
             lock_contract_addr,
             receive_addr,
-            eth_bridge_lock_hash,
         )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
 
