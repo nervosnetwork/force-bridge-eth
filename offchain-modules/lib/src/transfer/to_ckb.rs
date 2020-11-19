@@ -1,7 +1,7 @@
 use crate::util::ckb_util::{ETHSPVProofJson, Generator};
 use crate::util::eth_proof_helper::{read_roots_collection_raw, RootsCollectionJson};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
-use crate::util::settings::{OutpointConf, ScriptConf, Settings};
+use crate::util::settings::{CellScript, OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_sdk::{AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
@@ -134,14 +134,13 @@ pub async fn send_eth_spv_proof_tx(
     generator: &mut Generator,
     eth_proof: &ETHSPVProofJson,
     private_key_path: String,
-    cell_dep: String,
 ) -> Result<ckb_types::H256> {
     let from_privkey = parse_privkey_path(private_key_path.as_str())?;
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
 
-    let unsigned_tx = generator.generate_eth_spv_tx(from_lockscript, eth_proof, cell_dep)?;
+    let unsigned_tx = generator.generate_eth_spv_tx(from_lockscript, eth_proof)?;
     let tx =
         sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
     log::info!(
@@ -298,6 +297,9 @@ pub fn dev_init(
         dag_merkle_roots: OutpointConf {
             tx_hash: tx_hash_hex,
             index: 8,
+        },
+        light_client_cell_script: CellScript {
+            cell_script: "".to_string(),
         },
     };
     log::info!("settings: {:?}", &settings);

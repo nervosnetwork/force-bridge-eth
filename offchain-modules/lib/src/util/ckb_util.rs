@@ -88,6 +88,7 @@ impl Generator {
             .capacity(Capacity::shannons(1000 * MIN_SECP_CELL_CAPACITY).pack())
             .build();
         let header_rlp = convert_to_header_rlp(block)?;
+        dbg!(header_rlp.clone());
         let header_info = ETHHeaderInfo::new_builder()
             .header(hex::decode(header_rlp)?.into())
             .total_difficulty(block.total_difficulty.unwrap().as_u64().into())
@@ -95,33 +96,6 @@ impl Generator {
             .build();
         let main_chain_data: Vec<basic::Bytes> = vec![header_info.as_slice().to_vec().into()];
 
-        // let proof_vec = &witness.merkle_proof;
-        // let mut proof_json_vec = vec![];
-        // for item in proof_vec {
-        //     let dag_nodes = &item.dag_nodes;
-        //     let mut dag_nodes_string = vec![];
-        //     for node in dag_nodes {
-        //         dag_nodes_string.push(hex::encode(node.0));
-        //     }
-        //     let proofs = &item.proof;
-        //     let mut proof_string = vec![];
-        //     for proof in proofs {
-        //         proof_string.push(hex::encode(proof.0));
-        //     }
-        //     proof_json_vec.push(DoubleNodeWithMerkleProofJson {
-        //         dag_nodes: dag_nodes_string,
-        //         proof: proof_string,
-        //     })
-        // }
-        // let mut merkle_proofs: Vec<DoubleNodeWithMerkleProof> = vec![];
-        // for item in proof_json_vec {
-        //     let p: DoubleNodeWithMerkleProof = item.clone().try_into().unwrap();
-        //     merkle_proofs.push(p);
-        // }
-        // let mut proofs = vec![];
-        // for item in merkle_proofs {
-        //     proofs.push(basic::Bytes::from(item.as_slice().to_vec()));
-        // }
         let proofs = build_merkle_proofs(&witness)?;
         let output_data = ETHHeaderCellData::new_builder()
             .headers(
@@ -293,33 +267,6 @@ impl Generator {
             for item in uncle_raw_data {
                 uncle_chain_data.push(item.to_vec().into());
             }
-            // let proof_vec = &witness.merkle_proof;
-            // let mut proof_json_vec = vec![];
-            // for item in proof_vec {
-            //     let dag_nodes = &item.dag_nodes;
-            //     let mut dag_nodes_string = vec![];
-            //     for node in dag_nodes {
-            //         dag_nodes_string.push(hex::encode(node.0));
-            //     }
-            //     let proofs = &item.proof;
-            //     let mut proof_string = vec![];
-            //     for proof in proofs {
-            //         proof_string.push(hex::encode(proof.0));
-            //     }
-            //     proof_json_vec.push(DoubleNodeWithMerkleProofJson {
-            //         dag_nodes: dag_nodes_string,
-            //         proof: proof_string,
-            //     })
-            // }
-            // let mut merkle_proofs: Vec<DoubleNodeWithMerkleProof> = vec![];
-            // for item in proof_json_vec {
-            //     let p: DoubleNodeWithMerkleProof = item.clone().try_into().unwrap();
-            //     merkle_proofs.push(p);
-            // }
-            // let mut proofs = vec![];
-            // for item in merkle_proofs {
-            //     proofs.push(basic::Bytes::from(item.as_slice().to_vec()));
-            // }
             let proofs = build_merkle_proofs(&witness)?;
             let output_data = ETHHeaderCellData::new_builder()
                 .headers(
@@ -369,13 +316,26 @@ impl Generator {
         &mut self,
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
-        _cell_dep: String,
     ) -> Result<TransactionView> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
 
         // add cell deps.
         {
+            let cell_script =
+                parse_cell(self.settings.light_client_cell_script.cell_script.as_str())?;
+            let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
+                .map_err(|err| anyhow!(err))?
+                .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
+            let mut builder = helper.transaction.as_advanced_builder();
+            builder = builder.cell_dep(
+                CellDep::new_builder()
+                    .out_point(cell.out_point.into())
+                    .dep_type(DepType::Code.into())
+                    .build(),
+            );
+            helper.transaction = builder.build();
+
             let outpoints = vec![
                 self.settings.bridge_lockscript.outpoint.clone(),
                 self.settings.bridge_typescript.outpoint.clone(),
@@ -383,23 +343,9 @@ impl Generator {
             ];
             self.add_cell_deps(&mut helper, outpoints)
                 .map_err(|err| anyhow!(err))?;
-
-            // let cell_script = parse_cell(cell_dep.as_str())?;
-            // let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
-            //     .map_err(|err| anyhow!(err))?
-            //     .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
-            // let mut builder = helper.transaction.as_advanced_builder();
-            // builder = builder.cell_dep(
-            //     CellDep::new_builder()
-            //         .out_point(cell.out_point.into())
-            //         .dep_type(DepType::Code.into())
-            //         .build(),
-            // );
-            // helper.transaction = builder.build();
         }
 
         let lockscript_code_hash = hex::decode(&self.settings.bridge_lockscript.code_hash)?;
-        dbg!(&eth_proof.token);
         use force_eth_types::generated::basic::ETHAddress;
         let args = ETHBridgeLockArgs::new_builder()
             .eth_token_address(
@@ -410,7 +356,7 @@ impl Generator {
                     .map_err(|err| anyhow!(err))?,
             )
             .build();
-        let lockscript = Script::new_builder()
+        let bridge_lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
             .hash_type(DepType::Code.into())
             .args(args.as_bytes().pack())
@@ -426,7 +372,7 @@ impl Generator {
                 get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                     .map(|(output, _)| output)
             };
-            let cell = get_live_cell_by_lockscript(indexer_client, lockscript.clone())
+            let cell = get_live_cell_by_lockscript(indexer_client, bridge_lockscript.clone())
                 .map_err(|err| anyhow!(err))?
                 .ok_or_else(|| anyhow!("there are no remaining public cells available"))?;
             helper
@@ -441,7 +387,7 @@ impl Generator {
         }
         // 1 bridge cells
         {
-            let to_output = CellOutput::new_builder().lock(lockscript).build();
+            let to_output = CellOutput::new_builder().lock(bridge_lockscript).build();
             helper.add_output_with_auto_capacity(to_output, ckb_types::bytes::Bytes::default());
         }
         // 2 xt cells
@@ -453,7 +399,7 @@ impl Generator {
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
                 .hash_type(DepType::Code.into())
-                .args(recipient_lockscript.calc_script_hash().as_bytes().pack())
+                .args(bridge_lockscript.calc_script_hash().as_bytes().pack())
                 .build();
             let sudt_user_output = CellOutput::new_builder()
                 .type_(Some(sudt_typescript).pack())
@@ -471,7 +417,8 @@ impl Generator {
             };
 
             let witness = WitnessArgs::new_builder()
-                .input_type(Some(witness_data.as_bytes()).pack())
+                .lock(Some(witness_data.as_bytes()).pack())
+                // .input_type(Some(witness_data.as_bytes()).pack())
                 .build();
 
             helper.transaction = helper
@@ -920,7 +867,6 @@ pub fn parse_main_chain_headers(data: Vec<u8>) -> Result<(Vec<BlockHeader>, Vec<
     let len = main_reader.len();
     for i in (0..len).rev() {
         if (len - i) < CONFIRM {
-            // let rlp = Rlp::new(main_reader.get_unchecked(i).raw_data());
             let header_raw = main_reader.get_unchecked(i).raw_data();
             ETHHeaderInfoReader::verify(&header_raw, false).map_err(|err| anyhow!(err))?;
             let header_info_header = ETHHeaderInfoReader::new_unchecked(header_raw);
@@ -931,22 +877,9 @@ pub fn parse_main_chain_headers(data: Vec<u8>) -> Result<(Vec<BlockHeader>, Vec<
             confirmed.push(main_reader.get_unchecked(i).raw_data().to_vec())
         }
     }
+    un_confirmed.reverse();
     Ok((un_confirmed, confirmed))
 }
-
-// pub fn parse_uncle_chain_headers(data: Bytes) -> Result<Vec<BlockHeader>> {
-//     ETHChainReader::verify(&data, false).map_err(|err| anyhow!(err))?;
-//     let chain_reader = ETHChainReader::new_unchecked(&data);
-//     let uncle_reader = chain_reader.uncle();
-//     let mut result = vec![];
-//     let len = uncle_reader.len();
-//     for i in 0..len {
-//         let rlp = Rlp::new(uncle_reader.get_unchecked(i).raw_data());
-//         let header: BlockHeader = decode_block_header(&rlp).map_err(|err| anyhow!(err))?;
-//         result.push(header);
-//     }
-//     Ok(result)
-// }
 
 fn to_u64(data: &[u8]) -> u64 {
     let mut res = [0u8; 8];

@@ -14,7 +14,7 @@ pub enum SubCommand {
     Approve(ApproveArgs),
     LockToken(LockTokenArgs),
     LockEth(LockEthArgs),
-    GenerateEthProof(GenerateEthProofArgs),
+    // GenerateEthProof(GenerateEthProofArgs),
     Mint(MintArgs),
     TransferFromCkb(TransferFromCkbArgs),
     TransferSudt(TransferSudtArgs),
@@ -80,7 +80,10 @@ pub struct ApproveArgs {
     pub from: String,
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(
+        long,
+        default_value = "https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb"
+    )]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
@@ -90,7 +93,10 @@ pub struct ApproveArgs {
 pub struct LockTokenArgs {
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(
+        long,
+        default_value = "https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb"
+    )]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
@@ -112,7 +118,10 @@ pub struct LockTokenArgs {
 pub struct LockEthArgs {
     #[clap(short, long)]
     pub to: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(
+        long,
+        default_value = "https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb"
+    )]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
     pub private_key_path: String,
@@ -140,7 +149,10 @@ pub struct GenerateEthProofArgs {
 pub struct MintArgs {
     #[clap(short, long)]
     pub hash: String,
-    #[clap(long, default_value = "http://127.0.0.1:9545")]
+    #[clap(
+        long,
+        default_value = "https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb"
+    )]
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8114")]
     pub ckb_rpc_url: String,
@@ -150,8 +162,6 @@ pub struct MintArgs {
     pub indexer_url: String,
     #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
     pub private_key_path: String,
-    #[clap(short, long)]
-    pub cell: String,
     #[clap(long)]
     pub eth_contract_address: String,
 }
@@ -219,16 +229,13 @@ pub struct EthRelayArgs {
     pub ckb_rpc_url: String,
     #[clap(
         long,
-        default_value = "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2"
+        default_value = "https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb"
     )]
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8116")]
     pub indexer_rpc_url: String,
     #[clap(long, default_value = "/tmp/proof_data.json")]
     pub proof_data_path: String,
-    /// cell typescript hex
-    #[clap(short, long)]
-    pub cell: String,
 }
 
 #[derive(Clap, Clone, Debug)]

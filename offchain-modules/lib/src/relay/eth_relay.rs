@@ -19,7 +19,7 @@ use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
-pub const INIT_ETH_HEIGHT: u64 = 10000;
+pub const INIT_ETH_HEIGHT: u64 = 9100620;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -27,6 +27,7 @@ pub struct ETHRelayer {
     pub priv_key_path: String,
     pub proof_data_path: String,
     pub cell_typescript: Option<Script>,
+    pub config_path: String,
 }
 
 impl ETHRelayer {
@@ -37,12 +38,12 @@ impl ETHRelayer {
         indexer_url: String,
         priv_key_path: String,
         proof_data_path: String,
-        cell: String,
     ) -> Result<Self> {
         let settings = Settings::new(&config_path)?;
-        let generator =
-            Generator::new(ckb_rpc_url, indexer_url, settings).map_err(|e| anyhow::anyhow!(e))?;
+        let generator = Generator::new(ckb_rpc_url, indexer_url, settings.clone())
+            .map_err(|e| anyhow::anyhow!(e))?;
         let eth_client = Web3Client::new(eth_rpc_url);
+        let cell = &settings.light_client_cell_script.cell_script;
         let temp_typescript = parse_cell(&cell);
         let cell_typescript;
         match temp_typescript {
@@ -56,6 +57,7 @@ impl ETHRelayer {
             priv_key_path,
             proof_data_path,
             cell_typescript,
+            config_path,
         })
     }
 
@@ -76,6 +78,12 @@ impl ETHRelayer {
                     .hash_type(cell_script.hash_type())
                     .args(cell_script.args())
                     .build();
+                self.generator.settings.light_client_cell_script.cell_script =
+                    hex::encode(typescript.clone().as_slice());
+                self.generator
+                    .settings
+                    .write(&self.config_path)
+                    .map_err(|e| anyhow!(e))?;
             }
             Some(cell_script) => {
                 typescript = Script::new_builder()
@@ -132,8 +140,9 @@ impl ETHRelayer {
             .eth_client
             .get_header_rlp(block.number.unwrap().into())
             .await?;
+        dbg!(new_header_rlp.clone());
         let header_rlp = format!("0x{}", new_header_rlp);
-        let witness = self.generate_witness(header_rlp)?;
+        let witness = self.generate_witness(block.number.unwrap().as_u64())?;
         let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
         let from_lockscript = self.generate_from_lockscript(from_privkey)?;
         let unsigned_tx = self.generator.init_light_client_tx(
@@ -162,9 +171,10 @@ impl ETHRelayer {
         Ok(cell_typescript)
     }
 
-    pub fn generate_witness(&mut self, header_rlp: String) -> Result<Witness> {
+    pub fn generate_witness(&mut self, number: u64) -> Result<Witness> {
+        dbg!(number);
         let proof_data_path = self.proof_data_path.clone();
-        run_cmd!(lib/src/vendor/relayer ${header_rlp} > /tmp/data.json)?;
+        run_cmd!(lib/src/vendor/relayer ${number} > /tmp/data.json)?;
         run_cmd!(tail -1 /tmp/data.json > ${proof_data_path});
         let block_with_proofs = read_block(proof_data_path);
         let witness = Witness {
@@ -172,9 +182,10 @@ impl ETHRelayer {
             header: block_with_proofs.header_rlp.0.clone(),
             merkle_proof: block_with_proofs.to_double_node_with_merkle_proof_vec(),
         };
+        dbg!(hex::encode(block_with_proofs.header_rlp.0.clone()));
         debug!(
             "generate witness for header_rlp. header_rlp: {:?}, witness: {:?}",
-            header_rlp, witness
+            block_with_proofs.header_rlp.0, witness
         );
         Ok(witness)
     }
@@ -215,6 +226,7 @@ impl ETHRelayer {
     pub async fn do_relay_loop(&mut self, mut cell: Cell) -> Result<()> {
         let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
         let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
+        dbg!(un_confirmed_headers.clone());
         let index: isize = (un_confirmed_headers.len() - 1) as isize;
         // Determine whether the latest_header is on the Ethereum main chain
         // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
@@ -225,8 +237,10 @@ impl ETHRelayer {
         let mut number = current_block
             .number
             .ok_or_else(|| anyhow!("the block number is not exist."))?;
+        dbg!(number);
         loop {
             let new_number = number.add(1 as u64);
+            dbg!(new_number);
             let new_header_temp = self.eth_client.get_block(new_number.into()).await;
             if new_header_temp.is_err() {
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -245,7 +259,7 @@ impl ETHRelayer {
                 );
                 let new_header_rlp = self.eth_client.get_header_rlp(new_number.into()).await?;
                 let header_rlp = format!("0x{}", new_header_rlp);
-                let witness = self.generate_witness(header_rlp)?;
+                let witness = self.generate_witness(new_number.as_u64())?;
                 let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
                 let from_lockscript = self.generate_from_lockscript(from_privkey)?;
                 let unsigned_tx = self.generator.generate_eth_light_client_tx(

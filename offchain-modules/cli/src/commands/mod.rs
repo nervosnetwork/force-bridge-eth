@@ -31,7 +31,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
 
         SubCommand::LockEth(args) => lock_eth_handler(args).await,
         // parse eth receipt proof from tx_hash.
-        SubCommand::GenerateEthProof(args) => generate_eth_proof_handler(args).await,
+        // SubCommand::GenerateEthProof(args) => generate_eth_proof_handler(args).await,
         // verify eth receipt proof && mint new token
         SubCommand::Mint(args) => mint_handler(args).await,
         SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args),
@@ -128,39 +128,6 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     .await
     .map_err(|e| anyhow::anyhow!("Failed to call lock_eth. {:?}", e))?;
     println!("lock eth tx_hash: {:?}", &hash);
-    // let eth_spv_proof =
-    //     generate_eth_proof(format!("0x{}", hex::encode(hash.0)), args.rpc_url.clone())
-    //         .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
-    // println!(
-    //     "generate eth proof with hash: {:?}, eth_spv_proof: {:?}",
-    //     hash.clone(),
-    //     eth_spv_proof
-    // );
-    Ok(())
-}
-
-pub async fn generate_eth_proof_handler(args: GenerateEthProofArgs) -> Result<()> {
-    debug!("generate_eth_proof_handler args: {:?}", &args);
-    let eth_spv_proof = generate_eth_proof(args.hash.clone(), args.rpc_url.clone())
-        .map_err(|e| anyhow::anyhow!("Failed to generate eth proof. {:?}", e))?;
-    println!(
-        "generate eth proof with hash: {:?}, eth_spv_proof: {:?}",
-        args.hash, eth_spv_proof
-    );
-    let header_rlp = get_header_rlp(
-        args.rpc_url,
-        H256::from_slice(
-            hex::decode(args.hash.clone())
-                .map_err(|e| anyhow::anyhow!("invalid cmd args `hash`. FromHexError: {:?}", e))?
-                .as_slice(),
-        ),
-    )
-    .await
-    .map_err(|e| anyhow::anyhow!("Failed to get header_rlp. {:?}", e))?;
-    println!(
-        "generate eth proof with hash: {:?}, header_rlp: {:?}",
-        args.hash, header_rlp
-    );
     Ok(())
 }
 
@@ -185,8 +152,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     let settings = Settings::new(&args.config_path)?;
     let mut generator = Generator::new(args.ckb_rpc_url, args.indexer_url, settings)
         .map_err(|e| anyhow::anyhow!(e))?;
-    let tx_hash =
-        send_eth_spv_proof_tx(&mut generator, &eth_proof, args.private_key_path, args.cell).await?;
+    let tx_hash = send_eth_spv_proof_tx(&mut generator, &eth_proof, args.private_key_path).await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);
     Ok(())
 }
@@ -289,7 +255,6 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         args.indexer_rpc_url,
         args.private_key_path,
         args.proof_data_path,
-        args.cell,
     )?;
     loop {
         let res = eth_relayer.start().await;

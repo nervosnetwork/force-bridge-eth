@@ -20,6 +20,11 @@ pub struct ScriptsConf {
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct CellScript {
+    pub cell_script: String,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct Settings {
     pub bridge_lockscript: ScriptConf,
     pub bridge_typescript: ScriptConf,
@@ -29,6 +34,7 @@ pub struct Settings {
     pub sudt: ScriptConf,
     pub replay_resist_lockscript: ScriptConf,
     pub dag_merkle_roots: OutpointConf,
+    pub light_client_cell_script: CellScript,
 }
 
 impl Settings {
