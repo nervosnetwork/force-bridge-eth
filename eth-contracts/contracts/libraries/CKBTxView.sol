@@ -53,7 +53,7 @@ library CKBTxView {
         return _input.slice(startIndex, len, uint40(CKBTxTypes.Script));
     }
 
-    function codeHash(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.Script) returns (bytes32) {
+    function recipientTypescriptCodeHash(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.Script) returns (bytes32) {
         uint256 startIndex = _input.indexLEUint(4, 4);
         return _input.index(startIndex, 32);
     }
@@ -61,13 +61,6 @@ library CKBTxView {
     function hashType(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.Script) returns (uint8) {
         uint256 startIndex = _input.indexLEUint(8, 4);
         return uint8(_input.indexUint(startIndex, 1));
-    }
-
-    function args(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.Script) returns (address) {
-        uint256 startIndex = _input.indexLEUint(12, 4);
-        uint256 len = _input.indexLEUint(startIndex, 4);
-        require(20 == len, "invalid contract address in typescript args");
-        return _input.indexAddress(startIndex + 4);
     }
 
     function recipientAddress(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (address) {
@@ -78,12 +71,20 @@ library CKBTxView {
         return _input.indexAddress(20);
     }
 
+    function contractAddress(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (address) {
+        return _input.indexAddress(40);
+    }
+
+    function bridgeLockscriptCodeHash(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (bytes32) {
+        return _input.index(60, 32);
+    }
+
     function bridgeAmount(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (uint256) {
-        return _input.indexLEUint(40, 16);
+        return _input.indexLEUint(92, 16);
     }
 
     function bridgeFee(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (uint256) {
-        return _input.indexLEUint(56, 16);
+        return _input.indexLEUint(108, 16);
     }
 }
 
