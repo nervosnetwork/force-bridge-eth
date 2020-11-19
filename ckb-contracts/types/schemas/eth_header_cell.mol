@@ -1,7 +1,10 @@
+// TODO replace Bytes, BytesVec with structure schema
+
 import basic;
 
 table ETHHeaderCellData {
     headers: ETHChain,
+    merkle_proof: BytesVec,
 }
 
 table ETHChain {
@@ -26,6 +29,5 @@ table DoubleNodeWithMerkleProof {
 
 table ETHLightClientWitness {
     header: Bytes,
-    merkle_proof: BytesVec,
     cell_dep_index_list: Bytes,
 }
