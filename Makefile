@@ -13,13 +13,19 @@ eth-contracts-ci:
 
 demo-build:
 	cd ckb-contracts && capsule build --release
-	cd offchain-modules && cargo build
+	mkdir -p demo/{contracts,data,bin} && cp ckb-contracts/build/release/* demo/contracts
+	cp offchain-modules/cli/deps/simple_udt demo/contracts
+	cd offchain-modules && cargo build #--release
+	cp offchain-modules/target/debug/force-eth-cli demo/bin
 	cd eth-contracts && yarn install
 
 integration-ci: demo-build
 	cd docker && docker-compose up -d
 	bash demo/demo.sh
 	cd docker && docker-compose stop
+
+demo-clear:
+	rm -rf demo/{bin,contracts,data,.force-bridge-cli-config.toml}
 
 demo:
 	bash demo/demo.sh
