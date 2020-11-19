@@ -131,7 +131,7 @@ pub async fn wait_block_submit(
             }
             None => {
                 info!("the transaction is not committed yet");
-                std::thread::sleep(std::time::Duration::from_secs(30));
+                std::thread::sleep(std::time::Duration::from_secs(10));
             }
         }
     }
@@ -153,7 +153,8 @@ pub async fn wait_block_submit(
             client_block_number, ckb_height
         );
         if client_block_number < ckb_height {
-            std::thread::sleep(std::time::Duration::from_secs(60));
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            continue;
         }
         return Ok(());
     }
