@@ -9,6 +9,8 @@ mod bridge;
 #[cfg(test)]
 mod eth_light_client_lockscript;
 #[cfg(test)]
+mod eth_light_client_typescript;
+#[cfg(test)]
 mod eth_recipient_typescript;
 #[cfg(test)]
 mod utils;

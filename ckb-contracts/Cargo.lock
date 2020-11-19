@@ -1172,6 +1172,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "eth-light-client-typescript-lib"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "ckb-std",
+ "eth-spv-lib",
+ "ethash",
+ "force-eth-types",
+ "hex",
+ "mockall",
+ "molecule",
+ "primitive-types",
+ "rlp",
+]
+
+[[package]]
 name = "eth-recipient-typescript-lib"
 version = "0.1.0"
 dependencies = [
@@ -1193,7 +1209,7 @@ dependencies = [
  "rlp",
  "rlp-derive",
  "sha2",
- "sha3",
+ "sha3 0.9.1",
 ]
 
 [[package]]
@@ -1208,6 +1224,18 @@ dependencies = [
  "serde_json",
  "tiny-keccak 1.5.0",
  "uint",
+]
+
+[[package]]
+name = "ethash"
+version = "0.4.0"
+source = "git+https://github.com/LeonLi000/rust-ethash.git#faf25f98fa798d963fc96395ecd4fb38a7a54a8c"
+dependencies = [
+ "byteorder",
+ "ethereum-types",
+ "primitive-types",
+ "rlp",
+ "sha3 0.8.2",
 ]
 
 [[package]]
@@ -1495,7 +1523,7 @@ dependencies = [
  "futures-sink",
  "futures-task",
  "memchr",
- "pin-project 1.0.1",
+ "pin-project 1.0.2",
  "pin-utils",
  "proc-macro-hack",
  "proc-macro-nested",
@@ -1747,7 +1775,7 @@ dependencies = [
  "httparse",
  "httpdate",
  "itoa",
- "pin-project 1.0.1",
+ "pin-project 1.0.2",
  "socket2",
  "tokio 0.2.23",
  "tower-service",
@@ -2446,11 +2474,11 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee41d838744f60d959d7074e3afb6b35c7456d0f61cad38a24e35e6553f73841"
+checksum = "9ccc2237c2c489783abd8c4c80e5450fc0e98644555b1364da68cc29aa151ca7"
 dependencies = [
- "pin-project-internal 1.0.1",
+ "pin-project-internal 1.0.2",
 ]
 
 [[package]]
@@ -2466,9 +2494,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-internal"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81a4ffa594b66bff340084d4081df649a7dc049ac8d7fc458d8e628bfbbb2f86"
+checksum = "f8e8d2bf0b23038a4424865103a4df472855692821aab4e4f5c3312d461d9e5f"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.7",
@@ -3198,6 +3226,19 @@ dependencies = [
 
 [[package]]
 name = "sha3"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd26bc0e7a2e3a7c959bc494caf58b72ee0c71d67704e9520f736ca7e4853ecf"
+dependencies = [
+ "block-buffer 0.7.3",
+ "byte-tools",
+ "digest 0.8.1",
+ "keccak",
+ "opaque-debug 0.2.3",
+]
+
+[[package]]
+name = "sha3"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f81199417d4e5de3f04b1e871023acea7389672c4135918f05aa9cbf2f2fa809"
@@ -3399,9 +3440,9 @@ dependencies = [
 
 [[package]]
 name = "termcolor"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb6bfa289a4d7c5766392812c0a1f4c1ba45afa1ad47803c11e1f407d846d75f"
+checksum = "bf11676eb135389f21fcda654382c4859bbfc1d2f36e4425a2f829bb41b1e20e"
 dependencies = [
  "winapi-util",
 ]
@@ -3412,8 +3453,13 @@ version = "0.1.0"
 dependencies = [
  "ckb-testtool",
  "ckb-tool",
+ "eth-spv-lib",
  "force-eth-types",
  "hex",
+ "molecule",
+ "rlp",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3787,9 +3833,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-normalization"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1e9a0b71dba18b6fa17c7b3dcf1440bb3522552deb2f84bf47dabd9fb7e5570"
+checksum = "a13e63ab62dbe32aeee58d1c5408d35c36c392bba5d9d3142287219721afe606"
 dependencies = [
  "tinyvec",
 ]

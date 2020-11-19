@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
+eth-light-client-typescript-lib = { path = "../../lib/eth-light-client-typescript-lib", default_features = false }
 
 [profile.release]
 overflow-checks = true
