@@ -3,7 +3,7 @@ ci: modules-ci integration-ci
 modules-ci: ckb-contracts-ci eth-contracts-ci offchain-modules-ci
 
 offchain-modules-ci:
-	cd offchain-modules && make ci
+	make -C offchain-modules ci
 
 ckb-contracts-ci:
 	make -C ckb-contracts ci
@@ -14,6 +14,7 @@ eth-contracts-ci:
 demo-build:
 	cd ckb-contracts && capsule build --release
 	cd offchain-modules && cargo build
+	cd eth-contracts && yarn install
 
 integration-ci: demo-build
 	cd docker && docker-compose up -d
