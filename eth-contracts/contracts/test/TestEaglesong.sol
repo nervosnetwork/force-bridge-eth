@@ -10,10 +10,12 @@ contract TestEaglesong {
     }
 
     function ckbEaglesong(bytes memory data) public returns (bytes32 result) {
-
-        bytes32 high = data[0];
-        bytes32 low = data[1];
-        return songAddr.hash(high,low);
-
+        bytes32 high;
+        bytes32 low;
+        assembly {
+            high := mload(add(data, 0x20))
+            low := mload(add(0x20, add(data, 0x20)))
+        }
+        return songAddr.hash(high, low);
     }
 }
