@@ -7,6 +7,11 @@ const ETH_RECIPIENT_TYPESCRIPT_PATH = path.join(
   "../../../ckb-contracts/build/release/eth-recipient-typescript"
 );
 
+const ETH_BRIDGE_LOCKSCRIPT_PATH = path.join(
+  __dirname,
+  "../../../ckb-contracts/build/release/eth-bridge-lockscript"
+);
+
 function blake2b(buffer) {
   return utils
     .blake2b(32, null, null, utils.PERSONAL)
@@ -33,20 +38,13 @@ async function main() {
   const CKBChinDeployAddr = CKBChinDeploy.address;
   log("CKBChin deployed to:", CKBChinDeployAddr);
 
-  // deploy Eaglesong
-  const Eaglesong = await ethers.getContractFactory(
-    "contracts/Eaglesong.sol:Eaglesong"
-  );
-  const EaglesongDeploy = await Eaglesong.deploy();
-  await EaglesongDeploy.deployed();
-  const EaglesongDeployAddr = EaglesongDeploy.address;
-  console.log("Eaglesong deployed to:", EaglesongDeployAddr);
-
-  const bridgeCodeHash =
-    "0xa5ee819012157f00d71b6ff305db7d8ed94705c0f3b90bb911116dd6968a8a2d";
   // deploy TokenLocker
-  const bin = fs.readFileSync(ETH_RECIPIENT_TYPESCRIPT_PATH);
-  const recipientCodeHash = utils.bytesToHex(blake2b(bin));
+  const bridgeBin = fs.readFileSync(ETH_BRIDGE_LOCKSCRIPT_PATH);
+  const bridgeCodeHash = utils.bytesToHex(blake2b(bridgeBin));
+  log("bridgeCodeHash", bridgeCodeHash);
+
+  const recipientBin = fs.readFileSync(ETH_RECIPIENT_TYPESCRIPT_PATH);
+  const recipientCodeHash = utils.bytesToHex(blake2b(recipientBin));
   log("recipientCodeHash", recipientCodeHash);
 
   const TokenLocker = await ethers.getContractFactory(
