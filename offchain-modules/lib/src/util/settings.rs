@@ -26,7 +26,6 @@ pub struct Settings {
     pub light_client_typescript: ScriptConf,
     pub recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
-    pub replay_resist_lockscript: ScriptConf,
 }
 
 impl Settings {
