@@ -294,6 +294,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     let token_addr = convert_eth_address(&args.token_addr)?;
     let receive_addr = convert_eth_address(&args.receive_addr)?;
     let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+
     let ckb_tx_hash = burn(
         args.ckb_privkey_path,
         args.ckb_rpc_url.clone(),

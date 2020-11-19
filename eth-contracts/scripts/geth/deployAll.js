@@ -33,10 +33,22 @@ async function main() {
   const CKBChinDeployAddr = CKBChinDeploy.address;
   log("CKBChin deployed to:", CKBChinDeployAddr);
 
+  // deploy Eaglesong
+  const Eaglesong = await ethers.getContractFactory(
+    "contracts/Eaglesong.sol:Eaglesong"
+  );
+  const EaglesongDeploy = await Eaglesong.deploy();
+  await EaglesongDeploy.deployed();
+  const EaglesongDeployAddr = EaglesongDeploy.address;
+  console.log("Eaglesong deployed to:", EaglesongDeployAddr);
+
+  const bridgeCodeHash =
+    "0xa5ee819012157f00d71b6ff305db7d8ed94705c0f3b90bb911116dd6968a8a2d";
   // deploy TokenLocker
   const bin = fs.readFileSync(ETH_RECIPIENT_TYPESCRIPT_PATH);
   const recipientCodeHash = utils.bytesToHex(blake2b(bin));
   log("recipientCodeHash", recipientCodeHash);
+
   const TokenLocker = await ethers.getContractFactory(
     "contracts/TokenLocker.sol:TokenLocker"
   );
@@ -44,7 +56,8 @@ async function main() {
     CKBChinDeployAddr,
     1,
     recipientCodeHash,
-    0
+    0,
+    bridgeCodeHash
   );
   await locker.deployed();
   const lockerAddr = locker.address;
