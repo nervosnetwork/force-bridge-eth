@@ -8,12 +8,15 @@ edition = "2018"
 
 [features]
 default = ["std"]
-std = ["mockall"]
-#std = ["molecule/std", "int-enum/std", "ckb-server"]
+std = ["mockall", "no-std-compat/std"]
 
 [dependencies]
-#molecule = { version = "0.6", default-features = false }
-#int-enum = { version = "0.4", default-features = false }
-cfg-if = "0.1"
 ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
 mockall = { version = "0.8", optional = true }
+molecule = { version = "0.6", default-features = false }
+force-eth-types = { path = "../../types", default-features = false, features = ["contract"]}
+eth-spv-lib = { git = "https://github.com/LeonLi000/eth-spv-lib.git" }
+hex = { version = "0.4", default-features = false }
+rlp = {version = "0.4.5", default-features = false }
+ethereum-types = {version = "0.9.2", default-features = false }
+no-std-compat = { version = "0.4.1", features = [ "alloc" ] }

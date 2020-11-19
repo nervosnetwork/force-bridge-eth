@@ -4,9 +4,15 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+#[cfg(test)]
+mod bridge;
+#[cfg(test)]
 mod eth_light_client_lockscript;
+#[cfg(test)]
 mod eth_light_client_typescript;
+#[cfg(test)]
 mod eth_recipient_typescript;
+#[cfg(test)]
 mod utils;
 
 const TEST_ENV_VAR: &str = "CAPSULE_TEST_ENV";
