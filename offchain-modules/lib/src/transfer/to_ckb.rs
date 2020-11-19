@@ -22,6 +22,7 @@ pub async fn approve(
     to: H160,
     url: String,
     key_path: String,
+    gas_price: u64,
     wait: bool,
 ) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
@@ -46,7 +47,14 @@ pub async fn approve(
     let tokens = [Token::Address(from), Token::Uint(U256::max_value())];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0), wait)
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            U256::from(0),
+            wait,
+        )
         .await?;
     Ok(res)
 }
@@ -55,6 +63,7 @@ pub async fn lock_token(
     to: H160,
     url: String,
     key_path: String,
+    gas_price: u64,
     data: &[Token],
     wait: bool,
 ) -> Result<H256> {
@@ -92,7 +101,14 @@ pub async fn lock_token(
     };
     let input_data = function.encode_input(data)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, U256::from(0), wait)
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            U256::from(0),
+            wait,
+        )
         .await?;
     Ok(res)
 }
@@ -102,6 +118,7 @@ pub async fn lock_eth(
     url: String,
     key_path: String,
     data: &[Token],
+    gas_price: u64,
     eth_value: U256,
     wait: bool,
 ) -> Result<H256> {
@@ -131,7 +148,14 @@ pub async fn lock_eth(
     };
     let input_data = function.encode_input(data)?;
     let res = rpc_client
-        .send_transaction(to, key_path, input_data, eth_value, wait)
+        .send_transaction(
+            to,
+            key_path,
+            input_data,
+            U256::from(gas_price),
+            eth_value,
+            wait,
+        )
         .await?;
     Ok(res)
 }

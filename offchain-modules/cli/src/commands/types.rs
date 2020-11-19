@@ -9,6 +9,7 @@ pub struct Opts {
 
 #[derive(Clap, Clone, Debug)]
 pub enum SubCommand {
+    InitCkbLightContract(InitCkbLightContractArgs),
     DevInit(DevInitArgs),
     CreateBridgeCell(CreateBridgeCellArgs),
     TransferToCkb(TransferToCkbArgs),
@@ -47,6 +48,30 @@ pub struct CreateBridgeCellArgs {
     pub tx_fee: String,
     #[clap(long, default_value = "1")]
     pub bridge_fee: u128,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct InitCkbLightContractArgs {
+    #[clap(short, long)]
+    pub init_height: u64,
+    #[clap(short, long)]
+    pub to: String,
+    #[clap(short, long)]
+    pub finalized_gc: u64,
+    #[clap(short, long)]
+    pub canonical_gc: u64,
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
+    pub eth_rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8116")]
+    pub indexer_url: String,
+    #[clap(short = 'k', long, default_value = "cli/privkeys/eth_key")]
+    pub private_key_path: String,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
+    #[clap(long)]
+    pub wait: bool,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -100,6 +125,8 @@ pub struct ApproveArgs {
     pub private_key_path: String,
     #[clap(long)]
     pub wait: bool,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -126,6 +153,8 @@ pub struct LockTokenArgs {
     pub replay_resist_outpoint: String,
     #[clap(long)]
     pub wait: bool,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -150,6 +179,8 @@ pub struct LockEthArgs {
     pub replay_resist_outpoint: String,
     #[clap(long)]
     pub wait: bool,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -181,7 +212,38 @@ pub struct MintArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct TransferFromCkbArgs {}
+pub struct TransferFromCkbArgs {
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+    #[clap(long)]
+    pub ckb_privkey_path: String,
+    #[clap(long)]
+    pub eth_privkey_path: String,
+    #[clap(long, default_value = "http://localhost:8114")]
+    pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8545")]
+    pub eth_rpc_url: String,
+    #[clap(long, default_value = "http://localhost:8116")]
+    pub indexer_rpc_url: String,
+    #[clap(long)]
+    pub token_addr: String,
+    #[clap(long)]
+    pub receive_addr: String,
+    #[clap(long)]
+    pub lock_contract_addr: String,
+    #[clap(long)]
+    pub light_client_addr: String,
+    #[clap(long)]
+    pub burn_amount: u128,
+    #[clap(long)]
+    pub unlock_fee: u128,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
+    #[clap(long)]
+    pub wait: bool,
+}
 
 #[derive(Clap, Clone, Debug)]
 pub struct BurnArgs {
@@ -220,8 +282,6 @@ pub struct GenerateCkbProofArgs {
 #[derive(Clap, Clone, Debug)]
 pub struct UnlockArgs {
     #[clap(short, long)]
-    pub from: String,
-    #[clap(short, long)]
     pub to: String,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
@@ -233,6 +293,8 @@ pub struct UnlockArgs {
     pub eth_rpc_url: String,
     #[clap(long)]
     pub wait: bool,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -257,7 +319,7 @@ pub struct EthRelayArgs {
 #[derive(Clap, Clone, Debug)]
 pub struct CkbRelayArgs {
     #[clap(short, long)]
-    pub from: String,
+    pub per_amount: u64,
     #[clap(short, long)]
     pub to: String,
     #[clap(short = 'k', long)]
@@ -268,6 +330,8 @@ pub struct CkbRelayArgs {
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8116")]
     pub indexer_rpc_url: String,
+    #[clap(short, long, default_value = "0")]
+    pub gas_price: u64,
 }
 
 #[derive(Clap, Clone, Debug)]

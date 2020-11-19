@@ -36,8 +36,18 @@ The first time you run container, it will take 5~10 minutes for geth to be ready
 We use docker volume `geth-dag` to store dag data, so the geth will be ready very soon the next time you run container. 
 
 ```shell script
- docker run --rm -it --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23
+# cd docker/geth
+docker run --rm -it --mount type=bind,source="$(pwd)",target=/config source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23
 ```
+
+The privkey of accounts in geth-genesis.json for tests:
+
+| pubkey | privkey |
+| :----: | :-----: |
+| 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 | 0xc4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a |
+| 0x8951a3DdEf2bB36fF3846C3B6968812C269f4561 | 0x719e94ec5d2ecef67b5878503ffd6e1e0e2fe7a52ddd55c436878cb4d52d376d |
+| 0x42e8763917A72e07369AD54B158b0FA839f060bc | 0x627ed509aa9ef55858d01453c62f44287f639a4fa5a444af150f333b6010a3b6 |
+| 0xE61438B717b6937388bf66D256395A15B3D169aE | 0x49e7074797d83cbb93b23877f99a8cecd6f79181f1236f095671017b2edc64c2 |
 
 # Docker compose
 
