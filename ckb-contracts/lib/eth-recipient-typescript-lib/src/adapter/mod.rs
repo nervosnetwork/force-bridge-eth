@@ -8,13 +8,10 @@ use mockall::*;
 use ckb_std::ckb_constants::Source;
 
 use force_eth_types::eth_recipient_cell::ETHRecipientDataView;
-use molecule::bytes::Bytes;
 
 #[cfg_attr(feature = "std", automock)]
 pub trait Adapter {
     fn load_output_data(&self) -> Option<ETHRecipientDataView>;
-
-    fn load_script_args(&self) -> Bytes;
 
     fn get_sudt_amount_from_source(&self, source: Source, lock_hash: &[u8]) -> u128;
 }

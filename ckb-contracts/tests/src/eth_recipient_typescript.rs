@@ -1,17 +1,12 @@
 use crate::utils::{case_builder::*, case_runner};
+use crate::Loader;
+use ckb_tool::ckb_types::packed::CellOutput;
 use force_eth_types::config::CKB_UNITS;
+use molecule::prelude::Entity;
 
 #[test]
 fn test_correct_tx() {
     let case = get_correct_case();
-    case_runner::run_test(case);
-}
-
-#[test]
-fn test_tx_when_inputs_less_than_outputs() {
-    let mut case = get_correct_case();
-    case.sudt_cells.inputs[0].amount = 50;
-    case.expect_return_error_info = "input sudt less than output sudt".to_string();
     case_runner::run_test(case);
 }
 
@@ -33,17 +28,12 @@ fn test_tx_when_fee_bigger_than_burned_amount() {
     };
 }
 
-#[test]
-fn test_tx_when_eth_address_is_invalid() {
-    let mut case = get_correct_case();
-    if let CustomCell::ETHRecipientCustomCell(script) = &mut case.script_cells.outputs[0] {
-        script.args = "1234".to_string();
-        case.expect_return_error_info = "eth_contract_address in witness length wrong".to_string();
-        case_runner::run_test(case);
-    };
-}
-
 fn get_correct_case() -> TestCase {
+    let data = Loader::default().load_binary("eth-bridge-lockscript");
+    let data_hash = CellOutput::calc_data_hash(&data);
+    let mut lock_hash = [0u8; 32];
+    lock_hash.copy_from_slice(data_hash.as_slice());
+
     TestCase {
         cell_deps: vec![],
         script_cells: CustomCells {
@@ -53,11 +43,13 @@ fn get_correct_case() -> TestCase {
                 data: ETHRecipientDataView {
                     eth_recipient_address: "5Dc158c90EBE46FfC9f03f1174f36c44497976D4".to_string(),
                     eth_token_address: "e404831459e3aCec0440F5c5462827e0Bccc2Ff1".to_string(),
+                    eth_lock_contract_address: "3E35617a629EEaD5a6767dC69D238831a7Bc391c"
+                        .to_string(),
+                    eth_bridge_lock_hash: lock_hash,
                     token_amount: 100,
                     fee: 10,
                 },
                 index: 0,
-                args: "74381D4533cc43121abFef7566010dD9FB7c9F7a".to_string(),
             })],
         },
         sudt_cells: SudtCells {
@@ -66,7 +58,7 @@ fn get_correct_case() -> TestCase {
                 amount: 200,
                 lockscript: Default::default(),
                 owner_script: ScriptView::build_sudt_owner(
-                    "74381D4533cc43121abFef7566010dD9FB7c9F7a",
+                    "3E35617a629EEaD5a6767dC69D238831a7Bc391c",
                     "e404831459e3aCec0440F5c5462827e0Bccc2Ff1",
                 ),
                 index: 1,
@@ -76,7 +68,7 @@ fn get_correct_case() -> TestCase {
                 amount: 100,
                 lockscript: Default::default(),
                 owner_script: ScriptView::build_sudt_owner(
-                    "74381D4533cc43121abFef7566010dD9FB7c9F7a",
+                    "3E35617a629EEaD5a6767dC69D238831a7Bc391c",
                     "e404831459e3aCec0440F5c5462827e0Bccc2Ff1",
                 ),
                 index: 1,
@@ -85,10 +77,7 @@ fn get_correct_case() -> TestCase {
         capacity_cells: CapacityCells {
             inputs: vec![CapacityCell {
                 capacity: 200 * CKB_UNITS,
-                lockscript: ScriptView::build_sudt_owner(
-                    "74381D4533cc43121abFef7566010dD9FB7c9F7a",
-                    "e404831459e3aCec0440F5c5462827e0Bccc2Ff1",
-                ),
+                lockscript: Default::default(),
                 index: 0,
             }],
             outputs: vec![],
