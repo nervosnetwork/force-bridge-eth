@@ -1,14 +1,15 @@
 const fs = require("fs");
-const TOML = require('@iarna/toml');
+const TOML = require("@iarna/toml");
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   if (!forceConfigPath) {
-      throw "FORCE_CONFIG_PATH not set";
+    throw "FORCE_CONFIG_PATH not set";
   }
   const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
   const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
-  const recipient_typescript_code_hash = forceConfig.recipient_typescript.code_hash;
+  const recipient_typescript_code_hash =
+    forceConfig.recipient_typescript.code_hash;
 
   //ERC20
   const ERC20 = await ethers.getContractFactory(
@@ -37,7 +38,7 @@ async function main() {
     1,
     "0x" + recipient_typescript_code_hash,
     0,
-    "0x" + bridge_lockscript_code_hash,
+    "0x" + bridge_lockscript_code_hash
   );
   await locker.deployed();
   const lockerAddr = locker.address;
