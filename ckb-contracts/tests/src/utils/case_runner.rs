@@ -107,6 +107,7 @@ pub fn run_test(case: TestCase) {
         .build();
     let tx = context.complete_tx(tx);
     dbg!(&tx);
+    dbg!(tx.inputs());
 
     // Test tx
     let res = context.verify_tx(&tx, MAX_CYCLES);
@@ -123,9 +124,8 @@ pub fn run_test(case: TestCase) {
 }
 
 fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContext) {
-    // let eth_bridge_lockscript_bin: Bytes = Loader::default().load_binary("eth-bridge-lockscript");
-    // let eth_bridge_lockscript_point = context.deploy_cell(eth_bridge_lockscript_bin);
-    let eth_bridge_lockscript_point = context.deploy_cell(ALWAYS_SUCCESS.clone());
+    let eth_bridge_lockscript_bin: Bytes = Loader::default().load_binary("eth-bridge-lockscript");
+    let eth_bridge_lockscript_point = context.deploy_cell(eth_bridge_lockscript_bin);
 
     let eth_light_client_lockscript_bin: Bytes =
         Loader::default().load_binary("eth-light-client-lockscript");
