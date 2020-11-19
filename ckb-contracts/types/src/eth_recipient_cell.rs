@@ -13,6 +13,8 @@ use alloc::borrow::ToOwned;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use core::convert::TryInto;
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ETHAddress([Byte; 20]);
 
@@ -43,6 +45,8 @@ impl ETHAddress {
 pub struct ETHRecipientDataView {
     pub eth_recipient_address: ETHAddress,
     pub eth_token_address: ETHAddress,
+    pub eth_lock_contract_address: ETHAddress,
+    pub eth_bridge_lock_hash: [u8; 32],
     pub token_amount: u128,
     pub fee: u128,
 }
@@ -68,6 +72,17 @@ impl ETHRecipientDataView {
                 .to_vec(),
         )
         .expect("wrong eth address length");
+        let eth_lock_contract_address = ETHAddress::try_from(
+            data_reader
+                .eth_lock_contract_address()
+                .to_entity()
+                .raw_data()
+                .to_vec(),
+        )
+        .expect("wrong eth address length");
+
+        let mut eth_bridge_lock_hash = [0u8; 32];
+        eth_bridge_lock_hash.copy_from_slice(data_reader.eth_bridge_lock_hash().raw_data());
 
         let mut token_amount = [0u8; 16];
         token_amount.copy_from_slice(data_reader.token_amount().raw_data());
@@ -80,6 +95,8 @@ impl ETHRecipientDataView {
         Ok(ETHRecipientDataView {
             eth_recipient_address,
             eth_token_address,
+            eth_lock_contract_address,
+            eth_bridge_lock_hash,
             token_amount,
             fee,
         })
@@ -89,6 +106,13 @@ impl ETHRecipientDataView {
         let mol_obj = ETHRecipientCellData::new_builder()
             .eth_recipient_address(self.eth_recipient_address.0.into())
             .eth_token_address(self.eth_token_address.0.into())
+            .eth_lock_contract_address(self.eth_lock_contract_address.0.into())
+            .eth_bridge_lock_hash(
+                self.eth_bridge_lock_hash
+                    .to_vec()
+                    .try_into()
+                    .expect("from vec to Byte32 fail"),
+            )
             .token_amount(self.token_amount.into())
             .fee(self.fee.into())
             .build();
@@ -106,6 +130,8 @@ mod tests {
         let eth_recipient_data = ETHRecipientDataView {
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_bridge_lock_hash: [1u8; 32],
             token_amount: 100,
             fee: 100,
         };
@@ -125,6 +151,14 @@ mod tests {
         assert_eq!(
             eth_recipient_data.eth_token_address,
             new_eth_recipient_data.eth_token_address
+        );
+        assert_eq!(
+            eth_recipient_data.eth_lock_contract_address,
+            new_eth_recipient_data.eth_lock_contract_address
+        );
+        assert_eq!(
+            eth_recipient_data.eth_bridge_lock_hash,
+            new_eth_recipient_data.eth_bridge_lock_hash
         );
     }
 
