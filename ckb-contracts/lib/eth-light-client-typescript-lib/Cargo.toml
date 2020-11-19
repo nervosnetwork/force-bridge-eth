@@ -1,0 +1,23 @@
+[package]
+name = "eth-light-client-typescript-lib"
+version = "0.1.0"
+authors = ["jacobdenver007 <jacobdenver@163.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["std"]
+std = ["mockall"]
+
+[dependencies]
+cfg-if = "0.1"
+ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
+mockall = { version = "0.8", optional = true }
+force-eth-types = { path = "../../types", default-features = false, features = ["contract"] }
+ethash = { git = "https://github.com/LeonLi000/rust-ethash.git", default-features = false}
+eth-spv-lib = { git = "https://github.com/LeonLi000/eth-spv-lib.git", default-features = false }
+molecule = { version = "0.6.0", default-features = false }
+rlp = {version = "0.4.5", default-features = false }
+primitive-types = { version = "0.7.2", default-features = false }
+hex = { version = "0.4", default-features = false }

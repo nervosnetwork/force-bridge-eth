@@ -3,7 +3,8 @@
 use super::case_builder::{
     CellBuilder, OutpointsContext, TestCase, ALWAYS_SUCCESS_OUTPOINT_KEY,
     ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY, ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY,
-    ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY, FIRST_INPUT_OUTPOINT_KEY, SUDT_TYPESCRIPT_OUTPOINT_KEY,
+    ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY, ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY,
+    FIRST_INPUT_OUTPOINT_KEY, SUDT_TYPESCRIPT_OUTPOINT_KEY,
 };
 use crate::*;
 use ckb_testtool::{builtin::ALWAYS_SUCCESS, context::Context};
@@ -14,7 +15,7 @@ use ckb_tool::ckb_types::{
 };
 use std::mem::replace;
 
-pub const MAX_CYCLES: u64 = 100_000_000;
+pub const MAX_CYCLES: u64 = 100_000_000_000;
 
 pub fn run_test(case: TestCase) {
     let mut context = Context::default();
@@ -47,6 +48,12 @@ pub fn run_test(case: TestCase) {
     let mut outputs_data = vec![Bytes::default(); outputs_len];
 
     build_input_cell(
+        case.capacity_cells.inputs.into_iter(),
+        &mut context,
+        &mut outpoints_context,
+        &mut inputs,
+    );
+    build_input_cell(
         case.script_cells.inputs.into_iter(),
         &mut context,
         &mut outpoints_context,
@@ -54,12 +61,6 @@ pub fn run_test(case: TestCase) {
     );
     build_input_cell(
         case.sudt_cells.inputs.into_iter(),
-        &mut context,
-        &mut outpoints_context,
-        &mut inputs,
-    );
-    build_input_cell(
-        case.capacity_cells.inputs.into_iter(),
         &mut context,
         &mut outpoints_context,
         &mut inputs,
@@ -110,8 +111,14 @@ pub fn run_test(case: TestCase) {
     // Test tx
     let res = context.verify_tx(&tx, MAX_CYCLES);
     dbg!(&res);
-    if res.is_err() {
-        assert!(check_err(&context, case.expect_return_error_info));
+    dbg!(context.captured_messages());
+
+    match res {
+        Ok(_cycles) => assert_eq!(case.expect_return_error_info, String::default()),
+        Err(_err) => {
+            assert_ne!(case.expect_return_error_info, String::default());
+            assert!(check_err(&context, case.expect_return_error_info));
+        }
     }
 }
 
@@ -123,6 +130,10 @@ fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContex
     let eth_light_client_lockscript_bin: Bytes =
         Loader::default().load_binary("eth-light-client-lockscript");
     let eth_light_client_lockscript_point = context.deploy_cell(eth_light_client_lockscript_bin);
+
+    let eth_light_client_typescript_bin: Bytes =
+        Loader::default().load_binary("eth-light-client-typescript");
+    let eth_light_client_typescript_point = context.deploy_cell(eth_light_client_typescript_bin);
 
     let eth_recipient_typescript_bin: Bytes =
         Loader::default().load_binary("eth-recipient-typescript");
@@ -140,6 +151,10 @@ fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContex
     outpoints_context.insert(
         ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY,
         eth_light_client_lockscript_point.clone(),
+    );
+    outpoints_context.insert(
+        ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY,
+        eth_light_client_typescript_point.clone(),
     );
     outpoints_context.insert(
         ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY,
@@ -194,7 +209,6 @@ fn build_output_cell<I, B>(
 
 fn check_err(context: &Context, info: String) -> bool {
     let expected = format!("panic occurred: {}", info);
-    dbg!(expected.clone(), context.captured_messages());
     for message in context.captured_messages() {
         if message.message.contains(&expected.clone()) {
             return true;
