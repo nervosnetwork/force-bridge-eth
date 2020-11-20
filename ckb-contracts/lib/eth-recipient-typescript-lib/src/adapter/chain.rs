@@ -2,13 +2,12 @@ use super::Adapter;
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::Script;
 use ckb_std::error::SysError;
-use ckb_std::high_level::{load_cell_data, load_cell_type, load_script, QueryIter};
+use ckb_std::high_level::{load_cell_data, load_cell_type, QueryIter};
 
 use force_eth_types::{
     config::{SUDT_CODE_HASH, UDT_LEN},
     eth_recipient_cell::ETHRecipientDataView,
 };
-use molecule::bytes::Bytes;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -27,10 +26,6 @@ impl Adapter for ChainAdapter {
             ),
             _ => panic!("outputs have more than 1 eth recipient cell"),
         }
-    }
-
-    fn load_script_args(&self) -> Bytes {
-        load_script().expect("load script fail").args().raw_data()
     }
 
     fn get_sudt_amount_from_source(&self, source: Source, eth_bridge_lock_hash: &[u8]) -> u128 {

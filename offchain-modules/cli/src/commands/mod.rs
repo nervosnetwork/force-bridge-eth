@@ -1,3 +1,4 @@
+pub mod server;
 pub mod types;
 use anyhow::{anyhow, bail, Result};
 use cmd_lib::run_fun;
@@ -25,6 +26,8 @@ use web3::types::U256;
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
+        SubCommand::Server(args) => server::server_handler(args),
+
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::DevInit(args) => dev_init_handler(args),
         SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args),
@@ -237,7 +240,7 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
         lock_contract_addr,
     )?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
-    todo!()
+    Ok(())
 }
 
 pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
@@ -270,6 +273,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     let token_addr = convert_eth_address(&args.token_addr)?;
     let receive_addr = convert_eth_address(&args.receive_addr)?;
     let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+
     let ckb_tx_hash = burn(
         args.ckb_privkey_path,
         args.ckb_rpc_url.clone(),
@@ -377,6 +381,6 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     )?;
     loop {
         ckb_relayer.start(args.per_amount).await?;
-        std::thread::sleep(std::time::Duration::from_secs(10 * 60));
+        std::thread::sleep(std::time::Duration::from_secs(10));
     }
 }

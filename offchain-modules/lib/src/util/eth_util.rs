@@ -48,14 +48,21 @@ impl Web3Client {
             .build_sign_tx(to, key_path, data, gas_price, eth_value)
             .await?;
         let tx_hash = if wait {
-            self.client()
+            let receipt = self
+                .client()
                 .send_raw_transaction_with_confirmation(
                     Bytes::from(signed_tx),
                     Duration::new(1, 0),
                     1,
                 )
-                .await?
-                .transaction_hash
+                .await?;
+            debug!("receipt: {:?}", &receipt);
+            let tx_hash = receipt.transaction_hash;
+            let tx_status = receipt.status.expect("should return status");
+            if tx_status.as_usize() == 0 {
+                panic!("tx failed")
+            };
+            tx_hash
         } else {
             self.client()
                 .eth()

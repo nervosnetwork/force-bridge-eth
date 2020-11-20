@@ -3,6 +3,8 @@ import basic;
 struct ETHRecipientCellData {
     eth_recipient_address: ETHAddress,
     eth_token_address: ETHAddress,
+    eth_lock_contract_address: ETHAddress,
+    eth_bridge_lock_hash: Byte32,
     token_amount: Uint128,
     fee: Uint128,
 }

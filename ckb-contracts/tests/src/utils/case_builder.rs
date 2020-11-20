@@ -3,6 +3,7 @@
 use ckb_testtool::context::Context;
 pub use ckb_tool::ckb_types::bytes::Bytes;
 use ckb_tool::ckb_types::{packed::*, prelude::*};
+use core::convert::TryInto;
 use force_eth_types::{
     eth_recipient_cell::ETHAddress,
     generated::{
@@ -129,7 +130,6 @@ pub struct ETHRecipientCell {
     pub capacity: u64,
     pub data: ETHRecipientDataView,
     pub index: usize,
-    pub args: String,
 }
 
 impl ETHRecipientCell {
@@ -151,7 +151,7 @@ impl ETHRecipientCell {
         context
             .build_script(
                 &outpoints[ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY],
-                hex::decode(self.args.as_str()).unwrap().into(),
+                Default::default(),
             )
             .expect("build eth recipient typescript")
     }
@@ -166,6 +166,8 @@ impl ETHRecipientCell {
 pub struct ETHRecipientDataView {
     pub eth_recipient_address: String,
     pub eth_token_address: String,
+    pub eth_lock_contract_address: String,
+    pub eth_bridge_lock_hash: [u8; 32],
     pub token_amount: u128,
     pub fee: u128,
 }
@@ -175,6 +177,8 @@ impl ETHRecipientDataView {
         let data = ETHRecipientCellData::new_builder()
             .eth_recipient_address(str_to_eth_address(self.eth_recipient_address.as_str()))
             .eth_token_address(str_to_eth_address(self.eth_token_address.as_str()))
+            .eth_lock_contract_address(str_to_eth_address(self.eth_lock_contract_address.as_str()))
+            .eth_bridge_lock_hash(self.eth_bridge_lock_hash.to_vec().try_into().unwrap())
             .token_amount(self.token_amount.into())
             .fee(self.fee.into())
             .build();
