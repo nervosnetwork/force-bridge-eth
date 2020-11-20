@@ -224,6 +224,7 @@ pub fn start(
         .expect("init handler error");
     io.extend_with(rpc.to_delegate());
 
+    log::info!("server start at {}", &listen_url);
     let server = ServerBuilder::new(io)
         .threads(threads_num)
         .start_http(&listen_url.parse().unwrap())
