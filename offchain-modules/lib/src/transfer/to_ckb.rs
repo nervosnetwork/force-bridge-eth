@@ -1,6 +1,8 @@
 use crate::util::ckb_util::{parse_privkey, ETHSPVProofJson, Generator};
 use crate::util::eth_proof_helper::{read_roots_collection_raw, RootsCollectionJson};
-use crate::util::eth_util::{convert_eth_address, Web3Client};
+use crate::util::eth_util::{
+    build_lock_eth_payload, build_lock_token_payload, convert_eth_address, Web3Client,
+};
 use crate::util::settings::{CellScript, OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
@@ -73,38 +75,8 @@ pub async fn lock_token(
     wait: bool,
 ) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
-    let function = Function {
-        name: "lockToken".to_owned(),
-        inputs: vec![
-            Param {
-                name: "token".to_owned(),
-                kind: ParamType::Address,
-            },
-            Param {
-                name: "amount".to_owned(),
-                kind: ParamType::Uint(256),
-            },
-            Param {
-                name: "bridgeFee".to_owned(),
-                kind: ParamType::Uint(256),
-            },
-            Param {
-                name: "recipientLockscript".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "replayResistOutpoint".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "sudtExtraData".to_owned(),
-                kind: ParamType::Bytes,
-            },
-        ],
-        outputs: vec![],
-        constant: false,
-    };
-    let input_data = function.encode_input(data)?;
+    let input_data = build_lock_token_payload(data)?;
+
     let res = rpc_client
         .send_transaction(
             to,
@@ -128,30 +100,7 @@ pub async fn lock_eth(
     wait: bool,
 ) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
-    let function = Function {
-        name: "lockETH".to_owned(),
-        inputs: vec![
-            Param {
-                name: "bridgeFee".to_owned(),
-                kind: ParamType::Uint(256),
-            },
-            Param {
-                name: "recipientLockscript".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "replayResistOutpoint".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "sudtExtraData".to_owned(),
-                kind: ParamType::Bytes,
-            },
-        ],
-        outputs: vec![],
-        constant: false,
-    };
-    let input_data = function.encode_input(data)?;
+    let input_data = build_lock_eth_payload(data)?;
     let res = rpc_client
         .send_transaction(
             to,

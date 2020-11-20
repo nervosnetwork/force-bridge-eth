@@ -34,7 +34,7 @@ pub struct ServerArgs {
     #[clap(long, default_value = ".force-bridge-cli-config.toml")]
     pub config_path: String,
     #[clap(long, default_value = "http://127.0.0.1:8114")]
-    pub rpc_url: String,
+    pub ckb_rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8116")]
     pub indexer_url: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
