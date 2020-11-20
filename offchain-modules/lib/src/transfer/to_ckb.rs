@@ -12,8 +12,6 @@ use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{deploy, sign};
 use force_sdk::util::{ensure_indexer_sync, parse_privkey_path, send_tx_sync};
-use log::info;
-use serde_json::json;
 use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
