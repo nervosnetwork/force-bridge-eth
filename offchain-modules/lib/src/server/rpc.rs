@@ -1,7 +1,7 @@
 use super::types::*;
 use super::types::{BurnArgs, GetSudtBalanceArgs, LockArgs};
 use crate::transfer::to_ckb::create_bridge_cell;
-use crate::util::ckb_util::{build_lockscript_from_address, parse_privkey, Generator};
+use crate::util::ckb_util::{build_lockscript_from_address, Generator};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
 };
@@ -11,12 +11,11 @@ use ckb_sdk::Address;
 use ckb_types::packed::Script;
 use ethabi::Token;
 use ethereum_tx_sign::RawTransaction;
-use force_sdk::util::{ensure_indexer_sync, parse_privkey_path};
+use force_sdk::util::ensure_indexer_sync;
 use jsonrpc_core::{IoHandler, Result};
 use jsonrpc_derive::rpc;
 use jsonrpc_http_server::ServerBuilder;
 use molecule::prelude::Entity;
-use secp256k1::SecretKey;
 use std::str::FromStr;
 use web3::types::U256;
 
