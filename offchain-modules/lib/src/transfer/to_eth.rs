@@ -28,7 +28,7 @@ pub async fn init_light_client(
     finalized_gc_threshold: u64,
     canonical_gc_threshold: u64,
     gas_price: u64,
-    to: H160,
+    eth_ckb_chain_addr: H160,
     key_path: String,
     wait: bool,
 ) -> Result<String> {
@@ -53,7 +53,7 @@ pub async fn init_light_client(
     ])?;
     let res = web3_client
         .send_transaction(
-            to,
+            eth_ckb_chain_addr,
             key_path,
             init_header_abi,
             U256::from(gas_price),
@@ -70,7 +70,7 @@ pub fn burn(
     privkey_path: String,
     rpc_url: String,
     indexer_url: String,
-    config_path: String,
+    config_path: &str,
     tx_fee: String,
     unlock_fee: u128,
     amount: u128,
@@ -78,7 +78,7 @@ pub fn burn(
     receive_addr: H160,
     lock_contract_addr: H160,
 ) -> Result<String> {
-    let settings = Settings::new(&config_path)?;
+    let settings = Settings::new(config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings)
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
@@ -131,7 +131,7 @@ pub async fn wait_block_submit(
             }
             None => {
                 info!("the transaction is not committed yet");
-                std::thread::sleep(std::time::Duration::from_secs(10));
+                std::thread::sleep(std::time::Duration::from_secs(1));
             }
         }
     }
@@ -153,7 +153,7 @@ pub async fn wait_block_submit(
             client_block_number, ckb_height
         );
         if client_block_number < ckb_height {
-            std::thread::sleep(std::time::Duration::from_secs(10));
+            std::thread::sleep(std::time::Duration::from_secs(1));
             continue;
         }
         return Ok(());

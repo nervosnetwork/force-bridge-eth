@@ -1,5 +1,7 @@
 use crate::util::ckb_util::{parse_privkey, ETHSPVProofJson, Generator};
-use crate::util::eth_util::{convert_eth_address, Web3Client};
+use crate::util::eth_util::{
+    build_lock_eth_payload, build_lock_token_payload, convert_eth_address, Web3Client,
+};
 use crate::util::settings::{OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
@@ -68,38 +70,8 @@ pub async fn lock_token(
     wait: bool,
 ) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
-    let function = Function {
-        name: "lockToken".to_owned(),
-        inputs: vec![
-            Param {
-                name: "token".to_owned(),
-                kind: ParamType::Address,
-            },
-            Param {
-                name: "amount".to_owned(),
-                kind: ParamType::Uint(256),
-            },
-            Param {
-                name: "bridgeFee".to_owned(),
-                kind: ParamType::Uint(256),
-            },
-            Param {
-                name: "recipientLockscript".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "replayResistOutpoint".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "sudtExtraData".to_owned(),
-                kind: ParamType::Bytes,
-            },
-        ],
-        outputs: vec![],
-        constant: false,
-    };
-    let input_data = function.encode_input(data)?;
+    let input_data = build_lock_token_payload(data)?;
+
     let res = rpc_client
         .send_transaction(
             to,
@@ -123,30 +95,7 @@ pub async fn lock_eth(
     wait: bool,
 ) -> Result<H256> {
     let mut rpc_client = Web3Client::new(url);
-    let function = Function {
-        name: "lockETH".to_owned(),
-        inputs: vec![
-            Param {
-                name: "bridgeFee".to_owned(),
-                kind: ParamType::Uint(256),
-            },
-            Param {
-                name: "recipientLockscript".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "replayResistOutpoint".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "sudtExtraData".to_owned(),
-                kind: ParamType::Bytes,
-            },
-        ],
-        outputs: vec![],
-        constant: false,
-    };
-    let input_data = function.encode_input(data)?;
+    let input_data = build_lock_eth_payload(data)?;
     let res = rpc_client
         .send_transaction(
             to,
@@ -294,6 +243,7 @@ pub fn dev_init(
                 index: 4,
             },
         },
+        ..Default::default()
     };
     log::info!("settings: {:?}", &settings);
     settings.write(&config_path).map_err(|e| anyhow!(e))?;
@@ -308,13 +258,12 @@ pub fn create_bridge_cell(
     indexer_url: String,
     private_key_path: String,
     tx_fee: String,
-    eth_contract_address_str: String,
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
 ) -> Result<()> {
     let settings = Settings::new(&config_path)?;
-    let mut generator = Generator::new(rpc_url, indexer_url, settings)
+    let mut generator = Generator::new(rpc_url, indexer_url, settings.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
@@ -326,7 +275,7 @@ pub fn create_bridge_cell(
         .map_err(|e| anyhow!(e))?
         .into();
 
-    let eth_contract_address = convert_eth_address(eth_contract_address_str.as_str())?;
+    let eth_contract_address = convert_eth_address(settings.eth_token_locker_addr.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
     let recipient_lockscript = Script::from(
         Address::from_str(&recipient_address)

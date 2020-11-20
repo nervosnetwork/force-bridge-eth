@@ -1,3 +1,4 @@
+pub mod server;
 pub mod types;
 use anyhow::{anyhow, bail, Result};
 use ethabi::Token;
@@ -23,6 +24,8 @@ use web3::types::{H256, U256};
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
+        SubCommand::Server(args) => server::server_handler(args),
+
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::DevInit(args) => dev_init_handler(args),
         SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args),
@@ -53,7 +56,8 @@ pub async fn handler(opt: Opts) -> Result<()> {
 }
 
 pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> Result<()> {
-    let to = convert_eth_address(&args.to)?;
+    let settings = Settings::new(&args.config_path)?;
+    let eth_ckb_chain_addr = convert_eth_address(&settings.eth_ckb_chain_addr)?;
     let hash = init_light_client(
         args.ckb_rpc_url,
         args.indexer_url,
@@ -62,7 +66,7 @@ pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> 
         args.finalized_gc,
         args.canonical_gc,
         args.gas_price,
-        to,
+        eth_ckb_chain_addr,
         args.private_key_path,
         args.wait,
     )
@@ -98,7 +102,6 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
         args.indexer_url,
         args.private_key_path,
         args.tx_fee,
-        args.eth_contract_address,
         args.eth_token_address,
         args.recipient_address,
         args.bridge_fee,
@@ -107,8 +110,9 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
-    let from = convert_eth_address(&args.from)?;
-    let to = convert_eth_address(&args.to)?;
+    let settings = Settings::new(&args.config_path)?;
+    let from = convert_eth_address(&settings.eth_token_locker_addr)?;
+    let to = convert_eth_address(&args.erc20_addr)?;
     let hash = approve(
         from,
         to,
@@ -125,7 +129,8 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let to = convert_eth_address(&args.to)?;
+    let settings = Settings::new(&args.config_path)?;
+    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
     let token_addr = convert_eth_address(&args.token)?;
     let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
@@ -152,7 +157,8 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let to = convert_eth_address(&args.to)?;
+    let settings = Settings::new(&args.config_path)?;
+    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
     let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
         Token::Uint(U256::from(args.bridge_fee)),
@@ -214,6 +220,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
     let header_rlp = get_header_rlp(args.eth_rpc_url, eth_spv_proof.block_hash).await?;
 
+    let settings = Settings::new(&args.config_path)?;
     let eth_proof = ETHSPVProofJson {
         log_index: u64::try_from(eth_spv_proof.log_index).unwrap(),
         log_entry_data: eth_spv_proof.log_entry_data,
@@ -227,9 +234,8 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         sudt_extra_data: eth_spv_proof.sudt_extra_data,
         bridge_fee: eth_spv_proof.bridge_fee,
         replay_resist_outpoint: eth_spv_proof.replay_resist_outpoint,
-        eth_address: convert_eth_address(args.eth_contract_address.as_str())?,
+        eth_address: convert_eth_address(&settings.eth_token_locker_addr)?,
     };
-    let settings = Settings::new(&args.config_path)?;
     let mut generator =
         Generator::new(args.ckb_rpc_url, args.indexer_url, settings).map_err(|e| anyhow!(e))?;
     let tx_hash =
@@ -247,12 +253,13 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
     debug!("burn_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
     let receive_addr = convert_eth_address(&args.receive_addr)?;
-    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    let settings = Settings::new(&args.config_path)?;
+    let lock_contract_addr = convert_eth_address(&settings.eth_token_locker_addr)?;
     let ckb_tx_hash = burn(
         args.private_key_path,
         args.ckb_rpc_url,
         args.indexer_rpc_url,
-        args.config_path,
+        &args.config_path,
         args.tx_fee,
         args.unlock_fee,
         args.burn_amount,
@@ -293,13 +300,14 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     debug!("transfer_from_ckb_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
     let receive_addr = convert_eth_address(&args.receive_addr)?;
-    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    let settings = Settings::new(&args.config_path)?;
+    let lock_contract_addr = convert_eth_address(&settings.eth_token_locker_addr)?;
 
     let ckb_tx_hash = burn(
         args.ckb_privkey_path,
         args.ckb_rpc_url.clone(),
         args.indexer_rpc_url,
-        args.config_path,
+        &args.config_path,
         args.tx_fee,
         args.unlock_fee,
         args.burn_amount,
@@ -311,8 +319,9 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
 
     let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, args.ckb_rpc_url.clone())?;
 
-    let light_client = convert_eth_address(&args.light_client_addr)?;
-    let to = convert_eth_address(&args.lock_contract_addr)?;
+    let settings = Settings::new(&args.config_path)?;
+    let light_client = convert_eth_address(&settings.eth_ckb_chain_addr)?;
+    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
 
     wait_block_submit(
         args.eth_rpc_url.clone(),
@@ -337,7 +346,8 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
 pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
-    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    let settings = Settings::new(&args.config_path)?;
+    let lock_contract_addr = convert_eth_address(&settings.eth_token_locker_addr)?;
     transfer_sudt(
         args.private_key_path,
         args.ckb_rpc_url,
@@ -356,7 +366,8 @@ pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
 pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
     debug!("query sudt balance handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
-    let lock_contract_addr = convert_eth_address(&args.lock_contract_addr)?;
+    let settings = Settings::new(&args.config_path)?;
+    let lock_contract_addr = convert_eth_address(&settings.eth_token_locker_addr)?;
 
     let result = get_balance(
         args.ckb_rpc_url,
@@ -392,19 +403,18 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
-    let to = convert_eth_address(&args.to)?;
+    let settings = Settings::new(&args.config_path)?;
+    let to = convert_eth_address(&settings.eth_ckb_chain_addr)?;
     let mut ckb_relayer = CKBRelayer::new(
         args.ckb_rpc_url,
         args.indexer_rpc_url,
-        args.eth_rpc_url.clone(),
+        args.eth_rpc_url,
         to,
         args.private_key_path,
         args.gas_price,
     )?;
     loop {
-        ckb_relayer
-            .start(args.eth_rpc_url.clone(), args.per_amount)
-            .await?;
-        std::thread::sleep(std::time::Duration::from_secs(10));
+        ckb_relayer.start(args.per_amount).await?;
+        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }
