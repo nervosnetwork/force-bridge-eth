@@ -313,7 +313,7 @@ pub fn create_bridge_cell(
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
-) -> Result<()> {
+) -> Result<String> {
     let settings = Settings::new(&config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
@@ -359,13 +359,7 @@ pub fn create_bridge_cell(
     let outpoint = OutPoint::new_builder()
         .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
         .build();
-    let outpoint_hex = hex::encode(outpoint.as_slice());
-    info!(
-        "create bridge cell successfully for {}, outpoint: {}",
-        recipient_address, &outpoint_hex
-    );
-    println!("{}", json!({ "outpoint": outpoint_hex }));
-    Ok(())
+    Ok(hex::encode(outpoint.as_slice()))
 }
 
 pub fn build_eth_bridge_lock_args(

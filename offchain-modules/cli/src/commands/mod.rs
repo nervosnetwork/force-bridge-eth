@@ -18,6 +18,7 @@ use force_eth_lib::util::settings::Settings;
 use log::{debug, info};
 use molecule::prelude::Entity;
 use rusty_receipt_proof_maker::generate_eth_proof;
+use serde_json::json;
 use std::convert::TryFrom;
 use types::*;
 use web3::types::{H256, U256};
@@ -96,7 +97,7 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
 }
 
 pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
-    create_bridge_cell(
+    let outpoint_hex = create_bridge_cell(
         args.config_path,
         args.rpc_url,
         args.indexer_url,
@@ -104,9 +105,15 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
         args.tx_fee,
         args.capacity,
         args.eth_token_address,
-        args.recipient_address,
+        args.recipient_address.clone(),
         args.bridge_fee,
-    )
+    )?;
+    info!(
+        "create bridge cell successfully for {}, outpoint: {}",
+        &args.recipient_address, &outpoint_hex
+    );
+    println!("{}", json!({ "outpoint": outpoint_hex }));
+    Ok(())
 }
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
