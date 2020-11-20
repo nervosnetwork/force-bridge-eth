@@ -181,7 +181,7 @@ pub async fn unlock(
                 kind: ParamType::Bytes,
             },
             Param {
-                name: "txInfo".to_owned(),
+                name: "ckbTx".to_owned(),
                 kind: ParamType::Bytes,
             },
         ],
