@@ -1,3 +1,4 @@
+pub mod server;
 pub mod types;
 use anyhow::{anyhow, bail, Result};
 use ethabi::Token;
@@ -23,6 +24,8 @@ use web3::types::{H256, U256};
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
+        SubCommand::Server(args) => server::server_handler(args),
+
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::DevInit(args) => dev_init_handler(args),
         SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args),
