@@ -38,8 +38,6 @@ pub struct RpcImpl {
     ckb_rpc_url: String,
     settings: Settings,
     private_key_path: String,
-    from_privkey: SecretKey,
-    from_lockscript: Script,
 }
 
 impl RpcImpl {
@@ -50,16 +48,12 @@ impl RpcImpl {
         private_key_path: String,
     ) -> Result<Self> {
         let settings = Settings::new(config_path.as_str()).expect("invalid settings");
-        let from_privkey = parse_privkey_path(&private_key_path).expect("invalid private key path");
-        let from_lockscript = parse_privkey(&from_privkey);
         Ok(Self {
             private_key_path,
             config_path,
             indexer_url,
             ckb_rpc_url,
             settings,
-            from_privkey,
-            from_lockscript,
         })
     }
 
