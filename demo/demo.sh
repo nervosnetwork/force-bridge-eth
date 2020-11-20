@@ -22,6 +22,7 @@ ${FORCE_CLI} dev-init -f
 cd "$DIR"/eth-contracts
 export FORCE_CONFIG_PATH="${DIR}"/demo/.force-bridge-cli-config.toml
 npx hardhat run scripts/geth/deployAll.js --network geth > "${FORTH_ETH_CONFIG_PATH}"
+CKB_CHAIN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .ckbChain)
 TOKEN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .erc20)
 ETH_ADDRESS="0x0000000000000000000000000000000000000000"
 RECIPIENT_ADDR="ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4"
@@ -32,7 +33,7 @@ cd "$DIR"/demo
 # start relayer
 ${FORCE_CLI} init-ckb-light-contract -i 1 -f 500 -c 40000 --wait
 ps aux | grep 'force-eth-cli ckb-relay' | grep -v grep | awk '{print $2}' | xargs kill -9
-${FORCE_CLI} ckb-relay -k privkeys/ckb2eth_relayer_key --per-amount 10 > data/ckb-relayer.log 2>&1 &
+${FORCE_CLI} ckb-relay -k privkeys/ckb2eth_relayer_key --per-amount 10 --eth-ckb-chain-addr "${CKB_CHAIN_ADDRESS}" > data/ckb-relayer.log 2>&1 &
 
 # eth crosschain
 ${FORCE_CLI} create-bridge-cell --eth-token-address "${ETH_ADDRESS}" --recipient-address "${RECIPIENT_ADDR}" --bridge-fee "${bridge_fee}" > "${BRIDGE_CELL_CONFIG_PATH}"
