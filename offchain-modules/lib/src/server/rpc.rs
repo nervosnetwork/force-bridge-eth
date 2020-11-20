@@ -1,12 +1,12 @@
 use crate::util::ckb_util::Generator;
 use crate::util::eth_util::convert_eth_address;
 use crate::util::settings::Settings;
+use ckb_jsonrpc_types::TransactionView;
 use ckb_sdk::Address;
 use ckb_types::packed::Script;
 use jsonrpc_core::{IoHandler, Result};
 use jsonrpc_derive::rpc;
 
-use jsonrpc_http_server::jsonrpc_core::Value;
 use jsonrpc_http_server::ServerBuilder;
 use std::str::FromStr;
 
@@ -16,7 +16,7 @@ use super::types::BurnArgs;
 pub trait Rpc {
     /// Adds two numbers and returns a result
     #[rpc(name = "burn")]
-    fn burn(&self, args: BurnArgs) -> Result<Value>;
+    fn burn(&self, args: BurnArgs) -> Result<TransactionView>;
 }
 
 pub struct RpcImpl {
@@ -26,7 +26,7 @@ pub struct RpcImpl {
 }
 
 impl Rpc for RpcImpl {
-    fn burn(&self, args: BurnArgs) -> Result<Value> {
+    fn burn(&self, args: BurnArgs) -> Result<TransactionView> {
         let from_lockscript = Script::from(
             Address::from_str(args.from_lockscript_addr.as_str())
                 .map_err(|err| {
@@ -61,9 +61,7 @@ impl Rpc for RpcImpl {
                 recipient_address,
             )
             .map_err(|_| jsonrpc_core::Error::invalid_params("burn fail"))?;
-        let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
-        Ok(serde_json::to_value(rpc_tx)
-            .map_err(|_| jsonrpc_core::Error::invalid_params("parse result fail"))?)
+        Ok(tx.into())
     }
 }
 
