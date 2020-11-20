@@ -29,7 +29,7 @@ $ npx hardhat run scripts/testnet-ropsten/test-proveTxExist.js --network ropsten
 # install geth, please refer to https://geth.ethereum.org/docs/install-and-build/installing-geth
 # after installed
 $ geth init test/data/geth-genesis.json --datadir=/tmp/geth
-$ geth --datadir=/tmp/geth --port 4321 --networkid 1234 --rpc --rpcport 8545 --rpcaddr 127.0.0.1  --rpcapi "eth,net,web3,personal,miner,debug" --gasprice 0 --etherbase 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 --mine --miner.threads=1 --nodiscover
+$ geth --datadir=/tmp/geth --port 4321 --networkid 1234 --rpc --rpcport 8545 --rpcaddr 127.0.0.1  --rpcapi "eth,net,web3,personal,miner,debug" --rpccorsdomain='*' --gasprice 0 --etherbase 0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2 --mine --miner.threads=1 --nodiscover
 $ npx hardhat test --network geth
 # specific test, e.g. TokenLocker test
 $ npx hardhat test test/2_TokenLocker.test.js --network geth

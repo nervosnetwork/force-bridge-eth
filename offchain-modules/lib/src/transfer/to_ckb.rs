@@ -243,6 +243,7 @@ pub fn dev_init(
                 index: 4,
             },
         },
+        ..Default::default()
     };
     log::info!("settings: {:?}", &settings);
     settings.write(&config_path).map_err(|e| anyhow!(e))?;
@@ -257,13 +258,12 @@ pub fn create_bridge_cell(
     indexer_url: String,
     private_key_path: String,
     tx_fee: String,
-    eth_contract_address_str: String,
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
 ) -> Result<()> {
     let settings = Settings::new(&config_path)?;
-    let mut generator = Generator::new(rpc_url, indexer_url, settings)
+    let mut generator = Generator::new(rpc_url, indexer_url, settings.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
@@ -275,7 +275,7 @@ pub fn create_bridge_cell(
         .map_err(|e| anyhow!(e))?
         .into();
 
-    let eth_contract_address = convert_eth_address(eth_contract_address_str.as_str())?;
+    let eth_contract_address = convert_eth_address(settings.eth_token_locker_addr.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
     let recipient_lockscript = Script::from(
         Address::from_str(&recipient_address)
