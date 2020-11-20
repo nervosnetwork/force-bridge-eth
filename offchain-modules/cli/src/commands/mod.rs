@@ -56,7 +56,8 @@ pub async fn handler(opt: Opts) -> Result<()> {
 }
 
 pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> Result<()> {
-    let eth_ckb_chain_addr = convert_eth_address(&args.eth_ckb_chain_addr)?;
+    let settings = Settings::new(&args.config_path)?;
+    let eth_ckb_chain_addr = convert_eth_address(&settings.eth_ckb_chain_addr)?;
     let hash = init_light_client(
         args.ckb_rpc_url,
         args.indexer_url,
@@ -109,8 +110,9 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
+    let settings = Settings::new(&args.config_path)?;
+    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
     let from = convert_eth_address(&args.from)?;
-    let to = convert_eth_address(&args.to)?;
     let hash = approve(
         from,
         to,
@@ -127,7 +129,8 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let to = convert_eth_address(&args.to)?;
+    let settings = Settings::new(&args.config_path)?;
+    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
     let token_addr = convert_eth_address(&args.token)?;
     let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
@@ -154,7 +157,8 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let to = convert_eth_address(&args.to)?;
+    let settings = Settings::new(&args.config_path)?;
+    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
     let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
     let data = [
         Token::Uint(U256::from(args.bridge_fee)),
@@ -399,7 +403,8 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
-    let to = convert_eth_address(&args.to)?;
+    let settings = Settings::new(&args.config_path)?;
+    let to = convert_eth_address(&settings.eth_ckb_chain_addr)?;
     let mut ckb_relayer = CKBRelayer::new(
         args.ckb_rpc_url,
         args.indexer_rpc_url,
