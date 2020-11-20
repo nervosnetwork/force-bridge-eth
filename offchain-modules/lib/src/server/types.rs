@@ -7,7 +7,7 @@ use web3::types::{H160, U256};
 pub struct CreateBridgeCellArgs {
     pub recipient_address: String,
     pub eth_token_address: String,
-    pub bridge_fee: u128,
+    pub bridge_fee: Uint128,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -89,7 +89,7 @@ impl Rpc for RpcImpl {
             capacity,
             args.eth_token_address,
             args.recipient_address,
-            args.bridge_fee,
+            args.bridge_fee.into(),
         )
         .map_err(|e| {
             jsonrpc_core::Error::invalid_params(format!("fail to create bridge cell, err: {}", e))
