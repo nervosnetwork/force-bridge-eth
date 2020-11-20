@@ -187,9 +187,10 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     let log_index = eth_spv_proof.log_index;
     let network = args.eth_rpc_url;
     let proof_hex = run_fun! {
-    node /Users/leon/dev/rust/leon/eth-proof/index proof --hash ${hash_str} --index ${log_index} --network ${network}}
+    node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --network ${network}}
     .unwrap();
     let proof_json: Value = serde_json::from_str(&proof_hex.clone()).unwrap();
+    info!("generate proof json: {:?}", proof_json);
     let eth_proof = ETHSPVProofJson {
         log_index: u64::try_from(log_index).unwrap(),
         log_entry_data: String::from(proof_json["log_data"].as_str().unwrap()),
