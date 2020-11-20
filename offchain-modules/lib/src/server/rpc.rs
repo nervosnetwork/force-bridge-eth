@@ -18,8 +18,11 @@ use web3::types::U256;
 
 #[rpc]
 pub trait Rpc {
+    #[rpc(name = "burn")]
     fn burn(&self, args: BurnArgs) -> Result<TransactionView>;
+    #[rpc(name = "lock")]
     fn lock(&self, args: LockArgs) -> Result<RawTransaction>;
+    #[rpc(name = "get_sudt_balance")]
     fn get_sudt_balance(&self, args: GetSudtBalanceArgs) -> Result<u128>;
 }
 
