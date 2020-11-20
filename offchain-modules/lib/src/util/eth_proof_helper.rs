@@ -74,7 +74,7 @@ pub fn read_roots_collection() -> RootsCollection {
 
 pub fn read_roots_collection_raw() -> RootsCollectionRaw {
     serde_json::from_reader(
-        std::fs::File::open(std::path::Path::new("cli/deps/dag_merkle_roots.json")).unwrap(),
+        std::fs::File::open(std::path::Path::new("data/dag_merkle_roots.json")).unwrap(),
     )
     .unwrap()
 }

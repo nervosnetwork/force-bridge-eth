@@ -2656,9 +2656,6 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-<<<<<<< HEAD
-version = "0.11.1"
-=======
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3a704eb390aafdc107b0e392f56a82b668e3a71366993b5340f5833fd62505e"
@@ -2669,8 +2666,7 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.11.0"
->>>>>>> upstream/main
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d7744ac029df22dca6284efe4e898991d28e3085c706c972bcd7da4a27a15eb"
 dependencies = [
@@ -2704,7 +2700,7 @@ dependencies = [
  "cloudabi 0.0.3",
  "libc",
  "redox_syscall",
- "smallvec 1.4.2",
+ "smallvec 1.5.0",
  "winapi 0.3.9",
 ]
 
@@ -3875,9 +3871,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b78a366903f506d2ad52ca8dc552102ffdd3e937ba8a227f024dc1d1eae28575"
+checksum = "ccf8dbc19eb42fba10e8feaaec282fb50e2c14b2726d6301dbfeed0f73306a6f"
 dependencies = [
  "tinyvec_macros",
 ]
