@@ -101,7 +101,8 @@ impl CKBRelayer {
         }
         if !futures.is_empty() {
             let now = Instant::now();
-            join_all(futures).await;
+            let results = join_all(futures).await;
+            info!("join_all execute result {:?}", results);
             info!("relay headers time elapsed: {:?}", now.elapsed());
         }
         Ok(())

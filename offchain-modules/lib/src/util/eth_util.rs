@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Result};
 use eth_spv_lib::eth_types::my_keccak256;
 use ethabi::{FixedBytes, Function, Param, ParamType, Token, Uint};
 use ethereum_tx_sign::RawTransaction;
-use log::{debug, info};
+use log::{debug, error, info};
 use rlp::{DecoderError, Rlp, RlpStream};
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use std::time::Duration;
@@ -12,7 +12,7 @@ use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256}
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
-const MAX_GAS_LIMIT: u64 = 11000000;
+const MAX_GAS_LIMIT: u64 = 7000000;
 
 pub struct Web3Client {
     url: String,
@@ -191,7 +191,7 @@ impl Web3Client {
 pub async fn relay_header_transaction(url: String, signed_tx: Vec<u8>) -> Result<()> {
     let client = web3::Web3::new(web3::transports::Http::new(&url)?);
     let tx_receipt = client
-        .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(10, 100), 1)
+        .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(1, 0), 1)
         .await?;
     let tx_status = tx_receipt
         .status
@@ -200,11 +200,12 @@ pub async fn relay_header_transaction(url: String, signed_tx: Vec<u8>) -> Result
     if tx_status.as_usize() == 1 {
         info!("relay headers success. tx_hash : {} ", hex_tx_hash)
     } else {
-        bail!(
-            "failed to relay headers tx_hash: {} , tx_status : {}",
-            hex_tx_hash,
-            tx_status
+        let msg = format!(
+            "failed to relay headers. tx_hash: {} , tx_status : {}",
+            hex_tx_hash, tx_status,
         );
+        error!("{:?}", msg);
+        bail!("{:?}", msg);
     }
     Ok(())
 }
