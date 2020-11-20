@@ -172,6 +172,7 @@ pub async fn get_header_rlp(url: String, hash: H256) -> Result<String> {
 
 pub async fn send_eth_spv_proof_tx(
     generator: &mut Generator,
+    config_path: String,
     eth_proof: &ETHSPVProofJson,
     private_key_path: String,
 ) -> Result<ckb_types::H256> {
@@ -180,7 +181,7 @@ pub async fn send_eth_spv_proof_tx(
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
 
-    let unsigned_tx = generator.generate_eth_spv_tx(from_lockscript, eth_proof)?;
+    let unsigned_tx = generator.generate_eth_spv_tx(config_path, from_lockscript, eth_proof)?;
     let tx =
         sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
     log::info!(

@@ -8,7 +8,7 @@ use ckb_types::core::{DepType, TransactionView};
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity};
 use cmd_lib::run_cmd;
-use ethereum_types::{H256, U64};
+use ethereum_types::H256;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::sign;
@@ -18,7 +18,7 @@ use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
-pub const INIT_ETH_HEIGHT: u64 = 15;
+// pub const INIT_ETH_HEIGHT: u64 = 15;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -131,10 +131,8 @@ impl ETHRelayer {
             )
             .hash_type(DepType::Code.into())
             .build();
-        let block = self
-            .eth_client
-            .get_block(U64::from(INIT_ETH_HEIGHT).into())
-            .await?;
+        let current_number = self.eth_client.client().eth().block_number().await?;
+        let block = self.eth_client.get_block(current_number.into()).await?;
         let witness = self.generate_witness(block.number.unwrap().as_u64())?;
         let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
         let from_lockscript = self.generate_from_lockscript(from_privkey)?;
@@ -166,8 +164,8 @@ impl ETHRelayer {
 
     pub fn generate_witness(&mut self, number: u64) -> Result<Witness> {
         let proof_data_path = self.proof_data_path.clone();
-        run_cmd!(vendor/relayer ${number} > /tmp/data.json)?;
-        run_cmd!(tail -1 /tmp/data.json > ${proof_data_path})?;
+        run_cmd!(vendor/relayer ${number} > data/proof_data_temp.json)?;
+        run_cmd!(tail -1 data/proof_data_temp.json > ${proof_data_path})?;
         let block_with_proofs = read_block(proof_data_path);
         let witness = Witness {
             cell_dep_index_list: vec![0],
@@ -319,5 +317,66 @@ pub fn update_cell_sync(
         info!("waiting for cell to be committed, loop index: {}", i,);
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+    Ok(())
+}
+
+pub fn wait_header_sync_success(
+    generator: &mut Generator,
+    config_path: String,
+    header_rlp: String,
+) -> Result<()> {
+    let header: eth_spv_lib::eth_types::BlockHeader = rlp::decode(
+        hex::decode(header_rlp.as_str())
+            .unwrap()
+            .to_vec()
+            .as_slice(),
+    )
+    .unwrap();
+    let mut i = 0;
+    let cell_script;
+    loop {
+        let settings = Settings::new(&config_path)?;
+        let cell_script_result = parse_cell(settings.light_client_cell_script.cell_script.as_str());
+        match cell_script_result {
+            Ok(cell_script_result) => {
+                cell_script = cell_script_result;
+                break;
+            }
+            Err(_) => {
+                info!("waiting for cell script init, loop index: {}", i);
+                i += 1;
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+        }
+    }
+    i = 0;
+    loop {
+        let cell = get_live_cell_by_typescript(&mut generator.indexer_client, cell_script.clone())
+            .map_err(|err| anyhow!(err))?;
+        if cell.is_none() {
+            info!("waiting for finding cell deps, loop index: {}", i);
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            i += 1;
+            continue;
+        }
+        let ckb_cell_data = cell.unwrap().clone().output_data.as_bytes().to_vec();
+        let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
+
+        if header.number
+            <= un_confirmed_headers[un_confirmed_headers.len() - 1]
+                .number
+                .unwrap()
+                .as_u64()
+        {
+            break;
+        }
+        info!(
+            "waiting for eth client header reach sync, eth header number: {:?}, ckb light client number: {:?}, loop index: {}",
+            header.number, un_confirmed_headers[un_confirmed_headers.len() - 1].number.unwrap().as_u64(),i,
+        );
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        i += 1;
+    }
+
     Ok(())
 }

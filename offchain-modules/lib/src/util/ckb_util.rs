@@ -313,16 +313,16 @@ impl Generator {
     #[allow(clippy::mutable_key_type)]
     pub fn generate_eth_spv_tx(
         &mut self,
+        config_path: String,
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
     ) -> Result<TransactionView> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
-
+        let settings = Settings::new(&config_path)?;
         // add cell deps.
         {
-            let cell_script =
-                parse_cell(self.settings.light_client_cell_script.cell_script.as_str())?;
+            let cell_script = parse_cell(settings.light_client_cell_script.cell_script.as_str())?;
             let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
                 .map_err(|err| anyhow!(err))?
                 .ok_or_else(|| anyhow!("no cell found for cell dep"))?;

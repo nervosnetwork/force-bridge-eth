@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use cmd_lib::run_fun;
 use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
-use force_eth_lib::relay::eth_relay::ETHRelayer;
+use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
 use force_eth_lib::transfer::to_ckb::{
     approve, create_bridge_cell, dev_init, get_header_rlp, lock_eth, lock_token,
     send_eth_spv_proof_tx,
@@ -204,7 +204,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         log_entry_data: String::from(proof_json["log_data"].as_str().unwrap()),
         receipt_index: eth_spv_proof.receipt_index,
         receipt_data: String::from(proof_json["receipt_data"].as_str().unwrap()),
-        header_data: header_rlp,
+        header_data: header_rlp.clone(),
         proof: vec![proof_json["proof"][0].as_str().unwrap().to_owned()],
         token: eth_spv_proof.token,
         lock_amount: eth_spv_proof.lock_amount,
@@ -216,7 +216,14 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     };
     let mut generator = Generator::new(args.ckb_rpc_url, args.indexer_url, settings)
         .map_err(|e| anyhow::anyhow!(e))?;
-    let tx_hash = send_eth_spv_proof_tx(&mut generator, &eth_proof, args.private_key_path).await?;
+    wait_header_sync_success(&mut generator, args.config_path.clone(), header_rlp.clone())?;
+    let tx_hash = send_eth_spv_proof_tx(
+        &mut generator,
+        args.config_path,
+        &eth_proof,
+        args.private_key_path,
+    )
+    .await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);
     Ok(())
 }
