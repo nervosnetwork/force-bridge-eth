@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use eth_spv_lib::eth_types::my_keccak256;
-use ethabi::{FixedBytes, Uint};
+use ethabi::{FixedBytes, Function, Param, ParamType, Token, Uint};
 use ethereum_tx_sign::RawTransaction;
 use log::{debug, info};
 use rlp::{DecoderError, Rlp, RlpStream};
@@ -323,6 +323,68 @@ fn left_pad_with_zero(string: &str) -> Result<String> {
 
 pub fn decode_hex(hex_to_decode: String) -> Result<Vec<u8>> {
     Ok(hex::decode(hex_to_decode)?)
+}
+
+pub fn build_lock_token_payload(data: &[Token]) -> Result<ethabi::Bytes> {
+    let function = Function {
+        name: "lockToken".to_owned(),
+        inputs: vec![
+            Param {
+                name: "token".to_owned(),
+                kind: ParamType::Address,
+            },
+            Param {
+                name: "amount".to_owned(),
+                kind: ParamType::Uint(256),
+            },
+            Param {
+                name: "bridgeFee".to_owned(),
+                kind: ParamType::Uint(256),
+            },
+            Param {
+                name: "recipientLockscript".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "replayResistOutpoint".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "sudtExtraData".to_owned(),
+                kind: ParamType::Bytes,
+            },
+        ],
+        outputs: vec![],
+        constant: false,
+    };
+    Ok(function.encode_input(data)?)
+}
+
+pub fn build_lock_eth_payload(data: &[Token]) -> Result<ethabi::Bytes> {
+    let function = Function {
+        name: "lockETH".to_owned(),
+        inputs: vec![
+            Param {
+                name: "bridgeFee".to_owned(),
+                kind: ParamType::Uint(256),
+            },
+            Param {
+                name: "recipientLockscript".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "replayResistOutpoint".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "sudtExtraData".to_owned(),
+                kind: ParamType::Bytes,
+            },
+        ],
+        outputs: vec![],
+        constant: false,
+    };
+    Ok(function.encode_input(data)?)
 }
 
 #[tokio::test]

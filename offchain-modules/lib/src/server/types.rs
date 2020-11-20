@@ -22,3 +22,23 @@ pub struct BurnArgs {
     pub lock_contract_address: String,
     pub recipient_address: String,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetSudtBalanceArgs {
+    pub address: String,
+    pub token_address: String,
+    pub lock_contract_address: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LockArgs {
+    pub lock_contract_address: String,
+    pub token_address: String,
+    pub amount: u128,
+    pub bridge_fee: u128,
+    pub ckb_recipient_address: String,
+    pub replay_resist_outpoint: String,
+    pub sudt_extra_data: String,
+    pub gas_price: u128,
+    pub nonce: u128,
+}
