@@ -9,6 +9,7 @@ pub struct Opts {
 
 #[derive(Clap, Clone, Debug)]
 pub enum SubCommand {
+    Server(ServerArgs),
     InitCkbLightContract(InitCkbLightContractArgs),
     DevInit(DevInitArgs),
     CreateBridgeCell(CreateBridgeCellArgs),
@@ -26,6 +27,20 @@ pub enum SubCommand {
     QuerySudtBlance(SudtGetBalanceArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct ServerArgs {
+    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "http://127.0.0.1:8114")]
+    pub rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8116")]
+    pub indexer_url: String,
+    #[clap(short, long, default_value = "127.0.0.1:3030")]
+    pub listen_url: String,
+    #[clap(short, long, default_value = "3")]
+    pub threads_num: usize,
 }
 
 #[derive(Clap, Clone, Debug)]

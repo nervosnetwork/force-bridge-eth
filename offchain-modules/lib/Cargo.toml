@@ -35,3 +35,7 @@ cmd_lib = "0.8.5"
 force-eth-types = { path = "../../ckb-contracts/types" }
 tiny-keccak = "2.0.2"
 molecule = { version = "0.6", default-features = false }
+jsonrpc-core = "15.1"
+jsonrpc-http-server = "15.1"
+jsonrpc-derive = "15.1"
+jsonrpc-core-client  = "15.1"
