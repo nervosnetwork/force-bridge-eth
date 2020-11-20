@@ -111,8 +111,8 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
     let settings = Settings::new(&args.config_path)?;
-    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
-    let from = convert_eth_address(&args.from)?;
+    let from = convert_eth_address(&settings.eth_token_locker_addr)?;
+    let to = convert_eth_address(&args.erc20_addr)?;
     let hash = approve(
         from,
         to,
@@ -415,6 +415,6 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     )?;
     loop {
         ckb_relayer.start(args.per_amount).await?;
-        std::thread::sleep(std::time::Duration::from_secs(10));
+        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }

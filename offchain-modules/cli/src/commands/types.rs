@@ -31,7 +31,7 @@ pub enum SubCommand {
 
 #[derive(Clap, Clone, Debug)]
 pub struct ServerArgs {
-    #[clap(long, default_value = "/tmp/.force-bridge-cli/config.toml")]
+    #[clap(long, default_value = ".force-bridge-cli-config.toml")]
     pub config_path: String,
     #[clap(long, default_value = "http://127.0.0.1:8114")]
     pub rpc_url: String,
@@ -119,7 +119,7 @@ pub struct ApproveArgs {
     #[clap(long, default_value = ".force-bridge-cli-config.toml")]
     pub config_path: String,
     #[clap(short, long)]
-    pub from: String,
+    pub erc20_addr: String,
     #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub rpc_url: String,
     #[clap(short = 'k', long, default_value = "privkeys/eth_key")]
