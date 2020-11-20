@@ -6,3 +6,5 @@ demo/data/
 demo/bin/
 demo/contracts/
 demo/.force-bridge-cli-config.toml
+demo/eth-proof
+demo/vendor

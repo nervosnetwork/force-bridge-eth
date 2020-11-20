@@ -1,6 +1,11 @@
+use anyhow::Result;
 use eth_spv_lib::eth_types::{hash256, H128, H256, H512};
+use force_eth_types::generated::basic::{Bytes, BytesVec};
+use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
 use hex::FromHex;
+use molecule::prelude::{Builder, Entity};
 use serde::{Deserialize, Deserializer};
+use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub struct Hex(pub Vec<u8>);
@@ -21,6 +26,57 @@ impl<'de> Deserialize<'de> for Hex {
             serde::de::Error::custom(err.to_string())
         })?))
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RootsCollectionRaw {
+    pub dag_merkle_roots: Vec<Hex>, // H128
+}
+
+#[derive(Default, Clone, Deserialize, Debug)]
+pub struct RootsCollectionJson {
+    pub dag_merkle_roots: Vec<String>,
+}
+
+impl TryFrom<RootsCollectionJson> for DagsMerkleRoots {
+    type Error = anyhow::Error;
+    fn try_from(roots: RootsCollectionJson) -> Result<Self> {
+        let mut roots_vec: Vec<Bytes> = vec![];
+        for i in 0..roots.dag_merkle_roots.len() {
+            roots_vec.push(hex::decode(&roots.dag_merkle_roots[i])?.into());
+        }
+        Ok(DagsMerkleRoots::new_builder()
+            .dags_merkle_roots(BytesVec::new_builder().set(roots_vec).build())
+            .build())
+    }
+}
+
+#[derive(Debug)]
+pub struct RootsCollection {
+    pub dag_merkle_roots: Vec<H128>,
+}
+
+impl From<RootsCollectionRaw> for RootsCollection {
+    fn from(item: RootsCollectionRaw) -> Self {
+        Self {
+            dag_merkle_roots: item
+                .dag_merkle_roots
+                .iter()
+                .map(|e| H128::from(&e.0))
+                .collect(),
+        }
+    }
+}
+
+pub fn read_roots_collection() -> RootsCollection {
+    read_roots_collection_raw().into()
+}
+
+pub fn read_roots_collection_raw() -> RootsCollectionRaw {
+    serde_json::from_reader(
+        std::fs::File::open(std::path::Path::new("data/dag_merkle_roots.json")).unwrap(),
+    )
+    .unwrap()
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,6 +153,34 @@ impl BlockWithProofs {
                     .to_vec(),
             })
             .collect()
+    }
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct DoubleNodeWithMerkleProofJson {
+    pub dag_nodes: Vec<String>, // [H512; 2]
+    pub proof: Vec<String>,
+}
+
+impl TryFrom<DoubleNodeWithMerkleProofJson>
+    for force_eth_types::generated::eth_header_cell::DoubleNodeWithMerkleProof
+{
+    type Error = anyhow::Error;
+    fn try_from(proof: DoubleNodeWithMerkleProofJson) -> Result<Self> {
+        let mut dag_nodes_vec: Vec<Bytes> = vec![];
+        for i in 0..proof.dag_nodes.len() {
+            dag_nodes_vec.push(hex::decode(&proof.dag_nodes[i])?.into());
+        }
+        let mut proof_vec: Vec<Bytes> = vec![];
+        for i in 0..proof.proof.len() {
+            proof_vec.push(hex::decode(&proof.proof[i])?.into());
+        }
+        Ok(
+            force_eth_types::generated::eth_header_cell::DoubleNodeWithMerkleProof::new_builder()
+                .dag_nodes(BytesVec::new_builder().set(dag_nodes_vec).build())
+                .proof(BytesVec::new_builder().set(proof_vec).build())
+                .build(),
+        )
     }
 }
 
