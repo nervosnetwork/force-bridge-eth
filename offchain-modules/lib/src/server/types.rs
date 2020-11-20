@@ -4,6 +4,18 @@ use serde::{Deserialize, Serialize};
 use web3::types::{H160, U256};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateBridgeCellArgs {
+    pub recipient_address: String,
+    pub eth_token_address: String,
+    pub bridge_fee: Uint128,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateBridgeCellResponse {
+    pub outpoint: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BurnArgs {
     pub from_lockscript_addr: String,
     pub tx_fee: String,

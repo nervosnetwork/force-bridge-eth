@@ -32,6 +32,7 @@ cd "$DIR"/demo
 # start relayer
 ${FORCE_CLI} init-ckb-light-contract -i 1 -f 500 -c 40000 --wait
 ps aux | grep 'force-eth-cli ckb-relay' | grep -v grep | awk '{print $2}' | xargs kill -9
+${FORCE_CLI} ckb-relay -k privkeys/ckb2eth_relayer_key --per-amount 5 > data/ckb-relayer.log 2>&1 &
 ps aux | grep 'force-eth-cli eth-relay' | grep -v grep | awk '{print $2}' | xargs kill -9
 ${FORCE_CLI} ckb-relay -k privkeys/ckb2eth_relayer_key --per-amount 10 > data/ckb-relayer.log 2>&1 &
 ${FORCE_CLI} eth-relay > data/eth-relayer.log 2>&1 &

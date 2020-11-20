@@ -1,4 +1,5 @@
-use super::types::{BurnArgs, BurnResult, GetSudtBalanceArgs, LockArgs, LockResult};
+use super::types::*;
+use crate::transfer::to_ckb::create_bridge_cell;
 use crate::util::ckb_util::{build_lockscript_from_address, Generator};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
@@ -9,6 +10,7 @@ use ckb_jsonrpc_types::Uint128;
 use ckb_sdk::{Address, HumanCapacity};
 use ckb_types::packed::Script;
 use ethabi::Token;
+use force_sdk::util::ensure_indexer_sync;
 use jsonrpc_core::{IoHandler, Result};
 use jsonrpc_derive::rpc;
 use jsonrpc_http_server::ServerBuilder;
@@ -18,6 +20,8 @@ use web3::types::U256;
 
 #[rpc]
 pub trait Rpc {
+    #[rpc(name = "create_bridge_cell")]
+    fn create_bridge_cell(&self, args: CreateBridgeCellArgs) -> Result<CreateBridgeCellResponse>;
     #[rpc(name = "burn")]
     fn burn(&self, args: BurnArgs) -> Result<BurnResult>;
     #[rpc(name = "lock")]
@@ -27,15 +31,24 @@ pub trait Rpc {
 }
 
 pub struct RpcImpl {
+    config_path: String,
     indexer_url: String,
     ckb_rpc_url: String,
     settings: Settings,
+    private_key_path: String,
 }
 
 impl RpcImpl {
-    fn new(config_path: String, indexer_url: String, ckb_rpc_url: String) -> Result<Self> {
+    fn new(
+        config_path: String,
+        indexer_url: String,
+        ckb_rpc_url: String,
+        private_key_path: String,
+    ) -> Result<Self> {
         let settings = Settings::new(config_path.as_str()).expect("invalid settings");
         Ok(Self {
+            private_key_path,
+            config_path,
             indexer_url,
             ckb_rpc_url,
             settings,
@@ -43,16 +56,47 @@ impl RpcImpl {
     }
 
     fn get_generator(&self) -> Result<Generator> {
-        Generator::new(
+        let mut generator = Generator::new(
             self.ckb_rpc_url.clone(),
             self.indexer_url.clone(),
             self.settings.clone(),
         )
-        .map_err(|e| jsonrpc_core::Error::invalid_params(format!("new geneartor fail, err: {}", e)))
+        .map_err(|e| {
+            jsonrpc_core::Error::invalid_params(format!("new geneartor fail, err: {}", e))
+        })?;
+        ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60).map_err(
+            |e| {
+                jsonrpc_core::Error::invalid_params(format!(
+                    "failed to ensure indexer sync : {}",
+                    e
+                ))
+            },
+        )?;
+        Ok(generator)
     }
 }
 
 impl Rpc for RpcImpl {
+    fn create_bridge_cell(&self, args: CreateBridgeCellArgs) -> Result<CreateBridgeCellResponse> {
+        let tx_fee = "0.1".to_string();
+        let capacity = "283".to_string();
+        let outpoint = create_bridge_cell(
+            self.config_path.clone(),
+            self.ckb_rpc_url.clone(),
+            self.indexer_url.clone(),
+            self.private_key_path.clone(),
+            tx_fee,
+            capacity,
+            args.eth_token_address,
+            args.recipient_address,
+            args.bridge_fee.into(),
+        )
+        .map_err(|e| {
+            jsonrpc_core::Error::invalid_params(format!("fail to create bridge cell, err: {}", e))
+        })?;
+        Ok(CreateBridgeCellResponse { outpoint })
+    }
+
     fn burn(&self, args: BurnArgs) -> Result<BurnResult> {
         let from_lockscript = Script::from(
             Address::from_str(args.from_lockscript_addr.as_str())
@@ -183,13 +227,16 @@ pub fn start(
     config_path: String,
     ckb_rpc_url: String,
     indexer_url: String,
+    private_key_path: String,
     listen_url: String,
     threads_num: usize,
 ) {
     let mut io = IoHandler::new();
-    let rpc = RpcImpl::new(config_path, indexer_url, ckb_rpc_url).expect("init handler error");
+    let rpc = RpcImpl::new(config_path, indexer_url, ckb_rpc_url, private_key_path)
+        .expect("init handler error");
     io.extend_with(rpc.to_delegate());
 
+    log::info!("server start at {}", &listen_url);
     let server = ServerBuilder::new(io)
         .threads(threads_num)
         .start_http(&listen_url.parse().unwrap())
