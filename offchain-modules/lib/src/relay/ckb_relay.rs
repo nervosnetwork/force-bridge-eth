@@ -113,11 +113,7 @@ impl CKBRelayer {
         let tx_receipt = self
             .web3_client
             .client()
-            .send_raw_transaction_with_confirmation(
-                Bytes::from(signed_tx),
-                Duration::new(10, 100),
-                1,
-            )
+            .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(1, 0), 1)
             .await?;
         let tx_status = tx_receipt
             .status
