@@ -387,6 +387,21 @@ pub fn build_lock_eth_payload(data: &[Token]) -> Result<ethabi::Bytes> {
     Ok(function.encode_input(data)?)
 }
 
+pub fn rlp_transaction(tx: &RawTransaction) -> String {
+    let mut s = RlpStream::new();
+    s.append(&tx.nonce);
+    s.append(&tx.gas_price);
+    s.append(&tx.gas);
+    if let Some(ref t) = tx.to {
+        s.append(t);
+    } else {
+        s.append(&vec![]);
+    }
+    s.append(&tx.value);
+    s.append(&tx.data);
+    hex::encode(s.out().as_slice())
+}
+
 #[tokio::test]
 async fn test_get_block() {
     use cmd_lib::run_cmd;
