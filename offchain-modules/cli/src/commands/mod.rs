@@ -56,7 +56,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
 }
 
 pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> Result<()> {
-    let to = convert_eth_address(&args.to)?;
+    let eth_ckb_chain_addr = convert_eth_address(&args.eth_ckb_chain_addr)?;
     let hash = init_light_client(
         args.ckb_rpc_url,
         args.indexer_url,
@@ -65,7 +65,7 @@ pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> 
         args.finalized_gc,
         args.canonical_gc,
         args.gas_price,
-        to,
+        eth_ckb_chain_addr,
         args.private_key_path,
         args.wait,
     )

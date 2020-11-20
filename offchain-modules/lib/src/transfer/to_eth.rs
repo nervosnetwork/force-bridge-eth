@@ -28,7 +28,7 @@ pub async fn init_light_client(
     finalized_gc_threshold: u64,
     canonical_gc_threshold: u64,
     gas_price: u64,
-    to: H160,
+    eth_ckb_chain_addr: H160,
     key_path: String,
     wait: bool,
 ) -> Result<String> {
@@ -53,7 +53,7 @@ pub async fn init_light_client(
     ])?;
     let res = web3_client
         .send_transaction(
-            to,
+            eth_ckb_chain_addr,
             key_path,
             init_header_abi,
             U256::from(gas_price),

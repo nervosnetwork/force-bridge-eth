@@ -68,7 +68,7 @@ pub struct InitCkbLightContractArgs {
     #[clap(short, long)]
     pub init_height: u64,
     #[clap(short, long)]
-    pub to: String,
+    pub eth_ckb_chain_addr: String,
     #[clap(short, long)]
     pub finalized_gc: u64,
     #[clap(short, long)]
