@@ -1,6 +1,20 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateBridgeCellArgs {
+    pub eth_contract_address: String,
+    pub eth_token_address: String,
+    pub recipient_address: String,
+    pub tx_fee: String,
+    pub bridge_fee: u128,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateBridgeCellResponse {
+
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BurnArgs {
     pub from_lockscript_addr: String,
     pub tx_fee: u64,

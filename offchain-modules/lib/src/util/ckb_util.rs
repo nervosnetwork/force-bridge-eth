@@ -292,7 +292,7 @@ impl Generator {
             }
         }
         // 2 create new bridge cell for user
-        helper.add_output_with_auto_capacity(bridge_cell, bridge_cell_data);
+        helper.add_output(bridge_cell, bridge_cell_data);
         // add witness
         {
             let witness = EthWitness {
@@ -393,6 +393,7 @@ impl Generator {
     pub fn create_bridge_cell(
         &mut self,
         tx_fee: u64,
+        capacity: u64,
         from_lockscript: Script,
         eth_token_address: H160,
         eth_contract_address: H160,
@@ -437,7 +438,6 @@ impl Generator {
             .args(bridge_typescript_args.as_bytes().pack())
             .build();
         // build output
-        let capacity: u64 = 500_0000_0000;
         let output = CellOutput::new_builder()
             .capacity(capacity.pack())
             .type_(Some(bridge_typescript).pack())

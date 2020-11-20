@@ -102,6 +102,7 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
         args.indexer_url,
         args.private_key_path,
         args.tx_fee,
+        args.capacity,
         args.eth_token_address,
         args.recipient_address,
         args.bridge_fee,
