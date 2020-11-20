@@ -51,6 +51,13 @@ async function main() {
   };
   const data = JSON.stringify(address);
   console.log(data);
+
+  // write eth address to settings
+  forceConfig.eth_token_locker_addr = lockerAddr;
+  forceConfig.eth_ckb_chain_addr = CKBChinDeployAddr;
+  const new_config = TOML.stringify(forceConfig);
+  fs.writeFileSync(forceConfigPath, new_config);
+  console.error("write eth addr into settings successfully");
 }
 
 // We recommend this pattern to be able to use async/await everywhere

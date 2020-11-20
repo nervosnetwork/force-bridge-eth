@@ -70,7 +70,7 @@ pub fn burn(
     privkey_path: String,
     rpc_url: String,
     indexer_url: String,
-    config_path: String,
+    config_path: &str,
     tx_fee: String,
     unlock_fee: u128,
     amount: u128,
@@ -78,7 +78,7 @@ pub fn burn(
     receive_addr: H160,
     lock_contract_addr: H160,
 ) -> Result<String> {
-    let settings = Settings::new(&config_path)?;
+    let settings = Settings::new(config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings)
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)

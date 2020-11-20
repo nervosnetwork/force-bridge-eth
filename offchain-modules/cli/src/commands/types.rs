@@ -54,8 +54,6 @@ pub struct CreateBridgeCellArgs {
     #[clap(short = 'k', long, default_value = "privkeys/ckb_key")]
     pub private_key_path: String,
     #[clap(long)]
-    pub eth_contract_address: String,
-    #[clap(long)]
     pub eth_token_address: String,
     #[clap(long)]
     pub recipient_address: String,
@@ -210,8 +208,6 @@ pub struct MintArgs {
     pub private_key_path: String,
     #[clap(short, long)]
     pub cell: String,
-    #[clap(long)]
-    pub eth_contract_address: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -234,10 +230,6 @@ pub struct TransferFromCkbArgs {
     pub token_addr: String,
     #[clap(long)]
     pub receive_addr: String,
-    #[clap(long)]
-    pub lock_contract_addr: String,
-    #[clap(long)]
-    pub light_client_addr: String,
     #[clap(long)]
     pub burn_amount: u128,
     #[clap(long)]
@@ -266,8 +258,6 @@ pub struct BurnArgs {
     pub token_addr: String,
     #[clap(long)]
     pub receive_addr: String,
-    #[clap(long)]
-    pub lock_contract_addr: String,
     #[clap(long)]
     pub burn_amount: u128,
     #[clap(long)]
@@ -357,8 +347,6 @@ pub struct TransferSudtArgs {
     pub token_addr: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
-    #[clap(long)]
-    pub lock_contract_addr: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -373,6 +361,4 @@ pub struct SudtGetBalanceArgs {
     pub addr: String,
     #[clap(long)]
     pub token_addr: String,
-    #[clap(long)]
-    pub lock_contract_addr: String,
 }

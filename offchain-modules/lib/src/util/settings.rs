@@ -26,6 +26,8 @@ pub struct Settings {
     pub light_client_typescript: ScriptConf,
     pub recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
+    pub eth_token_locker_addr: String,
+    pub eth_ckb_chain_addr: String,
 }
 
 impl Settings {
