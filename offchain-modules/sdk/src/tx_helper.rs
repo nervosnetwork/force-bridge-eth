@@ -19,8 +19,7 @@ use ckb_sdk::constants::{
     MIN_SECP_CELL_CAPACITY, MULTISIG_TYPE_HASH, ONE_CKB, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH,
 };
 use ckb_sdk::HttpRpcClient;
-use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since, SECP256K1};
-use ckb_types::core::BlockView;
+use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since};
 use secp256k1::SecretKey;
 
 pub const CKB_UNITS: u64 = 100_000_000;

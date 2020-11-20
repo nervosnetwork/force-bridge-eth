@@ -308,10 +308,7 @@ pub struct EthRelayArgs {
     pub private_key_path: String,
     #[clap(long, default_value = "http://localhost:8114")]
     pub ckb_rpc_url: String,
-    #[clap(
-        long,
-        default_value = "https://ropsten.infura.io/v3/3ed3eadf912c4b31b800aafeedbf79eb"
-    )]
+    #[clap(long, default_value = "http://localhost:8545")]
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8116")]
     pub indexer_rpc_url: String,

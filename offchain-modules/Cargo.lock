@@ -1350,6 +1350,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "cmd_lib",
  "env_logger",
  "ethabi",
  "force-eth-lib",
@@ -1357,7 +1358,8 @@ dependencies = [
  "int-enum",
  "log",
  "molecule",
- "rusty-receipt-proof-maker",
+ "rlp",
+ "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=03b10ca)",
  "serde 1.0.117",
  "serde_json",
  "tokio 0.2.23",
@@ -1387,7 +1389,7 @@ dependencies = [
  "log",
  "molecule",
  "rlp",
- "rusty-receipt-proof-maker",
+ "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=14eddf2)",
  "secp256k1",
  "serde 1.0.117",
  "serde_derive",
@@ -1606,7 +1608,7 @@ dependencies = [
  "futures-sink",
  "futures-task",
  "memchr",
- "pin-project 1.0.1",
+ "pin-project 1.0.2",
  "pin-utils",
  "proc-macro-hack",
  "proc-macro-nested",
@@ -1877,7 +1879,7 @@ dependencies = [
  "httparse",
  "httpdate",
  "itoa",
- "pin-project 1.0.1",
+ "pin-project 1.0.2",
  "socket2",
  "tokio 0.2.23",
  "tower-service",
@@ -1993,9 +1995,9 @@ dependencies = [
 
 [[package]]
 name = "instant"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb1fc4429a33e1f80d41dc9fea4d108a88bec1de8053878898ae448a0b52f613"
+checksum = "61124eeebbd69b8190558df225adf7e4caafce0d743919e5d6b19652314ec5ec"
 dependencies = [
  "cfg-if 1.0.0",
 ]
@@ -2137,9 +2139,9 @@ dependencies = [
 
 [[package]]
 name = "lock_api"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28247cc5a5be2f05fbcd76dd0cf2c7d3b5400cb978a28042abcd4fa0b3f8261c"
+checksum = "dd96ffd135b2fd7b973ac026d28085defbe8983df057ced3eb4f2130b0831312"
 dependencies = [
  "scopeguard",
 ]
@@ -2534,12 +2536,12 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4893845fa2ca272e647da5d0e46660a314ead9c2fdd9a883aabc32e481a8733"
+checksum = "6d7744ac029df22dca6284efe4e898991d28e3085c706c972bcd7da4a27a15eb"
 dependencies = [
  "instant",
- "lock_api 0.4.1",
+ "lock_api 0.4.2",
  "parking_lot_core 0.8.0",
 ]
 
@@ -2569,7 +2571,7 @@ dependencies = [
  "instant",
  "libc",
  "redox_syscall",
- "smallvec 1.4.2",
+ "smallvec 1.5.0",
  "winapi 0.3.9",
 ]
 
@@ -2644,11 +2646,11 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee41d838744f60d959d7074e3afb6b35c7456d0f61cad38a24e35e6553f73841"
+checksum = "9ccc2237c2c489783abd8c4c80e5450fc0e98644555b1364da68cc29aa151ca7"
 dependencies = [
- "pin-project-internal 1.0.1",
+ "pin-project-internal 1.0.2",
 ]
 
 [[package]]
@@ -2664,9 +2666,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-internal"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81a4ffa594b66bff340084d4081df649a7dc049ac8d7fc458d8e628bfbbb2f86"
+checksum = "f8e8d2bf0b23038a4424865103a4df472855692821aab4e4f5c3312d461d9e5f"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.7",
@@ -3150,6 +3152,29 @@ dependencies = [
 [[package]]
 name = "rusty-receipt-proof-maker"
 version = "0.1.0"
+source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=03b10ca#03b10ca00808e1ac61e92f81e413faf83de5156f"
+dependencies = [
+ "chrono",
+ "docopt",
+ "dotenv",
+ "ethabi",
+ "ethereum-types",
+ "hex 0.3.2",
+ "log",
+ "reqwest",
+ "rlp",
+ "serde 1.0.117",
+ "serde_derive",
+ "serde_json",
+ "serial_test_derive",
+ "simple_logger",
+ "simplelog",
+ "tiny-keccak 1.5.0",
+]
+
+[[package]]
+name = "rusty-receipt-proof-maker"
+version = "0.1.0"
 source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=14eddf2#14eddf2eff5c628a335136f90a2367558a877c83"
 dependencies = [
  "chrono",
@@ -3473,9 +3498,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.4.2"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbee7696b84bbf3d89a1c2eccff0850e3047ed46bfcd2e92c29a2d074d57e252"
+checksum = "7acad6f34eb9e8a259d3283d1e8c1d34d7415943d4895f65cc73813c7396fc85"
 
 [[package]]
 name = "socket2"
@@ -3626,9 +3651,9 @@ dependencies = [
 
 [[package]]
 name = "termcolor"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb6bfa289a4d7c5766392812c0a1f4c1ba45afa1ad47803c11e1f407d846d75f"
+checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
 dependencies = [
  "winapi-util",
 ]
@@ -4006,9 +4031,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-normalization"
-version = "0.1.14"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7f98e67a4d84f730d343392f9bfff7d21e3fca562b9cb7a43b768350beeddc6"
+checksum = "a13e63ab62dbe32aeee58d1c5408d35c36c392bba5d9d3142287219721afe606"
 dependencies = [
  "tinyvec",
 ]
@@ -4245,7 +4270,7 @@ dependencies = [
  "jsonrpc-core",
  "log",
  "native-tls",
- "parking_lot 0.11.0",
+ "parking_lot 0.11.1",
  "rlp",
  "rustc-hex",
  "secp256k1",

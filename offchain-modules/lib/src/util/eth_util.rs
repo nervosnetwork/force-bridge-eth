@@ -12,7 +12,7 @@ use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256}
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
-const MAX_GAS_LIMIT: u64 = 11000000;
+const MAX_GAS_LIMIT: u64 = 110000;
 
 pub struct Web3Client {
     url: String,
@@ -347,17 +347,25 @@ pub fn decode_hex(hex_to_decode: String) -> Result<Vec<u8>> {
 
 #[tokio::test]
 async fn test_get_block() {
-    use cmd_lib::run_cmd;
-    use web3::types::{BlockNumber, U64};
-    let mut client = Web3Client::new(String::from(
-        "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
-    ));
-    let res = client.get_header_rlp(U64::from(3).into()).await;
-    println!("{:?}", res);
-    let header_rlp = format!("0x{}", res.unwrap());
-    println!("{:?}", header_rlp);
-    let path = String::from("/tmp/data.json");
+    use cmd_lib::run_fun;
+    use serde_json::{Result, Value};
+    // use web3::types::{BlockNumber, U64};
+    // let mut client = Web3Client::new(String::from(
+    //     "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
+    // ));
+    // let res = client.get_header_rlp(U64::from(3).into()).await;
+    // println!("{:?}", res);
+    // let header_rlp = format!("0x{}", res.unwrap());
+    // println!("{:?}", header_rlp);
+    // let path = String::from("/tmp/data.json");
     // let cmd = format!("pwd > {}", path);
     // println!("{}", cmd);
-    run_cmd!(src/vendor/relayer ${header_rlp} > $path);
+    let hash = "0x731bc2fc859789d4190175281a43a446b6cc34c55bc8736eb793b4362803a19c";
+    let idx = 2;
+    let url = "https://ropsten.infura.io/v3/48be8feb3f9c46c397ceae02a0dbc7ae";
+    let res = run_fun! {
+    node /Users/leon/dev/rust/leon/eth-proof/index proof --hash ${hash} --index ${idx} --network ${url}}
+    .unwrap();
+
+    println!("{:?}", res);
 }

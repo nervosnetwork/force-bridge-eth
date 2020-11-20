@@ -20,17 +20,16 @@ use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
 use force_eth_types::generated::eth_header_cell::{
-    DoubleNodeWithMerkleProof, ETHChain, ETHChainReader, ETHHeaderCellData,
-    ETHHeaderCellDataReader, ETHHeaderInfo, ETHHeaderInfoReader, ETHLightClientWitness,
+    DoubleNodeWithMerkleProof, ETHChain, ETHHeaderCellData, ETHHeaderCellDataReader, ETHHeaderInfo,
+    ETHHeaderInfoReader, ETHLightClientWitness,
 };
 use force_eth_types::generated::{basic, witness};
 use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
-use rlp::{Encodable, Rlp, RlpStream};
+use rlp::Rlp;
 use secp256k1::SecretKey;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Add, Sub};
@@ -89,7 +88,6 @@ impl Generator {
             .capacity(Capacity::shannons(1000 * MIN_SECP_CELL_CAPACITY).pack())
             .build();
         let header_rlp = convert_to_header_rlp(block)?;
-        dbg!(header_rlp.clone());
         let header_info = ETHHeaderInfo::new_builder()
             .header(hex::decode(header_rlp)?.into())
             .total_difficulty(block.total_difficulty.unwrap().as_u64().into())
@@ -407,7 +405,6 @@ impl Generator {
                 .build();
 
             // recipient
-            dbg!(&recipient_lockscript, &from_lockscript);
             let sudt_user_output = CellOutput::new_builder()
                 .type_(Some(sudt_typescript.clone()).pack())
                 .lock(recipient_lockscript)
@@ -434,7 +431,6 @@ impl Generator {
                 spv_proof: eth_proof.clone(),
             }
             .as_bytes();
-            log::debug!("witness: {}", hex::encode(witness.as_ref()));
             helper.transaction = helper
                 .transaction
                 .as_advanced_builder()
@@ -976,7 +972,7 @@ pub struct ETHSPVProofJson {
     pub receipt_index: u64,
     pub receipt_data: String,
     pub header_data: String,
-    pub proof: Vec<Vec<u8>>,
+    pub proof: Vec<String>,
     pub token: H160,
     pub lock_amount: u128,
     pub bridge_fee: u128,
@@ -991,7 +987,8 @@ impl TryFrom<ETHSPVProofJson> for witness::ETHSPVProof {
     fn try_from(proof: ETHSPVProofJson) -> Result<Self> {
         let mut proof_vec: Vec<basic::Bytes> = vec![];
         for i in 0..proof.proof.len() {
-            proof_vec.push(proof.proof[i].to_vec().into())
+            // proof_vec.push(proof.proof[i].to_vec().into())
+            proof_vec.push(hex::decode(&proof.proof[i]).unwrap().into())
         }
         Ok(witness::ETHSPVProof::new_builder()
             .log_index(proof.log_index.into())

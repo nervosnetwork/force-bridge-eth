@@ -1,5 +1,6 @@
 pub mod types;
 use anyhow::{anyhow, bail, Result};
+use cmd_lib::run_fun;
 use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::ETHRelayer;
@@ -17,9 +18,10 @@ use force_eth_lib::util::settings::Settings;
 use log::{debug, info};
 use molecule::prelude::Entity;
 use rusty_receipt_proof_maker::generate_eth_proof;
+use serde_json::Value;
 use std::convert::TryFrom;
 use types::*;
-use web3::types::{H256, U256};
+use web3::types::U256;
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
@@ -180,15 +182,21 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     debug!("mint_handler args: {:?}", &args);
     let eth_spv_proof = generate_eth_proof(args.hash.clone(), args.eth_rpc_url.clone())
         .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
-    let header_rlp = get_header_rlp(args.eth_rpc_url, eth_spv_proof.block_hash).await?;
-
+    let header_rlp = get_header_rlp(args.eth_rpc_url.clone(), eth_spv_proof.block_hash).await?;
+    let hash_str = args.hash.clone();
+    let log_index = eth_spv_proof.log_index;
+    let network = args.eth_rpc_url;
+    let proof_hex = run_fun! {
+    node /Users/leon/dev/rust/leon/eth-proof/index proof --hash ${hash_str} --index ${log_index} --network ${network}}
+    .unwrap();
+    let proof_json: Value = serde_json::from_str(&proof_hex.clone()).unwrap();
     let eth_proof = ETHSPVProofJson {
-        log_index: u64::try_from(eth_spv_proof.log_index).unwrap(),
-        log_entry_data: eth_spv_proof.log_entry_data,
+        log_index: u64::try_from(log_index).unwrap(),
+        log_entry_data: String::from(proof_json["log_data"].as_str().unwrap()),
         receipt_index: eth_spv_proof.receipt_index,
-        receipt_data: eth_spv_proof.receipt_data,
+        receipt_data: String::from(proof_json["receipt_data"].as_str().unwrap()),
         header_data: header_rlp,
-        proof: vec![eth_spv_proof.proof.into_bytes()],
+        proof: vec![proof_json["proof"][0].as_str().unwrap().to_owned()],
         token: eth_spv_proof.token,
         lock_amount: eth_spv_proof.lock_amount,
         recipient_lockscript: eth_spv_proof.recipient_lockscript,

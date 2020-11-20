@@ -5,15 +5,15 @@ use crate::util::settings::{CellScript, OutpointConf, ScriptConf, Settings};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
-use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
+use ckb_types::core::{BlockView, TransactionView};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
-use ckb_types::prelude::{Builder, Entity, Pack};
+use ckb_types::prelude::{Builder, Entity};
 use ethabi::{Function, Param, ParamType, Token};
 use force_eth_types::generated::basic::ETHAddress;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
 use force_sdk::indexer::IndexerRpcClient;
-use force_sdk::tx_helper::{sign, TxHelper, PUBLIC_BRIDGE_CELL};
+use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{ensure_indexer_sync, parse_privkey_path, send_tx_sync};
 use log::info;
 use secp256k1::SecretKey;
@@ -409,14 +409,14 @@ pub fn build_eth_bridge_lock_args(
     Ok(args)
 }
 
-fn build_cell_script(args: ETHBridgeLockArgs, code_hash: &[u8]) -> Result<Script> {
-    let script = Script::new_builder()
-        .code_hash(Byte32::from_slice(&code_hash)?)
-        .hash_type(DepType::Code.into())
-        .args(args.as_bytes().pack())
-        .build();
-    Ok(script)
-}
+// fn build_cell_script(args: ETHBridgeLockArgs, code_hash: &[u8]) -> Result<Script> {
+//     let script = Script::new_builder()
+//         .code_hash(Byte32::from_slice(&code_hash)?)
+//         .hash_type(DepType::Code.into())
+//         .args(args.as_bytes().pack())
+//         .build();
+//     Ok(script)
+// }
 
 pub fn deploy(
     rpc_client: &mut HttpRpcClient,

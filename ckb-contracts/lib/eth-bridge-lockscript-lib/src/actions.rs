@@ -49,9 +49,9 @@ fn verify_witness<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader)
 /// @param cell_dep_index_list is used to get the headers oracle information to verify the cross-chain tx is really exists on the main chain.
 ///
 fn verify_eth_spv_proof<T: Adapter>(
-    _data_loader: &T,
+    data_loader: &T,
     proof: &[u8],
-    _cell_dep_index_list: &[u8],
+    cell_dep_index_list: &[u8],
 ) -> ETHLockEvent {
     if ETHSPVProofReader::verify(proof, false).is_err() {
         panic!("eth spv proof is invalid")
@@ -120,7 +120,7 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
     }
 }
 
-fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, _header: BlockHeader) -> ETHLockEvent {
+fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) -> ETHLockEvent {
     let mut log_index = [0u8; 8];
     log_index.copy_from_slice(proof_reader.log_index().raw_data());
     debug!("log_index is {:?}", &log_index);

@@ -30,7 +30,7 @@ cd "$DIR"/offchain-modules
 target/debug/force-eth-cli approve --from "${ETH_CONTRACT_ADDRESS}" --to "${TOKEN_ADDRESS}" --wait
 target/debug/force-eth-cli create-bridge-cell --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --eth-token-address "${TOKEN_ADDRESS}" --recipient-address "${RECIPIENT_ADDR}" --bridge-fee "${bridge_fee}" > "${BRIDGE_CELL_CONFIG_PATH}"
 bridge_cell_outpoint=$(cat "${BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
-target/debug/force-eth-cli lock-token --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${bridge_cell_outpoint}" --to "${ETH_CONTRACT_ADDRESS}" --token  "${TOKEN_ADDRESS}" --amount 100 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_TOKEN_PATH}"
+target/debug/force-eth-cli lock-token --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${bridge_cell_outpoint}" --to "${ETH_CONTRACT_ADDRESS}" --token  "${TOKEN_ADDRESS}" --amount 10 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_TOKEN_PATH}"
 lock_token_hash=`cat "${LOCK_TOKEN_PATH}"| awk '{print $5}'`
 echo "${lock_token_hash}"
 target/debug/force-eth-cli mint --hash "${lock_token_hash}" --eth-contract-address "${ETH_CONTRACT_ADDRESS}"
@@ -38,12 +38,12 @@ target/debug/force-eth-cli mint --hash "${lock_token_hash}" --eth-contract-addre
 #target/debug/force-eth-cli query-sudt-blance --addr ${RECIPIENT_ADDR} --token-addr "${TOKEN_ADDRESS}" --lock-contract-addr "${ETH_CONTRACT_ADDRESS}"
 #target/debug/force-eth-cli transfer-from-ckb --burn-amount 5 --unlock-fee 1  --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr $ERC20DeployAddr --lock-contract-addr $TokenLockerDepolyAddr --light-client-addr $CKBChainDeployAddr
 
-target/debug/force-eth-cli create-bridge-cell --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --eth-token-address "${ETH_ADDRESS}" --recipient-address "${RECIPIENT_ADDR}" --bridge-fee "${bridge_fee}" > "${BRIDGE_CELL_CONFIG_PATH}"
-bridge_cell_outpoint=$(cat "${BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
-target/debug/force-eth-cli lock-eth --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${bridge_cell_outpoint}" --to "${ETH_CONTRACT_ADDRESS}" --amount 100 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_ETH_PATH}"
-lock_eth_hash=`cat "${LOCK_ETH_PATH}"| awk '{print $4}'`
-echo "${lock_eth_hash}"
-target/debug/force-eth-cli mint --hash "${lock_eth_hash}" --eth-contract-address "${ETH_CONTRACT_ADDRESS}"
+#target/debug/force-eth-cli create-bridge-cell --eth-contract-address "${ETH_CONTRACT_ADDRESS}" --eth-token-address "${ETH_ADDRESS}" --recipient-address "${RECIPIENT_ADDR}" --bridge-fee "${bridge_fee}" > "${BRIDGE_CELL_CONFIG_PATH}"
+#bridge_cell_outpoint=$(cat "${BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
+#target/debug/force-eth-cli lock-eth --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${bridge_cell_outpoint}" --to "${ETH_CONTRACT_ADDRESS}" --amount 100 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_ETH_PATH}"
+#lock_eth_hash=`cat "${LOCK_ETH_PATH}"| awk '{print $4}'`
+#echo "${lock_eth_hash}"
+#target/debug/force-eth-cli mint --hash "${lock_eth_hash}" --eth-contract-address "${ETH_CONTRACT_ADDRESS}"
 
 
 #
