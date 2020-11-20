@@ -19,43 +19,42 @@ use ckb_sdk::constants::{
     MIN_SECP_CELL_CAPACITY, MULTISIG_TYPE_HASH, ONE_CKB, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH,
 };
 use ckb_sdk::HttpRpcClient;
-use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since, SECP256K1};
-use ckb_types::core::BlockView;
+use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since};
 use secp256k1::SecretKey;
 
 pub const CKB_UNITS: u64 = 100_000_000;
 pub const PUBLIC_BRIDGE_CELL: u64 = 1000 * CKB_UNITS;
 
-pub fn deploy(
-    rpc_client: &mut HttpRpcClient,
-    indexer_client: &mut IndexerRpcClient,
-    privkey: &SecretKey,
-    data: Vec<Vec<u8>>,
-) -> Result<TransactionView, String> {
-    let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
-    let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
-    let lockscript = Script::from(&from_address_payload);
-    let mut tx_helper = TxHelper::default();
-    for data in data.into_iter() {
-        let output = CellOutput::new_builder()
-            .lock((&from_address_payload).into())
-            .build();
-        tx_helper.add_output_with_auto_capacity(output, data.into());
-    }
-    let genesis_block: BlockView = rpc_client
-        .get_block_by_number(0)?
-        .expect("Can not get genesis block?")
-        .into();
-    let genesis_info = GenesisInfo::from_block(&genesis_block)?;
-    let tx = tx_helper.supply_capacity(
-        rpc_client,
-        indexer_client,
-        lockscript,
-        &genesis_info,
-        99_999_999,
-    )?;
-    sign(tx, rpc_client, privkey)
-}
+// pub fn deploy(
+//     rpc_client: &mut HttpRpcClient,
+//     indexer_client: &mut IndexerRpcClient,
+//     privkey: &SecretKey,
+//     data: Vec<Vec<u8>>,
+// ) -> Result<TransactionView, String> {
+//     let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
+//     let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
+//     let lockscript = Script::from(&from_address_payload);
+//     let mut tx_helper = TxHelper::default();
+//     for data in data.into_iter() {
+//         let output = CellOutput::new_builder()
+//             .lock((&from_address_payload).into())
+//             .build();
+//         tx_helper.add_output_with_auto_capacity(output, data.into());
+//     }
+//     let genesis_block: BlockView = rpc_client
+//         .get_block_by_number(0)?
+//         .expect("Can not get genesis block?")
+//         .into();
+//     let genesis_info = GenesisInfo::from_block(&genesis_block)?;
+//     let tx = tx_helper.supply_capacity(
+//         rpc_client,
+//         indexer_client,
+//         lockscript,
+//         &genesis_info,
+//         99_999_999,
+//     )?;
+//     sign(tx, rpc_client, privkey)
+// }
 
 #[allow(clippy::mutable_key_type)]
 pub fn sign(

@@ -32,14 +32,16 @@ cd "$DIR"/demo
 # start relayer
 ${FORCE_CLI} init-ckb-light-contract -i 1 -f 500 -c 40000 --wait
 ps aux | grep 'force-eth-cli ckb-relay' | grep -v grep | awk '{print $2}' | xargs kill -9
+ps aux | grep 'force-eth-cli eth-relay' | grep -v grep | awk '{print $2}' | xargs kill -9
 ${FORCE_CLI} ckb-relay -k privkeys/ckb2eth_relayer_key --per-amount 10 > data/ckb-relayer.log 2>&1 &
+${FORCE_CLI} eth-relay > data/eth-relayer.log 2>&1 &
 
 # eth crosschain
 ${FORCE_CLI} create-bridge-cell --eth-token-address "${ETH_ADDRESS}" --recipient-address "${RECIPIENT_ADDR}" --bridge-fee "${bridge_fee}" > "${BRIDGE_CELL_CONFIG_PATH}"
 bridge_cell_outpoint=$(cat "${BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
 ${FORCE_CLI} lock-eth --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${bridge_cell_outpoint}" --amount 100 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_ETH_PATH}"
 lock_eth_hash=`cat "${LOCK_ETH_PATH}"| awk '{print $4}'`
-${FORCE_CLI} mint --hash "${lock_eth_hash}" --cell depend_on_eth_relay
+${FORCE_CLI} mint --hash "${lock_eth_hash}"
 ${FORCE_CLI} query-sudt-blance --addr ${RECIPIENT_ADDR} --token-addr "${ETH_ADDRESS}"
 ${FORCE_CLI} transfer-from-ckb --ckb-privkey-path privkeys/ckb_key_recipient --burn-amount 2 --unlock-fee 1 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr ${ETH_ADDRESS} --wait
 
