@@ -30,4 +30,8 @@ demo-clear:
 demo:
 	bash demo/demo.sh
 
+fmt:
+	make -C offchain-modules fmt
+	make -C ckb-contracts fmt
+
 .PHONY: demo

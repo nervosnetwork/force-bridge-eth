@@ -205,9 +205,9 @@ pub struct TransferFromCkbArgs {
     pub config_path: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
-    #[clap(long)]
+    #[clap(long, default_value = "privkeys/ckb_key")]
     pub ckb_privkey_path: String,
-    #[clap(long)]
+    #[clap(long, default_value = "privkeys/eth_key")]
     pub eth_privkey_path: String,
     #[clap(long, default_value = "http://localhost:8114")]
     pub ckb_rpc_url: String,
@@ -239,7 +239,7 @@ pub struct BurnArgs {
     pub config_path: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
-    #[clap(short = 'k', long)]
+    #[clap(short = 'k', long, default_value = "privkeys/ckb_key")]
     pub private_key_path: String,
     #[clap(long, default_value = "http://localhost:8114")]
     pub ckb_rpc_url: String,
