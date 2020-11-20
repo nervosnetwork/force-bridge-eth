@@ -166,7 +166,7 @@ impl ETHRelayer {
 
     pub fn generate_witness(&mut self, number: u64) -> Result<Witness> {
         let proof_data_path = self.proof_data_path.clone();
-        run_cmd!(lib/src/vendor/relayer ${number} > /tmp/data.json)?;
+        run_cmd!(vendor/relayer ${number} > /tmp/data.json)?;
         run_cmd!(tail -1 /tmp/data.json > ${proof_data_path})?;
         let block_with_proofs = read_block(proof_data_path);
         let witness = Witness {

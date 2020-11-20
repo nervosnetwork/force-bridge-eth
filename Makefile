@@ -15,6 +15,9 @@ demo-build:
 	cd ckb-contracts && capsule build --release
 	mkdir -p demo/{contracts,data,bin} && cp ckb-contracts/build/release/* demo/contracts
 	cp offchain-modules/cli/deps/simple_udt demo/contracts
+	cp -r offchain-modules/vendor demo
+	cp offchain-modules/data/dag_merkle_roots.json demo/data/dag_merkle_roots.json
+	cp -r offchain-modules/eth-proof demo
 	cd offchain-modules && cargo build #--release
 	cp offchain-modules/target/debug/force-eth-cli demo/bin
 	cd eth-contracts && yarn install

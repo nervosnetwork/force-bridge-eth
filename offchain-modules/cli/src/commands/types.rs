@@ -105,10 +105,7 @@ pub struct DevInitArgs {
     pub bridge_lockscript_path: String,
     #[clap(long, default_value = "contracts/eth-light-client-typescript")]
     pub light_client_typescript_path: String,
-    #[clap(
-        long,
-        default_value = "contracts/eth-light-client-lockscript"
-    )]
+    #[clap(long, default_value = "contracts/eth-light-client-lockscript")]
     pub light_client_lockscript_path: String,
     #[clap(long, default_value = "contracts/eth-recipient-typescript")]
     pub recipient_typescript_path: String,
@@ -293,7 +290,7 @@ pub struct UnlockArgs {
 pub struct EthRelayArgs {
     #[clap(long, default_value = ".force-bridge-cli-config.toml")]
     pub config_path: String,
-    #[clap(short = 'k', long, default_value = "cli/privkeys/ckb_key")]
+    #[clap(short = 'k', long, default_value = "privkeys/ckb_key")]
     pub private_key_path: String,
     #[clap(long, default_value = "http://localhost:8114")]
     pub ckb_rpc_url: String,
@@ -301,7 +298,7 @@ pub struct EthRelayArgs {
     pub eth_rpc_url: String,
     #[clap(long, default_value = "http://localhost:8116")]
     pub indexer_rpc_url: String,
-    #[clap(long, default_value = "/tmp/proof_data.json")]
+    #[clap(long, default_value = "data/proof_data.json")]
     pub proof_data_path: String,
 }
 
