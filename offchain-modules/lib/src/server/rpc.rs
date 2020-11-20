@@ -3,66 +3,84 @@ use crate::util::eth_util::convert_eth_address;
 use crate::util::settings::Settings;
 use ckb_sdk::Address;
 use ckb_types::packed::Script;
-use jsonrpc_http_server::jsonrpc_core::*;
+use jsonrpc_core::{IoHandler, Result};
+use jsonrpc_derive::rpc;
+
+use jsonrpc_http_server::jsonrpc_core::Value;
 use jsonrpc_http_server::ServerBuilder;
-use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BurnArgs {
-    unlock_fee: u128,
-    amount: u128,
-    token_address: String,
-    lock_contract_address: String,
-    recipient_address: String,
+use super::types::BurnArgs;
+
+#[rpc]
+pub trait Rpc {
+    /// Adds two numbers and returns a result
+    #[rpc(name = "burn")]
+    fn burn(&self, args: BurnArgs) -> Result<Value>;
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct JsonrpcContractArgs {
-    from_lockscript_addr: String,
-    tx_fee: u64,
-    sub_cmd: BurnArgs,
-}
-
-pub fn start(
+pub struct RpcImpl {
     config_path: String,
-    rpc_url: String,
     indexer_url: String,
-    listen_url: String,
-    threads_num: usize,
-) {
-    let mut io = jsonrpc_core::IoHandler::new();
-    io.add_method("burn", move |params: Params| {
-        dbg!(&params);
-        let rpc_args: JsonrpcContractArgs = params.parse().unwrap();
+    ckb_rpc_url: String,
+}
+
+impl Rpc for RpcImpl {
+    fn burn(&self, args: BurnArgs) -> Result<Value> {
         let from_lockscript = Script::from(
-            Address::from_str(rpc_args.from_lockscript_addr.as_str())
-                .unwrap()
+            Address::from_str(args.from_lockscript_addr.as_str())
+                .map_err(|err| {
+                    jsonrpc_core::Error::invalid_params_with_details(
+                        err,
+                        "ckb_address to script fail",
+                    )
+                })?
                 .payload(),
         );
-        let token_address = convert_eth_address(rpc_args.sub_cmd.token_address.as_str()).unwrap();
-        let lock_contract_address =
-            convert_eth_address(rpc_args.sub_cmd.lock_contract_address.as_str()).unwrap();
-        let recipient_address =
-            convert_eth_address(rpc_args.sub_cmd.recipient_address.as_str()).unwrap();
+        let token_address = convert_eth_address(args.token_address.as_str())
+            .map_err(|_| jsonrpc_core::Error::invalid_params("token address parse fail"))?;
+        let lock_contract_address = convert_eth_address(args.lock_contract_address.as_str())
+            .map_err(|_| jsonrpc_core::Error::invalid_params("lock contract address parse fail"))?;
+        let recipient_address = convert_eth_address(args.recipient_address.as_str())
+            .map_err(|_| jsonrpc_core::Error::invalid_params("recipient address parse fail"))?;
 
-        let settings = Settings::new(config_path.as_str()).unwrap();
-        let mut generator = Generator::new(rpc_url.clone(), indexer_url.clone(), settings).unwrap();
+        let settings = Settings::new(self.config_path.as_str())
+            .map_err(|_| jsonrpc_core::Error::invalid_params("new setting fail"))?;
+        let mut generator =
+            Generator::new(self.ckb_rpc_url.clone(), self.indexer_url.clone(), settings)
+                .map_err(|_| jsonrpc_core::Error::invalid_params("new geneartor fail"))?;
 
         let tx = generator
             .burn(
-                rpc_args.tx_fee,
+                args.tx_fee,
                 from_lockscript,
-                rpc_args.sub_cmd.unlock_fee,
-                rpc_args.sub_cmd.amount,
+                args.unlock_fee,
+                args.amount,
                 token_address,
                 lock_contract_address,
                 recipient_address,
             )
-            .unwrap();
+            .map_err(|_| jsonrpc_core::Error::invalid_params("burn fail"))?;
         let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
-        Ok(serde_json::to_value(rpc_tx).unwrap())
-    });
+        Ok(serde_json::to_value(rpc_tx)
+            .map_err(|_| jsonrpc_core::Error::invalid_params("parse result fail"))?)
+    }
+}
+
+pub fn start(
+    config_path: String,
+    ckb_rpc_url: String,
+    indexer_url: String,
+    listen_url: String,
+    threads_num: usize,
+) {
+    let mut io = IoHandler::new();
+    let rpc = RpcImpl {
+        config_path,
+        indexer_url,
+        ckb_rpc_url,
+    };
+    io.extend_with(rpc.to_delegate());
 
     let server = ServerBuilder::new(io)
         .threads(threads_num)
