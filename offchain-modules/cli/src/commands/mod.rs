@@ -205,6 +205,10 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     .unwrap();
     let proof_json: Value = serde_json::from_str(&proof_hex.clone()).unwrap();
     info!("generate proof json: {:?}", proof_json);
+    let mut proof_vec = vec![];
+    for item in proof_json["proof"].as_array().unwrap() {
+        proof_vec.push(item.as_str().unwrap().to_owned());
+    }
 
     let settings = Settings::new(&args.config_path)?;
     let eth_proof = ETHSPVProofJson {
@@ -213,7 +217,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         receipt_index: eth_spv_proof.receipt_index,
         receipt_data: String::from(proof_json["receipt_data"].as_str().unwrap()),
         header_data: header_rlp.clone(),
-        proof: vec![proof_json["proof"][0].as_str().unwrap().to_owned()],
+        proof: proof_vec,
         token: eth_spv_proof.token,
         lock_amount: eth_spv_proof.lock_amount,
         recipient_lockscript: eth_spv_proof.recipient_lockscript,
