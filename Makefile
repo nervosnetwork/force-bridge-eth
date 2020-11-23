@@ -24,7 +24,8 @@ demo-build:
 	cd eth-contracts && yarn install
 
 integration-ci: demo-build
-	rm -rf $HOME/.ckb-cli/index-v1
+
+	rm -rf ${HOME}/.ckb-cli/index-v1
 	cd docker && docker-compose up -d
 
 	bash demo/vendor/init_eth2ckb_relayer_key.sh
