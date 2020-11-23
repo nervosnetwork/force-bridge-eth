@@ -110,7 +110,7 @@ impl Web3Client {
 
     pub async fn get_eth_nonce(&mut self, key_path: String) -> Result<U256> {
         let private_key = &parse_private_key(&key_path)?;
-        let key = SecretKey::from_slice(&private_key.0).unwrap();
+        let key = SecretKey::from_slice(&private_key.0).map_err(|e| anyhow!(e))?;
         let from = secret_key_address(&key);
         Ok(self.client().eth().transaction_count(from, None).await?)
     }
