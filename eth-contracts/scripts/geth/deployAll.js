@@ -63,9 +63,14 @@ async function main() {
   const lockerABI = tokenLockerJson.abi;
   const ckbChainJSON = require("../../artifacts/contracts/CKBChain.sol/CKBChain.json");
   const ckbChainABI = ckbChainJSON.abi;
-  fs.writeFileSync("../offchain-modules/lib/src/util/token_locker_abi.json", JSON.stringify(lockerABI,null, 2));
-  fs.writeFileSync("../offchain-modules/lib/src/util/ckb_chain_abi.json",JSON.stringify(ckbChainABI,null, 2));
-
+  fs.writeFileSync(
+    "../offchain-modules/lib/src/util/token_locker_abi.json",
+    JSON.stringify(lockerABI, null, 2)
+  );
+  fs.writeFileSync(
+    "../offchain-modules/lib/src/util/ckb_chain_abi.json",
+    JSON.stringify(ckbChainABI, null, 2)
+  );
 }
 
 // We recommend this pattern to be able to use async/await everywhere
