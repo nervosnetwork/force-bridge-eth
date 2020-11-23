@@ -26,9 +26,9 @@ cleanup() {
     ps aux | grep 'force-eth-cli eth-relay' | grep -v grep | awk '{print $2}' | xargs kill -9
 
     cd "$DIR"/docker
-#    docker-compose stop
-    docker ps -a | grep tockb | awk '{print $1}' | xargs docker stop
-    docker ps -a | grep tockb | awk '{print $1}' | xargs docker rm
+    docker-compose down
+#    docker ps -a | grep tockb | awk '{print $1}' | xargs docker stop
+#    docker ps -a | grep tockb | awk '{print $1}' | xargs docker rm
 }
 
 cd "$DIR"/demo
