@@ -381,19 +381,16 @@ impl Generator {
             )
             .map_err(|err| anyhow!(err))?;
 
-        let (_, bridge_cell_data) =
+        let (bridge_cell, bridge_cell_data) =
             get_live_cell_with_cache(&mut live_cell_cache, &mut self.rpc_client, outpoint, true)
                 .expect("outpoint not exists");
         let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
             .expect("invalid bridge data")
             .owner_lock_script();
-        assert_eq!(owner_lock_script.raw_data(), from_lockscript.as_bytes());
-        // 1 bridge cells
-        // {
-        //     let to_output = CellOutput::new_builder().lock(lockscript.clone()).build();
-        //     helper.add_output_with_auto_capacity(to_output, ckb_types::bytes::Bytes::default());
-        // }
-        // 2 xt cells
+        if owner_lock_script.raw_data() != from_lockscript.as_bytes() {
+            bail!("only support use bridge cell we created as lock outpoint");
+        }
+        // 1 xt cells
         {
             let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript).unwrap();
 
@@ -415,15 +412,19 @@ impl Generator {
             to_user_amount_data.extend(eth_proof.sudt_extra_data.clone());
             helper.add_output_with_auto_capacity(sudt_user_output, to_user_amount_data.into());
             // fee
-            let sudt_fee_output = CellOutput::new_builder()
-                .type_(Some(sudt_typescript).pack())
-                .lock(from_lockscript.clone())
-                .build();
-            helper.add_output_with_auto_capacity(
-                sudt_fee_output,
-                eth_proof.bridge_fee.to_le_bytes().to_vec().into(),
-            );
+            if eth_proof.bridge_fee != 0 {
+                let sudt_fee_output = CellOutput::new_builder()
+                    .type_(Some(sudt_typescript).pack())
+                    .lock(from_lockscript.clone())
+                    .build();
+                helper.add_output_with_auto_capacity(
+                    sudt_fee_output,
+                    eth_proof.bridge_fee.to_le_bytes().to_vec().into(),
+                );
+            }
         }
+        // 2 create new bridge cell for user
+        helper.add_output(bridge_cell, bridge_cell_data);
         // add witness
         {
             let witness = EthWitness {
@@ -523,6 +524,7 @@ impl Generator {
     pub fn create_bridge_cell(
         &mut self,
         tx_fee: u64,
+        capacity: u64,
         from_lockscript: Script,
         eth_token_address: H160,
         eth_contract_address: H160,
@@ -567,7 +569,6 @@ impl Generator {
             .args(bridge_typescript_args.as_bytes().pack())
             .build();
         // build output
-        let capacity: u64 = 500_0000_0000;
         let output = CellOutput::new_builder()
             .capacity(capacity.pack())
             .type_(Some(bridge_typescript).pack())

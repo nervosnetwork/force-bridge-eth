@@ -39,6 +39,8 @@ pub struct ServerArgs {
     pub indexer_url: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
+    #[clap(short = 'k', long, default_value = "privkeys/ckb_key")]
+    pub private_key_path: String,
     #[clap(short, long, default_value = "3")]
     pub threads_num: usize,
 }
@@ -59,6 +61,8 @@ pub struct CreateBridgeCellArgs {
     pub recipient_address: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
+    #[clap(long, default_value = "283")]
+    pub capacity: String,
     #[clap(long, default_value = "0")]
     pub bridge_fee: u128,
 }

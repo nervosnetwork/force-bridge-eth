@@ -17,9 +17,7 @@ use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{ensure_indexer_sync, parse_privkey_path, send_tx_sync};
-use log::info;
 use secp256k1::SecretKey;
-use serde_json::json;
 use std::convert::TryInto;
 use std::str::FromStr;
 use web3::types::{H160, H256, U256};
@@ -283,10 +281,11 @@ pub fn create_bridge_cell(
     indexer_url: String,
     private_key_path: String,
     tx_fee: String,
+    capacity: String,
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
-) -> Result<()> {
+) -> Result<String> {
     let settings = Settings::new(&config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
@@ -297,6 +296,9 @@ pub fn create_bridge_cell(
     let from_lockscript = parse_privkey(&from_privkey);
 
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
+        .map_err(|e| anyhow!(e))?
+        .into();
+    let capacity: u64 = HumanCapacity::from_str(&capacity)
         .map_err(|e| anyhow!(e))?
         .into();
 
@@ -310,6 +312,7 @@ pub fn create_bridge_cell(
     let unsigned_tx = generator
         .create_bridge_cell(
             tx_fee,
+            capacity,
             from_lockscript,
             eth_token_address,
             eth_contract_address,
@@ -328,13 +331,7 @@ pub fn create_bridge_cell(
     let outpoint = OutPoint::new_builder()
         .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
         .build();
-    let outpoint_hex = hex::encode(outpoint.as_slice());
-    info!(
-        "create bridge cell successfully for {}, outpoint: {}",
-        recipient_address, &outpoint_hex
-    );
-    println!("{}", json!({ "outpoint": outpoint_hex }));
-    Ok(())
+    Ok(hex::encode(outpoint.as_slice()))
 }
 
 pub fn build_eth_bridge_lock_args(
