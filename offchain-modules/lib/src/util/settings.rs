@@ -20,14 +20,23 @@ pub struct ScriptsConf {
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct CellScript {
+    pub cell_script: String,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct Settings {
     pub eth_token_locker_addr: String,
     pub eth_ckb_chain_addr: String,
     pub bridge_lockscript: ScriptConf,
     pub bridge_typescript: ScriptConf,
     pub light_client_typescript: ScriptConf,
+    pub light_client_lockscript: ScriptConf,
     pub recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
+    // pub replay_resist_lockscript: ScriptConf,
+    pub dag_merkle_roots: OutpointConf,
+    pub light_client_cell_script: CellScript,
 }
 
 impl Settings {

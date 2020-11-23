@@ -15,7 +15,7 @@ use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256}
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
-const MAX_GAS_LIMIT: u64 = 7000000;
+const MAX_GAS_LIMIT: u64 = 3000000;
 
 const CKB_CHAIN_ABI: &[u8] = include_bytes!("ckb_chain_abi.json");
 const TOKEN_LOCKER_ABI: &[u8] = include_bytes!("token_locker_abi.json");
@@ -229,6 +229,33 @@ pub async fn relay_header_transaction(url: String, signed_tx: Vec<u8>) -> Result
     Ok(())
 }
 
+pub fn transfer_to_header(block: &Block<H256>) -> BlockHeader {
+    BlockHeader {
+        hash: block.hash,
+        parent_hash: block.parent_hash,
+        uncles_hash: block.uncles_hash,
+        author: block.author,
+        state_root: block.state_root,
+        transactions_root: block.transactions_root,
+        receipts_root: block.receipts_root,
+        number: block.number,
+        gas_used: block.gas_used,
+        gas_limit: block.gas_limit,
+        extra_data: block.extra_data.clone(),
+        logs_bloom: block.logs_bloom.unwrap(),
+        timestamp: block.timestamp,
+        difficulty: block.difficulty,
+        mix_hash: block.mix_hash,
+        nonce: block.nonce,
+    }
+}
+
+pub fn convert_to_header_rlp(block: &Block<H256>) -> Result<String> {
+    let mut stream = RlpStream::new();
+    rlp_append(&block, &mut stream);
+    Ok(hex::encode(stream.out().as_slice()))
+}
+
 pub fn make_transaction(
     to: H160,
     nonce: U256,
@@ -430,16 +457,42 @@ pub fn build_lock_eth_payload(data: &[Token]) -> Result<ethabi::Bytes> {
     Ok(function.encode_input(data)?)
 }
 
+pub fn rlp_transaction(tx: &RawTransaction) -> String {
+    let mut s = RlpStream::new();
+    s.append(&tx.nonce);
+    s.append(&tx.gas_price);
+    s.append(&tx.gas);
+    if let Some(ref t) = tx.to {
+        s.append(t);
+    } else {
+        s.append(&vec![]);
+    }
+    s.append(&tx.value);
+    s.append(&tx.data);
+    hex::encode(s.out().as_slice())
+}
+
 #[tokio::test]
 async fn test_get_block() {
-    use cmd_lib::run_cmd;
-    use web3::types::{BlockNumber, U64};
-    let mut client = Web3Client::new(String::from(
-        "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
-    ));
-    let res = client.get_header_rlp((U64::from(3)).into()).await;
-    println!("{:?}", res);
-    let header_rlp = format!("0x{}", res.unwrap());
-    println!("{:?}", header_rlp);
-    run_cmd!(src/vendor/relayer ${header_rlp} > /tmp/data.json);
+    // use cmd_lib::run_fun;
+    // use serde_json::{Result, Value};
+    // use web3::types::{BlockNumber, U64};
+    // let mut client = Web3Client::new(String::from(
+    //     "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
+    // ));
+    // let res = client.get_header_rlp(U64::from(3).into()).await;
+    // println!("{:?}", res);
+    // let header_rlp = format!("0x{}", res.unwrap());
+    // println!("{:?}", header_rlp);
+    // let path = String::from("/tmp/data.json");
+    // let cmd = format!("pwd > {}", path);
+    // println!("{}", cmd);
+    // let hash = "0x731bc2fc859789d4190175281a43a446b6cc34c55bc8736eb793b4362803a19c";
+    // let idx = 2;
+    // let url = "https://ropsten.infura.io/v3/48be8feb3f9c46c397ceae02a0dbc7ae";
+    // let res = run_fun! {
+    // node /Users/leon/dev/rust/leon/eth-proof/index proof --hash ${hash} --index ${idx} --network ${url}}
+    // .unwrap();
+    //
+    // println!("{:?}", res);
 }

@@ -41,23 +41,26 @@ pub fn verify_mint_token<T: Adapter>(
         &first_output_lock_hash,
         script_args.recipient_lock_hash().as_slice()
     );
+    let mut index = 1;
     // verify 2nd output is fee sudt cell
-    let second_output_typescript = data_loader
-        .load_cell_type(1, Source::Output)
-        .unwrap()
-        .unwrap();
-    assert_eq!(sudt_typescript_slice, second_output_typescript.as_slice());
-    let second_output_lock_script = data_loader
-        .load_cell_lock_script(1, Source::Output)
-        .unwrap();
-    assert_eq!(
-        second_output_lock_script.as_bytes(),
-        data.owner_lock_script().raw_data()
-    );
-    let second_output_data = data_loader.load_cell_data(1, Source::Output).unwrap();
-    assert_eq!(&second_output_data[..16], data.fee().as_slice());
+    if data.fee().as_slice().iter().any(|&b| b != 0) {
+        let second_output_typescript = data_loader
+            .load_cell_type(index, Source::Output)
+            .unwrap()
+            .unwrap();
+        assert_eq!(sudt_typescript_slice, second_output_typescript.as_slice());
+        let second_output_lock_script = data_loader
+            .load_cell_lock_script(index, Source::Output)
+            .unwrap();
+        assert_eq!(
+            second_output_lock_script.as_bytes(),
+            data.owner_lock_script().raw_data()
+        );
+        let second_output_data = data_loader.load_cell_data(index, Source::Output).unwrap();
+        assert_eq!(&second_output_data[..16], data.fee().as_slice());
+        index += 1;
+    }
     // verify there are no other sudt cell
-    let mut index = 2;
     loop {
         let typescript_res = data_loader.load_cell_type(index, Source::Output);
         match typescript_res {

@@ -3,6 +3,7 @@ use crate::debug;
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level::QueryIter;
 use eth_spv_lib::eth_types::*;
+use eth_spv_lib::ethspv;
 use force_eth_types::eth_lock_event::ETHLockEvent;
 use force_eth_types::generated::eth_header_cell::{ETHHeaderCellDataReader, ETHHeaderInfoReader};
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
@@ -48,9 +49,9 @@ fn verify_witness<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader)
 /// @param cell_dep_index_list is used to get the headers oracle information to verify the cross-chain tx is really exists on the main chain.
 ///
 fn verify_eth_spv_proof<T: Adapter>(
-    _data_loader: &T,
+    data_loader: &T,
     proof: &[u8],
-    _cell_dep_index_list: &[u8],
+    cell_dep_index_list: &[u8],
 ) -> ETHLockEvent {
     if ETHSPVProofReader::verify(proof, false).is_err() {
         panic!("eth spv proof is invalid")
@@ -61,12 +62,12 @@ fn verify_eth_spv_proof<T: Adapter>(
     // debug!("the spv proof header data: {:?}", header);
 
     //verify the header is on main chain.
-    // verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list);
+    verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list);
 
     get_eth_receipt_info(proof_reader, header)
 }
 
-fn _verify_eth_header_on_main_chain<T: Adapter>(
+fn verify_eth_header_on_main_chain<T: Adapter>(
     data_loader: &T,
     header: &BlockHeader,
     cell_dep_index_list: &[u8],
@@ -119,7 +120,7 @@ fn _verify_eth_header_on_main_chain<T: Adapter>(
     }
 }
 
-fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, _header: BlockHeader) -> ETHLockEvent {
+fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) -> ETHLockEvent {
     let mut log_index = [0u8; 8];
     log_index.copy_from_slice(proof_reader.log_index().raw_data());
     debug!("log_index is {:?}", &log_index);
@@ -157,16 +158,16 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, _header: BlockHeader) -
     // let receipt: Receipt = rlp::decode(receipt_data.as_slice()).expect("rlp decode receipt failed");
     // debug!("receipt_data is {:?}", &receipt);
 
-    // if !ethspv::verify_log_entry(
-    //     u64::from_le_bytes(log_index),
-    //     log_entry_data,
-    //     u64::from_le_bytes(receipt_index),
-    //     receipt_data,
-    //     header.receipts_root,
-    //     proof,
-    // ) {
-    //     panic!("wrong merkle proof");
-    // }
+    if !ethspv::verify_log_entry(
+        u64::from_le_bytes(log_index),
+        log_entry_data,
+        u64::from_le_bytes(receipt_index),
+        receipt_data,
+        header.receipts_root,
+        proof,
+    ) {
+        panic!("wrong merkle proof");
+    }
 
     let eth_receipt_info = ETHLockEvent::parse_from_event_data(&log_entry);
     debug!("log data eth_receipt_info: {:?}", eth_receipt_info);

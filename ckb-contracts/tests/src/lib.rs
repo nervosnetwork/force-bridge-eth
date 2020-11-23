@@ -4,8 +4,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-#[cfg(test)]
-mod bridge;
+// #[cfg(test)]
+// mod bridge;
 #[cfg(test)]
 mod eth_light_client_lockscript;
 #[cfg(test)]
