@@ -294,7 +294,7 @@ pub struct UnlockArgs {
 pub struct EthRelayArgs {
     #[clap(long, default_value = ".force-bridge-cli-config.toml")]
     pub config_path: String,
-    #[clap(short = 'k', long, default_value = "privkeys/ckb_key_recipient")]
+    #[clap(short = 'k', long, default_value = "privkeys/eth2ckb_relayer_key")]
     pub private_key_path: String,
     #[clap(long, default_value = "http://localhost:8114")]
     pub ckb_rpc_url: String,

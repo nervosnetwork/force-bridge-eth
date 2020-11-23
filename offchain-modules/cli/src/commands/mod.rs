@@ -195,6 +195,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     debug!("mint_handler args: {:?}", &args);
     let eth_spv_proof = generate_eth_proof(args.hash.clone(), args.eth_rpc_url.clone())
         .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
+    info!("eth_spv_proof: {:?}", eth_spv_proof);
     let header_rlp = get_header_rlp(args.eth_rpc_url.clone(), eth_spv_proof.block_hash).await?;
     let hash_str = args.hash.clone();
     let log_index = eth_spv_proof.log_index;

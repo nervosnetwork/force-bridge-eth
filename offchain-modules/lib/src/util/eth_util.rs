@@ -12,7 +12,7 @@ use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256}
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
-const MAX_GAS_LIMIT: u64 = 1000000;
+const MAX_GAS_LIMIT: u64 = 3000000;
 
 pub struct Web3Client {
     url: String,
