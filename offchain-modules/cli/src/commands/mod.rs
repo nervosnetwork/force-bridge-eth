@@ -205,6 +205,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     .unwrap();
     let proof_json: Value = serde_json::from_str(&proof_hex.clone()).unwrap();
     info!("generate proof json: {:?}", proof_json);
+    // TODO: refactor to parse with static struct instead of dynamic parsing
     let mut proof_vec = vec![];
     for item in proof_json["proof"].as_array().unwrap() {
         proof_vec.push(item.as_str().unwrap().to_owned());
