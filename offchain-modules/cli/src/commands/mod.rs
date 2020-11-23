@@ -328,6 +328,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         args.ckb_rpc_url,
         light_client,
         ckb_tx_hash,
+        lock_contract_addr,
     )
     .await?;
     let result = unlock(

@@ -5,6 +5,9 @@ use ethereum_tx_sign::RawTransaction;
 use log::{debug, error, info};
 use rlp::{DecoderError, Rlp, RlpStream};
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
+use serde_json::Value;
+use std::fs::File;
+use std::io::BufReader;
 use std::time::Duration;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
@@ -13,6 +16,9 @@ use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
 const MAX_GAS_LIMIT: u64 = 7000000;
+
+const CKB_CHAIN_ABI: &[u8] = include_bytes!("ckb_chain_abi.json");
+const TOKEN_LOCKER_ABI: &[u8] = include_bytes!("token_locker_abi.json");
 
 pub struct Web3Client {
     url: String,
@@ -130,13 +136,8 @@ impl Web3Client {
         func_name: &str,
         contract_addr: Address,
     ) -> Result<u64> {
-        let contract = Contract::from_json(
-            self.client.eth(),
-            contract_addr,
-            // TODO replace CKBChain.json in eth-contracts
-            include_bytes!("ckb_chain_abi.json"),
-        )
-        .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+        let contract = Contract::from_json(self.client.eth(), contract_addr, CKB_CHAIN_ABI)
+            .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
         let result = contract.query(func_name.clone(), (), None, Options::default(), None);
         let height: u64 = result.await?;
         info!("contract {:?} header number : {:?}", func_name, height);
@@ -149,13 +150,8 @@ impl Web3Client {
         latest_header_hash: ckb_types::H256,
         contract_addr: Address,
     ) -> Result<bool> {
-        let contract = Contract::from_json(
-            self.client.eth(),
-            contract_addr,
-            // TODO replace CKBChain.json in eth-contracts
-            include_bytes!("ckb_chain_abi.json"),
-        )
-        .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+        let contract = Contract::from_json(self.client.eth(), contract_addr, CKB_CHAIN_ABI)
+            .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
 
         info!(
             "ckb block {:?} header hash : {:?}",
@@ -186,6 +182,29 @@ impl Web3Client {
 
         Ok(false)
     }
+
+    #[allow(clippy::clone_double_ref)]
+    pub async fn get_locker_contract_confirm(
+        &mut self,
+        func_name: &str,
+        contract_addr: Address,
+    ) -> Result<u64> {
+        let contract = Contract::from_json(self.client.eth(), contract_addr, TOKEN_LOCKER_ABI)
+            .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+        let result = contract.query(func_name.clone(), (), None, Options::default(), None);
+        let height: u64 = result.await?;
+        Ok(height)
+    }
+}
+#[deny(clippy::clone_double_ref)]
+pub fn get_contract_abi_json(path: String) -> Result<String> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let result: Value = serde_json::from_reader(reader)?;
+    let res = result
+        .get("abi")
+        .ok_or_else(|| anyhow!("the abi data is not in file"))?;
+    Ok(res.to_string())
 }
 
 pub async fn relay_header_transaction(url: String, signed_tx: Vec<u8>) -> Result<()> {
