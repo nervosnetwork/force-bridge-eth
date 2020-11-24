@@ -35,6 +35,8 @@ pub struct ServerArgs {
     pub config_path: String,
     #[clap(long, default_value = "http://127.0.0.1:8114")]
     pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
+    pub eth_rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8116")]
     pub indexer_url: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]

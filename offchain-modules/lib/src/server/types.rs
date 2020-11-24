@@ -58,3 +58,9 @@ pub struct LockResult {
     pub data: String,
     pub raw: String,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetClientInfoArgs {
+    pub chain: String,
+    pub contract: String,
+}
