@@ -1,10 +1,13 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use eth_spv_lib::eth_types::my_keccak256;
 use ethabi::{FixedBytes, Function, Param, ParamType, Token, Uint};
 use ethereum_tx_sign::RawTransaction;
-use log::{debug, info};
+use log::{debug, error, info};
 use rlp::{DecoderError, Rlp, RlpStream};
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
+use serde_json::Value;
+use std::fs::File;
+use std::io::BufReader;
 use std::time::Duration;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
@@ -13,6 +16,9 @@ use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
 const MAX_GAS_LIMIT: u64 = 3000000;
+
+const CKB_CHAIN_ABI: &[u8] = include_bytes!("ckb_chain_abi.json");
+const TOKEN_LOCKER_ABI: &[u8] = include_bytes!("token_locker_abi.json");
 
 pub struct Web3Client {
     url: String,
@@ -45,7 +51,7 @@ impl Web3Client {
         wait: bool,
     ) -> Result<H256> {
         let signed_tx = self
-            .build_sign_tx(to, key_path, data, gas_price, eth_value)
+            .build_sign_tx(to, key_path, data, gas_price, eth_value, U256::from(0))
             .await?;
         let tx_hash = if wait {
             let receipt = self
@@ -80,11 +86,14 @@ impl Web3Client {
         data: Vec<u8>,
         gas_price: U256,
         eth_value: U256,
+        asec_nonce: U256,
     ) -> Result<Vec<u8>> {
-        let private_key = &parse_private_key(&key_path)?;
-        let key = SecretKey::from_slice(&private_key.0).unwrap();
-        let from = secret_key_address(&key);
-        let nonce = self.client().eth().transaction_count(from, None).await?;
+        let nonce;
+        if asec_nonce.is_zero() {
+            nonce = self.get_eth_nonce(key_path.clone()).await?;
+        } else {
+            nonce = asec_nonce
+        }
         info!("tx current nonce :{}", &nonce);
         let chain_id = self.client().eth().chain_id().await?;
         debug!("chain id :{}", &chain_id);
@@ -97,6 +106,13 @@ impl Web3Client {
         let tx = make_transaction(to, nonce, data, tx_gas_price, eth_value);
         let signed_tx = tx.sign(&parse_private_key(&key_path)?, &chain_id.as_u32());
         Ok(signed_tx)
+    }
+
+    pub async fn get_eth_nonce(&mut self, key_path: String) -> Result<U256> {
+        let private_key = &parse_private_key(&key_path)?;
+        let key = SecretKey::from_slice(&private_key.0).map_err(|e| anyhow!(e))?;
+        let from = secret_key_address(&key);
+        Ok(self.client().eth().transaction_count(from, None).await?)
     }
 
     pub async fn get_block(&mut self, hash_or_number: BlockId) -> Result<Block<H256>> {
@@ -114,32 +130,18 @@ impl Web3Client {
         Ok(hex::encode(stream.out().as_slice()))
     }
 
+    #[allow(clippy::clone_double_ref)]
     pub async fn get_contract_height(
         &mut self,
         func_name: &str,
         contract_addr: Address,
     ) -> Result<u64> {
-        let contract = Contract::from_json(
-            self.client.eth(),
-            contract_addr,
-            include_bytes!("ckb_chain_abi.json"),
-        )
-        .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
-        let result = contract.query(func_name, (), None, Options::default(), None);
+        let contract = Contract::from_json(self.client.eth(), contract_addr, CKB_CHAIN_ABI)
+            .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+        let result = contract.query(func_name.clone(), (), None, Options::default(), None);
         let height: u64 = result.await?;
-        info!("client contract header number : {:?}", height);
+        info!("contract {:?} header number : {:?}", func_name, height);
         Ok(height)
-    }
-    pub async fn get_mock_data(&mut self, contract_addr: Address) -> Result<Bytes> {
-        let contract = Contract::from_json(
-            self.client.eth(),
-            contract_addr,
-            include_bytes!("ckb_chain_abi.json"),
-        )
-        .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
-        let result = contract.query("mockHeaders", (), None, Options::default(), None);
-        let mock_data: Bytes = result.await?;
-        Ok(mock_data)
     }
 
     pub async fn is_header_exist(
@@ -148,12 +150,8 @@ impl Web3Client {
         latest_header_hash: ckb_types::H256,
         contract_addr: Address,
     ) -> Result<bool> {
-        let contract = Contract::from_json(
-            self.client.eth(),
-            contract_addr,
-            include_bytes!("ckb_chain_abi.json"),
-        )
-        .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+        let contract = Contract::from_json(self.client.eth(), contract_addr, CKB_CHAIN_ABI)
+            .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
 
         info!(
             "ckb block {:?} header hash : {:?}",
@@ -184,6 +182,51 @@ impl Web3Client {
 
         Ok(false)
     }
+
+    #[allow(clippy::clone_double_ref)]
+    pub async fn get_locker_contract_confirm(
+        &mut self,
+        func_name: &str,
+        contract_addr: Address,
+    ) -> Result<u64> {
+        let contract = Contract::from_json(self.client.eth(), contract_addr, TOKEN_LOCKER_ABI)
+            .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+        let result = contract.query(func_name.clone(), (), None, Options::default(), None);
+        let height: u64 = result.await?;
+        Ok(height)
+    }
+}
+#[deny(clippy::clone_double_ref)]
+pub fn get_contract_abi_json(path: String) -> Result<String> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let result: Value = serde_json::from_reader(reader)?;
+    let res = result
+        .get("abi")
+        .ok_or_else(|| anyhow!("the abi data is not in file"))?;
+    Ok(res.to_string())
+}
+
+pub async fn relay_header_transaction(url: String, signed_tx: Vec<u8>) -> Result<()> {
+    let client = web3::Web3::new(web3::transports::Http::new(&url)?);
+    let tx_receipt = client
+        .send_raw_transaction_with_confirmation(Bytes::from(signed_tx), Duration::new(1, 0), 1)
+        .await?;
+    let tx_status = tx_receipt
+        .status
+        .ok_or_else(|| anyhow!("tx receipt is none"))?;
+    let hex_tx_hash = hex::encode(tx_receipt.transaction_hash);
+    if tx_status.as_usize() == 1 {
+        info!("relay headers success. tx_hash : {} ", hex_tx_hash)
+    } else {
+        let msg = format!(
+            "failed to relay headers. tx_hash: {} , tx_status : {}",
+            hex_tx_hash, tx_status,
+        );
+        error!("{:?}", msg);
+        bail!("{:?}", msg);
+    }
+    Ok(())
 }
 
 pub fn transfer_to_header(block: &Block<H256>) -> BlockHeader {

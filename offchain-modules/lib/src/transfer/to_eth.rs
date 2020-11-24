@@ -110,8 +110,9 @@ pub fn burn(
 pub async fn wait_block_submit(
     eth_url: String,
     ckb_url: String,
-    contract_addr: H160,
+    light_contract_addr: H160,
     tx_hash: String,
+    lock_contract_addr: H160,
 ) -> Result<()> {
     let mut ckb_client = HttpRpcClient::new(ckb_url);
     let hash = covert_to_h256(&tx_hash)?;
@@ -146,13 +147,16 @@ pub async fn wait_block_submit(
     let mut web3_client = Web3Client::new(eth_url);
     loop {
         let client_block_number = web3_client
-            .get_contract_height("latestBlockNumber", contract_addr)
+            .get_contract_height("latestBlockNumber", light_contract_addr)
+            .await?;
+        let confirm = web3_client
+            .get_locker_contract_confirm("numConfirmations_", lock_contract_addr)
             .await?;
         info!(
-            "client_block_number : {:?},ckb_height :{:?}",
-            client_block_number, ckb_height
+            "client_block_number : {:?},ckb_height :{:?}, confirm :{:?}",
+            client_block_number, ckb_height, confirm
         );
-        if client_block_number < ckb_height {
+        if client_block_number + confirm <= ckb_height {
             std::thread::sleep(std::time::Duration::from_secs(1));
             continue;
         }
@@ -181,7 +185,7 @@ pub async fn unlock(
                 kind: ParamType::Bytes,
             },
             Param {
-                name: "txInfo".to_owned(),
+                name: "ckbTx".to_owned(),
                 kind: ParamType::Bytes,
             },
         ],
