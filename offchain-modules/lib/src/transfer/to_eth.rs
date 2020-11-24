@@ -156,7 +156,7 @@ pub async fn wait_block_submit(
             "client_block_number : {:?},ckb_height :{:?}, confirm :{:?}",
             client_block_number, ckb_height, confirm
         );
-        if client_block_number + confirm <= ckb_height {
+        if client_block_number <= ckb_height + confirm {
             std::thread::sleep(std::time::Duration::from_secs(1));
             continue;
         }
