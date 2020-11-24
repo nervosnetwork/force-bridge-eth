@@ -325,6 +325,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         args.ckb_rpc_url,
         light_client,
         ckb_tx_hash,
+        lock_contract_addr,
     )
     .await?;
     let result = unlock(
@@ -404,13 +405,15 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     let mut ckb_relayer = CKBRelayer::new(
         args.ckb_rpc_url,
         args.indexer_rpc_url,
-        args.eth_rpc_url,
+        args.eth_rpc_url.clone(),
         to,
         args.private_key_path,
         args.gas_price,
     )?;
     loop {
-        ckb_relayer.start(args.per_amount).await?;
+        ckb_relayer
+            .start(args.eth_rpc_url.clone(), args.per_amount)
+            .await?;
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }

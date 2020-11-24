@@ -58,6 +58,19 @@ async function main() {
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
   console.error("write eth addr into settings successfully");
+
+  const tokenLockerJson = require("../../artifacts/contracts/TokenLocker.sol/TokenLocker.json");
+  const lockerABI = tokenLockerJson.abi;
+  const ckbChainJSON = require("../../artifacts/contracts/CKBChain.sol/CKBChain.json");
+  const ckbChainABI = ckbChainJSON.abi;
+  fs.writeFileSync(
+    "../offchain-modules/lib/src/util/token_locker_abi.json",
+    JSON.stringify(lockerABI, null, 2)
+  );
+  fs.writeFileSync(
+    "../offchain-modules/lib/src/util/ckb_chain_abi.json",
+    JSON.stringify(ckbChainABI, null, 2)
+  );
 }
 
 // We recommend this pattern to be able to use async/await everywhere
