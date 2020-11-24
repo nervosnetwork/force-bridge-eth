@@ -31,7 +31,7 @@ const deployAndInitWithGc = async (factoryPath) => {
   console.log(
     `Init for Gc test, add ${size} Headers gas: ${
       receipt.gasUsed
-    }, per header cost: ${receipt.gasUsed / size}`
+    }, gas cost per header: ${receipt.gasUsed / size}`
   );
 
   return {
@@ -52,7 +52,7 @@ const benchmarkWithGc = async (factoryPath) => {
     let res = await contract.addHeaders(headers);
     const receipt = await res.wait(1);
     console.log(
-      `add ${size} Headers gas: ${receipt.gasUsed}, per header cost: ${
+      `add ${size} Headers gas: ${receipt.gasUsed}, gas cost per header: ${
         receipt.gasUsed / size
       }`
     );

@@ -38,7 +38,7 @@ const benchmark = async (factoryPath) => {
     let res = await contract.addHeaders(headers);
     const receipt = await waitingForReceipt(provider, res);
     console.log(
-      `add ${size} Headers gas: ${receipt.gasUsed}, per header cost: ${
+      `add ${size} Headers gas: ${receipt.gasUsed}, gas cost per header: ${
         receipt.gasUsed / size
       }`
     );
