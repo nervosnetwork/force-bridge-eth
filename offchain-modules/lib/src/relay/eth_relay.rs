@@ -83,6 +83,7 @@ impl ETHRelayer {
                     .settings
                     .write(&self.config_path)
                     .map_err(|e| anyhow!(e))?;
+                self.cell_typescript = Some(cell_script);
             }
             Some(cell_script) => {
                 typescript = Script::new_builder()

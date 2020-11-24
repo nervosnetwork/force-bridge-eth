@@ -3,7 +3,7 @@ use crate::util::eth_proof_helper::{DoubleNodeWithMerkleProofJson, Witness};
 use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use crate::util::settings::{OutpointConf, Settings};
 use anyhow::{anyhow, bail, Result};
-use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
+use ckb_sdk::constants::MIN_SECP_CELL_CAPACITY;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
 use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
@@ -28,6 +28,7 @@ use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
+use log::info;
 use rlp::Rlp;
 use secp256k1::SecretKey;
 use std::collections::HashMap;
@@ -74,7 +75,7 @@ impl Generator {
         typescript: Script,
         lockscript: Script,
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = ONE_CKB / 2;
+        let tx_fee: u64 = 500_000;
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
@@ -161,7 +162,7 @@ impl Generator {
         headers: &[BlockHeader],
         from_lockscript: Script,
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = ONE_CKB / 2;
+        let tx_fee: u64 = 500_000;
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
@@ -204,15 +205,27 @@ impl Generator {
                 || header.number.unwrap().as_u64() >= tip.number.unwrap().as_u64()
             {
                 // the new header is on main chain.
+                let temp_data = unconfirmed[0];
+                ETHHeaderInfoReader::verify(&temp_data, false).map_err(|err| anyhow!(err))?;
+                let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
+                let hash = header_info_reader.hash().raw_data();
+                if unconfirmed.len() == CONFIRM {
+                    unconfirmed.remove(0);
+                    confirmed.push(hash);
+                }
                 if confirmed.len().add(unconfirmed.len()) == MAIN_HEADER_CACHE_LIMIT {
                     confirmed.remove(0);
-                    let temp_data = unconfirmed[0];
-                    ETHHeaderInfoReader::verify(&temp_data, false).map_err(|err| anyhow!(err))?;
-                    let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
-                    let hash = header_info_reader.hash().raw_data();
-                    confirmed.push(hash);
-                    unconfirmed.remove(0);
                 }
+
+                // if confirmed.len().add(unconfirmed.len()) == MAIN_HEADER_CACHE_LIMIT {
+                //     confirmed.remove(0);
+                //     let temp_data = unconfirmed[0];
+                //     ETHHeaderInfoReader::verify(&temp_data, false).map_err(|err| anyhow!(err))?;
+                //     let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
+                //     let hash = header_info_reader.hash().raw_data();
+                //     confirmed.push(hash);
+                //     unconfirmed.remove(0);
+                // }
                 let input_tail_raw = unconfirmed[unconfirmed.len() - 1];
                 ETHHeaderInfoReader::verify(&input_tail_raw, false).map_err(|err| anyhow!(err))?;
                 let input_tail_reader = ETHHeaderInfoReader::new_unchecked(&input_tail_raw);
@@ -229,6 +242,11 @@ impl Generator {
                     .hash(basic::Byte32::from_slice(header.hash.unwrap().as_bytes()).unwrap())
                     .build();
                 unconfirmed.push(header_info.as_slice());
+                info!(
+                    "main chain confirmed len: {:?}, un_confirmed len: {:?}",
+                    confirmed.len(),
+                    unconfirmed.len()
+                );
             } else {
                 // the new header is on uncle chain.
                 if uncle_raw_data.len() == UNCLE_HEADER_CACHE_LIMIT {
@@ -925,7 +943,7 @@ pub fn parse_main_raw_data(data: &Bytes) -> Result<(Vec<&[u8]>, Vec<&[u8]>)> {
     let mut confirmed: Vec<&[u8]> = vec![];
     for i in 0..len {
         let raw_data = main_reader.get_unchecked(i).raw_data();
-        if (len - i) < CONFIRM {
+        if (len - i) <= CONFIRM {
             un_confirmed.push(raw_data);
         } else {
             confirmed.push(main_reader.get_unchecked(i).raw_data());
