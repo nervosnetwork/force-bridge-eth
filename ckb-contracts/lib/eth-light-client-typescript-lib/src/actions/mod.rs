@@ -520,15 +520,36 @@ fn verify_original_chain_data(
         }
         assert_eq!(input_data, output_data, "invalid output data.");
     } else if input_reader.len() < output_reader.len() {
-        let mut input_data = vec![];
-        for i in 0..input_reader.len() {
-            input_data.push(input_reader.get_unchecked(i).raw_data())
+        if output_reader.len() <= CONFIRM {
+            let mut input_data = vec![];
+            for i in 0..input_reader.len() {
+                input_data.push(input_reader.get_unchecked(i).raw_data())
+            }
+            let mut output_data = vec![];
+            for i in 0..output_reader.len() - 1 {
+                output_data.push(output_reader.get_unchecked(i).raw_data())
+            }
+            assert_eq!(input_data, output_data, "invalid output data.");
+        } else {
+            let mut input_data = vec![];
+            for i in 0..input_reader.len() {
+                input_data.push(input_reader.get_unchecked(i).raw_data())
+            }
+            let header_info_raw = input_reader
+                .get_unchecked(input_reader.len() - CONFIRM)
+                .raw_data();
+            if ETHHeaderInfoReader::verify(&header_info_raw, false).is_err() {
+                panic!("invalid header info");
+            }
+            let header_info_reader = ETHHeaderInfoReader::new_unchecked(header_info_raw);
+            let hash = header_info_reader.hash().raw_data();
+            input_data[input_reader.len() - CONFIRM] = hash;
+            let mut output_data = vec![];
+            for i in 0..output_reader.len() - 1 {
+                output_data.push(output_reader.get_unchecked(i).raw_data())
+            }
+            assert_eq!(input_data, output_data, "invalid output data.");
         }
-        let mut output_data = vec![];
-        for i in 0..output_reader.len() - 1 {
-            output_data.push(output_reader.get_unchecked(i).raw_data())
-        }
-        assert_eq!(input_data, output_data, "invalid output data.");
     } else {
         panic!("invalid data")
     }
