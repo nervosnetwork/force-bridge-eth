@@ -102,6 +102,13 @@ lock.code_hash = "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3
 lock.args = "0xcf055e9d2d50fd94120fa6d981728a9be55bff3b"
 lock.hash_type = "type"
 
+# issue for random generated private key: 719e94ec5d2ecef67b5878503ffd6e1e0e2fe7a52ddd55c436878cb4d52d376d
+[[genesis.issued_cells]]
+capacity = 20_000_000_000_00000000
+lock.code_hash = "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"
+lock.args = "0xafe0a2b3785bf631f19a31a4bfda90b0ddb07678"
+lock.hash_type = "type"
+
 [params]
 initial_primary_epoch_reward = 1_917_808_21917808
 secondary_epoch_reward = 613_698_63013698
