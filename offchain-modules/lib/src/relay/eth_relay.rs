@@ -1,7 +1,7 @@
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, Generator};
+use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path, Generator};
+use crate::util::config::ForceCliConfig;
 use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
-use crate::util::settings::Settings;
 use anyhow::{anyhow, Result};
 use ckb_sdk::{AddressPayload, SECP256K1};
 use ckb_types::core::{DepType, TransactionView};
@@ -12,9 +12,10 @@ use ethereum_types::H256;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::sign;
-use force_sdk::util::{parse_privkey_path, send_tx_sync};
+use force_sdk::util::send_tx_sync;
 use log::{debug, info};
 use secp256k1::SecretKey;
+use shellexpand::tilde;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
@@ -23,40 +24,49 @@ use web3::types::{Block, BlockHeader};
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
     pub generator: Generator,
-    pub priv_key_path: String,
+    pub secret_key: SecretKey,
     pub proof_data_path: String,
     pub cell_typescript: Option<Script>,
     pub config_path: String,
+    pub config: ForceCliConfig,
 }
 
 impl ETHRelayer {
     pub fn new(
         config_path: String,
-        ckb_rpc_url: String,
-        eth_rpc_url: String,
-        indexer_url: String,
+        network: Option<String>,
         priv_key_path: String,
         proof_data_path: String,
     ) -> Result<Self> {
-        let settings = Settings::new(&config_path)?;
-        let generator = Generator::new(ckb_rpc_url, indexer_url, settings.clone())
+        let config_path = tilde(config_path.as_str()).into_owned();
+        let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
+        let deployed_contracts = force_cli_config
+            .deployed_contracts
+            .as_ref()
+            .expect("contracts should be deployed");
+        let eth_rpc_url = force_cli_config.get_ethereum_rpc_url(&network)?;
+        let ckb_rpc_url = force_cli_config.get_ckb_rpc_url(&network)?;
+        let ckb_indexer_url = force_cli_config.get_ckb_indexer_url(&network)?;
+
+        let generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
             .map_err(|e| anyhow::anyhow!(e))?;
         let eth_client = Web3Client::new(eth_rpc_url);
-        let cell = &settings.light_client_cell_script.cell_script;
+        let cell = &deployed_contracts.light_client_cell_script.cell_script;
         let temp_typescript = parse_cell(&cell);
         let cell_typescript;
         match temp_typescript {
             Err(_) => cell_typescript = None,
             Ok(temp_typescript) => cell_typescript = Some(temp_typescript),
         }
-
+        let secret_key = parse_privkey_path(&priv_key_path, &force_cli_config, &network)?;
         Ok(ETHRelayer {
             eth_client,
             generator,
-            priv_key_path,
+            secret_key,
             proof_data_path,
             cell_typescript,
             config_path,
+            config: force_cli_config,
         })
     }
 
@@ -77,10 +87,12 @@ impl ETHRelayer {
                     .hash_type(cell_script.hash_type())
                     .args(cell_script.args())
                     .build();
-                self.generator.settings.light_client_cell_script.cell_script =
-                    hex::encode(typescript.clone().as_slice());
                 self.generator
-                    .settings
+                    .deployed_contracts
+                    .light_client_cell_script
+                    .cell_script = hex::encode(typescript.clone().as_slice());
+                self.config.deployed_contracts = Some(self.generator.deployed_contracts.clone());
+                self.config
                     .write(&self.config_path)
                     .map_err(|e| anyhow!(e))?;
             }
@@ -113,8 +125,14 @@ impl ETHRelayer {
         let typescript = Script::new_builder()
             .code_hash(
                 Byte32::from_slice(
-                    hex::decode(&self.generator.settings.light_client_typescript.code_hash)?
-                        .as_slice(),
+                    hex::decode(
+                        &self
+                            .generator
+                            .deployed_contracts
+                            .light_client_typescript
+                            .code_hash,
+                    )?
+                    .as_slice(),
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
@@ -124,8 +142,14 @@ impl ETHRelayer {
         let lockscript = Script::new_builder()
             .code_hash(
                 Byte32::from_slice(
-                    hex::decode(&self.generator.settings.light_client_lockscript.code_hash)?
-                        .as_slice(),
+                    hex::decode(
+                        &self
+                            .generator
+                            .deployed_contracts
+                            .light_client_lockscript
+                            .code_hash,
+                    )?
+                    .as_slice(),
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
@@ -134,7 +158,7 @@ impl ETHRelayer {
         let current_number = self.eth_client.client().eth().block_number().await?;
         let block = self.eth_client.get_block(current_number.into()).await?;
         let witness = self.generate_witness(block.number.unwrap().as_u64())?;
-        let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
+        let from_privkey = self.secret_key;
         let from_lockscript = self.generate_from_lockscript(from_privkey)?;
         let unsigned_tx = self.generator.init_light_client_tx(
             &block,
@@ -244,7 +268,7 @@ impl ETHRelayer {
                     new_header
                 );
                 let witness = self.generate_witness(new_number.as_u64())?;
-                let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
+                let from_privkey = self.secret_key;
                 let from_lockscript = self.generate_from_lockscript(from_privkey)?;
                 let unsigned_tx = self.generator.generate_eth_light_client_tx(
                     &new_header,
@@ -322,7 +346,7 @@ pub fn update_cell_sync(
 
 pub fn wait_header_sync_success(
     generator: &mut Generator,
-    config_path: String,
+    light_client_cell_script: &str,
     header_rlp: String,
 ) -> Result<()> {
     let header: eth_spv_lib::eth_types::BlockHeader = rlp::decode(
@@ -335,8 +359,7 @@ pub fn wait_header_sync_success(
     let mut i = 0;
     let cell_script;
     loop {
-        let settings = Settings::new(&config_path)?;
-        let cell_script_result = parse_cell(settings.light_client_cell_script.cell_script.as_str());
+        let cell_script_result = parse_cell(light_client_cell_script);
         match cell_script_result {
             Ok(cell_script_result) => {
                 cell_script = cell_script_result;

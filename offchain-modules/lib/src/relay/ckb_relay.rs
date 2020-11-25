@@ -1,16 +1,18 @@
 use crate::transfer::to_eth::get_add_ckb_headers_func;
 use crate::util::ckb_util::Generator;
-use crate::util::eth_util::Web3Client;
+use crate::util::config::ForceCliConfig;
+use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use anyhow::{anyhow, bail, Result};
 use ethabi::Token;
 use ethereum_types::U256;
 use log::info;
+use shellexpand::tilde;
 use std::time::Duration;
-use web3::types::{Bytes, H160};
+use web3::types::{Bytes, H160, H256};
 
 pub struct CKBRelayer {
     pub contract_addr: H160,
-    pub priv_key_path: String,
+    pub priv_key: H256,
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
     pub gas_price: U256,
@@ -18,21 +20,31 @@ pub struct CKBRelayer {
 
 impl CKBRelayer {
     pub fn new(
-        ckb_rpc_url: String,
-        indexer_url: String,
-        eth_rpc_url: String,
-        contract_addr: H160,
+        config_path: String,
+        network: Option<String>,
         priv_key_path: String,
         gas_price: u64,
     ) -> Result<CKBRelayer> {
-        let ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
+        let config_path = tilde(config_path.as_str()).into_owned();
+        let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
+        let deployed_contracts = force_cli_config
+            .deployed_contracts
+            .as_ref()
+            .expect("contracts should be deployed");
+        let eth_rpc_url = force_cli_config.get_ethereum_rpc_url(&network)?;
+        let ckb_rpc_url = force_cli_config.get_ckb_rpc_url(&network)?;
+        let ckb_indexer_url = force_cli_config.get_ckb_indexer_url(&network)?;
+
+        let contract_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
+        let ckb_client = Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
             .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
         let web3_client = Web3Client::new(eth_rpc_url);
         let gas_price = U256::from(gas_price);
+        let priv_key = parse_private_key(&priv_key_path, &force_cli_config, &network)?;
 
         Ok(CKBRelayer {
             contract_addr,
-            priv_key_path,
+            priv_key,
             ckb_client,
             web3_client,
             gas_price,
@@ -104,7 +116,7 @@ impl CKBRelayer {
             .web3_client
             .build_sign_tx(
                 self.contract_addr,
-                self.priv_key_path.clone(),
+                self.priv_key,
                 add_headers_abi,
                 self.gas_price,
                 U256::from(0),

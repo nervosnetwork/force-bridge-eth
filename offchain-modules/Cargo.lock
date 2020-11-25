@@ -1371,6 +1371,7 @@ dependencies = [
  "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=03b10ca)",
  "serde 1.0.117",
  "serde_json",
+ "shellexpand",
  "tokio 0.2.23",
  "web3",
 ]
@@ -1407,6 +1408,7 @@ dependencies = [
  "serde 1.0.117",
  "serde_derive",
  "serde_json",
+ "shellexpand",
  "tiny-keccak 2.0.2",
  "tokio 0.2.23",
  "toml",
@@ -3584,6 +3586,15 @@ dependencies = [
  "digest 0.9.0",
  "keccak",
  "opaque-debug 0.3.0",
+]
+
+[[package]]
+name = "shellexpand"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a2b22262a9aaf9464d356f656fea420634f78c881c5eebd5ef5e66d8b9bc603"
+dependencies = [
+ "dirs",
 ]
 
 [[package]]

@@ -1,3 +1,4 @@
+use crate::util::config::ForceCliConfig;
 use anyhow::{anyhow, Result};
 use eth_spv_lib::eth_types::my_keccak256;
 use ethabi::{FixedBytes, Function, Param, ParamType, Token, Uint};
@@ -38,14 +39,14 @@ impl Web3Client {
     pub async fn send_transaction(
         &mut self,
         to: H160,
-        key_path: String,
+        eth_private_key: H256,
         data: Vec<u8>,
         gas_price: U256,
         eth_value: U256,
         wait: bool,
     ) -> Result<H256> {
         let signed_tx = self
-            .build_sign_tx(to, key_path, data, gas_price, eth_value)
+            .build_sign_tx(to, eth_private_key, data, gas_price, eth_value)
             .await?;
         let tx_hash = if wait {
             let receipt = self
@@ -76,14 +77,13 @@ impl Web3Client {
     pub async fn build_sign_tx(
         &mut self,
         to: H160,
-        key_path: String,
+        eth_private_key: H256,
         data: Vec<u8>,
         gas_price: U256,
         eth_value: U256,
     ) -> Result<Vec<u8>> {
-        let private_key = &parse_private_key(&key_path)?;
-        let key = SecretKey::from_slice(&private_key.0).unwrap();
-        let from = secret_key_address(&key);
+        let eth_key = SecretKey::from_slice(&eth_private_key.0)?;
+        let from = secret_key_address(&eth_key);
         let nonce = self.client().eth().transaction_count(from, None).await?;
         info!("tx current nonce :{}", &nonce);
         let chain_id = self.client().eth().chain_id().await?;
@@ -95,7 +95,7 @@ impl Web3Client {
             tx_gas_price = gas_price;
         }
         let tx = make_transaction(to, nonce, data, tx_gas_price, eth_value);
-        let signed_tx = tx.sign(&parse_private_key(&key_path)?, &chain_id.as_u32());
+        let signed_tx = tx.sign(&eth_private_key, &chain_id.as_u32());
         Ok(signed_tx)
     }
 
@@ -230,19 +230,28 @@ pub fn make_transaction(
     }
 }
 
-pub fn parse_private_key(path: &str) -> Result<ethereum_types::H256> {
-    let content = std::fs::read_to_string(path)?;
-    let private_key_string = content
-        .split_whitespace()
-        .next()
-        .ok_or_else(|| anyhow!("File is empty"))?;
+pub fn parse_private_key(
+    path: &str,
+    config: &ForceCliConfig,
+    network: &Option<String>,
+) -> Result<ethereum_types::H256> {
+    let privkey_string: String = if let Ok(index) = path.parse::<usize>() {
+        config.get_ethereum_private_keys(network)?[index].clone()
+    } else {
+        let content = std::fs::read_to_string(path)?;
+        content
+            .split_whitespace()
+            .next()
+            .ok_or_else(|| anyhow!("File is empty"))?
+            .to_string()
+    };
     return Ok(ethereum_types::H256::from_slice(
-        hex::decode(private_key_string)?.as_slice(),
+        hex::decode(privkey_string)?.as_slice(),
     ));
 }
 
 /// Gets the public address of a private key.
-fn secret_key_address(key: &SecretKey) -> Address {
+pub fn secret_key_address(key: &SecretKey) -> Address {
     let secp = Secp256k1::signing_only();
     let public_key = PublicKey::from_secret_key(&secp, key);
     public_key_address(&public_key)

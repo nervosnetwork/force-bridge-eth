@@ -7,13 +7,25 @@ async function main() {
     throw "FORCE_CONFIG_PATH not set";
   }
   const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
-  const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
+  const deployedContracts = forceConfig.deployed_contracts;
+  const bridge_lockscript_code_hash =
+    deployedContracts.bridge_lockscript.code_hash;
   const recipient_typescript_code_hash =
-    forceConfig.recipient_typescript.code_hash;
+    deployedContracts.recipient_typescript.code_hash;
+  const network_config =
+    forceConfig.networks_config[forceConfig.default_network];
+  const provider = new ethers.providers.JsonRpcProvider(
+    network_config.ethereum_rpc_url
+  );
+  const wallet = new ethers.Wallet(
+    "0x" + network_config.ethereum_private_keys[0],
+    provider
+  );
 
   //ERC20
   const ERC20 = await ethers.getContractFactory(
-    "contracts/test/ERC20.sol:ERC20"
+    "contracts/test/ERC20.sol:ERC20",
+    wallet
   );
   const ERC20Deploy = await ERC20.deploy();
   await ERC20Deploy.deployed();
@@ -22,7 +34,8 @@ async function main() {
 
   // deploy CKBChin
   const CKBChain = await ethers.getContractFactory(
-    "contracts/CKBChain.sol:CKBChain"
+    "contracts/CKBChain.sol:CKBChain",
+    wallet
   );
   const CKBChinDeploy = await CKBChain.deploy();
   await CKBChinDeploy.deployed();
@@ -30,8 +43,9 @@ async function main() {
   console.error("CKBChin deployed to:", CKBChinDeployAddr);
 
   // deploy TokenLocker
-  const TokenLocker = await ethers.getContractFactory(
-    "contracts/TokenLocker.sol:TokenLocker"
+  let TokenLocker = await ethers.getContractFactory(
+    "contracts/TokenLocker.sol:TokenLocker",
+    wallet
   );
   const locker = await TokenLocker.deploy(
     CKBChinDeployAddr,
@@ -53,11 +67,11 @@ async function main() {
   console.log(data);
 
   // write eth address to settings
-  forceConfig.eth_token_locker_addr = lockerAddr;
-  forceConfig.eth_ckb_chain_addr = CKBChinDeployAddr;
+  deployedContracts.eth_token_locker_addr = lockerAddr;
+  deployedContracts.eth_ckb_chain_addr = CKBChinDeployAddr;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
-  console.error("write eth addr into settings successfully");
+  console.error("write eth addr into config successfully");
 }
 
 // We recommend this pattern to be able to use async/await everywhere

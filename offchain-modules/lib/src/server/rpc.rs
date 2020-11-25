@@ -1,11 +1,11 @@
 use super::types::*;
 use crate::transfer::to_ckb::create_bridge_cell;
 use crate::util::ckb_util::{build_lockscript_from_address, Generator};
+use crate::util::config::{DeployedContracts, ForceCliConfig};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
     rlp_transaction,
 };
-use crate::util::settings::Settings;
 use ckb_jsonrpc_types::Uint128;
 use ckb_sdk::{Address, HumanCapacity};
 use ckb_types::packed::Script;
@@ -15,6 +15,7 @@ use jsonrpc_core::{IoHandler, Result};
 use jsonrpc_derive::rpc;
 use jsonrpc_http_server::ServerBuilder;
 use molecule::prelude::Entity;
+use shellexpand::tilde;
 use std::str::FromStr;
 use web3::types::U256;
 
@@ -34,24 +35,31 @@ pub struct RpcImpl {
     config_path: String,
     indexer_url: String,
     ckb_rpc_url: String,
-    settings: Settings,
+    deployed_contracts: DeployedContracts,
     private_key_path: String,
 }
 
 impl RpcImpl {
-    fn new(
-        config_path: String,
-        indexer_url: String,
-        ckb_rpc_url: String,
-        private_key_path: String,
-    ) -> Result<Self> {
-        let settings = Settings::new(config_path.as_str()).expect("invalid settings");
+    fn new(config_path: String, private_key_path: String) -> Result<Self> {
+        let config_path = tilde(config_path.as_str()).into_owned();
+        let force_cli_config =
+            ForceCliConfig::new(config_path.as_str()).expect("get config succeed");
+        let deployed_contracts = force_cli_config
+            .deployed_contracts
+            .as_ref()
+            .expect("contracts should be deployed");
+        let ckb_rpc_url = force_cli_config
+            .get_ckb_rpc_url(&None)
+            .expect("get ckb rpc url config succeed");
+        let indexer_url = force_cli_config
+            .get_ckb_indexer_url(&None)
+            .expect("get ckb indexer url config succeed");
         Ok(Self {
             private_key_path,
             config_path,
             indexer_url,
             ckb_rpc_url,
-            settings,
+            deployed_contracts: deployed_contracts.clone(),
         })
     }
 
@@ -59,7 +67,7 @@ impl RpcImpl {
         let mut generator = Generator::new(
             self.ckb_rpc_url.clone(),
             self.indexer_url.clone(),
-            self.settings.clone(),
+            self.deployed_contracts.clone(),
         )
         .map_err(|e| {
             jsonrpc_core::Error::invalid_params(format!("new geneartor fail, err: {}", e))
@@ -82,8 +90,7 @@ impl Rpc for RpcImpl {
         let capacity = "283".to_string();
         let outpoint = create_bridge_cell(
             self.config_path.clone(),
-            self.ckb_rpc_url.clone(),
-            self.indexer_url.clone(),
+            None,
             self.private_key_path.clone(),
             tx_fee,
             capacity,
@@ -110,10 +117,10 @@ impl Rpc for RpcImpl {
         );
         let token_address = convert_eth_address(args.token_address.as_str())
             .map_err(|_| jsonrpc_core::Error::invalid_params("token address parse fail"))?;
-        let lock_contract_address =
-            convert_eth_address(self.settings.eth_token_locker_addr.as_str()).map_err(|_| {
-                jsonrpc_core::Error::invalid_params("lock contract address parse fail")
-            })?;
+        let lock_contract_address = convert_eth_address(
+            self.deployed_contracts.eth_token_locker_addr.as_str(),
+        )
+        .map_err(|_| jsonrpc_core::Error::invalid_params("lock contract address parse fail"))?;
         let recipient_address = convert_eth_address(args.recipient_address.as_str())
             .map_err(|_| jsonrpc_core::Error::invalid_params("recipient address parse fail"))?;
 
@@ -141,10 +148,10 @@ impl Rpc for RpcImpl {
     fn get_sudt_balance(&self, args: GetSudtBalanceArgs) -> Result<Uint128> {
         let token_address = convert_eth_address(args.token_address.as_str())
             .map_err(|_| jsonrpc_core::Error::invalid_params("token address parse fail"))?;
-        let lock_contract_address =
-            convert_eth_address(self.settings.eth_token_locker_addr.as_str()).map_err(|_| {
-                jsonrpc_core::Error::invalid_params("lock contract address parse fail")
-            })?;
+        let lock_contract_address = convert_eth_address(
+            self.deployed_contracts.eth_token_locker_addr.as_str(),
+        )
+        .map_err(|_| jsonrpc_core::Error::invalid_params("lock contract address parse fail"))?;
 
         let mut generator = self.get_generator()?;
 
@@ -157,7 +164,7 @@ impl Rpc for RpcImpl {
     }
 
     fn lock(&self, args: LockArgs) -> Result<LockResult> {
-        let to = convert_eth_address(self.settings.eth_token_locker_addr.as_str())
+        let to = convert_eth_address(self.deployed_contracts.eth_token_locker_addr.as_str())
             .map_err(|_| jsonrpc_core::Error::invalid_params("lock contract address parse fail"))?;
         let nonce = U256::from(u128::from(args.nonce));
         let gas_price = U256::from(u128::from(args.gas_price));
@@ -225,15 +232,12 @@ impl Rpc for RpcImpl {
 
 pub fn start(
     config_path: String,
-    ckb_rpc_url: String,
-    indexer_url: String,
     private_key_path: String,
     listen_url: String,
     threads_num: usize,
 ) {
     let mut io = IoHandler::new();
-    let rpc = RpcImpl::new(config_path, indexer_url, ckb_rpc_url, private_key_path)
-        .expect("init handler error");
+    let rpc = RpcImpl::new(config_path, private_key_path).expect("init handler error");
     io.extend_with(rpc.to_delegate());
 
     log::info!("server start at {}", &listen_url);
