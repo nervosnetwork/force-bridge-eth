@@ -15,7 +15,7 @@ use force_eth_lib::transfer::to_eth::{
 use force_eth_lib::util::ckb_util::{parse_privkey_path, ETHSPVProofJson, Generator};
 use force_eth_lib::util::config;
 use force_eth_lib::util::config::ForceCliConfig;
-use force_eth_lib::util::eth_util::convert_eth_address;
+use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
 use log::{debug, info};
 use rusty_receipt_proof_maker::generate_eth_proof;
 use serde_json::{json, Value};
@@ -181,6 +181,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     let eth_spv_proof = generate_eth_proof(args.hash.clone(), ethereum_rpc_url.clone())
         .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
     let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
+    info!("eth_spv_proof: {:?}", eth_spv_proof);
     let hash_str = args.hash.clone();
     let log_index = eth_spv_proof.log_index;
     let network = ethereum_rpc_url;
@@ -189,6 +190,11 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     .unwrap();
     let proof_json: Value = serde_json::from_str(&proof_hex.clone()).unwrap();
     info!("generate proof json: {:?}", proof_json);
+    // TODO: refactor to parse with static struct instead of dynamic parsing
+    let mut proof_vec = vec![];
+    for item in proof_json["proof"].as_array().unwrap() {
+        proof_vec.push(item.as_str().unwrap().to_owned());
+    }
 
     let eth_proof = ETHSPVProofJson {
         log_index: u64::try_from(log_index).unwrap(),
@@ -196,7 +202,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         receipt_index: eth_spv_proof.receipt_index,
         receipt_data: String::from(proof_json["receipt_data"].as_str().unwrap()),
         header_data: header_rlp.clone(),
-        proof: vec![proof_json["proof"][0].as_str().unwrap().to_owned()],
+        proof: proof_vec,
         token: eth_spv_proof.token,
         lock_amount: eth_spv_proof.lock_amount,
         recipient_lockscript: eth_spv_proof.recipient_lockscript,
@@ -300,11 +306,13 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
 
     let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, ckb_rpc_url.clone())?;
     let light_client = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
+    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     wait_block_submit(
         ethereum_rpc_url.clone(),
         ckb_rpc_url,
         light_client,
         ckb_tx_hash,
+        lock_contract_addr,
     )
     .await?;
     let result = unlock(
@@ -364,14 +372,28 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
+    let config_path = tilde(args.config_path.as_str()).into_owned();
+    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
+    let deployed_contracts = force_cli_config
+        .deployed_contracts
+        .as_ref()
+        .expect("contracts should be deployed");
+    let eth_rpc_url = force_cli_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_cli_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_cli_config.get_ckb_indexer_url(&args.network)?;
+    let priv_key = parse_private_key(&args.private_key_path, &force_cli_config, &args.network)?;
     let mut ckb_relayer = CKBRelayer::new(
-        args.config_path,
-        args.network,
-        args.private_key_path,
+        ckb_rpc_url,
+        ckb_indexer_url,
+        eth_rpc_url.clone(),
+        priv_key,
+        deployed_contracts.eth_ckb_chain_addr.clone(),
         args.gas_price,
     )?;
     loop {
-        ckb_relayer.start(args.per_amount).await?;
+        ckb_relayer
+            .start(eth_rpc_url.clone(), args.per_amount)
+            .await?;
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }

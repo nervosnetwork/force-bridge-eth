@@ -374,15 +374,28 @@ pub fn wait_header_sync_success(
     }
     i = 0;
     loop {
-        let cell = get_live_cell_by_typescript(&mut generator.indexer_client, cell_script.clone())
-            .map_err(|err| anyhow!(err))?;
-        if cell.is_none() {
-            info!("waiting for finding cell deps, loop index: {}", i);
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            i += 1;
-            continue;
+        let cell_res =
+            get_live_cell_by_typescript(&mut generator.indexer_client, cell_script.clone());
+        let cell;
+        match cell_res {
+            Ok(cell_op) => {
+                if cell_op.is_none() {
+                    info!("waiting for finding cell deps, loop index: {}", i);
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    i += 1;
+                    continue;
+                }
+                cell = cell_op.unwrap();
+            }
+            Err(_) => {
+                info!("waiting for finding cell deps, loop index: {}", i);
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                i += 1;
+                continue;
+            }
         }
-        let ckb_cell_data = cell.unwrap().clone().output_data.as_bytes().to_vec();
+
+        let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
         let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
 
         if header.number
