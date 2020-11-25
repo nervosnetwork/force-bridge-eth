@@ -60,7 +60,6 @@ pub struct LockResult {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GetClientInfoArgs {
+pub struct GetBestBlockHeightArgs {
     pub chain: String,
-    pub contract: String,
 }

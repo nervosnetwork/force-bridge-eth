@@ -1,6 +1,8 @@
 use super::types::*;
 use crate::transfer::to_ckb::create_bridge_cell;
-use crate::util::ckb_util::{build_lockscript_from_address, parse_main_chain_headers, Generator};
+use crate::util::ckb_util::{
+    build_lockscript_from_address, parse_cell, parse_main_chain_headers, Generator,
+};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
     rlp_transaction, Web3Client,
@@ -12,12 +14,12 @@ use ckb_types::packed::Script;
 use ethabi::Token;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::util::ensure_indexer_sync;
-use futures::executor;
 use jsonrpc_core::{IoHandler, Result};
 use jsonrpc_derive::rpc;
 use jsonrpc_http_server::ServerBuilder;
 use molecule::prelude::Entity;
 use std::str::FromStr;
+use tokio::runtime::Runtime;
 use web3::types::{H160, U256};
 
 #[rpc]
@@ -30,8 +32,8 @@ pub trait Rpc {
     fn lock(&self, args: LockArgs) -> Result<LockResult>;
     #[rpc(name = "get_sudt_balance")]
     fn get_sudt_balance(&self, args: GetSudtBalanceArgs) -> Result<Uint128>;
-    #[rpc(name = "get_client_info")]
-    fn get_client_info(&self, args: GetClientInfoArgs) -> Result<Uint64>;
+    #[rpc(name = "get_best_block_height")]
+    fn get_best_block_height(&self, args: GetBestBlockHeightArgs) -> Result<Uint64>;
 }
 
 pub struct RpcImpl {
@@ -229,7 +231,7 @@ impl Rpc for RpcImpl {
         Ok(result)
     }
 
-    fn get_client_info(&self, args: GetClientInfoArgs) -> Result<Uint64> {
+    fn get_best_block_height(&self, args: GetBestBlockHeightArgs) -> Result<Uint64> {
         match args.chain.as_str() {
             "ckb" => {
                 let contract_address = convert_eth_address(&self.settings.eth_ckb_chain_addr)
@@ -257,28 +259,26 @@ impl Rpc for RpcImpl {
                         })
                 }
 
-                let result =
-                    executor::block_on(get_best_block_height(&mut eth_client, contract_address))?;
+                let result = Runtime::new()
+                    .unwrap()
+                    .block_on(get_best_block_height(&mut eth_client, contract_address))?;
+
                 Ok(Uint64::from(result))
             }
             "eth" => {
                 let mut generator = self.get_generator()?;
 
-                let typescript_data = hex::decode(
-                    &self.settings.light_client_cell_script.cell_script,
-                )
-                .map_err(|e| {
-                    jsonrpc_core::Error::invalid_params(format!(
-                        "decode replay_resist_outpoint fail, err: {}",
-                        e
-                    ))
-                })?;
-
-                let typescript = Script::from_slice(typescript_data.as_slice())
-                    .map_err(|_| jsonrpc_core::Error::invalid_params("Script from_slice fail"))?;
+                let typescript =
+                    parse_cell(self.settings.light_client_cell_script.cell_script.as_str())
+                        .map_err(|e| {
+                            jsonrpc_core::Error::invalid_params(format!(
+                                "get typescript fail {:?}",
+                                e
+                            ))
+                        })?;
 
                 let cell = get_live_cell_by_typescript(&mut generator.indexer_client, typescript)
-                    .map_err(|e| jsonrpc_core::Error::invalid_params(e))?
+                    .map_err(|_| jsonrpc_core::Error::invalid_params("get live cell fail"))?
                     .ok_or_else(|| {
                         jsonrpc_core::Error::invalid_params("eth header cell not exist")
                     })?;
@@ -287,11 +287,18 @@ impl Rpc for RpcImpl {
                     cell.output_data.as_bytes().to_vec(),
                 )
                 .map_err(|_| jsonrpc_core::Error::invalid_params("parse header data fail"))?;
-                println!("headers {:?}", un_confirmed_headers);
-                let height = un_confirmed_headers[0].number.unwrap();
-                Ok(Uint64::from(0))
+
+                let best_header = un_confirmed_headers
+                    .last()
+                    .ok_or_else(|| jsonrpc_core::Error::invalid_params("header is none"))?;
+                let best_block_number = best_header
+                    .number
+                    .ok_or_else(|| jsonrpc_core::Error::invalid_params("header number is none"))?;
+                Ok(Uint64::from(best_block_number.as_u64()))
             }
-            _ => Ok(Uint64::from(0)),
+            _ => Err(jsonrpc_core::Error::invalid_params(
+                "unknown chain type, only support eth and ckb",
+            )),
         }
     }
 }
