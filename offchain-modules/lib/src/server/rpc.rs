@@ -1,22 +1,26 @@
 use super::types::*;
 use crate::transfer::to_ckb::create_bridge_cell;
-use crate::util::ckb_util::{build_lockscript_from_address, Generator};
+use crate::util::ckb_util::{
+    build_lockscript_from_address, parse_cell, parse_main_chain_headers, Generator,
+};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
-    rlp_transaction,
+    rlp_transaction, Web3Client,
 };
 use crate::util::settings::Settings;
-use ckb_jsonrpc_types::Uint128;
+use ckb_jsonrpc_types::{Uint128, Uint64};
 use ckb_sdk::{Address, HumanCapacity};
 use ckb_types::packed::Script;
 use ethabi::Token;
+use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::util::ensure_indexer_sync;
 use jsonrpc_core::{IoHandler, Result};
 use jsonrpc_derive::rpc;
 use jsonrpc_http_server::ServerBuilder;
 use molecule::prelude::Entity;
 use std::str::FromStr;
-use web3::types::U256;
+use tokio::runtime::Runtime;
+use web3::types::{H160, U256};
 
 #[rpc]
 pub trait Rpc {
@@ -28,12 +32,15 @@ pub trait Rpc {
     fn lock(&self, args: LockArgs) -> Result<LockResult>;
     #[rpc(name = "get_sudt_balance")]
     fn get_sudt_balance(&self, args: GetSudtBalanceArgs) -> Result<Uint128>;
+    #[rpc(name = "get_best_block_height")]
+    fn get_best_block_height(&self, args: GetBestBlockHeightArgs) -> Result<Uint64>;
 }
 
 pub struct RpcImpl {
     config_path: String,
     indexer_url: String,
     ckb_rpc_url: String,
+    eth_rpc_url: String,
     settings: Settings,
     private_key_path: String,
 }
@@ -43,6 +50,7 @@ impl RpcImpl {
         config_path: String,
         indexer_url: String,
         ckb_rpc_url: String,
+        eth_rpc_url: String,
         private_key_path: String,
     ) -> Result<Self> {
         let settings = Settings::new(config_path.as_str()).expect("invalid settings");
@@ -51,6 +59,7 @@ impl RpcImpl {
             config_path,
             indexer_url,
             ckb_rpc_url,
+            eth_rpc_url,
             settings,
         })
     }
@@ -221,19 +230,97 @@ impl Rpc for RpcImpl {
         };
         Ok(result)
     }
+
+    fn get_best_block_height(&self, args: GetBestBlockHeightArgs) -> Result<Uint64> {
+        match args.chain.as_str() {
+            "ckb" => {
+                let contract_address = convert_eth_address(&self.settings.eth_ckb_chain_addr)
+                    .map_err(|e| {
+                        jsonrpc_core::Error::invalid_params(format!(
+                            "abi encode lock eth data fail, err: {}",
+                            e
+                        ))
+                    })?;
+
+                let mut eth_client = Web3Client::new(self.eth_rpc_url.clone());
+
+                async fn get_best_block_height(
+                    client: &mut Web3Client,
+                    contract_address: H160,
+                ) -> Result<u64> {
+                    client
+                        .get_contract_height("latestBlockNumber", contract_address)
+                        .await
+                        .map_err(|e| {
+                            jsonrpc_core::Error::invalid_params(format!(
+                                "eth client call get_contract_height, err: {}",
+                                e
+                            ))
+                        })
+                }
+
+                let result = Runtime::new()
+                    .unwrap()
+                    .block_on(get_best_block_height(&mut eth_client, contract_address))?;
+
+                Ok(Uint64::from(result))
+            }
+            "eth" => {
+                let mut generator = self.get_generator()?;
+
+                let typescript =
+                    parse_cell(self.settings.light_client_cell_script.cell_script.as_str())
+                        .map_err(|e| {
+                            jsonrpc_core::Error::invalid_params(format!(
+                                "get typescript fail {:?}",
+                                e
+                            ))
+                        })?;
+
+                let cell = get_live_cell_by_typescript(&mut generator.indexer_client, typescript)
+                    .map_err(|_| jsonrpc_core::Error::invalid_params("get live cell fail"))?
+                    .ok_or_else(|| {
+                        jsonrpc_core::Error::invalid_params("eth header cell not exist")
+                    })?;
+
+                let (un_confirmed_headers, _) = parse_main_chain_headers(
+                    cell.output_data.as_bytes().to_vec(),
+                )
+                .map_err(|_| jsonrpc_core::Error::invalid_params("parse header data fail"))?;
+
+                let best_header = un_confirmed_headers
+                    .last()
+                    .ok_or_else(|| jsonrpc_core::Error::invalid_params("header is none"))?;
+                let best_block_number = best_header
+                    .number
+                    .ok_or_else(|| jsonrpc_core::Error::invalid_params("header number is none"))?;
+                Ok(Uint64::from(best_block_number.as_u64()))
+            }
+            _ => Err(jsonrpc_core::Error::invalid_params(
+                "unknown chain type, only support eth and ckb",
+            )),
+        }
+    }
 }
 
 pub fn start(
     config_path: String,
     ckb_rpc_url: String,
+    eth_rpc_url: String,
     indexer_url: String,
     private_key_path: String,
     listen_url: String,
     threads_num: usize,
 ) {
     let mut io = IoHandler::new();
-    let rpc = RpcImpl::new(config_path, indexer_url, ckb_rpc_url, private_key_path)
-        .expect("init handler error");
+    let rpc = RpcImpl::new(
+        config_path,
+        indexer_url,
+        ckb_rpc_url,
+        eth_rpc_url,
+        private_key_path,
+    )
+    .expect("init handler error");
     io.extend_with(rpc.to_delegate());
 
     log::info!("server start at {}", &listen_url);

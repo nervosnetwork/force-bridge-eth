@@ -58,3 +58,8 @@ pub struct LockResult {
     pub data: String,
     pub raw: String,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetBestBlockHeightArgs {
+    pub chain: String,
+}
