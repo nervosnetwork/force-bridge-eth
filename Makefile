@@ -43,4 +43,19 @@ fmt:
 	make -C offchain-modules fmt
 	make -C ckb-contracts fmt
 
+demo-init-deamon: demo-clear-deamon demo-start-deamon
+
+demo-start-deamon:
+	cd docker && docker-compose up -d
+	bash demo/vendor/init_eth2ckb_relayer_key.sh
+	bash demo/demo-start-deamon.sh
+
+demo-run-crosschain:
+	bash demo/crosschain.sh
+
+demo-clear-deamon:
+	bash demo/clean.sh
+	cd docker && docker-compose down
+	rm -rf ${HOME}/.ckb-cli/index-v1
+
 .PHONY: demo
