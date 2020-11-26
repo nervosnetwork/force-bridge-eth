@@ -19,7 +19,7 @@ defaults:
     working-directory: ckb-contracts
 
 jobs:
-  contract-check:
+  ckb-contracts-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

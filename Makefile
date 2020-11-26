@@ -23,7 +23,7 @@ demo-build:
 	cp offchain-modules/target/debug/force-eth-cli demo/bin
 	cd eth-contracts && yarn install
 
-integration-ci: demo-build demo-clear-deamon demo-start-deamon demo-run-crosschain
+integration-ci: demo-build demo-start-deamon demo-run-crosschain
 
 demo-clear:
 	rm -rf demo/{bin,contracts,data,.force-bridge-cli-config.toml}
