@@ -12,11 +12,7 @@ eth-contracts-ci:
 	cd eth-contracts && yarn test
 
 demo-build:
-	pwd
-	mkdir -p demo/{contracts,data,bin}
-	ls demo/
-	mkdir -p demo/contracts
-	ls demo/
+	mkdir -p demo/contracts demo/data demo/bin
 	cd ckb-contracts && capsule build --release
 	cp ckb-contracts/build/release/* demo/contracts/
 	cp offchain-modules/cli/deps/simple_udt demo/contracts/
