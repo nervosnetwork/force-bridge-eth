@@ -23,21 +23,10 @@ demo-build:
 	cp offchain-modules/target/debug/force-eth-cli demo/bin
 	cd eth-contracts && yarn install
 
-integration-ci: demo-build
-
-	rm -rf ${HOME}/.ckb-cli/index-v1
-	cd docker && docker-compose up -d
-
-	bash demo/vendor/init_eth2ckb_relayer_key.sh
-
-	bash demo/demo.sh
-	#cd docker && docker-compose stop
+integration-ci: demo-build demo-clear-deamon demo-start-deamon demo-run-crosschain
 
 demo-clear:
 	rm -rf demo/{bin,contracts,data,.force-bridge-cli-config.toml}
-
-demo:
-	bash demo/demo.sh
 
 fmt:
 	make -C offchain-modules fmt

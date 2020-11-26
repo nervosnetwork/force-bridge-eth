@@ -1,0 +1,21 @@
+name: integration-ci
+
+on: ["push", "pull_request"]
+
+jobs:
+  contract-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache cargo crate and target
+        uses: actions/cache@v2
+        with:
+          path: |
+            **/target
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+          key: cargo-target-offchain-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-target-offchain-
+      - run: make  demo-init-deamon demo-run-crosschain
