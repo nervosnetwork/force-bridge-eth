@@ -35,7 +35,8 @@ async fn get_or_create_bridge_cell(
         args.eth_token_address.clone(),
         args.recipient_address.clone(),
         args.bridge_fee.into(),
-    )?;
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(CreateBridgeCellResponse { outpoint }))
 }
 
@@ -53,7 +54,7 @@ async fn burn(
     let lock_contract_address = convert_eth_address(data.settings.eth_token_locker_addr.as_str())?;
     let recipient_address = convert_eth_address(args.recipient_address.as_str())?;
 
-    let mut generator = data.get_generator()?;
+    let mut generator = data.get_generator().await?;
 
     let tx_fee: u64 = HumanCapacity::from_str(&args.tx_fee)?.into();
 
@@ -80,7 +81,7 @@ async fn get_sudt_balance(
     let lock_contract_address = convert_eth_address(data.settings.eth_token_locker_addr.as_str())
         .map_err(|e| format!("lock contract address parse fail: {}", e))?;
 
-    let mut generator = data.get_generator()?;
+    let mut generator = data.get_generator().await?;
 
     let balance: Uint128 = generator
         .get_sudt_balance(args.address.clone(), token_address, lock_contract_address)
@@ -168,7 +169,7 @@ async fn get_best_block_height(
             Ok(HttpResponse::Ok().json(Uint64::from(result)))
         }
         "eth" => {
-            let mut generator = data.get_generator()?;
+            let mut generator = data.get_generator().await?;
 
             let typescript =
                 parse_cell(data.settings.light_client_cell_script.cell_script.as_str())
@@ -201,6 +202,5 @@ async fn index() -> impl Responder {
 
 #[get("/settings")]
 async fn settings(data: web::Data<DappState>) -> impl Responder {
-    tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     HttpResponse::Ok().json(&data.settings)
 }

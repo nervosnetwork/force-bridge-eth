@@ -32,7 +32,7 @@ impl DappState {
         })
     }
 
-    pub fn get_generator(&self) -> Result<Generator> {
+    pub async fn get_generator(&self) -> Result<Generator> {
         let mut generator = Generator::new(
             self.ckb_rpc_url.clone(),
             self.indexer_url.clone(),
@@ -40,6 +40,7 @@ impl DappState {
         )
         .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
         ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+            .await
             .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
         Ok(generator)
     }

@@ -206,7 +206,7 @@ pub fn check_capacity(capacity: u64, to_data_len: usize) -> Result<(), String> {
     Ok(())
 }
 
-pub fn send_tx_sync(
+pub async fn send_tx_sync(
     rpc_client: &mut HttpRpcClient,
     tx: &TransactionView,
     timeout: u64,
@@ -228,12 +228,12 @@ pub fn send_tx_sync(
         if status == Some(ckb_jsonrpc_types::Status::Committed) {
             return Ok(tx_hash);
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
     Err(format!("tx {} not commited", &tx_hash))
 }
 
-pub fn ensure_indexer_sync(
+pub async fn ensure_indexer_sync(
     rpc_client: &mut HttpRpcClient,
     indexer_client: &mut IndexerRpcClient,
     timeout: u64,
@@ -248,7 +248,7 @@ pub fn ensure_indexer_sync(
         if indexer_tip >= rpc_tip {
             return Ok(());
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
     Ok(())
 }

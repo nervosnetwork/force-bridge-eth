@@ -66,7 +66,7 @@ pub async fn init_light_client(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn burn(
+pub async fn burn(
     privkey_path: String,
     rpc_url: String,
     indexer_url: String,
@@ -82,6 +82,7 @@ pub fn burn(
     let mut generator = Generator::new(rpc_url, indexer_url, settings)
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
 
     let from_privkey = parse_privkey_path(&privkey_path)?;
@@ -103,7 +104,9 @@ pub fn burn(
         )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
 
-    generator.sign_and_send_transaction(unsigned_tx, from_privkey)
+    generator
+        .sign_and_send_transaction(unsigned_tx, from_privkey)
+        .await
 }
 
 #[allow(clippy::never_loop)]
@@ -132,7 +135,7 @@ pub async fn wait_block_submit(
             }
             None => {
                 info!("the transaction is not committed yet");
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
             }
         }
     }
@@ -157,7 +160,7 @@ pub async fn wait_block_submit(
             client_block_number, ckb_height, confirm
         );
         if client_block_number < ckb_height + confirm {
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
             continue;
         }
         return Ok(());
@@ -333,7 +336,7 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn transfer_sudt(
+pub async fn transfer_sudt(
     privkey_path: String,
     rpc_url: String,
     indexer_url: String,
@@ -348,6 +351,7 @@ pub fn transfer_sudt(
     let settings = Settings::new(&config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings).map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
 
     let from_privkey = parse_privkey_path(&privkey_path)?;
@@ -377,10 +381,12 @@ pub fn transfer_sudt(
         )
         .map_err(|e| anyhow!("failed to build transfer token tx: {}", e))?;
 
-    generator.sign_and_send_transaction(unsigned_tx, from_privkey)
+    generator
+        .sign_and_send_transaction(unsigned_tx, from_privkey)
+        .await
 }
 
-pub fn get_balance(
+pub async fn get_balance(
     rpc_url: String,
     indexer_url: String,
     config_path: String,
@@ -391,6 +397,7 @@ pub fn get_balance(
     let settings = Settings::new(&config_path)?;
     let mut generator = Generator::new(rpc_url, indexer_url, settings).map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
     let balance = generator
         .get_sudt_balance(address.clone(), token_addr, lock_contract_addr)
