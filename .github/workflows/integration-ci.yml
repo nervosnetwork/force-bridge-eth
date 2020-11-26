@@ -27,4 +27,9 @@ jobs:
           wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.2.3/capsule_v0.2.3_x86_64-linux.tar.gz
           tar -zxvf capsule_v0.2.3_x86_64-linux.tar.gz
           cp capsule_v0.2.3_x86_64-linux/capsule ~/.cargo/bin
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2020-10-22
+          override: true
       - run: make integration-ci
