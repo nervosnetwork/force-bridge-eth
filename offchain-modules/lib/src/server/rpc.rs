@@ -26,6 +26,9 @@ pub async fn start(
             .service(settings)
             .service(get_or_create_bridge_cell)
             .service(burn)
+            .service(lock)
+            .service(get_best_block_height)
+            .service(get_sudt_balance)
     })
     .bind(&listen_url)?
     .run()

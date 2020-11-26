@@ -2,9 +2,7 @@ use super::error::RpcError;
 use super::state::DappState;
 use super::types::*;
 use crate::transfer::to_ckb::create_bridge_cell;
-use crate::util::ckb_util::{
-    build_lockscript_from_address, parse_cell, parse_main_chain_headers,
-};
+use crate::util::ckb_util::{build_lockscript_from_address, parse_cell, parse_main_chain_headers};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
     rlp_transaction, Web3Client,
@@ -16,6 +14,7 @@ use ckb_types::packed::Script;
 use ethabi::Token;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use molecule::prelude::Entity;
+use serde_json::json;
 use std::str::FromStr;
 use web3::types::U256;
 
@@ -68,7 +67,7 @@ async fn burn(
         recipient_address,
     )?;
     let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
-    Ok(HttpResponse::Ok().json(BurnResult { tx: rpc_tx }))
+    Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
 
 #[post("/get_sudt_balance")]
@@ -87,7 +86,9 @@ async fn get_sudt_balance(
         .get_sudt_balance(args.address.clone(), token_address, lock_contract_address)
         .map_err(|e| format!("get_sudt_balance fail, err: {}", e))?
         .into();
-    Ok(HttpResponse::Ok().json(balance))
+    Ok(HttpResponse::Ok().json(json! ({
+        "balance": balance,
+    })))
 }
 
 #[post("/lock")]
