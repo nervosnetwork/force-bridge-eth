@@ -95,7 +95,8 @@ pub async fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.light_client_lockscript_path,
         args.recipient_typescript_path,
         args.sudt_path,
-    ).await
+    )
+    .await
 }
 
 pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
@@ -109,7 +110,8 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
-    ).await?;
+    )
+    .await?;
     info!(
         "create bridge cell successfully for {}, outpoint: {}",
         &args.recipient_address, &outpoint_hex
@@ -263,7 +265,8 @@ pub async fn burn_handler(args: BurnArgs) -> Result<()> {
         token_addr,
         receive_addr,
         lock_contract_addr,
-    ).await?;
+    )
+    .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
     Ok(())
 }
@@ -311,7 +314,8 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         token_addr,
         receive_addr,
         lock_contract_addr,
-    ).await?;
+    )
+    .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
 
     let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, args.ckb_rpc_url.clone())?;
@@ -357,7 +361,8 @@ pub async fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
         args.sudt_amount,
         token_addr,
         lock_contract_addr,
-    ).await?;
+    )
+    .await?;
     Ok(())
 }
 
@@ -374,7 +379,8 @@ pub async fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> 
         args.addr,
         token_addr,
         lock_contract_addr,
-    ).await?;
+    )
+    .await?;
     info!("sudt balance is {} ", result);
     Ok(())
 }
