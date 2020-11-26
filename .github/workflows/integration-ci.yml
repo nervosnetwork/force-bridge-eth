@@ -7,27 +7,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-#      - name: Cache cargo crate and target
-#        id: cache-contract-target
-#        uses: actions/cache@v2
-#        with:
-#          path: |
-#            **/target
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#            ~/.cargo/bin
-#          key: cargo-target-offchain-${{ hashFiles('**/Cargo.lock') }}
-#          restore-keys: |
-#            cargo-target-offchain-
+      - name: Cache cargo crate and target
+        id: cache-contract-target
+        uses: actions/cache@v2
+        with:
+          path: |
+            **/target
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+          key: cargo-target-offchain-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-target-offchain-
       - name: install-capsule
-        if: steps.cache-contract-target.outputs.cache-hit != 'true'
+#        if: steps.cache-contract-target.outputs.cache-hit != 'true'
         # Too slow to install capsule from source, replace it with download binary directly.
         # run: cargo install ckb-capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.2.3
         run: |
           wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.2.3/capsule_v0.2.3_x86_64-linux.tar.gz
           tar -zxvf capsule_v0.2.3_x86_64-linux.tar.gz
           cp capsule_v0.2.3_x86_64-linux/capsule ~/.cargo/bin
-          echo $PATH
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
