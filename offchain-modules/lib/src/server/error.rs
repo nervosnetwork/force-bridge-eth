@@ -16,6 +16,12 @@ impl From<anyhow::Error> for RpcError {
     }
 }
 
+impl From<&str> for RpcError {
+    fn from(e: &str) -> Self {
+        Self::BadRequest(e.to_string())
+    }
+}
+
 impl From<String> for RpcError {
     fn from(e: String) -> Self {
         Self::BadRequest(e)

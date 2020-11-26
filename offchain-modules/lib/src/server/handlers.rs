@@ -175,22 +175,22 @@ async fn get_best_block_height(
                     .map_err(|e| format!("get typescript fail {:?}", e))?;
 
             let cell = get_live_cell_by_typescript(&mut generator.indexer_client, typescript)
-                .map_err(|_| format!("get live cell fail"))?
-                .ok_or_else(|| format!("eth header cell not exist"))?;
+                .map_err(|e| format!("get live cell fail: {}", e))?
+                .ok_or("eth header cell not exist")?;
 
             let (un_confirmed_headers, _) =
                 parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
-                    .map_err(|_| format!("parse header data fail"))?;
+                    .map_err(|e| format!("parse header data fail: {}", e))?;
 
-            let best_header = un_confirmed_headers
-                .last()
-                .ok_or_else(|| format!("header is none"))?;
-            let best_block_number = best_header
-                .number
-                .ok_or_else(|| format!("header number is none"))?;
+            let best_header = un_confirmed_headers.last().ok_or("header is none")?;
+            let best_block_number = best_header.number.ok_or("header number is none")?;
             Ok(HttpResponse::Ok().json(Uint64::from(best_block_number.as_u64())))
         }
-        _ => Err(format!("unknown chain type, only support eth and ckb",))?,
+        _ => {
+            return Err("unknown chain type, only support eth and ckb"
+                .to_string()
+                .into())
+        }
     }
 }
 

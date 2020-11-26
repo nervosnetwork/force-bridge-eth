@@ -19,7 +19,7 @@ pub async fn start(
     .expect("init dapp server error");
     let local = tokio::task::LocalSet::new();
     let sys = actix_web::rt::System::run_in_tokio("server", &local);
-    let server_res = HttpServer::new(move || {
+    let _server_res = HttpServer::new(move || {
         App::new()
             .data(dapp_state.clone())
             .service(index)
@@ -34,5 +34,5 @@ pub async fn start(
     .run()
     .await?;
     sys.await?;
-    Ok(server_res)
+    Ok(())
 }
