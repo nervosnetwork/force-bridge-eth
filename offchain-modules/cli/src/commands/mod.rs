@@ -26,7 +26,7 @@ use web3::types::U256;
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
-        SubCommand::Server(args) => server::server_handler(args),
+        SubCommand::Server(args) => server::server_handler(args).await,
 
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::DevInit(args) => dev_init_handler(args),

@@ -27,7 +27,7 @@ pub struct BurnArgs {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BurnResult {
-    pub tx: TransactionView,
+    pub raw_tx: TransactionView,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
