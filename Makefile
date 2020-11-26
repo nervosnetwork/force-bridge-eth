@@ -15,7 +15,7 @@ demo-build:
 	cd ckb-contracts && capsule build --release
 	mkdir -p demo/{contracts,data,bin}
 	pwd
-	ls
+	ls demo/contracts/
 	cp ckb-contracts/build/release/* demo/contracts/
 	cp offchain-modules/cli/deps/simple_udt demo/contracts/
 	cp -r offchain-modules/vendor demo/
