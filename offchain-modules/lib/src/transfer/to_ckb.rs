@@ -3,7 +3,7 @@ use crate::util::ckb_util::{
     ETHSPVProofJson, Generator,
 };
 use crate::util::config::{
-    CellScript, DeployedContracts, ForceCliConfig, OutpointConf, ScriptConf,
+    CellScript, DeployedContracts, ForceConfig, OutpointConf, ScriptConf,
 };
 use crate::util::eth_proof_helper::{read_roots_collection_raw, RootsCollectionJson};
 use crate::util::eth_util::{
@@ -30,24 +30,21 @@ use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
 pub async fn approve(
-    config_path: String,
+    force_config: ForceConfig,
     network: Option<String>,
     key_path: String,
     erc20_addr: String,
     gas_price: u64,
     wait: bool,
 ) -> Result<H256> {
-    let config_path = tilde(config_path.as_str()).into_owned();
-    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let deployed_contracts = force_cli_config
+    let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .expect("contracts should be deployed");
-    let url = force_cli_config.get_ethereum_rpc_url(&network)?;
-
+    let url = force_config.get_ethereum_rpc_url(&network)?;
     let approve_recipient = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let to = convert_eth_address(&erc20_addr)?;
-    let eth_private_key = parse_private_key(&key_path, &force_cli_config, &network)?;
+    let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
 
     let mut rpc_client = Web3Client::new(url);
     let function = Function {
@@ -87,7 +84,7 @@ pub async fn approve(
 }
 
 pub async fn lock_token(
-    config_path: String,
+    force_config: ForceConfig,
     network: Option<String>,
     key_path: String,
     token: String,
@@ -99,10 +96,8 @@ pub async fn lock_token(
     gas_price: u64,
     wait: bool,
 ) -> Result<H256> {
-    let config_path = tilde(config_path.as_str()).into_owned();
-    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let ethereum_rpc_url = force_cli_config.get_ethereum_rpc_url(&network)?;
-    let deployed_contracts = force_cli_config
+    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
+    let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .expect("contracts should be deployed");
@@ -124,7 +119,7 @@ pub async fn lock_token(
     let res = rpc_client
         .send_transaction(
             to,
-            parse_private_key(key_path.as_str(), &force_cli_config, &network)?,
+            parse_private_key(key_path.as_str(), &force_config, &network)?,
             input_data,
             U256::from(gas_price),
             U256::from(0),
@@ -135,7 +130,7 @@ pub async fn lock_token(
 }
 
 pub async fn lock_eth(
-    config_path: String,
+    force_config: ForceConfig,
     network: Option<String>,
     key_path: String,
     ckb_recipient_address: String,
@@ -146,10 +141,8 @@ pub async fn lock_eth(
     gas_price: u64,
     wait: bool,
 ) -> Result<H256> {
-    let config_path = tilde(config_path.as_str()).into_owned();
-    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let ethereum_rpc_url = force_cli_config.get_ethereum_rpc_url(&network)?;
-    let deployed_contracts = force_cli_config
+    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
+    let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .expect("contracts should be deployed");
@@ -167,7 +160,7 @@ pub async fn lock_eth(
     let res = rpc_client
         .send_transaction(
             to,
-            parse_private_key(key_path.as_str(), &force_cli_config, &network)?,
+            parse_private_key(key_path.as_str(), &force_config, &network)?,
             input_data,
             U256::from(gas_price),
             U256::from(amount),
@@ -225,21 +218,20 @@ pub fn verify_eth_spv_proof() -> bool {
 
 #[allow(clippy::too_many_arguments)]
 pub fn deploy_ckb(config_path: String, network: Option<String>) -> Result<()> {
-    let config_path = tilde(config_path.as_str()).into_owned();
-    let mut force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let rpc_url = force_cli_config.get_ckb_rpc_url(&network)?;
-    let indexer_url = force_cli_config.get_ckb_indexer_url(&network)?;
-    let ckb_private_keys = force_cli_config.get_ckb_private_keys(&network)?;
+    let mut force_config = ForceConfig::new(config_path.as_str())?;
+    let rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let indexer_url = force_config.get_ckb_indexer_url(&network)?;
+    let ckb_private_keys = force_config.get_ckb_private_keys(&network)?;
 
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
     let private_key = get_secret_key(&ckb_private_keys[0].as_str())?;
-    let bridge_typescript_path = force_cli_config.get_bridge_typescript_bin_path()?;
-    let bridge_lockscript_path = force_cli_config.get_bridge_lockscript_bin_path()?;
-    let light_client_typescript_path = force_cli_config.get_light_client_typescript_bin_path()?;
-    let light_client_lockscript_path = force_cli_config.get_light_client_lockscript_bin_path()?;
-    let recipient_typescript_path = force_cli_config.get_recipient_typescript_bin_path()?;
-    let sudt_path = force_cli_config.get_sudt_typescript_bin_path()?;
+    let bridge_typescript_path = force_config.get_bridge_typescript_bin_path()?;
+    let bridge_lockscript_path = force_config.get_bridge_lockscript_bin_path()?;
+    let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
+    let light_client_lockscript_path = force_config.get_light_client_lockscript_bin_path()?;
+    let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
+    let sudt_path = force_config.get_sudt_typescript_bin_path()?;
 
     // dev deploy
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
@@ -334,17 +326,17 @@ pub fn deploy_ckb(config_path: String, network: Option<String>) -> Result<()> {
         ..Default::default()
     };
     log::info!("ckb_scripts: {:?}", &deployed_contracts);
-    force_cli_config.deployed_contracts = Some(deployed_contracts);
-    force_cli_config
+    force_config.deployed_contracts = Some(deployed_contracts);
+    force_config
         .write(&config_path)
         .map_err(|e| anyhow!(e))?;
-    println!("force-bridge-cli config written to {}", &config_path);
+    println!("force-bridge config written to {}", &config_path);
     Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_bridge_cell(
-    config_path: String,
+    force_config: ForceConfig,
     network: Option<String>,
     private_key_path: String,
     tx_fee: String,
@@ -353,21 +345,17 @@ pub fn create_bridge_cell(
     recipient_address: String,
     bridge_fee: u128,
 ) -> Result<String> {
-    let config_path = tilde(config_path.as_str()).into_owned();
-    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let deployed_contracts = force_cli_config
+    let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .expect("contracts should be deployed");
-    let rpc_url = force_cli_config.get_ckb_rpc_url(&network)?;
-    let indexer_url = force_cli_config.get_ckb_indexer_url(&network)?;
-
+    let rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let mut generator = Generator::new(rpc_url, indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
-
-    let from_privkey = parse_privkey_path(&private_key_path, &force_cli_config, &network)?;
+    let from_privkey = parse_privkey_path(&private_key_path, &force_config, &network)?;
     let from_lockscript = parse_privkey(&from_privkey);
 
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
@@ -376,7 +364,6 @@ pub fn create_bridge_cell(
     let capacity: u64 = HumanCapacity::from_str(&capacity)
         .map_err(|e| anyhow!(e))?
         .into();
-
     let eth_contract_address =
         convert_eth_address(deployed_contracts.eth_token_locker_addr.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;

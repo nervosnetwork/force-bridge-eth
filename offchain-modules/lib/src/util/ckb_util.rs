@@ -1,5 +1,5 @@
 use crate::transfer::to_ckb::build_eth_bridge_lock_args;
-use crate::util::config::{DeployedContracts, ForceCliConfig, OutpointConf};
+use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::{DoubleNodeWithMerkleProofJson, Witness};
 use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use anyhow::{anyhow, bail, Result};
@@ -48,7 +48,7 @@ pub fn get_secret_key(privkey_string: &str) -> Result<secp256k1::SecretKey> {
 
 pub fn parse_privkey_path(
     path: &str,
-    config: &ForceCliConfig,
+    config: &ForceConfig,
     network: &Option<String>,
 ) -> Result<secp256k1::SecretKey> {
     let privkey_string = if let Ok(index) = path.parse::<usize>() {
@@ -358,7 +358,7 @@ impl Generator {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
         let config_path = tilde(config_path.as_str()).into_owned();
-        let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
+        let force_cli_config = ForceConfig::new(config_path.as_str())?;
         let deployed_contracts = force_cli_config
             .deployed_contracts
             .as_ref()

@@ -1,4 +1,4 @@
-use crate::util::config::ForceCliConfig;
+use crate::util::config::ForceConfig;
 use anyhow::{anyhow, bail, Result};
 use eth_spv_lib::eth_types::my_keccak256;
 use ethabi::{FixedBytes, Function, Param, ParamType, Token, Uint};
@@ -275,7 +275,7 @@ pub fn make_transaction(
 
 pub fn parse_private_key(
     path: &str,
-    config: &ForceCliConfig,
+    config: &ForceConfig,
     network: &Option<String>,
 ) -> Result<ethereum_types::H256> {
     let privkey_string: String = if let Ok(index) = path.parse::<usize>() {

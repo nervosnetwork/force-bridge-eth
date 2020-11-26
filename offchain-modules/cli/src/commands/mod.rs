@@ -14,7 +14,7 @@ use force_eth_lib::transfer::to_eth::{
 };
 use force_eth_lib::util::ckb_util::{parse_privkey_path, ETHSPVProofJson, Generator};
 use force_eth_lib::util::config;
-use force_eth_lib::util::config::ForceCliConfig;
+use force_eth_lib::util::config::ForceConfig;
 use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
 use log::{debug, info};
 use rusty_receipt_proof_maker::generate_eth_proof;
@@ -26,7 +26,6 @@ use types::*;
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         SubCommand::Server(args) => server::server_handler(args),
-
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::Init(args) => init_config(args),
         SubCommand::DeployCKB(args) => deploy_ckb(args),
@@ -35,7 +34,6 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::Approve(args) => approve_handler(args).await,
         // lock erc20 token && wait the tx is commit.
         SubCommand::LockToken(args) => lock_token_handler(args).await,
-
         SubCommand::LockEth(args) => lock_eth_handler(args).await,
         // parse eth receipt proof from tx_hash.
         // SubCommand::GenerateEthProof(args) => generate_eth_proof_handler(args).await,
@@ -51,15 +49,15 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args).await,
         SubCommand::TransferSudt(args) => transfer_sudt_handler(args),
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args),
-
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
     }
 }
 
 pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> Result<()> {
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let hash = init_light_client(
-        args.config_path,
+        force_config,
         args.network,
         args.private_key_path,
         args.init_height,
@@ -87,12 +85,14 @@ pub fn init_config(args: InitArgs) -> Result<()> {
 }
 
 pub fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
-    to_ckb::deploy_ckb(args.config_path, args.network)
+    let config_path = tilde(args.config_path.as_str()).into_owned();
+    to_ckb::deploy_ckb(config_path, args.network)
 }
 
 pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let outpoint_hex = create_bridge_cell(
-        args.config_path,
+        force_config,
         args.network,
         args.private_key_path,
         args.tx_fee,
@@ -111,8 +111,9 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let hash = approve(
-        args.config_path,
+        force_config,
         args.network,
         args.private_key_path,
         args.erc20_addr,
@@ -127,8 +128,9 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let hash = lock_token(
-        args.config_path,
+        force_config,
         args.network,
         args.private_key_path,
         args.token,
@@ -148,8 +150,9 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let hash = lock_eth(
-        args.config_path,
+        force_config,
         args.network,
         args.private_key_path,
         args.ckb_recipient_address,
@@ -168,12 +171,11 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
 
 pub async fn mint_handler(args: MintArgs) -> Result<()> {
     debug!("mint_handler args: {:?}", &args);
-    let config_path = tilde(args.config_path.as_str()).into_owned();
-    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let ethereum_rpc_url = force_cli_config.get_ethereum_rpc_url(&args.network)?;
-    let ckb_rpc_url = force_cli_config.get_ckb_rpc_url(&args.network)?;
-    let ckb_indexer_url = force_cli_config.get_ckb_indexer_url(&args.network)?;
-    let deployed_contracts = force_cli_config
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+    let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .expect("contracts should be deployed");
@@ -223,9 +225,10 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     )?;
     let from_privkey = parse_privkey_path(
         args.private_key_path.as_str(),
-        &force_cli_config,
+        &force_config,
         &args.network,
     )?;
+    let config_path = tilde(args.config_path.as_str()).into_owned();
     let tx_hash =
         send_eth_spv_proof_tx(&mut generator, config_path, &eth_proof, from_privkey).await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);
@@ -239,8 +242,9 @@ pub fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
 
 pub fn burn_handler(args: BurnArgs) -> Result<()> {
     debug!("burn_handler args: {:?}", &args);
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let ckb_tx_hash = burn(
-        args.config_path.as_str(),
+        force_config,
         args.network,
         args.private_key_path,
         args.tx_fee,
@@ -255,9 +259,8 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
 
 pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     debug!("generate_ckb_proof_handler args: {:?}", &args);
-    let config_path = tilde(args.config_path.as_str()).into_owned();
-    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let ckb_rpc_url = force_cli_config.get_ckb_rpc_url(&args.network)?;
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let (header, tx) = get_ckb_proof_info(&args.tx_hash, ckb_rpc_url)?;
     println!("headers : {:?}", header);
     println!("tx : {:?}", tx);
@@ -266,8 +269,9 @@ pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
 
 pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
     debug!("unlock_handler args: {:?}", &args);
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let result = unlock(
-        args.config_path,
+        force_config,
         args.network,
         args.private_key_path,
         args.to,
@@ -283,17 +287,16 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
 
 pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
-    let config_path = tilde(args.config_path.as_str()).into_owned();
-    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let ethereum_rpc_url = force_cli_config.get_ethereum_rpc_url(&args.network)?;
-    let ckb_rpc_url = force_cli_config.get_ckb_rpc_url(&args.network)?;
-    let deployed_contracts = force_cli_config
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .expect("contracts should be deployed");
 
     let ckb_tx_hash = burn(
-        args.config_path.as_str(),
+        force_config.clone(),
         args.network.clone(),
         args.ckb_privkey_path,
         args.tx_fee,
@@ -316,7 +319,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     )
     .await?;
     let result = unlock(
-        args.config_path,
+        force_config.clone(),
         args.network,
         args.eth_privkey_path,
         deployed_contracts.eth_token_locker_addr.clone(),
@@ -332,8 +335,9 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
 
 pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
     transfer_sudt(
-        args.config_path,
+        force_config,
         args.network,
         args.private_key_path,
         args.to_addr,
@@ -347,16 +351,17 @@ pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
 
 pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
     debug!("query sudt balance handler args: {:?}", &args);
-    let result = get_balance(args.config_path, args.network, args.addr, args.token_addr)?;
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let result = get_balance(force_config, args.network, args.addr, args.token_addr)?;
     info!("sudt balance is {} ", result);
     Ok(())
 }
 
 pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     debug!("eth_relay_handler args: {:?}", &args);
-
+    let config_path = tilde(args.config_path.as_str()).into_owned();
     let mut eth_relayer = ETHRelayer::new(
-        args.config_path,
+        config_path,
         args.network,
         args.private_key_path,
         args.proof_data_path,
@@ -372,16 +377,15 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
-    let config_path = tilde(args.config_path.as_str()).into_owned();
-    let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-    let deployed_contracts = force_cli_config
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .expect("contracts should be deployed");
-    let eth_rpc_url = force_cli_config.get_ethereum_rpc_url(&args.network)?;
-    let ckb_rpc_url = force_cli_config.get_ckb_rpc_url(&args.network)?;
-    let ckb_indexer_url = force_cli_config.get_ckb_indexer_url(&args.network)?;
-    let priv_key = parse_private_key(&args.private_key_path, &force_cli_config, &args.network)?;
+    let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+    let priv_key = parse_private_key(&args.private_key_path, &force_config, &args.network)?;
     let mut ckb_relayer = CKBRelayer::new(
         ckb_rpc_url,
         ckb_indexer_url,

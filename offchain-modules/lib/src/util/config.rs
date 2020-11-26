@@ -72,7 +72,7 @@ pub fn init_config(
 
     let mut networks_config = Table::new();
     networks_config.insert(default_network.clone(), Value::Table(network_config));
-    let force_cli_config = ForceCliConfig {
+    let force_cli_config = ForceConfig {
         project_path,
         default_network,
         networks_config,
@@ -82,6 +82,38 @@ pub fn init_config(
         .write(config_path.as_str())
         .map_err(|e| anyhow!(e))?;
     Ok(())
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct ForceConfig {
+    pub project_path: String,
+    pub default_network: String,
+    pub deployed_contracts: Option<DeployedContracts>,
+    #[serde(serialize_with = "toml::ser::tables_last")]
+    pub networks_config: Table,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct NetworkConfig {
+    pub ckb_rpc_url: String,
+    pub ckb_indexer_url: String,
+    pub ethereum_rpc_url: String,
+    pub ckb_private_keys: Vec<Value>,
+    pub ethereum_private_keys: Vec<Value>,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct DeployedContracts {
+    pub eth_token_locker_addr: String,
+    pub eth_ckb_chain_addr: String,
+    pub bridge_lockscript: ScriptConf,
+    pub bridge_typescript: ScriptConf,
+    pub light_client_typescript: ScriptConf,
+    pub light_client_lockscript: ScriptConf,
+    pub recipient_typescript: ScriptConf,
+    pub sudt: ScriptConf,
+    pub dag_merkle_roots: OutpointConf,
+    pub light_client_cell_script: CellScript,
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
@@ -107,33 +139,11 @@ pub struct CellScript {
     pub cell_script: String,
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct NetworkConfig {
-    pub ckb_rpc_url: String,
-    pub ckb_indexer_url: String,
-    pub ethereum_rpc_url: String,
-    pub ckb_private_keys: Vec<Value>,
-    pub ethereum_private_keys: Vec<Value>,
-}
-//
-// #[derive(Deserialize, Serialize, Default, Debug, Clone)]
-// pub struct ChainsConfig {
-//     pub chains_config: Value::Value::Table,
-// }
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct ForceCliConfig {
-    pub project_path: String,
-    pub default_network: String,
-    pub deployed_contracts: Option<DeployedContracts>,
-    #[serde(serialize_with = "toml::ser::tables_last")]
-    pub networks_config: Table,
-}
-
-impl ForceCliConfig {
+impl ForceConfig {
     pub fn new(config_path: &str) -> Result<Self, ConfigError> {
+        let config_path = tilde(config_path).into_owned();
         let mut s = Config::new();
-        s.merge(File::with_name(config_path))?;
+        s.merge(File::with_name(config_path.as_str()))?;
         s.merge(Environment::with_prefix("app"))?;
         s.try_into()
     }
@@ -327,19 +337,4 @@ impl ForceCliConfig {
             .map_err(|e| format!("fail to write scripts config. err: {}", e))?;
         Ok(())
     }
-}
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct DeployedContracts {
-    pub eth_token_locker_addr: String,
-    pub eth_ckb_chain_addr: String,
-    pub bridge_lockscript: ScriptConf,
-    pub bridge_typescript: ScriptConf,
-    pub light_client_typescript: ScriptConf,
-    pub light_client_lockscript: ScriptConf,
-    pub recipient_typescript: ScriptConf,
-    pub sudt: ScriptConf,
-    // pub replay_resist_lockscript: ScriptConf,
-    pub dag_merkle_roots: OutpointConf,
-    pub light_client_cell_script: CellScript,
 }

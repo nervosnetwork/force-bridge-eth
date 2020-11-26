@@ -1,5 +1,5 @@
 use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path, Generator};
-use crate::util::config::ForceCliConfig;
+use crate::util::config::ForceConfig;
 use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
@@ -28,7 +28,7 @@ pub struct ETHRelayer {
     pub proof_data_path: String,
     pub cell_typescript: Option<Script>,
     pub config_path: String,
-    pub config: ForceCliConfig,
+    pub config: ForceConfig,
 }
 
 impl ETHRelayer {
@@ -38,15 +38,14 @@ impl ETHRelayer {
         priv_key_path: String,
         proof_data_path: String,
     ) -> Result<Self> {
-        let config_path = tilde(config_path.as_str()).into_owned();
-        let force_cli_config = ForceCliConfig::new(config_path.as_str())?;
-        let deployed_contracts = force_cli_config
+        let force_config = ForceConfig::new(config_path.as_str())?;
+        let deployed_contracts = force_config
             .deployed_contracts
             .as_ref()
             .expect("contracts should be deployed");
-        let eth_rpc_url = force_cli_config.get_ethereum_rpc_url(&network)?;
-        let ckb_rpc_url = force_cli_config.get_ckb_rpc_url(&network)?;
-        let ckb_indexer_url = force_cli_config.get_ckb_indexer_url(&network)?;
+        let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
+        let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+        let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
 
         let generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
             .map_err(|e| anyhow::anyhow!(e))?;
@@ -58,7 +57,7 @@ impl ETHRelayer {
             Err(_) => cell_typescript = None,
             Ok(temp_typescript) => cell_typescript = Some(temp_typescript),
         }
-        let secret_key = parse_privkey_path(&priv_key_path, &force_cli_config, &network)?;
+        let secret_key = parse_privkey_path(&priv_key_path, &force_config, &network)?;
         Ok(ETHRelayer {
             eth_client,
             generator,
@@ -66,7 +65,7 @@ impl ETHRelayer {
             proof_data_path,
             cell_typescript,
             config_path,
-            config: force_cli_config,
+            config: force_config,
         })
     }
 

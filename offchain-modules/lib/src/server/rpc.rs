@@ -1,7 +1,7 @@
 use super::types::*;
 use crate::transfer::to_ckb::create_bridge_cell;
 use crate::util::ckb_util::{build_lockscript_from_address, Generator};
-use crate::util::config::{DeployedContracts, ForceCliConfig};
+use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
     rlp_transaction,
@@ -43,7 +43,7 @@ impl RpcImpl {
     fn new(config_path: String, private_key_path: String) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_cli_config =
-            ForceCliConfig::new(config_path.as_str()).expect("get config succeed");
+            ForceConfig::new(config_path.as_str()).expect("get config succeed");
         let deployed_contracts = force_cli_config
             .deployed_contracts
             .as_ref()
@@ -89,7 +89,7 @@ impl Rpc for RpcImpl {
         let tx_fee = "0.1".to_string();
         let capacity = "283".to_string();
         let outpoint = create_bridge_cell(
-            self.config_path.clone(),
+            ForceConfig::new(self.config_path.as_str()).unwrap(),
             None,
             self.private_key_path.clone(),
             tx_fee,
