@@ -27,7 +27,7 @@ pub struct BurnArgs {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BurnResult {
-    pub tx: TransactionView,
+    pub raw_tx: TransactionView,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -57,4 +57,9 @@ pub struct LockResult {
     pub gas: U256,
     pub data: String,
     pub raw: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetBestBlockHeightArgs {
+    pub chain: String,
 }

@@ -5,19 +5,21 @@ use shellexpand::tilde;
 use std::path::PathBuf;
 use toml::value::{Table, Value};
 
-const CKB_PRIVATE_KEYS: [&str; 5] = [
+const CKB_PRIVATE_KEYS: [&str; 6] = [
     "63d86723e08f0f813a36ce6aa123bb2289d90680ae1e99d4de8cdb334553f24d",
     "d00c06bfd800d27397002dca6fb0993d5ba6399b4238b2f29ee9deb97593d2bc",
     "a800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1fe",
     "a6b8e0cbadda5c0d91cf82d1e8d8120b755aa06bc49030ca6e8392458c65fc80",
     "13b08bb054d5dd04013156dced8ba2ce4d8cc5973e10d905a228ea1abc267e60",
+    "a6b023fec4fc492c23c0e999ab03b01a6ca5524a3560725887a8de4362f9c9cc",
 ];
-const ETHEREUM_PRIVATE_KEYS: [&str; 5] = [
+const ETHEREUM_PRIVATE_KEYS: [&str; 6] = [
     "c4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a",
     "719e94ec5d2ecef67b5878503ffd6e1e0e2fe7a52ddd55c436878cb4d52d376d",
     "627ed509aa9ef55858d01453c62f44287f639a4fa5a444af150f333b6010a3b6",
     "49e7074797d83cbb93b23877f99a8cecd6f79181f1236f095671017b2edc64c2",
     "6e51216cbb2fe170368da49e82b22f02b999204730c858482d0e84a9083005ac",
+    "ca2e37b4f2e4a122cc86c401e3d1da3841c525f01b5b249dcdcd69e2f086d576",
 ];
 
 pub fn init_config(

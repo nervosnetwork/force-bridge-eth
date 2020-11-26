@@ -102,7 +102,7 @@ lock.code_hash = "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3
 lock.args = "0xcf055e9d2d50fd94120fa6d981728a9be55bff3b"
 lock.hash_type = "type"
 
-# issue for random generated private key: 719e94ec5d2ecef67b5878503ffd6e1e0e2fe7a52ddd55c436878cb4d52d376d
+# issue for random generated private key: a6b023fec4fc492c23c0e999ab03b01a6ca5524a3560725887a8de4362f9c9cc
 [[genesis.issued_cells]]
 capacity = 20_000_000_000_00000000
 lock.code_hash = "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"

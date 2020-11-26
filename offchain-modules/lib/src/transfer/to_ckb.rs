@@ -30,13 +30,14 @@ use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
 pub async fn approve(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     key_path: String,
     erc20_addr: String,
     gas_price: u64,
     wait: bool,
 ) -> Result<H256> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
@@ -84,7 +85,7 @@ pub async fn approve(
 }
 
 pub async fn lock_token(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     key_path: String,
     token: String,
@@ -96,6 +97,7 @@ pub async fn lock_token(
     gas_price: u64,
     wait: bool,
 ) -> Result<H256> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
     let deployed_contracts = force_config
         .deployed_contracts
@@ -130,7 +132,7 @@ pub async fn lock_token(
 }
 
 pub async fn lock_eth(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     key_path: String,
     ckb_recipient_address: String,
@@ -141,6 +143,7 @@ pub async fn lock_eth(
     gas_price: u64,
     wait: bool,
 ) -> Result<H256> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
     let deployed_contracts = force_config
         .deployed_contracts
@@ -218,6 +221,7 @@ pub fn verify_eth_spv_proof() -> bool {
 
 #[allow(clippy::too_many_arguments)]
 pub fn deploy_ckb(config_path: String, network: Option<String>) -> Result<()> {
+    let config_path = tilde(config_path.as_str()).into_owned();
     let mut force_config = ForceConfig::new(config_path.as_str())?;
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
@@ -336,7 +340,7 @@ pub fn deploy_ckb(config_path: String, network: Option<String>) -> Result<()> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_bridge_cell(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     private_key_path: String,
     tx_fee: String,
@@ -345,6 +349,7 @@ pub fn create_bridge_cell(
     recipient_address: String,
     bridge_fee: u128,
 ) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()

@@ -34,12 +34,12 @@ pub enum SubCommand {
 pub struct ServerArgs {
     #[clap(long, default_value = "~/.force-bridge-cli/config.toml")]
     pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
-    #[clap(short, long, default_value = "3")]
-    pub threads_num: usize,
 }
 
 #[derive(Clap, Clone, Debug)]

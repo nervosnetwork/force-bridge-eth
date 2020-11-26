@@ -16,13 +16,12 @@ use ethereum_types::U256;
 use force_sdk::util::ensure_indexer_sync;
 use log::{debug, info};
 use serde::export::Clone;
-use shellexpand::tilde;
 use std::str::FromStr;
 use web3::types::H160;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn init_light_client(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     key_path: String,
     height: u64,
@@ -31,6 +30,7 @@ pub async fn init_light_client(
     gas_price: u64,
     wait: bool,
 ) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let eth_ckb_chain_addr = convert_eth_address(
         &force_config
             .deployed_contracts
@@ -75,7 +75,7 @@ pub async fn init_light_client(
 
 #[allow(clippy::too_many_arguments)]
 pub fn burn(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     privkey_path: String,
     tx_fee: String,
@@ -84,6 +84,7 @@ pub fn burn(
     token_addr: String,
     receive_addr: String,
 ) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
@@ -178,7 +179,7 @@ pub async fn wait_block_submit(
 }
 
 pub async fn unlock(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     key_path: String,
     to: String,
@@ -187,6 +188,7 @@ pub async fn unlock(
     gas_price: u64,
     wait: bool,
 ) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let eth_url = force_config.get_ethereum_rpc_url(&network)?;
     let to = convert_eth_address(&to)?;
     let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
@@ -351,7 +353,7 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
 
 #[allow(clippy::too_many_arguments)]
 pub fn transfer_sudt(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     privkey_path: String,
     to_addr: String,
@@ -360,6 +362,7 @@ pub fn transfer_sudt(
     transfer_amount: u128,
     token_addr: String,
 ) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
@@ -405,11 +408,12 @@ pub fn transfer_sudt(
 }
 
 pub fn get_balance(
-    force_config: ForceConfig,
+    config_path: String,
     network: Option<String>,
     address: String,
     token_addr: String,
 ) -> Result<u128> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()

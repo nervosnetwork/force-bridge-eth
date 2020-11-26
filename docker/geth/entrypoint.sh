@@ -6,6 +6,6 @@ if ! [ -d "/data" ]; then
   geth init ./config/geth-genesis.json --datadir=/data
 fi
 
-geth --nousb --datadir=/data --port 4321 --networkid 1234 --rpc --rpcport 8545 --rpcaddr 0.0.0.0  --rpcapi "eth,net,web3,personal,miner,debug" --gasprice 0 --etherbase $MINER --mine --miner.threads=1 --nodiscover
+geth --nousb --datadir=/data --port 4321 --networkid 1234 --rpc --rpccorsdomain "*" --rpcport 8545 --rpcaddr 0.0.0.0  --rpcapi "eth,net,web3,personal,miner,debug" --gasprice 0 --etherbase $MINER --mine --miner.threads=1 --nodiscover
 
 /bin/sh "$@"

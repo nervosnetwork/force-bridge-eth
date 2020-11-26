@@ -25,7 +25,7 @@ use types::*;
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
-        SubCommand::Server(args) => server::server_handler(args),
+        SubCommand::Server(args) => server::server_handler(args).await,
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::Init(args) => init_config(args),
         SubCommand::DeployCKB(args) => deploy_ckb(args),
@@ -55,9 +55,8 @@ pub async fn handler(opt: Opts) -> Result<()> {
 }
 
 pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> Result<()> {
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let hash = init_light_client(
-        force_config,
+        args.config_path,
         args.network,
         args.private_key_path,
         args.init_height,
@@ -85,14 +84,12 @@ pub fn init_config(args: InitArgs) -> Result<()> {
 }
 
 pub fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
-    let config_path = tilde(args.config_path.as_str()).into_owned();
-    to_ckb::deploy_ckb(config_path, args.network)
+    to_ckb::deploy_ckb(args.config_path, args.network)
 }
 
 pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let outpoint_hex = create_bridge_cell(
-        force_config,
+        args.config_path,
         args.network,
         args.private_key_path,
         args.tx_fee,
@@ -111,9 +108,8 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let hash = approve(
-        force_config,
+        args.config_path,
         args.network,
         args.private_key_path,
         args.erc20_addr,
@@ -128,9 +124,8 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let hash = lock_token(
-        force_config,
+        args.config_path,
         args.network,
         args.private_key_path,
         args.token,
@@ -150,9 +145,8 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let hash = lock_eth(
-        force_config,
+        args.config_path,
         args.network,
         args.private_key_path,
         args.ckb_recipient_address,
@@ -242,9 +236,8 @@ pub fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
 
 pub fn burn_handler(args: BurnArgs) -> Result<()> {
     debug!("burn_handler args: {:?}", &args);
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let ckb_tx_hash = burn(
-        force_config,
+        args.config_path,
         args.network,
         args.private_key_path,
         args.tx_fee,
@@ -269,9 +262,8 @@ pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
 
 pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
     debug!("unlock_handler args: {:?}", &args);
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
     let result = unlock(
-        force_config,
+        args.config_path,
         args.network,
         args.private_key_path,
         args.to,
@@ -296,7 +288,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         .expect("contracts should be deployed");
 
     let ckb_tx_hash = burn(
-        force_config.clone(),
+        args.config_path.clone(),
         args.network.clone(),
         args.ckb_privkey_path,
         args.tx_fee,
@@ -319,7 +311,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     )
     .await?;
     let result = unlock(
-        force_config.clone(),
+        args.config_path.clone(),
         args.network,
         args.eth_privkey_path,
         deployed_contracts.eth_token_locker_addr.clone(),
@@ -335,9 +327,8 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
 
 pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
     transfer_sudt(
-        force_config,
+        args.config_path,
         args.network,
         args.private_key_path,
         args.to_addr,
@@ -351,8 +342,7 @@ pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
 
 pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
     debug!("query sudt balance handler args: {:?}", &args);
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
-    let result = get_balance(force_config, args.network, args.addr, args.token_addr)?;
+    let result = get_balance(args.config_path, args.network, args.addr, args.token_addr)?;
     info!("sudt balance is {} ", result);
     Ok(())
 }

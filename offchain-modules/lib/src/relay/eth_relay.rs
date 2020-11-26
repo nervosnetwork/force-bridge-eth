@@ -15,7 +15,6 @@ use force_sdk::tx_helper::sign;
 use force_sdk::util::send_tx_sync;
 use log::{debug, info};
 use secp256k1::SecretKey;
-use shellexpand::tilde;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
@@ -94,6 +93,7 @@ impl ETHRelayer {
                 self.config
                     .write(&self.config_path)
                     .map_err(|e| anyhow!(e))?;
+                self.cell_typescript = Some(cell_script);
             }
             Some(cell_script) => {
                 typescript = Script::new_builder()
