@@ -136,7 +136,7 @@ pub async fn send_eth_spv_proof_tx(
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
             .map_err(|err| anyhow!(err))?
     );
-    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60)
+    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 120)
         .await
         .map_err(|e| anyhow::anyhow!(e))?;
     let cell_typescript = tx
