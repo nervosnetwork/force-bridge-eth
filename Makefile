@@ -13,7 +13,10 @@ eth-contracts-ci:
 
 demo-build:
 	cd ckb-contracts && capsule build --release
-	mkdir -p demo/{contracts,data,bin} && cp ckb-contracts/build/release/* demo/contracts/
+	mkdir -p demo/{contracts,data,bin}
+	pwd
+	ls
+	cp ckb-contracts/build/release/* demo/contracts/
 	cp offchain-modules/cli/deps/simple_udt demo/contracts/
 	cp -r offchain-modules/vendor demo/
 	cp offchain-modules/data/dag_merkle_roots.json demo/data/dag_merkle_roots.json
