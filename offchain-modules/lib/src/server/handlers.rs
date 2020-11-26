@@ -201,5 +201,6 @@ async fn index() -> impl Responder {
 
 #[get("/settings")]
 async fn settings(data: web::Data<DappState>) -> impl Responder {
+    tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     HttpResponse::Ok().json(&data.settings)
 }
