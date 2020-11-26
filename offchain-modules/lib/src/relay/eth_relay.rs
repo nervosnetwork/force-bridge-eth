@@ -1,4 +1,4 @@
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, Generator};
+use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, Generator, CONFIRM};
 use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use crate::util::settings::Settings;
@@ -376,14 +376,16 @@ pub fn wait_header_sync_success(
         let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
         let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
 
-        if header.number
-            <= un_confirmed_headers[un_confirmed_headers.len() - 1]
-                .number
-                .unwrap()
-                .as_u64()
+        let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
+            .number
+            .unwrap()
+            .as_u64();
+        if best_block_height > header.number
+            && (best_block_height - header.number) as usize >= CONFIRM
         {
             break;
         }
+
         info!(
             "waiting for eth client header reach sync, eth header number: {:?}, ckb light client number: {:?}, loop index: {}",
             header.number, un_confirmed_headers[un_confirmed_headers.len() - 1].number.unwrap().as_u64(),i,
