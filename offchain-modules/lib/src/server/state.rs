@@ -1,5 +1,5 @@
 use crate::util::ckb_util::Generator;
-use crate::util::config::{ForceConfig, DeployedContracts};
+use crate::util::config::{DeployedContracts, ForceConfig};
 use anyhow::{anyhow, Result};
 use force_sdk::util::ensure_indexer_sync;
 use shellexpand::tilde;
@@ -32,7 +32,9 @@ impl DappState {
             indexer_url,
             ckb_rpc_url,
             eth_rpc_url,
-            deployed_contracts: force_config.deployed_contracts.expect("contracts should be deployed"),
+            deployed_contracts: force_config
+                .deployed_contracts
+                .expect("contracts should be deployed"),
             network,
         })
     }

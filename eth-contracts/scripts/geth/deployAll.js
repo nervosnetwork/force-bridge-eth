@@ -2,6 +2,9 @@ const fs = require("fs");
 const TOML = require("@iarna/toml");
 
 async function main() {
+  //   console.error("1" + process.argv[2]);
+  //   console.error("2" + process.argv[3]);
+  //   return;
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   if (!forceConfigPath) {
     throw "FORCE_CONFIG_PATH not set";

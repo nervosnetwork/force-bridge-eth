@@ -156,14 +156,16 @@ impl ForceConfig {
         } else {
             &self.default_network
         };
-        let network_config = self.networks_config.get(network).ok_or_else(||anyhow!(
-            "invalid config file: chains_config.{} not existed",
-            self.default_network
-        ))?;
+        let network_config = self.networks_config.get(network).ok_or_else(|| {
+            anyhow!(
+                "invalid config file: chains_config.{} not existed",
+                self.default_network
+            )
+        })?;
         if let Value::Table(network_config) = network_config {
             let ckb_rpc_url = network_config
                 .get("ckb_rpc_url")
-                .ok_or_else(||anyhow!("invalid config file: ckb rpc url not existed"))?;
+                .ok_or_else(|| anyhow!("invalid config file: ckb rpc url not existed"))?;
             let ckb_rpc_url = if let Value::String(ckb_rpc_url) = ckb_rpc_url {
                 ckb_rpc_url.to_owned()
             } else {
@@ -171,7 +173,7 @@ impl ForceConfig {
             };
             let ckb_indexer_url = network_config
                 .get("ckb_indexer_url")
-                .ok_or_else(||anyhow!("invalid config file: ckb indexer url not existed"))?;
+                .ok_or_else(|| anyhow!("invalid config file: ckb indexer url not existed"))?;
             let ckb_indexer_url = if let Value::String(ckb_indexer_url) = ckb_indexer_url {
                 ckb_indexer_url.to_owned()
             } else {
@@ -179,7 +181,7 @@ impl ForceConfig {
             };
             let ethereum_rpc_url = network_config
                 .get("ethereum_rpc_url")
-                .ok_or_else(||anyhow!("invalid config file: ethereum rpc url not existed"))?;
+                .ok_or_else(|| anyhow!("invalid config file: ethereum rpc url not existed"))?;
             let ethereum_rpc_url = if let Value::String(ethereum_rpc_url) = ethereum_rpc_url {
                 ethereum_rpc_url.to_owned()
             } else {
@@ -187,15 +189,15 @@ impl ForceConfig {
             };
             let ckb_private_keys = network_config
                 .get("ckb_private_keys")
-                .ok_or_else(||anyhow!("invalid config file: ckb_private_keys not existed"))?;
+                .ok_or_else(|| anyhow!("invalid config file: ckb_private_keys not existed"))?;
             let ckb_private_keys = if let Value::Array(ckb_private_keys) = ckb_private_keys {
                 ckb_private_keys.to_owned()
             } else {
                 panic!("ckb_private_keys should be Value::Array");
             };
-            let ethereum_private_keys = network_config.get("ethereum_private_keys").ok_or_else(||
-                anyhow!("invalid config file: ethereum_private_keys not existed"),
-            )?;
+            let ethereum_private_keys = network_config
+                .get("ethereum_private_keys")
+                .ok_or_else(|| anyhow!("invalid config file: ethereum_private_keys not existed"))?;
             let ethereum_private_keys =
                 if let Value::Array(ethereum_private_keys) = ethereum_private_keys {
                     ethereum_private_keys.to_owned()

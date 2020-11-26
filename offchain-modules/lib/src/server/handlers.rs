@@ -49,7 +49,8 @@ async fn burn(
             .payload(),
     );
     let token_address = convert_eth_address(args.token_address.as_str())?;
-    let lock_contract_address = convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())?;
+    let lock_contract_address =
+        convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())?;
     let recipient_address = convert_eth_address(args.recipient_address.as_str())?;
 
     let mut generator = data.get_generator()?;
@@ -76,8 +77,9 @@ async fn get_sudt_balance(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let token_address = convert_eth_address(args.token_address.as_str())
         .map_err(|e| format!("token address parse fail: {}", e))?;
-    let lock_contract_address = convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
-        .map_err(|e| format!("lock contract address parse fail: {}", e))?;
+    let lock_contract_address =
+        convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
+            .map_err(|e| format!("lock contract address parse fail: {}", e))?;
 
     let mut generator = data.get_generator()?;
 
@@ -169,9 +171,13 @@ async fn get_best_block_height(
         "eth" => {
             let mut generator = data.get_generator()?;
 
-            let typescript =
-                parse_cell(data.deployed_contracts.light_client_cell_script.cell_script.as_str())
-                    .map_err(|e| format!("get typescript fail {:?}", e))?;
+            let typescript = parse_cell(
+                data.deployed_contracts
+                    .light_client_cell_script
+                    .cell_script
+                    .as_str(),
+            )
+            .map_err(|e| format!("get typescript fail {:?}", e))?;
 
             let cell = get_live_cell_by_typescript(&mut generator.indexer_client, typescript)
                 .map_err(|e| format!("get live cell fail: {}", e))?

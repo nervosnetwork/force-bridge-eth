@@ -2,9 +2,7 @@ use crate::util::ckb_util::{
     build_lockscript_from_address, get_secret_key, parse_privkey, parse_privkey_path,
     ETHSPVProofJson, Generator,
 };
-use crate::util::config::{
-    CellScript, DeployedContracts, ForceConfig, OutpointConf, ScriptConf,
-};
+use crate::util::config::{CellScript, DeployedContracts, ForceConfig, OutpointConf, ScriptConf};
 use crate::util::eth_proof_helper::{read_roots_collection_raw, RootsCollectionJson};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, parse_private_key,
@@ -84,6 +82,7 @@ pub async fn approve(
     Ok(res)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn lock_token(
     config_path: String,
     network: Option<String>,
@@ -131,6 +130,7 @@ pub async fn lock_token(
     Ok(res)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn lock_eth(
     config_path: String,
     network: Option<String>,
@@ -331,9 +331,7 @@ pub fn deploy_ckb(config_path: String, network: Option<String>) -> Result<()> {
     };
     log::info!("ckb_scripts: {:?}", &deployed_contracts);
     force_config.deployed_contracts = Some(deployed_contracts);
-    force_config
-        .write(&config_path)
-        .map_err(|e| anyhow!(e))?;
+    force_config.write(&config_path).map_err(|e| anyhow!(e))?;
     println!("force-bridge config written to {}", &config_path);
     Ok(())
 }

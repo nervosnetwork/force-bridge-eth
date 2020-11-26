@@ -32,7 +32,7 @@ pub enum SubCommand {
 
 #[derive(Clap, Clone, Debug)]
 pub struct ServerArgs {
-    #[clap(long, default_value = "~/.force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -44,7 +44,7 @@ pub struct ServerArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct CreateBridgeCellArgs {
-    #[clap(long, default_value = "~/.force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -64,7 +64,7 @@ pub struct CreateBridgeCellArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct InitCkbLightContractArgs {
-    #[clap(long, default_value = "~/.force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -88,7 +88,7 @@ pub struct InitArgs {
     pub force: bool,
     #[clap(short = 'p', long)]
     pub project_path: String,
-    #[clap(long, default_value = "~/.force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long, default_value = "docker-dev-chain")]
     pub default_network: String,
@@ -102,7 +102,7 @@ pub struct InitArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct DeployCKBArgs {
-    #[clap(long, default_value = "~/.force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -113,7 +113,7 @@ pub struct TransferToCkbArgs {}
 
 #[derive(Clap, Clone, Debug)]
 pub struct ApproveArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -129,7 +129,7 @@ pub struct ApproveArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct LockTokenArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -155,7 +155,7 @@ pub struct LockTokenArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct LockEthArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -187,7 +187,7 @@ pub struct GenerateEthProofArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct MintArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -199,7 +199,7 @@ pub struct MintArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct TransferFromCkbArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -225,7 +225,7 @@ pub struct TransferFromCkbArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct BurnArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -245,7 +245,7 @@ pub struct BurnArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct GenerateCkbProofArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -255,7 +255,7 @@ pub struct GenerateCkbProofArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct UnlockArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -275,7 +275,7 @@ pub struct UnlockArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct EthRelayArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -287,7 +287,7 @@ pub struct EthRelayArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct CkbRelayArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -301,7 +301,7 @@ pub struct CkbRelayArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct TransferSudtArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
@@ -321,7 +321,7 @@ pub struct TransferSudtArgs {
 
 #[derive(Clap, Clone, Debug)]
 pub struct SudtGetBalanceArgs {
-    #[clap(long, default_value = "~/force-bridge-cli/config.toml")]
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,

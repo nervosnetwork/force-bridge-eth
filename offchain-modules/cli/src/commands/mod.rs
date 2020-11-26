@@ -217,11 +217,8 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
             .as_str(),
         header_rlp.clone(),
     )?;
-    let from_privkey = parse_privkey_path(
-        args.private_key_path.as_str(),
-        &force_config,
-        &args.network,
-    )?;
+    let from_privkey =
+        parse_privkey_path(args.private_key_path.as_str(), &force_config, &args.network)?;
     let config_path = tilde(args.config_path.as_str()).into_owned();
     let tx_hash =
         send_eth_spv_proof_tx(&mut generator, config_path, &eth_proof, from_privkey).await?;

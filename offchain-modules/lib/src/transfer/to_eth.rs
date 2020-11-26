@@ -178,6 +178,7 @@ pub async fn wait_block_submit(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn unlock(
     config_path: String,
     network: Option<String>,

@@ -52,7 +52,14 @@ impl Web3Client {
         wait: bool,
     ) -> Result<H256> {
         let signed_tx = self
-            .build_sign_tx(to, eth_private_key, data, gas_price, eth_value, U256::from(0))
+            .build_sign_tx(
+                to,
+                eth_private_key,
+                data,
+                gas_price,
+                eth_value,
+                U256::from(0),
+            )
             .await?;
         let tx_hash = if wait {
             let receipt = self

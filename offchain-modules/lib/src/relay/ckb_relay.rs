@@ -1,14 +1,14 @@
 use crate::transfer::to_eth::get_add_ckb_headers_func;
 use crate::util::ckb_util::Generator;
-use crate::util::eth_util::{relay_header_transaction, convert_eth_address, Web3Client};
+use crate::util::eth_util::{convert_eth_address, relay_header_transaction, Web3Client};
 use anyhow::{anyhow, bail, Result};
 use ethabi::Token;
 use ethereum_types::U256;
 use futures::future::join_all;
 use log::info;
-use web3::types::{H160, H256};
 use std::ops::Add;
 use std::time::Instant;
+use web3::types::{H160, H256};
 
 pub struct CKBRelayer {
     pub contract_addr: H160,
@@ -83,10 +83,7 @@ impl CKBRelayer {
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
         info!("ckb_current_height:{:?}", ckb_current_height);
 
-        let nonce = self
-            .web3_client
-            .get_eth_nonce(&self.priv_key)
-            .await?;
+        let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
         let mut sequence: u64 = 0;
 
         let mut futures = vec![];
