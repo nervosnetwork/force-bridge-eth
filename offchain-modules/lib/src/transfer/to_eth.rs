@@ -1,5 +1,7 @@
 use crate::util::ckb_types::CkbTxProof;
-use crate::util::ckb_util::{covert_to_h256, parse_privkey, parse_privkey_path, Generator, CONFIRM};
+use crate::util::ckb_util::{
+    covert_to_h256, parse_privkey, parse_privkey_path, Generator, CONFIRM,
+};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use crate::util::generated::ckb_tx_proof;
@@ -101,7 +103,7 @@ pub async fn burn(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .ok_or_else(||anyhow!("contracts should be deployed"))?;
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
@@ -383,7 +385,7 @@ pub async fn transfer_sudt(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .ok_or_else(||anyhow!("contracts should be deployed"))?;
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
 
@@ -437,7 +439,7 @@ pub async fn get_balance(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .ok_or_else(||anyhow!("contracts should be deployed"))?;
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let token_addr = convert_eth_address(&token_addr)?;

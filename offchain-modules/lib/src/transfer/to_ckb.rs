@@ -39,7 +39,7 @@ pub async fn approve(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .ok_or_else(||anyhow!("contracts should be deployed"))?;
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let url = force_config.get_ethereum_rpc_url(&network)?;
     let approve_recipient = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let to = convert_eth_address(&erc20_addr)?;
@@ -101,7 +101,7 @@ pub async fn lock_token(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .ok_or_else(||anyhow!("contracts should be deployed"))?;
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let to = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let token_addr = convert_eth_address(&token)?;
     let recipient_lockscript = build_lockscript_from_address(ckb_recipient_address.as_str())?;
@@ -148,7 +148,7 @@ pub async fn lock_eth(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .ok_or_else(||anyhow!("contracts should be deployed"))?;
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let to = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let recipient_lockscript = build_lockscript_from_address(ckb_recipient_address.as_str())?;
 
@@ -221,7 +221,11 @@ pub fn verify_eth_spv_proof() -> bool {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn deploy_ckb(config_path: String, network: Option<String>, eth_dag_path: Option<String>) -> Result<()> {
+pub async fn deploy_ckb(
+    config_path: String,
+    network: Option<String>,
+    eth_dag_path: Option<String>,
+) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     let mut force_config = ForceConfig::new(config_path.as_str())?;
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
@@ -277,8 +281,14 @@ pub async fn deploy_ckb(config_path: String, network: Option<String>, eth_dag_pa
         sudt_bin,
     ];
 
-    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data, eth_dag_path.as_str())
-        .map_err(|err| anyhow!(err))?;
+    let tx = deploy(
+        &mut rpc_client,
+        &mut indexer_client,
+        &private_key,
+        data,
+        eth_dag_path.as_str(),
+    )
+    .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60)
         .await
         .map_err(|err| anyhow!(err))?;
@@ -358,7 +368,7 @@ pub async fn create_bridge_cell(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .ok_or_else(||anyhow!("contracts should be deployed"))?;
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let mut generator = Generator::new(rpc_url, indexer_url, deployed_contracts.clone())
@@ -464,7 +474,7 @@ pub fn deploy(
     //     .build();
     // tx_helper.add_output_with_auto_capacity(output_eth, ckb_types::bytes::Bytes::default());
     let output_dag = CellOutput::new_builder().lock(lockscript.clone()).build();
-    let dep_data_raw = read_roots_collection_raw(eth_dag_path);
+    let dep_data_raw = read_roots_collection_raw(eth_dag_path)?;
     let mut dag_root = vec![];
     for i in 0..dep_data_raw.dag_merkle_roots.len() {
         dag_root.push(hex::encode(&dep_data_raw.dag_merkle_roots[i].0).clone());

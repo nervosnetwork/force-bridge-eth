@@ -68,11 +68,11 @@ impl From<RootsCollectionRaw> for RootsCollection {
     }
 }
 
-pub fn read_roots_collection_raw(dag_path: &str) -> RootsCollectionRaw {
+pub fn read_roots_collection_raw(dag_path: &str) -> Result<RootsCollectionRaw, String> {
     serde_json::from_reader(
-        std::fs::File::open(std::path::Path::new(dag_path)).unwrap(),
+        std::fs::File::open(std::path::Path::new(dag_path)).map_err(|e| format!("{}", e))?,
     )
-    .unwrap()
+    .map_err(|e| format!("{}", e))
 }
 
 #[derive(Debug, Deserialize)]

@@ -89,8 +89,7 @@ pub async fn init_config(
         networks_config,
         deployed_contracts: None,
     };
-    force_cli_config
-        .write(config_path.as_str())
+    force_cli_config.write(config_path.as_str())
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
@@ -220,7 +219,7 @@ impl ForceConfig {
                 ethereum_private_keys,
             })
         } else {
-            return Err(anyhow!("chain config should be Value::Table"));
+            Err(anyhow!("chain config should be Value::Table"))
         }
     }
 
@@ -240,8 +239,7 @@ impl ForceConfig {
     }
 
     pub fn get_ckb_private_keys(&self, network: &Option<String>) -> Result<Vec<String>> {
-        let ckb_private_keys = self
-            .get_network_config(network)?
+        self.get_network_config(network)?
             .ckb_private_keys
             .into_iter()
             .map(|v| {
@@ -251,8 +249,7 @@ impl ForceConfig {
                     Err(anyhow!("ckb private key should be string"))
                 }
             })
-            .collect();
-        ckb_private_keys
+            .collect()
     }
 
     pub fn get_ethereum_private_keys(&self, network: &Option<String>) -> Result<Vec<String>> {

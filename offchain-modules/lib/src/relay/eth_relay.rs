@@ -1,4 +1,6 @@
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path, Generator, CONFIRM};
+use crate::util::ckb_util::{
+    parse_cell, parse_main_chain_headers, parse_privkey_path, Generator, CONFIRM,
+};
 use crate::util::config::ForceConfig;
 use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
@@ -41,7 +43,7 @@ impl ETHRelayer {
         let deployed_contracts = force_config
             .deployed_contracts
             .as_ref()
-            .ok_or_else(||anyhow!("contracts should be deployed"))?;
+            .ok_or_else(|| anyhow!("contracts should be deployed"))?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
@@ -90,8 +92,7 @@ impl ETHRelayer {
                     .light_client_cell_script
                     .cell_script = hex::encode(typescript.clone().as_slice());
                 self.config.deployed_contracts = Some(self.generator.deployed_contracts.clone());
-                self.config
-                    .write(&self.config_path)?;
+                self.config.write(&self.config_path)?;
                 self.cell_typescript = Some(cell_script);
             }
             Some(cell_script) => {

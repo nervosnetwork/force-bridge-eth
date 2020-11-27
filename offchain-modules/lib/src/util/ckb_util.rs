@@ -380,7 +380,7 @@ impl Generator {
         let deployed_contracts = force_cli_config
             .deployed_contracts
             .as_ref()
-            .ok_or_else(||anyhow!("contracts should be deployed"))?;
+            .ok_or_else(|| anyhow!("contracts should be deployed"))?;
         // add cell deps.
         {
             let cell_script = parse_cell(
