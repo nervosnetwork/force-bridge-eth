@@ -210,7 +210,15 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     };
     let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow::anyhow!(e))?;
-    // wait_header_sync_success(&mut generator, args.config_path.clone(), header_rlp.clone()).await?;
+    // wait_header_sync_success(
+    //     &mut generator,
+    //     deployed_contracts
+    //         .light_client_cell_script
+    //         .cell_script
+    //         .as_str(),
+    //     header_rlp.clone(),
+    // )
+    // .await?;
     let from_privkey =
         parse_privkey_path(args.private_key_path.as_str(), &force_config, &args.network)?;
     let config_path = tilde(args.config_path.as_str()).into_owned();
