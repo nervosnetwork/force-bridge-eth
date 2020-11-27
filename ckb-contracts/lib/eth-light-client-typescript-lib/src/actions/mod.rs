@@ -9,6 +9,7 @@ use crate::debug;
 use ckb_std::ckb_constants::Source;
 use eth_spv_lib::eth_types::*;
 use force_eth_types::{
+    config::CONFIRM,
     eth_header_cell::ETHHeaderCellDataView,
     generated::{
         basic::BytesVecReader,
@@ -23,7 +24,6 @@ use molecule::prelude::Reader;
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
-pub const CONFIRM: usize = 10;
 
 pub fn verify_add_headers<T: Adapter>(data_loader: T) {
     let input_data = data_loader.load_data_from_source(Source::GroupInput);

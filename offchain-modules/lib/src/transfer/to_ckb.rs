@@ -39,7 +39,7 @@ pub async fn approve(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(||anyhow!("contracts should be deployed"))?;
     let url = force_config.get_ethereum_rpc_url(&network)?;
     let approve_recipient = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let to = convert_eth_address(&erc20_addr)?;
@@ -101,7 +101,7 @@ pub async fn lock_token(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(||anyhow!("contracts should be deployed"))?;
     let to = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let token_addr = convert_eth_address(&token)?;
     let recipient_lockscript = build_lockscript_from_address(ckb_recipient_address.as_str())?;
@@ -148,7 +148,7 @@ pub async fn lock_eth(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(||anyhow!("contracts should be deployed"))?;
     let to = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let recipient_lockscript = build_lockscript_from_address(ckb_recipient_address.as_str())?;
 
@@ -196,8 +196,9 @@ pub async fn send_eth_spv_proof_tx(
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
             .map_err(|err| anyhow!(err))?
     );
-    let tx_hash =
-        send_tx_sync(&mut generator.rpc_client, &tx, 60).map_err(|e| anyhow::anyhow!(e))?;
+    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 120)
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
     let cell_typescript = tx
         .output(0)
         .ok_or_else(|| anyhow!("no out_put found"))?
@@ -220,7 +221,7 @@ pub fn verify_eth_spv_proof() -> bool {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn deploy_ckb(config_path: String, network: Option<String>, eth_dag_path: Option<String>) -> Result<()> {
+pub async fn deploy_ckb(config_path: String, network: Option<String>, eth_dag_path: Option<String>) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     let mut force_config = ForceConfig::new(config_path.as_str())?;
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
@@ -231,7 +232,6 @@ pub fn deploy_ckb(config_path: String, network: Option<String>, eth_dag_path: Op
     } else {
         &force_config.eth_dag_path
     };
-
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
     let private_key = get_secret_key(&ckb_private_keys[0].as_str())?;
@@ -279,7 +279,9 @@ pub fn deploy_ckb(config_path: String, network: Option<String>, eth_dag_path: Op
 
     let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data, eth_dag_path.as_str())
         .map_err(|err| anyhow!(err))?;
-    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
+    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60)
+        .await
+        .map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
     let deployed_contracts = DeployedContracts {
@@ -342,7 +344,7 @@ pub fn deploy_ckb(config_path: String, network: Option<String>, eth_dag_path: Op
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn create_bridge_cell(
+pub async fn create_bridge_cell(
     config_path: String,
     network: Option<String>,
     private_key_path: String,
@@ -356,12 +358,13 @@ pub fn create_bridge_cell(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(||anyhow!("contracts should be deployed"))?;
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let mut generator = Generator::new(rpc_url, indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
     let from_privkey = parse_privkey_path(&private_key_path, &force_config, &network)?;
     let from_lockscript = parse_privkey(&from_privkey);
@@ -398,7 +401,9 @@ pub fn create_bridge_cell(
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
             .map_err(|err| anyhow!(err))?
     );
-    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
+    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60)
+        .await
+        .map_err(|err| anyhow!(err))?;
     let outpoint = OutPoint::new_builder()
         .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
         .build();

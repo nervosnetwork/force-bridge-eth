@@ -83,7 +83,7 @@ pub async fn init_light_client(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn burn(
+pub async fn burn(
     config_path: String,
     network: Option<String>,
     privkey_path: String,
@@ -97,7 +97,7 @@ pub fn burn(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(||anyhow!("contracts should be deployed"))?;
     let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
@@ -107,6 +107,7 @@ pub fn burn(
     let mut generator = Generator::new(ckb_rpc_url, indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
 
     let from_privkey = parse_privkey_path(&privkey_path, &force_config, &network)?;
@@ -126,7 +127,9 @@ pub fn burn(
             receive_addr,
         )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
-    generator.sign_and_send_transaction(unsigned_tx, from_privkey)
+    generator
+        .sign_and_send_transaction(unsigned_tx, from_privkey)
+        .await
 }
 
 #[allow(clippy::never_loop)]
@@ -155,7 +158,7 @@ pub async fn wait_block_submit(
             }
             None => {
                 info!("the transaction is not committed yet");
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
             }
         }
     }
@@ -180,7 +183,7 @@ pub async fn wait_block_submit(
             client_block_number, ckb_height, confirm
         );
         if client_block_number < ckb_height + confirm {
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
             continue;
         }
         return Ok(());
@@ -362,7 +365,7 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn transfer_sudt(
+pub async fn transfer_sudt(
     config_path: String,
     network: Option<String>,
     privkey_path: String,
@@ -376,7 +379,7 @@ pub fn transfer_sudt(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(||anyhow!("contracts should be deployed"))?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
 
@@ -385,6 +388,7 @@ pub fn transfer_sudt(
     let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
 
     let from_privkey = parse_privkey_path(&privkey_path, &force_config, &network)?;
@@ -414,10 +418,12 @@ pub fn transfer_sudt(
         )
         .map_err(|e| anyhow!("failed to build transfer token tx: {}", e))?;
 
-    generator.sign_and_send_transaction(unsigned_tx, from_privkey)
+    generator
+        .sign_and_send_transaction(unsigned_tx, from_privkey)
+        .await
 }
 
-pub fn get_balance(
+pub async fn get_balance(
     config_path: String,
     network: Option<String>,
     address: String,
@@ -427,7 +433,7 @@ pub fn get_balance(
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(||anyhow!("contracts should be deployed"))?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let token_addr = convert_eth_address(&token_addr)?;
@@ -436,6 +442,7 @@ pub fn get_balance(
     let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
     let balance = generator
         .get_sudt_balance(address.clone(), token_addr, lock_contract_addr)

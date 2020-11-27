@@ -27,9 +27,9 @@ pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         SubCommand::Server(args) => server::server_handler(args).await,
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
-        SubCommand::Init(args) => init_config(args),
-        SubCommand::DeployCKB(args) => deploy_ckb(args),
-        SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args),
+        SubCommand::Init(args) => init_config(args).await,
+        SubCommand::DeployCKB(args) => deploy_ckb(args).await,
+        SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args).await,
         // transfer erc20 to ckb
         SubCommand::Approve(args) => approve_handler(args).await,
         // lock erc20 token && wait the tx is commit.
@@ -39,16 +39,16 @@ pub async fn handler(opt: Opts) -> Result<()> {
         // SubCommand::GenerateEthProof(args) => generate_eth_proof_handler(args).await,
         // verify eth receipt proof && mint new token
         SubCommand::Mint(args) => mint_handler(args).await,
-        SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args),
+        SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args).await,
         // transfer erc20 from ckb
-        SubCommand::Burn(args) => burn_handler(args),
+        SubCommand::Burn(args) => burn_handler(args).await,
         // parse ckb spv proof from tx_hash.
-        SubCommand::GenerateCkbProof(args) => generate_ckb_proof_handler(args),
+        SubCommand::GenerateCkbProof(args) => generate_ckb_proof_handler(args).await,
         // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args).await,
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args).await,
-        SubCommand::TransferSudt(args) => transfer_sudt_handler(args),
-        SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args),
+        SubCommand::TransferSudt(args) => transfer_sudt_handler(args).await,
+        SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args).await,
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
     }
@@ -70,7 +70,7 @@ pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> 
     Ok(())
 }
 
-pub fn init_config(args: InitArgs) -> Result<()> {
+pub async fn init_config(args: InitArgs) -> Result<()> {
     config::init_config(
         args.force,
         args.project_path,
@@ -79,15 +79,15 @@ pub fn init_config(args: InitArgs) -> Result<()> {
         args.ckb_rpc_url,
         args.ckb_indexer_url,
         args.ethereum_rpc_url,
-    )?;
-    Ok(())
+    )
+    .await
 }
 
-pub fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
-    to_ckb::deploy_ckb(args.config_path, args.network, args.eth_dag_path)
+pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
+    to_ckb::deploy_ckb(args.config_path, args.network, args.eth_dag_path).await
 }
 
-pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
+pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
     let outpoint_hex = create_bridge_cell(
         args.config_path,
         args.network,
@@ -97,7 +97,8 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
-    )?;
+    )
+    .await?;
     info!(
         "create bridge cell successfully for {}, outpoint: {}",
         &args.recipient_address, &outpoint_hex
@@ -172,7 +173,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
 
     let eth_spv_proof = generate_eth_proof(args.hash.clone(), ethereum_rpc_url.clone())
         .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
@@ -209,6 +210,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     };
     let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow::anyhow!(e))?;
+
     wait_header_sync_success(
         &mut generator,
         deployed_contracts
@@ -216,7 +218,8 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
             .cell_script
             .as_str(),
         header_rlp.clone(),
-    )?;
+    )
+    .await?;
     let from_privkey =
         parse_privkey_path(args.private_key_path.as_str(), &force_config, &args.network)?;
     let config_path = tilde(args.config_path.as_str()).into_owned();
@@ -226,12 +229,12 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
+pub async fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
     debug!("transfer_to_ckb_handler args: {:?}", &args);
     todo!()
 }
 
-pub fn burn_handler(args: BurnArgs) -> Result<()> {
+pub async fn burn_handler(args: BurnArgs) -> Result<()> {
     debug!("burn_handler args: {:?}", &args);
     let ckb_tx_hash = burn(
         args.config_path,
@@ -242,12 +245,13 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
         args.burn_amount,
         args.token_addr,
         args.receive_addr,
-    )?;
+    )
+    .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
     Ok(())
 }
 
-pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
+pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     debug!("generate_ckb_proof_handler args: {:?}", &args);
     let force_config = ForceConfig::new(args.config_path.as_str())?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
@@ -282,7 +286,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
 
     let ckb_tx_hash = burn(
         args.config_path.clone(),
@@ -293,7 +297,8 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         args.burn_amount,
         args.token_addr,
         args.receive_addr,
-    )?;
+    )
+    .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
 
     let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, ckb_rpc_url.clone())?;
@@ -322,7 +327,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     Ok(())
 }
 
-pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
+pub async fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
     transfer_sudt(
         args.config_path,
@@ -333,13 +338,14 @@ pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
         args.ckb_amount,
         args.sudt_amount,
         args.token_addr,
-    )?;
+    )
+    .await?;
     Ok(())
 }
 
-pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
+pub async fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
     debug!("query sudt balance handler args: {:?}", &args);
-    let result = get_balance(args.config_path, args.network, args.addr, args.token_addr)?;
+    let result = get_balance(args.config_path, args.network, args.addr, args.token_addr).await?;
     info!("sudt balance is {} ", result);
     Ok(())
 }
@@ -358,7 +364,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         if let Err(err) = res {
             println!("An error occurred during the eth relay. Err: {:?}", err)
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
 }
 
@@ -368,7 +374,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
-        .expect("contracts should be deployed");
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
@@ -385,6 +391,6 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         ckb_relayer
             .start(eth_rpc_url.clone(), args.per_amount)
             .await?;
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
 }

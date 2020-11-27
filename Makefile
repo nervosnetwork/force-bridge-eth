@@ -44,16 +44,10 @@ demo-build: build-all
 	cp -r offchain-modules/eth-proof demo
 	cp offchain-modules/target/debug/force-eth-cli demo/bin
 
-integration-ci: demo-build
-	cd docker && docker-compose up -d
-	bash demo/demo.sh
-	#cd docker && docker-compose stop
+integration-ci: demo-build demo-start-deamon demo-run-crosschain
 
 demo-clear:
 	rm -rf demo/{bin,contracts,data,.force-bridge-cli-config.toml}
-
-demo:
-	bash demo/demo.sh
 
 fmt:
 	make -C offchain-modules fmt

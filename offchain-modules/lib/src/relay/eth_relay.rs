@@ -1,4 +1,4 @@
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path, Generator};
+use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path, Generator, CONFIRM};
 use crate::util::config::ForceConfig;
 use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
@@ -41,7 +41,7 @@ impl ETHRelayer {
         let deployed_contracts = force_config
             .deployed_contracts
             .as_ref()
-            .expect("contracts should be deployed");
+            .ok_or_else(||anyhow!("contracts should be deployed"))?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
@@ -107,7 +107,7 @@ impl ETHRelayer {
             serde_json::to_string_pretty(&ckb_jsonrpc_types::Script::from(typescript.clone()))
                 .map_err(|err| anyhow!(err))?
         );
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
         // get the latest output cell
         let cell = get_live_cell_by_typescript(&mut self.generator.indexer_client, typescript)
             .map_err(|err| anyhow::anyhow!(err))?
@@ -168,6 +168,7 @@ impl ETHRelayer {
         let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
             .map_err(|err| anyhow::anyhow!(err))?;
         send_tx_sync(&mut self.generator.rpc_client, &tx, 60)
+            .await
             .map_err(|err| anyhow::anyhow!(err))?;
 
         let cell_typescript = tx
@@ -251,7 +252,7 @@ impl ETHRelayer {
             let new_number = number.add(1 as u64);
             let new_header_temp = self.eth_client.get_block(new_number.into()).await;
             if new_header_temp.is_err() {
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 continue;
             }
             let new_header = new_header_temp.unwrap();
@@ -286,6 +287,7 @@ impl ETHRelayer {
 
                 // update cell current_block and number.
                 update_cell_sync(&mut self.generator.indexer_client, &tx, 60, &mut cell)
+                    .await
                     .map_err(|err| anyhow::anyhow!(err))?;
                 number = new_number;
                 current_block = new_header;
@@ -306,12 +308,12 @@ impl ETHRelayer {
                     .ok_or_else(|| anyhow!("the block number is not exist."))?;
             }
 
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
         }
     }
 }
 
-pub fn update_cell_sync(
+pub async fn update_cell_sync(
     index_client: &mut IndexerRpcClient,
     tx: &TransactionView,
     timeout: u64,
@@ -337,12 +339,12 @@ pub fn update_cell_sync(
             }
         }
         info!("waiting for cell to be committed, loop index: {}", i,);
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
     Ok(())
 }
 
-pub fn wait_header_sync_success(
+pub async fn wait_header_sync_success(
     generator: &mut Generator,
     light_client_cell_script: &str,
     header_rlp: String,
@@ -366,7 +368,7 @@ pub fn wait_header_sync_success(
             Err(_) => {
                 info!("waiting for cell script init, loop index: {}", i);
                 i += 1;
-                std::thread::sleep(std::time::Duration::from_secs(2));
+                tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
             }
         }
     }
@@ -379,7 +381,7 @@ pub fn wait_header_sync_success(
             Ok(cell_op) => {
                 if cell_op.is_none() {
                     info!("waiting for finding cell deps, loop index: {}", i);
-                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                     i += 1;
                     continue;
                 }
@@ -387,7 +389,7 @@ pub fn wait_header_sync_success(
             }
             Err(_) => {
                 info!("waiting for finding cell deps, loop index: {}", i);
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 i += 1;
                 continue;
             }
@@ -396,19 +398,21 @@ pub fn wait_header_sync_success(
         let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
         let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
 
-        if header.number
-            <= un_confirmed_headers[un_confirmed_headers.len() - 1]
-                .number
-                .unwrap()
-                .as_u64()
+        let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
+            .number
+            .unwrap()
+            .as_u64();
+        if best_block_height > header.number
+            && (best_block_height - header.number) as usize >= CONFIRM
         {
             break;
         }
+
         info!(
             "waiting for eth client header reach sync, eth header number: {:?}, ckb light client number: {:?}, loop index: {}",
             header.number, un_confirmed_headers[un_confirmed_headers.len() - 1].number.unwrap().as_u64(),i,
         );
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
         i += 1;
     }
 

@@ -380,7 +380,7 @@ impl Generator {
         let deployed_contracts = force_cli_config
             .deployed_contracts
             .as_ref()
-            .expect("contracts should be deployed");
+            .ok_or_else(||anyhow!("contracts should be deployed"))?;
         // add cell deps.
         {
             let cell_script = parse_cell(
@@ -840,7 +840,7 @@ impl Generator {
             .map_err(|err| anyhow!(err))
     }
 
-    pub fn sign_and_send_transaction(
+    pub async fn sign_and_send_transaction(
         &mut self,
         unsigned_tx: TransactionView,
         from_privkey: SecretKey,
@@ -851,7 +851,9 @@ impl Generator {
             "tx: \n{}",
             serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))?
         );
-        send_tx_sync(&mut self.rpc_client, &tx, 60).map_err(|e| anyhow!(e))?;
+        send_tx_sync(&mut self.rpc_client, &tx, 60)
+            .await
+            .map_err(|e| anyhow!(e))?;
         Ok(hex::encode(tx.hash().as_slice()))
     }
 }

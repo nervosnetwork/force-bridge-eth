@@ -4,6 +4,7 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::high_level::QueryIter;
 use eth_spv_lib::eth_types::*;
 use eth_spv_lib::ethspv;
+use force_eth_types::config::CONFIRM;
 use force_eth_types::eth_lock_event::ETHLockEvent;
 use force_eth_types::generated::eth_header_cell::{ETHHeaderCellDataReader, ETHHeaderInfoReader};
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
@@ -100,22 +101,23 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
         panic!("header is not on mainchain, header number too big");
     }
     let offset = (tail.number - header.number) as usize;
+
+    if offset < CONFIRM {
+        panic!("header is not confirmed");
+    }
     if offset > eth_cell_data_reader.headers().main().len() - 1 {
         panic!("header is not on mainchain, header number is too small");
     }
-    let target_raw = eth_cell_data_reader
+
+    //confirmed headers only store header hash
+    let header_hash = eth_cell_data_reader
         .headers()
         .main()
         .get_unchecked(eth_cell_data_reader.headers().main().len() - 1 - offset)
         .raw_data()
         .as_ref();
-    let target_info_reader = ETHHeaderInfoReader::new_unchecked(target_raw);
-    debug!(
-        "main chain hash: {:?}, witness header hash: {:?}",
-        hex::encode(target_info_reader.hash().raw_data()),
-        hex::encode(header.hash.expect("invalid hash").0.as_bytes())
-    );
-    if target_info_reader.hash().raw_data() != header.hash.expect("invalid hash").0.as_bytes() {
+
+    if header_hash != header.hash.expect("invalid hash").0.as_bytes() {
         panic!("header is not on mainchain, target not in eth data");
     }
 }

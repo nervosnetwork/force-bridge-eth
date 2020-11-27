@@ -22,7 +22,7 @@ const ETHEREUM_PRIVATE_KEYS: [&str; 6] = [
     "ca2e37b4f2e4a122cc86c401e3d1da3841c525f01b5b249dcdcd69e2f086d576",
 ];
 
-pub fn init_config(
+pub async fn init_config(
     is_force: bool,
     project_path: String,
     config_path: String,

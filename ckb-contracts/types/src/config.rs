@@ -6,3 +6,5 @@ pub const SUDT_CODE_HASH: [u8; 32] = [
 pub const UDT_LEN: usize = 16;
 
 pub const CKB_UNITS: u64 = 100_000_000;
+
+pub const CONFIRM: usize = 10;
