@@ -37,7 +37,7 @@ We use docker volume `geth-dag` to store dag data, so the geth will be ready ver
 
 ```shell script
 # cd docker/geth
-docker run --rm -it --mount type=bind,source="$(pwd)",target=/config --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23
+docker run --rm -it --mount type=bind,source="$(pwd)",target=/config --mount source=geth-dag,target=/root/.ethash -p 8545:8545 geth-priv:v1.9.23
 ```
 
 The privkey of accounts in geth-genesis.json for tests:
@@ -48,6 +48,7 @@ The privkey of accounts in geth-genesis.json for tests:
 | 0x8951a3DdEf2bB36fF3846C3B6968812C269f4561 | 0x719e94ec5d2ecef67b5878503ffd6e1e0e2fe7a52ddd55c436878cb4d52d376d |
 | 0x42e8763917A72e07369AD54B158b0FA839f060bc | 0x627ed509aa9ef55858d01453c62f44287f639a4fa5a444af150f333b6010a3b6 |
 | 0xE61438B717b6937388bf66D256395A15B3D169aE | 0x49e7074797d83cbb93b23877f99a8cecd6f79181f1236f095671017b2edc64c2 |
+| 0xB7ABd784a77c307797844136eB2F2A67325E2486 | 0x6e51216cbb2fe170368da49e82b22f02b999204730c858482d0e84a9083005ac |
 
 # Docker compose
 

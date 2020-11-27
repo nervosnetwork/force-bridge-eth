@@ -27,8 +27,7 @@ pub async fn get_or_create_bridge_cell(
     let capacity = "283".to_string();
     let outpoint = create_bridge_cell(
         data.config_path.clone(),
-        data.ckb_rpc_url.clone(),
-        data.indexer_url.clone(),
+        data.network.clone(),
         data.private_key_path.clone(),
         tx_fee,
         capacity,
@@ -51,7 +50,8 @@ pub async fn burn(
             .payload(),
     );
     let token_address = convert_eth_address(args.token_address.as_str())?;
-    let lock_contract_address = convert_eth_address(data.settings.eth_token_locker_addr.as_str())?;
+    let lock_contract_address =
+        convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())?;
     let recipient_address = convert_eth_address(args.recipient_address.as_str())?;
 
     let mut generator = data.get_generator().await?;
@@ -78,8 +78,9 @@ pub async fn get_sudt_balance(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let token_address = convert_eth_address(args.token_address.as_str())
         .map_err(|e| format!("token address parse fail: {}", e))?;
-    let lock_contract_address = convert_eth_address(data.settings.eth_token_locker_addr.as_str())
-        .map_err(|e| format!("lock contract address parse fail: {}", e))?;
+    let lock_contract_address =
+        convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
+            .map_err(|e| format!("lock contract address parse fail: {}", e))?;
 
     let mut generator = data.get_generator().await?;
 
@@ -97,7 +98,7 @@ pub async fn lock(
     data: web::Data<DappState>,
     args: web::Json<LockArgs>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
-    let to = convert_eth_address(data.settings.eth_token_locker_addr.as_str())
+    let to = convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
         .map_err(|e| format!("lock contract address parse fail: {}", e))?;
     let nonce = U256::from(u128::from(args.nonce));
     let gas_price = U256::from(u128::from(args.gas_price));
@@ -157,7 +158,7 @@ pub async fn get_best_block_height(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     match args.chain.as_str() {
         "ckb" => {
-            let contract_address = convert_eth_address(&data.settings.eth_ckb_chain_addr)
+            let contract_address = convert_eth_address(&data.deployed_contracts.eth_ckb_chain_addr)
                 .map_err(|e| format!("abi encode lock eth data fail, err: {}", e))?;
 
             let mut eth_client = Web3Client::new(data.eth_rpc_url.clone());
@@ -171,9 +172,13 @@ pub async fn get_best_block_height(
         "eth" => {
             let mut generator = data.get_generator().await?;
 
-            let typescript =
-                parse_cell(data.settings.light_client_cell_script.cell_script.as_str())
-                    .map_err(|e| format!("get typescript fail {:?}", e))?;
+            let typescript = parse_cell(
+                data.deployed_contracts
+                    .light_client_cell_script
+                    .cell_script
+                    .as_str(),
+            )
+            .map_err(|e| format!("get typescript fail {:?}", e))?;
 
             let cell = get_live_cell_by_typescript(&mut generator.indexer_client, typescript)
                 .map_err(|e| format!("get live cell fail: {}", e))?
@@ -202,5 +207,5 @@ pub async fn index() -> impl Responder {
 
 #[get("/settings")]
 pub async fn settings(data: web::Data<DappState>) -> impl Responder {
-    HttpResponse::Ok().json(&data.settings)
+    HttpResponse::Ok().json(&data.deployed_contracts)
 }

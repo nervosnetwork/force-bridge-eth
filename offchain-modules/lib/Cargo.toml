@@ -35,6 +35,7 @@ cmd_lib = "0.8.5"
 force-eth-types = { path = "../../ckb-contracts/types" }
 tiny-keccak = "2.0.2"
 molecule = { version = "0.6", default-features = false }
+shellexpand = "2.0.0"
 actix-web = "3"
 derive_more = "0.99"
 actix-cors = "0.5"
