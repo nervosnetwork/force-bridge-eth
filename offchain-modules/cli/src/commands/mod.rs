@@ -84,7 +84,7 @@ pub fn init_config(args: InitArgs) -> Result<()> {
 }
 
 pub fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
-    to_ckb::deploy_ckb(args.config_path, args.network)
+    to_ckb::deploy_ckb(args.config_path, args.network, args.eth_dag_path)
 }
 
 pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {

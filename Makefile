@@ -11,25 +11,41 @@ ckb-contracts-ci:
 eth-contracts-ci:
 	cd eth-contracts && yarn test
 
-demo-build:
+build-all:
 	cd ckb-contracts && capsule build --release
+	cd eth-contracts && yarn install
+	cd offchain-modules && cargo build
+	cd offchain-modules/eth-proof && npm install
+
+start-docker-network:
+	cd docker && docker-compose up -d
+
+remove-docker-network:
+	cd docker && docker-compose down
+
+deploy-contracts:
+	bash offchain-modules/deploy.sh
+
+start-offchain-services:
+	bash offchain-modules/start-services.sh
+
+stop-offchain-services:
+	bash offchain-modules/stop-services.sh
+
+setup-dev-env: build-all start-docker-network deploy-contracts start-offchain-services
+
+close-dev-env: stop-offchain-services remove-docker-network
+
+demo-build: build-all
 	mkdir -p demo/{contracts,data,bin} && cp ckb-contracts/build/release/* demo/contracts
 	cp offchain-modules/cli/deps/simple_udt demo/contracts
 	cp -r offchain-modules/vendor demo
 	cp offchain-modules/data/dag_merkle_roots.json demo/data/dag_merkle_roots.json
-	cd offchain-modules/eth-proof && npm install
 	cp -r offchain-modules/eth-proof demo
-	cd offchain-modules && cargo build #--release
 	cp offchain-modules/target/debug/force-eth-cli demo/bin
-	cd eth-contracts && yarn install
 
 integration-ci: demo-build
-
-	rm -rf ${HOME}/.ckb-cli/index-v1
 	cd docker && docker-compose up -d
-
-	bash demo/vendor/init_eth2ckb_relayer_key.sh
-
 	bash demo/demo.sh
 	#cd docker && docker-compose stop
 
@@ -56,6 +72,5 @@ demo-run-crosschain:
 demo-clear-deamon:
 	bash demo/clean.sh
 	cd docker && docker-compose down
-	rm -rf ${HOME}/.ckb-cli/index-v1
 
 .PHONY: demo

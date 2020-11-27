@@ -71,7 +71,7 @@ pub struct InitCkbLightContractArgs {
     #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(short, long)]
-    pub init_height: u64,
+    pub init_height: Option<u64>,
     #[clap(short, long)]
     pub finalized_gc: u64,
     #[clap(short, long)]
@@ -106,6 +106,8 @@ pub struct DeployCKBArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
+    #[clap(long)]
+    pub eth_dag_path: Option<String>,
 }
 
 #[derive(Clap, Clone, Debug)]

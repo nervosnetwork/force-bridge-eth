@@ -220,12 +220,17 @@ pub fn verify_eth_spv_proof() -> bool {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn deploy_ckb(config_path: String, network: Option<String>) -> Result<()> {
+pub fn deploy_ckb(config_path: String, network: Option<String>, eth_dag_path: Option<String>) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     let mut force_config = ForceConfig::new(config_path.as_str())?;
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let ckb_private_keys = force_config.get_ckb_private_keys(&network)?;
+    let eth_dag_path = if let Some(dag_path) = eth_dag_path.as_ref() {
+        dag_path
+    } else {
+        &force_config.eth_dag_path
+    };
 
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
@@ -272,7 +277,7 @@ pub fn deploy_ckb(config_path: String, network: Option<String>) -> Result<()> {
         sudt_bin,
     ];
 
-    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
+    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data, eth_dag_path.as_str())
         .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
@@ -331,7 +336,7 @@ pub fn deploy_ckb(config_path: String, network: Option<String>) -> Result<()> {
     };
     log::info!("ckb_scripts: {:?}", &deployed_contracts);
     force_config.deployed_contracts = Some(deployed_contracts);
-    force_config.write(&config_path).map_err(|e| anyhow!(e))?;
+    force_config.write(&config_path)?;
     println!("force-bridge config written to {}", &config_path);
     Ok(())
 }
@@ -429,6 +434,7 @@ pub fn deploy(
     indexer_client: &mut IndexerRpcClient,
     privkey: &SecretKey,
     data: Vec<Vec<u8>>,
+    eth_dag_path: &str,
     // token_cell_script: Script,
     // eth_cell_script: Script,
 ) -> Result<TransactionView, String> {
@@ -453,7 +459,7 @@ pub fn deploy(
     //     .build();
     // tx_helper.add_output_with_auto_capacity(output_eth, ckb_types::bytes::Bytes::default());
     let output_dag = CellOutput::new_builder().lock(lockscript.clone()).build();
-    let dep_data_raw = read_roots_collection_raw();
+    let dep_data_raw = read_roots_collection_raw(eth_dag_path);
     let mut dag_root = vec![];
     for i in 0..dep_data_raw.dag_merkle_roots.len() {
         dag_root.push(hex::encode(&dep_data_raw.dag_merkle_roots[i].0).clone());

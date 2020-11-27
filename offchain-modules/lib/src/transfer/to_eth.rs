@@ -24,7 +24,7 @@ pub async fn init_light_client(
     config_path: String,
     network: Option<String>,
     key_path: String,
-    height: u64,
+    height: Option<u64>,
     finalized_gc_threshold: u64,
     canonical_gc_threshold: u64,
     gas_price: u64,
@@ -46,6 +46,15 @@ pub async fn init_light_client(
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     let mut web3_client = Web3Client::new(eth_rpc_url);
 
+    let height = if let Some(height) = height {
+        height
+    } else {
+        ckb_client
+            .rpc_client
+            .get_tip_block_number()
+            .map_err(|e| anyhow::anyhow!("failed to get tip number: {}", e))?
+            - 10
+    };
     let header = ckb_client
         .rpc_client
         .get_header_by_number(height)

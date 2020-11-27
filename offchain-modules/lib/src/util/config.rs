@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::{Deserialize, Serialize};
 use shellexpand::tilde;
@@ -33,10 +33,11 @@ pub fn init_config(
 ) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     if std::path::Path::new(&config_path).exists() && !is_force {
-        bail!(
-            "force-cli-config already exists at {}, use `-f` in command if you want to overwrite it",
+        println!(
+            "force-cli-config already exists at {}, so this command do nothing. if you want to overwrite it, use `-f`",
             &config_path
         );
+        return Ok(());
     }
     let mut network_config = Table::new();
     network_config.insert("ckb_rpc_url".to_string(), Value::String(ckb_rpc_url));
@@ -74,22 +75,29 @@ pub fn init_config(
 
     let mut networks_config = Table::new();
     networks_config.insert(default_network.clone(), Value::Table(network_config));
+    let eth_dag_root_path = std::path::Path::new(project_path.as_str())
+        .join(std::path::Path::new(
+            "offchain-modules/data/dag_merkle_roots.json",
+        ))
+        .into_os_string()
+        .into_string()
+        .map_err(|e| anyhow!(format!("{:?}", e)))?;
     let force_cli_config = ForceConfig {
         project_path,
+        eth_dag_path: eth_dag_root_path,
         default_network,
         networks_config,
         deployed_contracts: None,
     };
     force_cli_config
         .write(config_path.as_str())
-        .map_err(|e| anyhow!(e))?;
-    Ok(())
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct ForceConfig {
     pub project_path: String,
     pub default_network: String,
+    pub eth_dag_path: String,
     pub deployed_contracts: Option<DeployedContracts>,
     #[serde(serialize_with = "toml::ser::tables_last")]
     pub networks_config: Table,
@@ -158,7 +166,7 @@ impl ForceConfig {
         };
         let network_config = self.networks_config.get(network).ok_or_else(|| {
             anyhow!(
-                "invalid config file: chains_config.{} not existed",
+                "invalid config file: networks_config.{} not existed",
                 self.default_network
             )
         })?;
@@ -169,7 +177,7 @@ impl ForceConfig {
             let ckb_rpc_url = if let Value::String(ckb_rpc_url) = ckb_rpc_url {
                 ckb_rpc_url.to_owned()
             } else {
-                panic!("ckb rpc url should be Value::String");
+                return Err(anyhow!("ckb rpc url should be Value::String"));
             };
             let ckb_indexer_url = network_config
                 .get("ckb_indexer_url")
@@ -177,7 +185,7 @@ impl ForceConfig {
             let ckb_indexer_url = if let Value::String(ckb_indexer_url) = ckb_indexer_url {
                 ckb_indexer_url.to_owned()
             } else {
-                panic!("ckb indexer url should be Value::String");
+                return Err(anyhow!("ckb indexer url should be Value::String"));
             };
             let ethereum_rpc_url = network_config
                 .get("ethereum_rpc_url")
@@ -185,7 +193,7 @@ impl ForceConfig {
             let ethereum_rpc_url = if let Value::String(ethereum_rpc_url) = ethereum_rpc_url {
                 ethereum_rpc_url.to_owned()
             } else {
-                panic!("ethereum rpc url should be Value::String");
+                return Err(anyhow!("ethereum rpc url should be Value::String"));
             };
             let ckb_private_keys = network_config
                 .get("ckb_private_keys")
@@ -193,7 +201,7 @@ impl ForceConfig {
             let ckb_private_keys = if let Value::Array(ckb_private_keys) = ckb_private_keys {
                 ckb_private_keys.to_owned()
             } else {
-                panic!("ckb_private_keys should be Value::Array");
+                return Err(anyhow!("ckb_private_keys should be Value::Array"));
             };
             let ethereum_private_keys = network_config
                 .get("ethereum_private_keys")
@@ -202,7 +210,7 @@ impl ForceConfig {
                 if let Value::Array(ethereum_private_keys) = ethereum_private_keys {
                     ethereum_private_keys.to_owned()
                 } else {
-                    panic!("ethereum_private_keys should be Value::Array");
+                    return Err(anyhow!("ethereum_private_keys should be Value::Array"));
                 };
             Ok(NetworkConfig {
                 ckb_rpc_url,
@@ -212,7 +220,7 @@ impl ForceConfig {
                 ethereum_private_keys,
             })
         } else {
-            panic!("chain config should be Value::Table");
+            return Err(anyhow!("chain config should be Value::Table"));
         }
     }
 
@@ -232,35 +240,33 @@ impl ForceConfig {
     }
 
     pub fn get_ckb_private_keys(&self, network: &Option<String>) -> Result<Vec<String>> {
-        let ckb_private_keys: Vec<String> = self
+        let ckb_private_keys = self
             .get_network_config(network)?
             .ckb_private_keys
             .into_iter()
             .map(|v| {
                 if let Value::String(k) = v {
-                    k
+                    Ok(k)
                 } else {
-                    panic!("ckb private key should be string")
+                    Err(anyhow!("ckb private key should be string"))
                 }
             })
             .collect();
-        Ok(ckb_private_keys)
+        ckb_private_keys
     }
 
     pub fn get_ethereum_private_keys(&self, network: &Option<String>) -> Result<Vec<String>> {
-        let ethereum_private_keys: Vec<String> = self
-            .get_network_config(network)?
+        self.get_network_config(network)?
             .ethereum_private_keys
             .into_iter()
             .map(|v| {
                 if let Value::String(k) = v {
-                    k
+                    Ok(k)
                 } else {
-                    panic!("ethereum private key should be string")
+                    Err(anyhow!("ethereum private key should be string"))
                 }
             })
-            .collect();
-        Ok(ethereum_private_keys)
+            .collect()
     }
 
     pub fn get_ckb_script_bin_path(&self) -> Result<PathBuf> {
@@ -274,71 +280,70 @@ impl ForceConfig {
         let bridge_typescript_bin_path = self
             .get_ckb_script_bin_path()?
             .join(std::path::Path::new("eth-bridge-typescript"));
-        Ok(bridge_typescript_bin_path
+        bridge_typescript_bin_path
             .into_os_string()
             .into_string()
-            .expect("convert os string to string"))
+            .map_err(|e| anyhow!(format!("{:?}", e)))
     }
 
     pub fn get_bridge_lockscript_bin_path(&self) -> Result<String> {
         let bridge_lockscript_bin_path = self
             .get_ckb_script_bin_path()?
             .join(std::path::Path::new("eth-bridge-lockscript"));
-        Ok(bridge_lockscript_bin_path
+        bridge_lockscript_bin_path
             .into_os_string()
             .into_string()
-            .expect("convert os string to string"))
+            .map_err(|e| anyhow!(format!("{:?}", e)))
     }
 
     pub fn get_light_client_typescript_bin_path(&self) -> Result<String> {
         let light_client_typescript_bin_path = self
             .get_ckb_script_bin_path()?
             .join(std::path::Path::new("eth-light-client-typescript"));
-        Ok(light_client_typescript_bin_path
+        light_client_typescript_bin_path
             .into_os_string()
             .into_string()
-            .expect("convert os string to string"))
+            .map_err(|e| anyhow!(format!("{:?}", e)))
     }
 
     pub fn get_light_client_lockscript_bin_path(&self) -> Result<String> {
         let light_client_lockscript_bin_path = self
             .get_ckb_script_bin_path()?
             .join(std::path::Path::new("eth-light-client-lockscript"));
-        Ok(light_client_lockscript_bin_path
+        light_client_lockscript_bin_path
             .into_os_string()
             .into_string()
-            .expect("convert os string to string"))
+            .map_err(|e| anyhow!(format!("{:?}", e)))
     }
 
     pub fn get_recipient_typescript_bin_path(&self) -> Result<String> {
         let recipient_typescript_bin_path = self
             .get_ckb_script_bin_path()?
             .join(std::path::Path::new("eth-recipient-typescript"));
-        Ok(recipient_typescript_bin_path
+        recipient_typescript_bin_path
             .into_os_string()
             .into_string()
-            .expect("convert os string to string"))
+            .map_err(|e| anyhow!(format!("{:?}", e)))
     }
 
     pub fn get_sudt_typescript_bin_path(&self) -> Result<String> {
         let project_path = std::path::Path::new(self.project_path.as_str());
         let sudt_typescript_bin_path =
             project_path.join(std::path::Path::new("ckb-contracts/tests/deps/simple_udt"));
-        Ok(sudt_typescript_bin_path
+        sudt_typescript_bin_path
             .into_os_string()
             .into_string()
-            .expect("convert os string to string"))
+            .map_err(|e| anyhow!(format!("{:?}", e)))
     }
 
-    pub fn write(&self, config_path: &str) -> Result<(), String> {
-        let s = toml::to_string(self).map_err(|e| format!("toml serde error: {}", e))?;
+    pub fn write(&self, config_path: &str) -> Result<()> {
+        let s = toml::to_string(self).map_err(|e| anyhow!("toml serde error: {}", e))?;
         let parent_path = std::path::Path::new(config_path)
             .parent()
-            .expect("config path should contain directory");
+            .ok_or_else(|| anyhow!("invalid config file path: {}", config_path))?;
         std::fs::create_dir_all(parent_path)
-            .map_err(|e| format!("fail to create config path. err: {}", e))?;
+            .map_err(|e| anyhow!("fail to create config path. err: {}", e))?;
         std::fs::write(config_path, &s)
-            .map_err(|e| format!("fail to write scripts config. err: {}", e))?;
-        Ok(())
+            .map_err(|e| anyhow!("fail to write scripts config. err: {}", e))
     }
 }

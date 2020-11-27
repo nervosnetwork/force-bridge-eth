@@ -91,8 +91,7 @@ impl ETHRelayer {
                     .cell_script = hex::encode(typescript.clone().as_slice());
                 self.config.deployed_contracts = Some(self.generator.deployed_contracts.clone());
                 self.config
-                    .write(&self.config_path)
-                    .map_err(|e| anyhow!(e))?;
+                    .write(&self.config_path)?;
                 self.cell_typescript = Some(cell_script);
             }
             Some(cell_script) => {
