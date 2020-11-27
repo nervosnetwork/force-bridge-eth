@@ -19,7 +19,7 @@ use std::str::FromStr;
 use web3::types::U256;
 
 #[post("/get_or_create_bridge_cell")]
-async fn get_or_create_bridge_cell(
+pub async fn get_or_create_bridge_cell(
     data: web::Data<DappState>,
     args: web::Json<CreateBridgeCellArgs>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
@@ -35,12 +35,13 @@ async fn get_or_create_bridge_cell(
         args.eth_token_address.clone(),
         args.recipient_address.clone(),
         args.bridge_fee.into(),
-    )?;
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(CreateBridgeCellResponse { outpoint }))
 }
 
 #[post("/burn")]
-async fn burn(
+pub async fn burn(
     data: web::Data<DappState>,
     args: web::Json<BurnArgs>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
@@ -53,7 +54,7 @@ async fn burn(
     let lock_contract_address = convert_eth_address(data.settings.eth_token_locker_addr.as_str())?;
     let recipient_address = convert_eth_address(args.recipient_address.as_str())?;
 
-    let mut generator = data.get_generator()?;
+    let mut generator = data.get_generator().await?;
 
     let tx_fee: u64 = HumanCapacity::from_str(&args.tx_fee)?.into();
 
@@ -71,7 +72,7 @@ async fn burn(
 }
 
 #[post("/get_sudt_balance")]
-async fn get_sudt_balance(
+pub async fn get_sudt_balance(
     data: web::Data<DappState>,
     args: web::Json<GetSudtBalanceArgs>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
@@ -80,7 +81,7 @@ async fn get_sudt_balance(
     let lock_contract_address = convert_eth_address(data.settings.eth_token_locker_addr.as_str())
         .map_err(|e| format!("lock contract address parse fail: {}", e))?;
 
-    let mut generator = data.get_generator()?;
+    let mut generator = data.get_generator().await?;
 
     let balance: Uint128 = generator
         .get_sudt_balance(args.address.clone(), token_address, lock_contract_address)
@@ -92,7 +93,7 @@ async fn get_sudt_balance(
 }
 
 #[post("/lock")]
-async fn lock(
+pub async fn lock(
     data: web::Data<DappState>,
     args: web::Json<LockArgs>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
@@ -150,7 +151,7 @@ async fn lock(
 }
 
 #[post("/get_best_block_height")]
-async fn get_best_block_height(
+pub async fn get_best_block_height(
     data: web::Data<DappState>,
     args: web::Json<GetBestBlockHeightArgs>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
@@ -168,7 +169,7 @@ async fn get_best_block_height(
             Ok(HttpResponse::Ok().json(Uint64::from(result)))
         }
         "eth" => {
-            let mut generator = data.get_generator()?;
+            let mut generator = data.get_generator().await?;
 
             let typescript =
                 parse_cell(data.settings.light_client_cell_script.cell_script.as_str())
@@ -195,11 +196,11 @@ async fn get_best_block_height(
 }
 
 #[get("/")]
-async fn index() -> impl Responder {
+pub async fn index() -> impl Responder {
     "Nervos force bridge dapp server API endpoint"
 }
 
 #[get("/settings")]
-async fn settings(data: web::Data<DappState>) -> impl Responder {
+pub async fn settings(data: web::Data<DappState>) -> impl Responder {
     HttpResponse::Ok().json(&data.settings)
 }

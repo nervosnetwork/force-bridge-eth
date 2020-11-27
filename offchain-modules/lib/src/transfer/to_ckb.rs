@@ -136,8 +136,9 @@ pub async fn send_eth_spv_proof_tx(
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
             .map_err(|err| anyhow!(err))?
     );
-    let tx_hash =
-        send_tx_sync(&mut generator.rpc_client, &tx, 60).map_err(|e| anyhow::anyhow!(e))?;
+    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 120)
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
     let cell_typescript = tx
         .output(0)
         .ok_or_else(|| anyhow!("no out_put found"))?
@@ -160,7 +161,7 @@ pub fn verify_eth_spv_proof() -> bool {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn dev_init(
+pub async fn dev_init(
     config_path: String,
     rpc_url: String,
     indexer_url: String,
@@ -213,7 +214,9 @@ pub fn dev_init(
 
     let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
         .map_err(|err| anyhow!(err))?;
-    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
+    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60)
+        .await
+        .map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
     let settings = Settings {
@@ -275,7 +278,7 @@ pub fn dev_init(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn create_bridge_cell(
+pub async fn create_bridge_cell(
     config_path: String,
     rpc_url: String,
     indexer_url: String,
@@ -290,6 +293,7 @@ pub fn create_bridge_cell(
     let mut generator = Generator::new(rpc_url, indexer_url, settings.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
 
     let from_privkey = parse_privkey_path(&private_key_path)?;
@@ -327,7 +331,9 @@ pub fn create_bridge_cell(
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
             .map_err(|err| anyhow!(err))?
     );
-    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60).map_err(|err| anyhow!(err))?;
+    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60)
+        .await
+        .map_err(|err| anyhow!(err))?;
     let outpoint = OutPoint::new_builder()
         .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
         .build();

@@ -29,8 +29,8 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::Server(args) => server::server_handler(args).await,
 
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
-        SubCommand::DevInit(args) => dev_init_handler(args),
-        SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args),
+        SubCommand::DevInit(args) => dev_init_handler(args).await,
+        SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args).await,
         // transfer erc20 to ckb
         SubCommand::Approve(args) => approve_handler(args).await,
         // lock erc20 token && wait the tx is commit.
@@ -41,16 +41,16 @@ pub async fn handler(opt: Opts) -> Result<()> {
         // SubCommand::GenerateEthProof(args) => generate_eth_proof_handler(args).await,
         // verify eth receipt proof && mint new token
         SubCommand::Mint(args) => mint_handler(args).await,
-        SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args),
+        SubCommand::TransferToCkb(args) => transfer_to_ckb_handler(args).await,
         // transfer erc20 from ckb
-        SubCommand::Burn(args) => burn_handler(args),
+        SubCommand::Burn(args) => burn_handler(args).await,
         // parse ckb spv proof from tx_hash.
-        SubCommand::GenerateCkbProof(args) => generate_ckb_proof_handler(args),
+        SubCommand::GenerateCkbProof(args) => generate_ckb_proof_handler(args).await,
         // verify ckb spv proof && unlock erc20 token.
         SubCommand::Unlock(args) => unlock_handler(args).await,
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args).await,
-        SubCommand::TransferSudt(args) => transfer_sudt_handler(args),
-        SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args),
+        SubCommand::TransferSudt(args) => transfer_sudt_handler(args).await,
+        SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args).await,
 
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
@@ -77,7 +77,7 @@ pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> 
     Ok(())
 }
 
-pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
+pub async fn dev_init_handler(args: DevInitArgs) -> Result<()> {
     if std::path::Path::new(&args.config_path).exists() && !args.force {
         bail!(
             "force-bridge-eth config already exists at {}, use `-f` in command if you want to overwrite it",
@@ -96,9 +96,10 @@ pub fn dev_init_handler(args: DevInitArgs) -> Result<()> {
         args.recipient_typescript_path,
         args.sudt_path,
     )
+    .await
 }
 
-pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
+pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
     let outpoint_hex = create_bridge_cell(
         args.config_path,
         args.rpc_url,
@@ -109,7 +110,8 @@ pub fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
-    )?;
+    )
+    .await?;
     info!(
         "create bridge cell successfully for {}, outpoint: {}",
         &args.recipient_address, &outpoint_hex
@@ -229,7 +231,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     };
     let mut generator = Generator::new(args.ckb_rpc_url, args.indexer_url, settings)
         .map_err(|e| anyhow::anyhow!(e))?;
-    wait_header_sync_success(&mut generator, args.config_path.clone(), header_rlp.clone())?;
+    wait_header_sync_success(&mut generator, args.config_path.clone(), header_rlp.clone()).await?;
     let tx_hash = send_eth_spv_proof_tx(
         &mut generator,
         args.config_path,
@@ -241,12 +243,12 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
+pub async fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
     debug!("transfer_to_ckb_handler args: {:?}", &args);
     todo!()
 }
 
-pub fn burn_handler(args: BurnArgs) -> Result<()> {
+pub async fn burn_handler(args: BurnArgs) -> Result<()> {
     debug!("burn_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
     let receive_addr = convert_eth_address(&args.receive_addr)?;
@@ -263,12 +265,13 @@ pub fn burn_handler(args: BurnArgs) -> Result<()> {
         token_addr,
         receive_addr,
         lock_contract_addr,
-    )?;
+    )
+    .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
     Ok(())
 }
 
-pub fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
+pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     debug!("generate_ckb_proof_handler args: {:?}", &args);
     let (header, tx) = get_ckb_proof_info(&args.tx_hash, args.ckb_rpc_url)?;
     println!("headers : {:?}", header);
@@ -311,7 +314,8 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         token_addr,
         receive_addr,
         lock_contract_addr,
-    )?;
+    )
+    .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
 
     let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, args.ckb_rpc_url.clone())?;
@@ -341,7 +345,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     println!("unlock tx hash : {:?}", result);
     Ok(())
 }
-pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
+pub async fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
     let settings = Settings::new(&args.config_path)?;
@@ -357,11 +361,12 @@ pub fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
         args.sudt_amount,
         token_addr,
         lock_contract_addr,
-    )?;
+    )
+    .await?;
     Ok(())
 }
 
-pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
+pub async fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
     debug!("query sudt balance handler args: {:?}", &args);
     let token_addr = convert_eth_address(&args.token_addr)?;
     let settings = Settings::new(&args.config_path)?;
@@ -374,7 +379,8 @@ pub fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
         args.addr,
         token_addr,
         lock_contract_addr,
-    )?;
+    )
+    .await?;
     info!("sudt balance is {} ", result);
     Ok(())
 }
@@ -394,7 +400,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         if let Err(err) = res {
             println!("An error occurred during the eth relay. Err: {:?}", err)
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
 }
 
@@ -414,6 +420,6 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         ckb_relayer
             .start(args.eth_rpc_url.clone(), args.per_amount)
             .await?;
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
 }
