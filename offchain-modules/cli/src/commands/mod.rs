@@ -16,7 +16,7 @@ use force_eth_lib::transfer::to_eth::{
 use force_eth_lib::util::ckb_util::{build_lockscript_from_address, ETHSPVProofJson, Generator};
 use force_eth_lib::util::eth_util::convert_eth_address;
 use force_eth_lib::util::settings::Settings;
-use log::{debug, info};
+use log::{debug, error, info};
 use molecule::prelude::Entity;
 use rusty_receipt_proof_maker::generate_eth_proof;
 use serde_json::{json, Value};
@@ -392,7 +392,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     loop {
         let res = eth_relayer.start().await;
         if let Err(err) = res {
-            println!("An error occurred during the eth relay. Err: {:?}", err)
+            error!("An error occurred during the eth relay. Err: {:?}", err)
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
@@ -411,9 +411,12 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         args.gas_price,
     )?;
     loop {
-        ckb_relayer
+        let res = ckb_relayer
             .start(args.eth_rpc_url.clone(), args.per_amount)
-            .await?;
+            .await;
+        if let Err(err) = res {
+            error!("An error occurred during the ckb relay. Err: {:?}", err)
+        }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }
