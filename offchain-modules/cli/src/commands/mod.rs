@@ -388,7 +388,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     )?;
     loop {
         let res = ckb_relayer
-            .start(args.eth_rpc_url.clone(), args.per_amount)
+            .start(eth_rpc_url.clone(), args.per_amount)
             .await;
         if let Err(err) = res {
             error!("An error occurred during the ckb relay. Err: {:?}", err)
