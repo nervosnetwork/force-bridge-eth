@@ -23,7 +23,7 @@ ETH_ADDRESS="0x0000000000000000000000000000000000000000"
 RECIPIENT_ADDR="ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4"
 bridge_fee=2
 
-cd "$PROJECT_DIR"/demo
+cd "$PROJECT_DIR"/offchain-modules
 
 # eth crosschain
 ${FORCE_CLI} create-bridge-cell --config-path "${FORCE_CONFIG_PATH}" -k 1 --eth-token-address "${ETH_ADDRESS}" --recipient-address "${RECIPIENT_ADDR}" --bridge-fee "${bridge_fee}" > "${ETH_BRIDGE_CELL_CONFIG_PATH}"
