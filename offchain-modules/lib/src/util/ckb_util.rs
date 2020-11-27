@@ -377,29 +377,29 @@ impl Generator {
         let mut helper = TxHelper::default();
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_cli_config = ForceConfig::new(config_path.as_str())?;
-        let deployed_contracts = force_cli_config
+        let _deployed_contracts = force_cli_config
             .deployed_contracts
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
         // add cell deps.
         {
-            let cell_script = parse_cell(
-                deployed_contracts
-                    .light_client_cell_script
-                    .cell_script
-                    .as_str(),
-            )?;
-            let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
-                .map_err(|err| anyhow!(err))?
-                .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
-            let mut builder = helper.transaction.as_advanced_builder();
-            builder = builder.cell_dep(
-                CellDep::new_builder()
-                    .out_point(cell.out_point.into())
-                    .dep_type(DepType::Code.into())
-                    .build(),
-            );
-            helper.transaction = builder.build();
+            // let cell_script = parse_cell(
+            //     deployed_contracts
+            //         .light_client_cell_script
+            //         .cell_script
+            //         .as_str(),
+            // )?;
+            // let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
+            //     .map_err(|err| anyhow!(err))?
+            //     .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
+            // let mut builder = helper.transaction.as_advanced_builder();
+            // builder = builder.cell_dep(
+            //     CellDep::new_builder()
+            //         .out_point(cell.out_point.into())
+            //         .dep_type(DepType::Code.into())
+            //         .build(),
+            // );
+            // helper.transaction = builder.build();
 
             let outpoints = vec![
                 self.deployed_contracts.bridge_lockscript.outpoint.clone(),

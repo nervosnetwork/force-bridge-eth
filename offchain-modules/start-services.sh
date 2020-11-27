@@ -36,7 +36,7 @@ if [ "${FORCE_NETWORK}" = "" ]
 then
   ${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
   ${FORCE_CLI} ckb-relay -k 1 --per-amount 5 > ${FORCE_LOG_PATH}/ckb-relayer.log 2>&1 &
-  ${FORCE_CLI} eth-relay -k 5 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
+#  ${FORCE_CLI} eth-relay -k 5 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 else
   ${FORCE_CLI} init-ckb-light-contract --network "${FORCE_NETWORK}" -k 0 -f 500 -c 40000 --wait
   ${FORCE_CLI} ckb-relay --network "${FORCE_NETWORK}" -k 1 --per-amount 5 > ${FORCE_LOG_PATH}/ckb-relayer.log 2>&1 &
