@@ -1,5 +1,5 @@
 use crate::util::ckb_types::CkbTxProof;
-use crate::util::ckb_util::{covert_to_h256, parse_privkey, parse_privkey_path, Generator};
+use crate::util::ckb_util::{covert_to_h256, parse_privkey, parse_privkey_path, Generator, CONFIRM};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use crate::util::generated::ckb_tx_proof;
@@ -49,11 +49,15 @@ pub async fn init_light_client(
     let height = if let Some(height) = height {
         height
     } else {
-        ckb_client
+        let tip_number = ckb_client
             .rpc_client
             .get_tip_block_number()
-            .map_err(|e| anyhow::anyhow!("failed to get tip number: {}", e))?
-            - 10
+            .map_err(|e| anyhow::anyhow!("failed to get tip number: {}", e))?;
+        if tip_number <= CONFIRM as u64 {
+            tip_number
+        } else {
+            tip_number - CONFIRM as u64
+        }
     };
     let header = ckb_client
         .rpc_client

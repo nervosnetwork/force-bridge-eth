@@ -57,7 +57,6 @@ demo-init-deamon: demo-clear-deamon demo-start-deamon
 
 demo-start-deamon:
 	cd docker && docker-compose up -d
-	bash demo/vendor/init_eth2ckb_relayer_key.sh
 	bash demo/demo-start-deamon.sh
 
 demo-run-crosschain:
