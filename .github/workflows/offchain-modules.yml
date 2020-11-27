@@ -19,7 +19,7 @@ defaults:
     working-directory: offchain-modules
 
 jobs:
-  contract-check:
+  offchain-modules-ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

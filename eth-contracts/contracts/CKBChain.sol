@@ -2,6 +2,7 @@ pragma solidity ^0.5.10;
 
 import {TypedMemView} from "./libraries/TypedMemView.sol";
 import {CKBCrypto} from "./libraries/CKBCrypto.sol";
+import {Blake2b} from "./libraries/Blake2b.sol";
 import {SafeMath} from "./libraries/SafeMath.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
@@ -187,8 +188,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint64 blockNumber = rawHeaderView.blockNumber();
 
         // calc blockHash
-        bytes memory headerBytes = headerView.clone();
-        bytes32 blockHash = CKBCrypto.digest(headerBytes, 208);
+        bytes32 blockHash = Blake2b.digest208Ptr(headerView.loc());
 
         // ## verify blockHash should not exist
         if (
@@ -376,21 +376,9 @@ contract CKBChain is ICKBChain, ICKBSpv {
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
             if (index < sibling) {
-                rawTxRoot = CKBCrypto.digest(
-                    abi.encodePacked(
-                        rawTxRoot,
-                        lemmas.indexH256Array(lemmasIndex)
-                    ),
-                    64
-                );
+                rawTxRoot = Blake2b.digest64Merge(rawTxRoot, lemmas.indexH256Array(lemmasIndex));
             } else {
-                rawTxRoot = CKBCrypto.digest(
-                    abi.encodePacked(
-                        lemmas.indexH256Array(lemmasIndex),
-                        rawTxRoot
-                    ),
-                    64
-                );
+                rawTxRoot = Blake2b.digest64Merge(lemmas.indexH256Array(lemmasIndex), rawTxRoot);
             }
 
             lemmasIndex++;
@@ -399,10 +387,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
 
         // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
-        bytes32 transactionsRoot = CKBCrypto.digest(
-            abi.encodePacked(rawTxRoot, proofView.witnessesRoot()),
-            64
-        );
+        bytes32 transactionsRoot = Blake2b.digest64Merge(rawTxRoot, proofView.witnessesRoot());
         require(
             transactionsRoot == canonicalTransactionsRoots[blockHash],
             "proof not passed"

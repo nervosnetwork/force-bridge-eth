@@ -35,14 +35,14 @@ pub struct ServerArgs {
     pub config_path: String,
     #[clap(long, default_value = "http://127.0.0.1:8114")]
     pub ckb_rpc_url: String,
+    #[clap(long, default_value = "http://127.0.0.1:8545")]
+    pub eth_rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8116")]
     pub indexer_url: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
     #[clap(short = 'k', long, default_value = "privkeys/ckb_key")]
     pub private_key_path: String,
-    #[clap(short, long, default_value = "3")]
-    pub threads_num: usize,
 }
 
 #[derive(Clap, Clone, Debug)]
