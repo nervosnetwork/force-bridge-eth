@@ -35,11 +35,6 @@ contract ERC20 is IERC20 {
 
     uint256 private _totalSupply;
 
-    constructor() public {
-        _totalSupply += 1000;
-        _balances[msg.sender] += 1000;
-    }
-
     /**
      * @dev See `IERC20.totalSupply`.
      */
@@ -229,5 +224,84 @@ contract ERC20 is IERC20 {
     function _burnFrom(address account, uint256 amount) internal {
         _burn(account, amount);
         _approve(account, msg.sender, _allowances[account][msg.sender].sub(amount));
+    }
+}
+
+contract DAI is ERC20 {
+    string public constant name = "DAI Test Token";
+    string public constant symbol = "DAI";
+    uint8 public constant decimals = 18;
+    uint constant _supply = 100000000000000000000;
+    address private governance;
+
+    modifier onlyGov() {
+        require(msg.sender == governance, "caller is not the governance");
+        _;
+    }
+
+    constructor() public {
+        governance = msg.sender;
+        _mint(msg.sender, _supply);
+    }
+
+    function getTestToken() external {
+        _mint(msg.sender, _supply);
+    }
+
+    function mint(uint256 amount) external onlyGov {
+        _mint(msg.sender, amount);
+    }
+}
+
+
+contract USDT is ERC20 {
+    string public constant name = "USDT Test Token";
+    string public constant symbol = "USDT";
+    uint8 public constant decimals = 6;
+    uint constant _supply = 100000000;
+    address private governance;
+
+    modifier onlyGov() {
+        require(msg.sender == governance, "caller is not the governance");
+        _;
+    }
+
+    constructor() public {
+        governance = msg.sender;
+        _mint(msg.sender, _supply);
+    }
+
+    function getTestToken() external {
+        _mint(msg.sender, _supply);
+    }
+
+    function mint(uint256 amount) external onlyGov {
+        _mint(msg.sender, amount);
+    }
+}
+
+contract USDC is ERC20 {
+    string public constant name = "USDC Test Token";
+    string public constant symbol = "USDC";
+    uint8 public constant decimals = 6;
+    uint constant _supply = 100000000;
+    address private governance;
+
+    modifier onlyGov() {
+        require(msg.sender == governance, "caller is not the governance");
+        _;
+    }
+
+    constructor() public {
+        governance = msg.sender;
+        _mint(msg.sender, _supply);
+    }
+
+    function getTestToken() external {
+        _mint(msg.sender, _supply);
+    }
+
+    function mint(uint256 amount) external onlyGov {
+        _mint(msg.sender, amount);
     }
 }

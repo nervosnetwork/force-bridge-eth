@@ -1,5 +1,6 @@
 const fs = require("fs");
 const TOML = require("@iarna/toml");
+const { deployContract, sleep } = require("../../test/utils");
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
@@ -11,41 +12,45 @@ async function main() {
   const recipient_typescript_code_hash =
     forceConfig.recipient_typescript.code_hash;
 
-  //ERC20
-  const ERC20 = await ethers.getContractFactory(
-    "contracts/test/ERC20.sol:ERC20"
+  // deploy erc20 tokens, CKBChain
+  const factoryPaths = [
+    "contracts/test/ERC20.sol:DAI",
+    "contracts/test/ERC20.sol:USDT",
+    "contracts/test/ERC20.sol:USDC",
+    "contracts/CKBChain.sol:CKBChain",
+  ];
+  const promises = [];
+  for (const path of factoryPaths) {
+    promises.push(deployContract(path));
+    // because nonce should increase in sequence
+    await sleep(1);
+  }
+  const contracts = await Promise.all(promises);
+  const [DAIAddr, USDTAddr, USDCAddr, CKBChinDeployAddr] = contracts.map(
+    (contract) => contract.address
   );
-  const ERC20Deploy = await ERC20.deploy();
-  await ERC20Deploy.deployed();
-  const ERC20DeployAddr = ERC20Deploy.address;
-  console.error("ERC20 deployed to:", ERC20DeployAddr);
-
-  // deploy CKBChin
-  const CKBChain = await ethers.getContractFactory(
-    "contracts/CKBChain.sol:CKBChain"
-  );
-  const CKBChinDeploy = await CKBChain.deploy();
-  await CKBChinDeploy.deployed();
-  const CKBChinDeployAddr = CKBChinDeploy.address;
-  console.error("CKBChin deployed to:", CKBChinDeployAddr);
 
   // deploy TokenLocker
-  const TokenLocker = await ethers.getContractFactory(
-    "contracts/TokenLocker.sol:TokenLocker"
-  );
-  const locker = await TokenLocker.deploy(
+  const locker = await deployContract(
+    "contracts/TokenLocker.sol:TokenLocker",
     CKBChinDeployAddr,
     1,
     "0x" + recipient_typescript_code_hash,
     0,
     "0x" + bridge_lockscript_code_hash
   );
-  await locker.deployed();
   const lockerAddr = locker.address;
-  console.error("locker deployed to:", lockerAddr);
+
+  console.error(`
+  DAIAddr: ${DAIAddr}, USDTAddr: ${USDTAddr}, USDCAddr: ${USDCAddr}
+  CKBChin deploy to: ${CKBChinDeployAddr}
+  locker deploy to: ${lockerAddr}
+  `);
 
   const address = {
-    erc20: ERC20DeployAddr,
+    dai: DAIAddr,
+    usdt: USDTAddr,
+    usdc: USDCAddr,
     ckbChain: CKBChinDeployAddr,
     tokenLocker: lockerAddr,
   };
