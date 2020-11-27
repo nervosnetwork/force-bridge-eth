@@ -337,7 +337,7 @@ impl Generator {
     ) -> Result<TransactionView> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
-        let settings = Settings::new(&config_path)?;
+        let _settings = Settings::new(&config_path)?;
         // add cell deps.
         {
             // let cell_script = parse_cell(settings.light_client_cell_script.cell_script.as_str())?;
