@@ -31,6 +31,9 @@ ${FORCE_CLI} create-bridge-cell --eth-token-address "${ETH_ADDRESS}" --recipient
 eth_bridge_cell_outpoint=$(cat "${ETH_BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
 ${FORCE_CLI} lock-eth --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${eth_bridge_cell_outpoint}" --amount 100 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_ETH_PATH}"
 lock_eth_hash=`cat "${LOCK_ETH_PATH}"| awk '{print $4}'`
+${FORCE_CLI} mint --hash "${lock_eth_hash}"
+${FORCE_CLI} query-sudt-blance --addr ${RECIPIENT_ADDR} --token-addr "${ETH_ADDRESS}"
+${FORCE_CLI} transfer-from-ckb --ckb-privkey-path privkeys/ckb_key_recipient --burn-amount 2 --unlock-fee 1 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr ${ETH_ADDRESS} --wait
 
 # token crosschain
 ${FORCE_CLI} approve --erc20-addr "${TOKEN_ADDRESS}"
@@ -38,13 +41,6 @@ ${FORCE_CLI} create-bridge-cell --eth-token-address "${TOKEN_ADDRESS}" --recipie
 token_bridge_cell_outpoint=$(cat "${TOKEN_BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
 ${FORCE_CLI} lock-token --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${token_bridge_cell_outpoint}" --token  "${TOKEN_ADDRESS}" --amount 100 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_TOKEN_PATH}"
 lock_token_hash=`cat "${LOCK_TOKEN_PATH}"| awk '{print $5}'`
-
-# eth crosschain
-${FORCE_CLI} mint --hash "${lock_eth_hash}"
-${FORCE_CLI} query-sudt-blance --addr ${RECIPIENT_ADDR} --token-addr "${ETH_ADDRESS}"
-${FORCE_CLI} transfer-from-ckb --ckb-privkey-path privkeys/ckb_key_recipient --burn-amount 2 --unlock-fee 1 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr ${ETH_ADDRESS} --wait
-
-# token crosschain
 ${FORCE_CLI} mint --hash "${lock_token_hash}"
 ${FORCE_CLI} query-sudt-blance --addr ${RECIPIENT_ADDR} --token-addr "${TOKEN_ADDRESS}"
 ${FORCE_CLI} transfer-from-ckb --ckb-privkey-path privkeys/ckb_key_recipient --burn-amount 2 --unlock-fee 1 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d --wait --token-addr "${TOKEN_ADDRESS}"

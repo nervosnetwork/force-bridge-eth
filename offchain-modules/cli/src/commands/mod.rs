@@ -231,7 +231,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     };
     let mut generator = Generator::new(args.ckb_rpc_url, args.indexer_url, settings)
         .map_err(|e| anyhow::anyhow!(e))?;
-    wait_header_sync_success(&mut generator, args.config_path.clone(), header_rlp.clone()).await?;
+    // wait_header_sync_success(&mut generator, args.config_path.clone(), header_rlp.clone()).await?;
     let tx_hash = send_eth_spv_proof_tx(
         &mut generator,
         args.config_path,

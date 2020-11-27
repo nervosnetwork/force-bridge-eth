@@ -24,5 +24,5 @@ npx hardhat run scripts/geth/deployAll.js --network geth > "${FORTH_ETH_CONFIG_P
 cd "$DIR"/demo
 ${FORCE_CLI} init-ckb-light-contract -i 1 -f 500 -c 40000 --wait
 ${FORCE_CLI} ckb-relay -k privkeys/ckb2eth_relayer_key --per-amount 5 > data/ckb-relayer.log 2>&1 &
-${FORCE_CLI} eth-relay > data/eth-relayer.log 2>&1 &
+#${FORCE_CLI} eth-relay > data/eth-relayer.log 2>&1 &
 
