@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use cmd_lib::run_fun;
 use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
-use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
+use force_eth_lib::relay::eth_relay::ETHRelayer;
 use force_eth_lib::transfer::to_ckb::{
     approve, create_bridge_cell, dev_init, get_header_rlp, lock_eth, lock_token,
     send_eth_spv_proof_tx,
