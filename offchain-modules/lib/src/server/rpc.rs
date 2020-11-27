@@ -20,7 +20,9 @@ pub async fn start(
     let local = tokio::task::LocalSet::new();
     let sys = actix_web::rt::System::run_in_tokio("server", &local);
     let _server_res = HttpServer::new(move || {
+        let cors = actix_cors::Cors::permissive();
         App::new()
+            .wrap(cors)
             .data(dapp_state.clone())
             .service(index)
             .service(settings)
