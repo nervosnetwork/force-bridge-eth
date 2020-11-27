@@ -9,6 +9,7 @@ use crate::debug;
 use ckb_std::ckb_constants::Source;
 use eth_spv_lib::eth_types::*;
 use force_eth_types::{
+    config::CONFIRM,
     eth_header_cell::ETHHeaderCellDataView,
     generated::{
         basic::BytesVecReader,
@@ -23,7 +24,6 @@ use molecule::prelude::Reader;
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
-pub const CONFIRM: usize = 10;
 
 pub fn verify_add_headers<T: Adapter>(data_loader: T) {
     let input_data = data_loader.load_data_from_source(Source::GroupInput);
@@ -520,15 +520,36 @@ fn verify_original_chain_data(
         }
         assert_eq!(input_data, output_data, "invalid output data.");
     } else if input_reader.len() < output_reader.len() {
-        let mut input_data = vec![];
-        for i in 0..input_reader.len() {
-            input_data.push(input_reader.get_unchecked(i).raw_data())
+        if output_reader.len() <= CONFIRM {
+            let mut input_data = vec![];
+            for i in 0..input_reader.len() {
+                input_data.push(input_reader.get_unchecked(i).raw_data())
+            }
+            let mut output_data = vec![];
+            for i in 0..output_reader.len() - 1 {
+                output_data.push(output_reader.get_unchecked(i).raw_data())
+            }
+            assert_eq!(input_data, output_data, "invalid output data.");
+        } else {
+            let mut input_data = vec![];
+            for i in 0..input_reader.len() {
+                input_data.push(input_reader.get_unchecked(i).raw_data())
+            }
+            let header_info_raw = input_reader
+                .get_unchecked(input_reader.len() - CONFIRM)
+                .raw_data();
+            if ETHHeaderInfoReader::verify(&header_info_raw, false).is_err() {
+                panic!("invalid header info");
+            }
+            let header_info_reader = ETHHeaderInfoReader::new_unchecked(header_info_raw);
+            let hash = header_info_reader.hash().raw_data();
+            input_data[input_reader.len() - CONFIRM] = hash;
+            let mut output_data = vec![];
+            for i in 0..output_reader.len() - 1 {
+                output_data.push(output_reader.get_unchecked(i).raw_data())
+            }
+            assert_eq!(input_data, output_data, "invalid output data.");
         }
-        let mut output_data = vec![];
-        for i in 0..output_reader.len() - 1 {
-            output_data.push(output_reader.get_unchecked(i).raw_data())
-        }
-        assert_eq!(input_data, output_data, "invalid output data.");
     } else {
         panic!("invalid data")
     }

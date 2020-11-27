@@ -11,33 +11,38 @@ ckb-contracts-ci:
 eth-contracts-ci:
 	cd eth-contracts && yarn test
 
-demo-build:
+build-all:
 	cd ckb-contracts && capsule build --release
-	mkdir -p demo/{contracts,data,bin} && cp ckb-contracts/build/release/* demo/contracts
-	cp offchain-modules/cli/deps/simple_udt demo/contracts
-	cp -r offchain-modules/vendor demo
-	cp offchain-modules/data/dag_merkle_roots.json demo/data/dag_merkle_roots.json
-	cd offchain-modules/eth-proof && npm install
-	cp -r offchain-modules/eth-proof demo
-	cd offchain-modules && cargo build #--release
-	cp offchain-modules/target/debug/force-eth-cli demo/bin
 	cd eth-contracts && yarn install
+	cd offchain-modules && cargo build
+	cd offchain-modules/eth-proof && npm install
 
-integration-ci: demo-build
-
-	rm -rf ${HOME}/.ckb-cli/index-v1
+start-docker-network:
 	cd docker && docker-compose up -d
 
-	bash demo/vendor/init_eth2ckb_relayer_key.sh
+remove-docker-network:
+	cd docker && docker-compose down
 
-	bash demo/demo.sh
-	#cd docker && docker-compose stop
+deploy-contracts:
+	bash offchain-modules/deploy.sh
 
-demo-clear:
-	rm -rf demo/{bin,contracts,data,.force-bridge-cli-config.toml}
+start-offchain-services:
+	bash offchain-modules/start-services.sh
 
-demo:
-	bash demo/demo.sh
+stop-offchain-services:
+	bash offchain-modules/stop-services.sh
+
+setup-dev-env: build-all start-docker-network deploy-contracts start-offchain-services
+
+close-dev-env: stop-offchain-services remove-docker-network
+
+integration-ci: setup-dev-env demo-crosschain
+
+demo-crosschain:
+	bash demo/crosschain.sh
+
+build-docker:
+	make -C docker build
 
 fmt:
 	make -C offchain-modules fmt

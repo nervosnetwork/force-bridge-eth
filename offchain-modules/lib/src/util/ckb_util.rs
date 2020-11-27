@@ -1,9 +1,9 @@
 use crate::transfer::to_ckb::build_eth_bridge_lock_args;
+use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::{DoubleNodeWithMerkleProofJson, Witness};
 use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
-use crate::util::settings::{OutpointConf, Settings};
 use anyhow::{anyhow, bail, Result};
-use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
+use ckb_sdk::constants::MIN_SECP_CELL_CAPACITY;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
 use ckb_types::core::{BlockView, Capacity, DepType, ScriptHashType, TransactionView};
 use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
@@ -28,8 +28,10 @@ use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
+use log::info;
 use rlp::Rlp;
 use secp256k1::SecretKey;
+use shellexpand::tilde;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Add, Sub};
@@ -40,15 +42,40 @@ pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
 pub const CONFIRM: usize = 10;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
 
+pub fn get_secret_key(privkey_string: &str) -> Result<secp256k1::SecretKey> {
+    let privkey_bytes = hex::decode(clear_0x(privkey_string))?;
+    Ok(secp256k1::SecretKey::from_slice(&privkey_bytes)?)
+}
+
+pub fn parse_privkey_path(
+    path: &str,
+    config: &ForceConfig,
+    network: &Option<String>,
+) -> Result<secp256k1::SecretKey> {
+    let privkey_string = if let Ok(index) = path.parse::<usize>() {
+        let priv_keys = config.get_ckb_private_keys(network)?;
+        priv_keys[index].clone()
+    } else {
+        let content = std::fs::read_to_string(path)?;
+        content
+            .split_whitespace()
+            .next()
+            .ok_or_else(|| anyhow!("File is empty"))?
+            .to_string()
+    };
+    let privkey_bytes = hex::decode(clear_0x(privkey_string.as_str()))?;
+    Ok(secp256k1::SecretKey::from_slice(&privkey_bytes)?)
+}
+
 pub struct Generator {
     pub rpc_client: HttpRpcClient,
     pub indexer_client: IndexerRpcClient,
     genesis_info: GenesisInfo,
-    pub settings: Settings,
+    pub deployed_contracts: DeployedContracts,
 }
 
 impl Generator {
-    pub fn new(rpc_url: String, indexer_url: String, settings: Settings) -> Result<Self> {
+    pub fn new(rpc_url: String, indexer_url: String, settings: DeployedContracts) -> Result<Self> {
         let mut rpc_client = HttpRpcClient::new(rpc_url);
         let indexer_client = IndexerRpcClient::new(indexer_url);
         let genesis_block: BlockView = rpc_client
@@ -61,7 +88,7 @@ impl Generator {
             rpc_client,
             indexer_client,
             genesis_info,
-            settings,
+            deployed_contracts: settings,
         })
     }
 
@@ -74,13 +101,19 @@ impl Generator {
         typescript: Script,
         lockscript: Script,
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = ONE_CKB / 2;
+        let tx_fee: u64 = 500_000;
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
-            self.settings.dag_merkle_roots.clone(),
-            self.settings.light_client_lockscript.outpoint.clone(),
-            self.settings.light_client_typescript.outpoint.clone(),
+            self.deployed_contracts.dag_merkle_roots.clone(),
+            self.deployed_contracts
+                .light_client_lockscript
+                .outpoint
+                .clone(),
+            self.deployed_contracts
+                .light_client_typescript
+                .outpoint
+                .clone(),
         ];
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
@@ -161,13 +194,19 @@ impl Generator {
         headers: &[BlockHeader],
         from_lockscript: Script,
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = ONE_CKB / 2;
+        let tx_fee: u64 = 500_000;
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
-            self.settings.dag_merkle_roots.clone(),
-            self.settings.light_client_lockscript.outpoint.clone(),
-            self.settings.light_client_typescript.outpoint.clone(),
+            self.deployed_contracts.dag_merkle_roots.clone(),
+            self.deployed_contracts
+                .light_client_lockscript
+                .outpoint
+                .clone(),
+            self.deployed_contracts
+                .light_client_typescript
+                .outpoint
+                .clone(),
         ];
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
@@ -204,15 +243,27 @@ impl Generator {
                 || header.number.unwrap().as_u64() >= tip.number.unwrap().as_u64()
             {
                 // the new header is on main chain.
+                let temp_data = unconfirmed[0];
+                ETHHeaderInfoReader::verify(&temp_data, false).map_err(|err| anyhow!(err))?;
+                let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
+                let hash = header_info_reader.hash().raw_data();
+                if unconfirmed.len() == CONFIRM {
+                    unconfirmed.remove(0);
+                    confirmed.push(hash);
+                }
                 if confirmed.len().add(unconfirmed.len()) == MAIN_HEADER_CACHE_LIMIT {
                     confirmed.remove(0);
-                    let temp_data = unconfirmed[0];
-                    ETHHeaderInfoReader::verify(&temp_data, false).map_err(|err| anyhow!(err))?;
-                    let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
-                    let hash = header_info_reader.hash().raw_data();
-                    confirmed.push(hash);
-                    unconfirmed.remove(0);
                 }
+
+                // if confirmed.len().add(unconfirmed.len()) == MAIN_HEADER_CACHE_LIMIT {
+                //     confirmed.remove(0);
+                //     let temp_data = unconfirmed[0];
+                //     ETHHeaderInfoReader::verify(&temp_data, false).map_err(|err| anyhow!(err))?;
+                //     let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
+                //     let hash = header_info_reader.hash().raw_data();
+                //     confirmed.push(hash);
+                //     unconfirmed.remove(0);
+                // }
                 let input_tail_raw = unconfirmed[unconfirmed.len() - 1];
                 ETHHeaderInfoReader::verify(&input_tail_raw, false).map_err(|err| anyhow!(err))?;
                 let input_tail_reader = ETHHeaderInfoReader::new_unchecked(&input_tail_raw);
@@ -229,6 +280,11 @@ impl Generator {
                     .hash(basic::Byte32::from_slice(header.hash.unwrap().as_bytes()).unwrap())
                     .build();
                 unconfirmed.push(header_info.as_slice());
+                info!(
+                    "main chain confirmed len: {:?}, un_confirmed len: {:?}",
+                    confirmed.len(),
+                    unconfirmed.len()
+                );
             } else {
                 // the new header is on uncle chain.
                 if uncle_raw_data.len() == UNCLE_HEADER_CACHE_LIMIT {
@@ -319,10 +375,20 @@ impl Generator {
     ) -> Result<TransactionView> {
         let tx_fee: u64 = 10000;
         let mut helper = TxHelper::default();
-        let settings = Settings::new(&config_path)?;
+        let config_path = tilde(config_path.as_str()).into_owned();
+        let force_cli_config = ForceConfig::new(config_path.as_str())?;
+        let deployed_contracts = force_cli_config
+            .deployed_contracts
+            .as_ref()
+            .ok_or_else(|| anyhow!("contracts should be deployed"))?;
         // add cell deps.
         {
-            let cell_script = parse_cell(settings.light_client_cell_script.cell_script.as_str())?;
+            let cell_script = parse_cell(
+                deployed_contracts
+                    .light_client_cell_script
+                    .cell_script
+                    .as_str(),
+            )?;
             let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
                 .map_err(|err| anyhow!(err))?
                 .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
@@ -336,15 +402,16 @@ impl Generator {
             helper.transaction = builder.build();
 
             let outpoints = vec![
-                self.settings.bridge_lockscript.outpoint.clone(),
-                self.settings.bridge_typescript.outpoint.clone(),
-                self.settings.sudt.outpoint.clone(),
+                self.deployed_contracts.bridge_lockscript.outpoint.clone(),
+                self.deployed_contracts.bridge_typescript.outpoint.clone(),
+                self.deployed_contracts.sudt.outpoint.clone(),
             ];
             self.add_cell_deps(&mut helper, outpoints)
                 .map_err(|err| anyhow!(err))?;
         }
 
-        let lockscript_code_hash = hex::decode(&self.settings.bridge_lockscript.code_hash)?;
+        let lockscript_code_hash =
+            hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash)?;
         use force_eth_types::generated::basic::ETHAddress;
         let args = ETHBridgeLockArgs::new_builder()
             .eth_token_address(
@@ -394,7 +461,7 @@ impl Generator {
         {
             let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript).unwrap();
 
-            let sudt_typescript_code_hash = hex::decode(&self.settings.sudt.code_hash)?;
+            let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash)?;
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
                 .hash_type(ScriptHashType::Data.into())
@@ -534,8 +601,8 @@ impl Generator {
         let mut tx_helper = TxHelper::default();
         // add cell deps
         let outpoints = vec![
-            self.settings.bridge_lockscript.outpoint.clone(),
-            self.settings.bridge_typescript.outpoint.clone(),
+            self.deployed_contracts.bridge_lockscript.outpoint.clone(),
+            self.deployed_contracts.bridge_typescript.outpoint.clone(),
         ];
         self.add_cell_deps(&mut tx_helper, outpoints)
             .map_err(|err| anyhow!(err))?;
@@ -544,7 +611,7 @@ impl Generator {
             build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
         let bridge_lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&hex::decode(
-                &self.settings.bridge_lockscript.code_hash,
+                &self.deployed_contracts.bridge_lockscript.code_hash,
             )?)?)
             .args(bridge_lockscript_args.as_bytes().pack())
             .build();
@@ -564,7 +631,7 @@ impl Generator {
             .build();
         let bridge_typescript = Script::new_builder()
             .code_hash(Byte32::from_slice(
-                &hex::decode(&self.settings.bridge_typescript.code_hash).unwrap(),
+                &hex::decode(&self.deployed_contracts.bridge_typescript.code_hash).unwrap(),
             )?)
             .args(bridge_typescript_args.as_bytes().pack())
             .build();
@@ -604,17 +671,20 @@ impl Generator {
         // add cellDeps
         {
             let outpoints = vec![
-                self.settings.bridge_lockscript.outpoint.clone(),
-                self.settings.recipient_typescript.outpoint.clone(),
-                self.settings.sudt.outpoint.clone(),
+                self.deployed_contracts.bridge_lockscript.outpoint.clone(),
+                self.deployed_contracts
+                    .recipient_typescript
+                    .outpoint
+                    .clone(),
+                self.deployed_contracts.sudt.outpoint.clone(),
             ];
             self.add_cell_deps(&mut helper, outpoints)
                 .map_err(|err| anyhow!(err))?;
         }
 
         let sudt_typescript = get_sudt_type_script(
-            &self.settings.bridge_lockscript.code_hash,
-            &self.settings.sudt.code_hash,
+            &self.deployed_contracts.bridge_lockscript.code_hash,
+            &self.deployed_contracts.sudt.code_hash,
             token_addr,
             lock_contract_addr,
         )?;
@@ -623,7 +693,7 @@ impl Generator {
         {
             let mut eth_bridge_lock_hash = [0u8; 32];
             eth_bridge_lock_hash.copy_from_slice(
-                &hex::decode(&self.settings.bridge_lockscript.code_hash)
+                &hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash)
                     .map_err(|err| anyhow!(err))?,
             );
             let eth_recipient_data = ETHRecipientDataView {
@@ -650,7 +720,7 @@ impl Generator {
                 .as_molecule_data()
                 .map_err(|err| anyhow!(err))?;
             let recipient_typescript_code_hash =
-                hex::decode(&self.settings.recipient_typescript.code_hash)
+                hex::decode(&self.deployed_contracts.recipient_typescript.code_hash)
                     .map_err(|err| anyhow!(err))?;
 
             let recipient_typescript: Script = Script::new_builder()
@@ -704,15 +774,15 @@ impl Generator {
 
         // add cellDeps
         let outpoints = vec![
-            self.settings.bridge_lockscript.outpoint.clone(),
-            self.settings.sudt.outpoint.clone(),
+            self.deployed_contracts.bridge_lockscript.outpoint.clone(),
+            self.deployed_contracts.sudt.outpoint.clone(),
         ];
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
 
         let sudt_typescript = get_sudt_type_script(
-            &self.settings.bridge_lockscript.code_hash,
-            &self.settings.sudt.code_hash,
+            &self.deployed_contracts.bridge_lockscript.code_hash,
+            &self.deployed_contracts.sudt.code_hash,
             token_addr,
             lock_contract_addr,
         )?;
@@ -761,8 +831,8 @@ impl Generator {
             .into();
 
         let sudt_typescript = get_sudt_type_script(
-            &self.settings.bridge_lockscript.code_hash,
-            &self.settings.sudt.code_hash,
+            &self.deployed_contracts.bridge_lockscript.code_hash,
+            &self.deployed_contracts.sudt.code_hash,
             token_addr,
             lock_contract_addr,
         )?;
@@ -770,7 +840,7 @@ impl Generator {
             .map_err(|err| anyhow!(err))
     }
 
-    pub fn sign_and_send_transaction(
+    pub async fn sign_and_send_transaction(
         &mut self,
         unsigned_tx: TransactionView,
         from_privkey: SecretKey,
@@ -781,7 +851,9 @@ impl Generator {
             "tx: \n{}",
             serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))?
         );
-        send_tx_sync(&mut self.rpc_client, &tx, 60).map_err(|e| anyhow!(e))?;
+        send_tx_sync(&mut self.rpc_client, &tx, 60)
+            .await
+            .map_err(|e| anyhow!(e))?;
         Ok(hex::encode(tx.hash().as_slice()))
     }
 }
@@ -925,7 +997,7 @@ pub fn parse_main_raw_data(data: &Bytes) -> Result<(Vec<&[u8]>, Vec<&[u8]>)> {
     let mut confirmed: Vec<&[u8]> = vec![];
     for i in 0..len {
         let raw_data = main_reader.get_unchecked(i).raw_data();
-        if (len - i) < CONFIRM {
+        if (len - i) <= CONFIRM {
             un_confirmed.push(raw_data);
         } else {
             confirmed.push(main_reader.get_unchecked(i).raw_data());
