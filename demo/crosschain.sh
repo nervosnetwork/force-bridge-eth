@@ -7,24 +7,23 @@ export RUST_BACKTRACE=1
 export RUST_LOG=info,force=debug
 
 # project root directory
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
-DATA_DIR="${DIR}"/demo/data
+PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
+DATA_DIR="${PROJECT_DIR}"/demo/data
 mkdir -p "${DATA_DIR}"
-FORCE_CLI="${DIR}"/demo/bin/force-eth-cli
-FORTH_ETH_CONFIG_PATH="${DATA_DIR}"/force-eth-config.json
+FORCE_CLI=${PROJECT_DIR}/offchain-modules/target/debug/force-eth-cli
+FORTH_ETH_CONFIG_PATH=/tmp/eth-contracts.json
 ETH_BRIDGE_CELL_CONFIG_PATH="${DATA_DIR}"/eth-bridge-cell-config.json
 TOKEN_BRIDGE_CELL_CONFIG_PATH="${DATA_DIR}"/token-bridge-cell-config.json
 LOCK_TOKEN_PATH="${DATA_DIR}"/lock_token.log
 LOCK_ETH_PATH="${DATA_DIR}"/lock_eth.log
 
-cd "$DIR"/eth-contracts
-export FORCE_CONFIG_PATH="${DIR}"/demo/.force-bridge-cli-config.toml
+export FORCE_CONFIG_PATH=~/.force-bridge/config.toml
 TOKEN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .erc20)
 ETH_ADDRESS="0x0000000000000000000000000000000000000000"
 RECIPIENT_ADDR="ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4"
 bridge_fee=2
 
-cd "$DIR"/demo
+cd "$PROJECT_DIR"/offchain-modules
 
 # eth crosschain
 ${FORCE_CLI} create-bridge-cell --config-path "${FORCE_CONFIG_PATH}" -k 1 --eth-token-address "${ETH_ADDRESS}" --recipient-address "${RECIPIENT_ADDR}" --bridge-fee "${bridge_fee}" > "${ETH_BRIDGE_CELL_CONFIG_PATH}"

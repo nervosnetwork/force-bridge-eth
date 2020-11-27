@@ -36,34 +36,16 @@ setup-dev-env: build-all start-docker-network deploy-contracts start-offchain-se
 
 close-dev-env: stop-offchain-services remove-docker-network
 
-demo-build: build-all
-	mkdir -p demo/{contracts,data,bin} && cp ckb-contracts/build/release/* demo/contracts
-	cp offchain-modules/cli/deps/simple_udt demo/contracts
-	cp -r offchain-modules/vendor demo
-	cp offchain-modules/data/dag_merkle_roots.json demo/data/dag_merkle_roots.json
-	cp -r offchain-modules/eth-proof demo
-	cp offchain-modules/target/debug/force-eth-cli demo/bin
+integration-ci: setup-dev-env demo-crosschain
 
-integration-ci: demo-build demo-start-deamon demo-run-crosschain
+demo-crosschain:
+	bash demo/crosschain.sh
 
-demo-clear:
-	rm -rf demo/{bin,contracts,data,.force-bridge-cli-config.toml}
+build-docker:
+	make -C docker build
 
 fmt:
 	make -C offchain-modules fmt
 	make -C ckb-contracts fmt
-
-demo-init-deamon: demo-clear-deamon demo-start-deamon
-
-demo-start-deamon:
-	cd docker && docker-compose up -d
-	bash demo/demo-start-deamon.sh
-
-demo-run-crosschain:
-	bash demo/crosschain.sh
-
-demo-clear-deamon:
-	bash demo/clean.sh
-	cd docker && docker-compose down
 
 .PHONY: demo

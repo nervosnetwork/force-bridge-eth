@@ -74,7 +74,7 @@ impl Web3Client {
             let tx_hash = receipt.transaction_hash;
             let tx_status = receipt.status.expect("should return status");
             if tx_status.as_usize() == 0 {
-                panic!("tx failed")
+                bail!("eth tx {:?} failed! receipt: {:?}", tx_hash, &receipt);
             };
             tx_hash
         } else {
@@ -286,7 +286,11 @@ pub fn parse_private_key(
     network: &Option<String>,
 ) -> Result<ethereum_types::H256> {
     let privkey_string: String = if let Ok(index) = path.parse::<usize>() {
-        config.get_ethereum_private_keys(network)?[index].clone()
+        config
+            .get_ethereum_private_keys(network)?
+            .get(index)
+            .ok_or_else(|| anyhow!("privkey index not exists"))?
+            .clone()
     } else {
         let content = std::fs::read_to_string(path)?;
         content
