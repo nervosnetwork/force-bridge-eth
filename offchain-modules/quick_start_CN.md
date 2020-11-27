@@ -51,7 +51,7 @@ echo "d00c06bfd800d27397002dca6fb0993d5ba6399b4238b2f29ee9deb97593d2bc" > /tmp/p
 执行命令和结果：`hardhat.config.js` 中的私钥地址 就是后续 跨链操作的地址（部署合约才有 erc20）
 
 ```shell
-➜ eth-contracts $ npx hardhat run scripts/geth/deployAll.js --network geth
+➜ eth-contracts $ npx hardhat run scripts/geth/deploy.js --network geth
 ```
 
 部署后，设置对应环境变量，方便后续操作，具体对应如下

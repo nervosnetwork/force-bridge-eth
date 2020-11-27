@@ -1,8 +1,10 @@
 use crate::util::ckb_types::CkbTxProof;
-use crate::util::ckb_util::{covert_to_h256, parse_privkey, Generator};
-use crate::util::eth_util::Web3Client;
+use crate::util::ckb_util::{
+    covert_to_h256, parse_privkey, parse_privkey_path, Generator, CONFIRM,
+};
+use crate::util::config::ForceConfig;
+use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use crate::util::generated::ckb_tx_proof;
-use crate::util::settings::Settings;
 use anyhow::anyhow;
 use anyhow::Result;
 use ckb_sdk::rpc::{BlockView, TransactionView};
@@ -13,7 +15,7 @@ use ckb_types::utilities::CBMT;
 use ckb_types::{packed, H256};
 use ethabi::{Function, Param, ParamType, Token};
 use ethereum_types::U256;
-use force_sdk::util::{ensure_indexer_sync, parse_privkey_path};
+use force_sdk::util::ensure_indexer_sync;
 use log::{debug, info};
 use serde::export::Clone;
 use std::str::FromStr;
@@ -21,29 +23,50 @@ use web3::types::H160;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn init_light_client(
-    ckb_rpc_url: String,
-    indexer_url: String,
-    eth_rpc_url: String,
-    height: u64,
+    config_path: String,
+    network: Option<String>,
+    key_path: String,
+    height: Option<u64>,
     finalized_gc_threshold: u64,
     canonical_gc_threshold: u64,
     gas_price: u64,
-    eth_ckb_chain_addr: H160,
-    key_path: String,
     wait: bool,
 ) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
+    let eth_ckb_chain_addr = convert_eth_address(
+        &force_config
+            .deployed_contracts
+            .as_ref()
+            .expect("contracts deployed")
+            .eth_ckb_chain_addr,
+    )?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
+    let indexer_url = force_config.get_ckb_indexer_url(&network)?;
+    let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
     let mut ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     let mut web3_client = Web3Client::new(eth_rpc_url);
 
+    let height = if let Some(height) = height {
+        height
+    } else {
+        let tip_number = ckb_client
+            .rpc_client
+            .get_tip_block_number()
+            .map_err(|e| anyhow::anyhow!("failed to get tip number: {}", e))?;
+        if tip_number <= CONFIRM as u64 {
+            tip_number
+        } else {
+            tip_number - CONFIRM as u64
+        }
+    };
     let header = ckb_client
         .rpc_client
         .get_header_by_number(height)
         .map_err(|e| anyhow::anyhow!("failed to get header: {}", e))?
         .ok_or_else(|| anyhow::anyhow!("failed to get header which is none"))?;
-
     let mol_header: packed::Header = header.clone().inner.into();
-
     let init_func = get_init_ckb_headers_func();
     let init_header_abi = init_func.encode_input(&[
         Token::Bytes(Vec::from(mol_header.raw().as_slice())),
@@ -54,7 +77,7 @@ pub async fn init_light_client(
     let res = web3_client
         .send_transaction(
             eth_ckb_chain_addr,
-            key_path,
+            eth_private_key,
             init_header_abi,
             U256::from(gas_price),
             U256::zero(),
@@ -67,27 +90,34 @@ pub async fn init_light_client(
 
 #[allow(clippy::too_many_arguments)]
 pub async fn burn(
+    config_path: String,
+    network: Option<String>,
     privkey_path: String,
-    rpc_url: String,
-    indexer_url: String,
-    config_path: &str,
     tx_fee: String,
     unlock_fee: u128,
     amount: u128,
-    token_addr: H160,
-    receive_addr: H160,
-    lock_contract_addr: H160,
+    token_addr: String,
+    receive_addr: String,
 ) -> Result<String> {
-    let settings = Settings::new(config_path)?;
-    let mut generator = Generator::new(rpc_url, indexer_url, settings)
+    let force_config = ForceConfig::new(config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let indexer_url = force_config.get_ckb_indexer_url(&network)?;
+
+    let token_addr = convert_eth_address(&token_addr)?;
+    let receive_addr = convert_eth_address(&receive_addr)?;
+    let mut generator = Generator::new(ckb_rpc_url, indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
 
-    let from_privkey = parse_privkey_path(&privkey_path)?;
+    let from_privkey = parse_privkey_path(&privkey_path, &force_config, &network)?;
     let from_lockscript = parse_privkey(&from_privkey);
-
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
         .map_err(|e| anyhow!(e))?
         .into();
@@ -103,7 +133,6 @@ pub async fn burn(
             receive_addr,
         )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
-
     generator
         .sign_and_send_transaction(unsigned_tx, from_privkey)
         .await
@@ -167,15 +196,21 @@ pub async fn wait_block_submit(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn unlock(
-    to: H160,
+    config_path: String,
+    network: Option<String>,
     key_path: String,
+    to: String,
     tx_proof: String,
     raw_tx: String,
-    eth_url: String,
     gas_price: u64,
     wait: bool,
 ) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
+    let eth_url = force_config.get_ethereum_rpc_url(&network)?;
+    let to = convert_eth_address(&to)?;
+    let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
     let mut rpc_client = Web3Client::new(eth_url);
     let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
     let tx_info = hex::decode(raw_tx).map_err(|err| anyhow!(err))?;
@@ -200,7 +235,7 @@ pub async fn unlock(
     let res = rpc_client
         .send_transaction(
             to,
-            key_path,
+            eth_private_key,
             input_data,
             U256::from(gas_price),
             U256::from(0),
@@ -337,24 +372,32 @@ pub fn calc_witnesses_root(transactions: Vec<TransactionView>) -> Byte32 {
 
 #[allow(clippy::too_many_arguments)]
 pub async fn transfer_sudt(
-    privkey_path: String,
-    rpc_url: String,
-    indexer_url: String,
     config_path: String,
+    network: Option<String>,
+    privkey_path: String,
     to_addr: String,
     tx_fee: String,
     ckb_amount: String,
     transfer_amount: u128,
-    token_addr: H160,
-    lock_contract_addr: H160,
+    token_addr: String,
 ) -> Result<String> {
-    let settings = Settings::new(&config_path)?;
-    let mut generator = Generator::new(rpc_url, indexer_url, settings).map_err(|e| anyhow!(e))?;
+    let force_config = ForceConfig::new(config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
+
+    let token_addr = convert_eth_address(&token_addr)?;
+    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+    let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
+        .map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
 
-    let from_privkey = parse_privkey_path(&privkey_path)?;
+    let from_privkey = parse_privkey_path(&privkey_path, &force_config, &network)?;
     let from_lockscript = parse_privkey(&from_privkey);
 
     let to_lockscript: Script = Address::from_str(&to_addr)
@@ -387,15 +430,23 @@ pub async fn transfer_sudt(
 }
 
 pub async fn get_balance(
-    rpc_url: String,
-    indexer_url: String,
     config_path: String,
+    network: Option<String>,
     address: String,
-    token_addr: H160,
-    lock_contract_addr: H160,
+    token_addr: String,
 ) -> Result<u128> {
-    let settings = Settings::new(&config_path)?;
-    let mut generator = Generator::new(rpc_url, indexer_url, settings).map_err(|e| anyhow!(e))?;
+    let force_config = ForceConfig::new(config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
+    let token_addr = convert_eth_address(&token_addr)?;
+    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+
+    let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
+        .map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
