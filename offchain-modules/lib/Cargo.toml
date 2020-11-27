@@ -37,3 +37,4 @@ tiny-keccak = "2.0.2"
 molecule = { version = "0.6", default-features = false }
 actix-web = "3"
 derive_more = "0.99"
+actix-cors = "0.5"
