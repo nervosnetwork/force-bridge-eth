@@ -19,13 +19,20 @@ async function main() {
     "contracts/test/ERC20.sol:USDC",
     "contracts/CKBChain.sol:CKBChain",
   ];
+
+  const contracts = [];
   const promises = [];
   for (const path of factoryPaths) {
-    promises.push(deployContract(path));
+    const factory = await ethers.getContractFactory(path);
+    const contract = await factory.deploy();
+    contracts.push(contract);
+    promises.push(contract.deployTransaction.wait(1));
     // because nonce should increase in sequence
     await sleep(1);
   }
-  const contracts = await Promise.all(promises);
+
+  // waiting for all contracts deployed at least 1 confirmation
+  await Promise.all(promises);
   const [DAIAddr, USDTAddr, USDCAddr, CKBChinDeployAddr] = contracts.map(
     (contract) => contract.address
   );
