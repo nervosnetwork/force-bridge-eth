@@ -1,5 +1,5 @@
 use crate::indexer::{Cell, IndexerRpcClient, Order, Pagination, ScriptType, SearchKey};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types as rpc_types;
 use ckb_jsonrpc_types::{Script as JsonScript, Uint32};
@@ -26,16 +26,6 @@ pub fn clear_0x(s: &str) -> &str {
     } else {
         s
     }
-}
-
-pub fn parse_privkey_path(path: &str) -> Result<secp256k1::SecretKey> {
-    let content = std::fs::read_to_string(path)?;
-    let privkey_string = content
-        .split_whitespace()
-        .next()
-        .ok_or_else(|| anyhow!("File is empty"))?;
-    let privkey_bytes = hex::decode(clear_0x(privkey_string))?;
-    Ok(secp256k1::SecretKey::from_slice(&privkey_bytes)?)
 }
 
 // Get max mature block number

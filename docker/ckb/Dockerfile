@@ -9,5 +9,6 @@ ENV BA_MESSAGE=0x1234
 EXPOSE 8114 8115
 
 COPY --chown=ckb ./entrypoint.sh /bin/
+COPY --chown=ckb ./dev.toml /var/
 
 ENTRYPOINT ["/bin/entrypoint.sh"]

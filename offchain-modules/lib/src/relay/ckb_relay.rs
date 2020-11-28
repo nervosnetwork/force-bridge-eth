@@ -1,6 +1,6 @@
 use crate::transfer::to_eth::get_add_ckb_headers_func;
 use crate::util::ckb_util::Generator;
-use crate::util::eth_util::{relay_header_transaction, Web3Client};
+use crate::util::eth_util::{convert_eth_address, relay_header_transaction, Web3Client};
 use anyhow::{anyhow, bail, Result};
 use ethabi::Token;
 use ethereum_types::U256;
@@ -8,11 +8,11 @@ use futures::future::join_all;
 use log::info;
 use std::ops::Add;
 use std::time::Instant;
-use web3::types::H160;
+use web3::types::{H160, H256};
 
 pub struct CKBRelayer {
     pub contract_addr: H160,
-    pub priv_key_path: String,
+    pub priv_key: H256,
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
     pub gas_price: U256,
@@ -21,20 +21,20 @@ pub struct CKBRelayer {
 impl CKBRelayer {
     pub fn new(
         ckb_rpc_url: String,
-        indexer_url: String,
+        ckb_indexer_url: String,
         eth_rpc_url: String,
-        contract_addr: H160,
-        priv_key_path: String,
+        priv_key: H256,
+        eth_ckb_chain_addr: String,
         gas_price: u64,
     ) -> Result<CKBRelayer> {
-        let ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
+        let contract_addr = convert_eth_address(&eth_ckb_chain_addr)?;
+        let ckb_client = Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
             .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
         let web3_client = Web3Client::new(eth_rpc_url);
         let gas_price = U256::from(gas_price);
-
         Ok(CKBRelayer {
             contract_addr,
-            priv_key_path,
+            priv_key,
             ckb_client,
             web3_client,
             gas_price,
@@ -83,10 +83,7 @@ impl CKBRelayer {
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
         info!("ckb_current_height:{:?}", ckb_current_height);
 
-        let nonce = self
-            .web3_client
-            .get_eth_nonce(self.priv_key_path.clone())
-            .await?;
+        let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
         let mut sequence: u64 = 0;
 
         let mut futures = vec![];
@@ -122,7 +119,7 @@ impl CKBRelayer {
             .web3_client
             .build_sign_tx(
                 self.contract_addr,
-                self.priv_key_path.clone(),
+                self.priv_key,
                 add_headers_abi,
                 self.gas_price,
                 U256::from(0),

@@ -1,41 +1,39 @@
-pub mod server;
-pub mod types;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use cmd_lib::run_fun;
-use ethabi::Token;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
-use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
+use force_eth_lib::relay::eth_relay::ETHRelayer;
 use force_eth_lib::transfer::to_ckb::{
-    approve, create_bridge_cell, dev_init, get_header_rlp, lock_eth, lock_token,
-    send_eth_spv_proof_tx,
+    self, approve, create_bridge_cell, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
     wait_block_submit,
 };
-use force_eth_lib::util::ckb_util::{build_lockscript_from_address, ETHSPVProofJson, Generator};
-use force_eth_lib::util::eth_util::convert_eth_address;
-use force_eth_lib::util::settings::Settings;
+use force_eth_lib::util::ckb_util::{parse_privkey_path, ETHSPVProofJson, Generator};
+use force_eth_lib::util::config;
+use force_eth_lib::util::config::ForceConfig;
+use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
 use log::{debug, info};
-use molecule::prelude::Entity;
 use rusty_receipt_proof_maker::generate_eth_proof;
 use serde_json::{json, Value};
+use shellexpand::tilde;
 use std::convert::TryFrom;
 use types::*;
-use web3::types::U256;
+
+pub mod server;
+pub mod types;
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         SubCommand::Server(args) => server::server_handler(args).await,
-
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
-        SubCommand::DevInit(args) => dev_init_handler(args).await,
+        SubCommand::Init(args) => init_config(args).await,
+        SubCommand::DeployCKB(args) => deploy_ckb(args).await,
         SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args).await,
         // transfer erc20 to ckb
         SubCommand::Approve(args) => approve_handler(args).await,
         // lock erc20 token && wait the tx is commit.
         SubCommand::LockToken(args) => lock_token_handler(args).await,
-
         SubCommand::LockEth(args) => lock_eth_handler(args).await,
         // parse eth receipt proof from tx_hash.
         // SubCommand::GenerateEthProof(args) => generate_eth_proof_handler(args).await,
@@ -51,25 +49,20 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args).await,
         SubCommand::TransferSudt(args) => transfer_sudt_handler(args).await,
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args).await,
-
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
     }
 }
 
 pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> Result<()> {
-    let settings = Settings::new(&args.config_path)?;
-    let eth_ckb_chain_addr = convert_eth_address(&settings.eth_ckb_chain_addr)?;
     let hash = init_light_client(
-        args.ckb_rpc_url,
-        args.indexer_url,
-        args.eth_rpc_url,
+        args.config_path,
+        args.network,
+        args.private_key_path,
         args.init_height,
         args.finalized_gc,
         args.canonical_gc,
         args.gas_price,
-        eth_ckb_chain_addr,
-        args.private_key_path,
         args.wait,
     )
     .await?;
@@ -77,33 +70,27 @@ pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> 
     Ok(())
 }
 
-pub async fn dev_init_handler(args: DevInitArgs) -> Result<()> {
-    if std::path::Path::new(&args.config_path).exists() && !args.force {
-        bail!(
-            "force-bridge-eth config already exists at {}, use `-f` in command if you want to overwrite it",
-            &args.config_path
-        );
-    }
-    dev_init(
+pub async fn init_config(args: InitArgs) -> Result<()> {
+    config::init_config(
+        args.force,
+        args.project_path,
         args.config_path,
-        args.rpc_url,
-        args.indexer_url,
-        args.private_key_path,
-        args.bridge_typescript_path,
-        args.bridge_lockscript_path,
-        args.light_client_typescript_path,
-        args.light_client_lockscript_path,
-        args.recipient_typescript_path,
-        args.sudt_path,
+        args.default_network,
+        args.ckb_rpc_url,
+        args.ckb_indexer_url,
+        args.ethereum_rpc_url,
     )
     .await
+}
+
+pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
+    to_ckb::deploy_ckb(args.config_path, args.network, args.eth_dag_path).await
 }
 
 pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
     let outpoint_hex = create_bridge_cell(
         args.config_path,
-        args.rpc_url,
-        args.indexer_url,
+        args.network,
         args.private_key_path,
         args.tx_fee,
         args.capacity,
@@ -122,14 +109,11 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
 
 pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
     debug!("approve_handler args: {:?}", &args);
-    let settings = Settings::new(&args.config_path)?;
-    let from = convert_eth_address(&settings.eth_token_locker_addr)?;
-    let to = convert_eth_address(&args.erc20_addr)?;
     let hash = approve(
-        from,
-        to,
-        args.rpc_url,
+        args.config_path,
+        args.network,
         args.private_key_path,
+        args.erc20_addr,
         args.gas_price,
         args.wait,
     )
@@ -141,24 +125,17 @@ pub async fn approve_handler(args: ApproveArgs) -> Result<()> {
 
 pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let settings = Settings::new(&args.config_path)?;
-    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
-    let token_addr = convert_eth_address(&args.token)?;
-    let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
-    let data = [
-        Token::Address(token_addr),
-        Token::Uint(U256::from(args.amount)),
-        Token::Uint(U256::from(args.bridge_fee)),
-        Token::Bytes(recipient_lockscript.as_slice().to_vec()),
-        Token::Bytes(hex::decode(args.replay_resist_outpoint)?),
-        Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
-    ];
     let hash = lock_token(
-        to,
-        args.rpc_url,
+        args.config_path,
+        args.network,
         args.private_key_path,
+        args.token,
+        args.ckb_recipient_address,
+        args.amount,
+        args.bridge_fee,
+        args.sudt_extra_data,
+        args.replay_resist_outpoint,
         args.gas_price,
-        &data,
         args.wait,
     )
     .await
@@ -169,22 +146,16 @@ pub async fn lock_token_handler(args: LockTokenArgs) -> Result<()> {
 
 pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
     debug!("lock_handler args: {:?}", &args);
-    let settings = Settings::new(&args.config_path)?;
-    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
-    let recipient_lockscript = build_lockscript_from_address(args.ckb_recipient_address.as_str())?;
-    let data = [
-        Token::Uint(U256::from(args.bridge_fee)),
-        Token::Bytes(recipient_lockscript.as_slice().to_vec()),
-        Token::Bytes(hex::decode(args.replay_resist_outpoint)?),
-        Token::Bytes(args.sudt_extra_data.as_bytes().to_vec()),
-    ];
     let hash = lock_eth(
-        to,
-        args.rpc_url.clone(),
+        args.config_path,
+        args.network,
         args.private_key_path,
-        &data,
+        args.ckb_recipient_address,
+        args.amount,
+        args.bridge_fee,
+        args.sudt_extra_data,
+        args.replay_resist_outpoint,
         args.gas_price,
-        U256::from(args.amount),
         args.wait,
     )
     .await
@@ -195,13 +166,22 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
 
 pub async fn mint_handler(args: MintArgs) -> Result<()> {
     debug!("mint_handler args: {:?}", &args);
-    let eth_spv_proof = generate_eth_proof(args.hash.clone(), args.eth_rpc_url.clone())
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+
+    let eth_spv_proof = generate_eth_proof(args.hash.clone(), ethereum_rpc_url.clone())
         .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
+    let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
     info!("eth_spv_proof: {:?}", eth_spv_proof);
-    let header_rlp = get_header_rlp(args.eth_rpc_url.clone(), eth_spv_proof.block_hash).await?;
     let hash_str = args.hash.clone();
     let log_index = eth_spv_proof.log_index;
-    let network = args.eth_rpc_url;
+    let network = ethereum_rpc_url;
     let proof_hex = run_fun! {
     node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --network ${network}}
     .unwrap();
@@ -213,7 +193,6 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         proof_vec.push(item.as_str().unwrap().to_owned());
     }
 
-    let settings = Settings::new(&args.config_path)?;
     let eth_proof = ETHSPVProofJson {
         log_index: u64::try_from(log_index).unwrap(),
         log_entry_data: String::from(proof_json["log_data"].as_str().unwrap()),
@@ -227,18 +206,24 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         sudt_extra_data: eth_spv_proof.sudt_extra_data,
         bridge_fee: eth_spv_proof.bridge_fee,
         replay_resist_outpoint: eth_spv_proof.replay_resist_outpoint,
-        eth_address: convert_eth_address(&settings.eth_token_locker_addr)?,
+        eth_address: convert_eth_address(&deployed_contracts.eth_token_locker_addr)?,
     };
-    let mut generator = Generator::new(args.ckb_rpc_url, args.indexer_url, settings)
+    let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow::anyhow!(e))?;
-    wait_header_sync_success(&mut generator, args.config_path.clone(), header_rlp.clone()).await?;
-    let tx_hash = send_eth_spv_proof_tx(
-        &mut generator,
-        args.config_path,
-        &eth_proof,
-        args.private_key_path,
-    )
-    .await?;
+    // wait_header_sync_success(
+    //     &mut generator,
+    //     deployed_contracts
+    //         .light_client_cell_script
+    //         .cell_script
+    //         .as_str(),
+    //     header_rlp.clone(),
+    // )
+    // .await?;
+    let from_privkey =
+        parse_privkey_path(args.private_key_path.as_str(), &force_config, &args.network)?;
+    let config_path = tilde(args.config_path.as_str()).into_owned();
+    let tx_hash =
+        send_eth_spv_proof_tx(&mut generator, config_path, &eth_proof, from_privkey).await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);
     Ok(())
 }
@@ -250,21 +235,15 @@ pub async fn transfer_to_ckb_handler(args: TransferToCkbArgs) -> Result<()> {
 
 pub async fn burn_handler(args: BurnArgs) -> Result<()> {
     debug!("burn_handler args: {:?}", &args);
-    let token_addr = convert_eth_address(&args.token_addr)?;
-    let receive_addr = convert_eth_address(&args.receive_addr)?;
-    let settings = Settings::new(&args.config_path)?;
-    let lock_contract_addr = convert_eth_address(&settings.eth_token_locker_addr)?;
     let ckb_tx_hash = burn(
+        args.config_path,
+        args.network,
         args.private_key_path,
-        args.ckb_rpc_url,
-        args.indexer_rpc_url,
-        &args.config_path,
         args.tx_fee,
         args.unlock_fee,
         args.burn_amount,
-        token_addr,
-        receive_addr,
-        lock_contract_addr,
+        args.token_addr,
+        args.receive_addr,
     )
     .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
@@ -273,7 +252,9 @@ pub async fn burn_handler(args: BurnArgs) -> Result<()> {
 
 pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     debug!("generate_ckb_proof_handler args: {:?}", &args);
-    let (header, tx) = get_ckb_proof_info(&args.tx_hash, args.ckb_rpc_url)?;
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let (header, tx) = get_ckb_proof_info(&args.tx_hash, ckb_rpc_url)?;
     println!("headers : {:?}", header);
     println!("tx : {:?}", tx);
     Ok(())
@@ -281,13 +262,13 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
 
 pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
     debug!("unlock_handler args: {:?}", &args);
-    let to = convert_eth_address(&args.to)?;
     let result = unlock(
-        to,
+        args.config_path,
+        args.network,
         args.private_key_path,
+        args.to,
         args.tx_proof,
         args.tx_info,
-        args.eth_rpc_url,
         args.gas_price,
         args.wait,
     )
@@ -298,46 +279,45 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
 
 pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
-    let token_addr = convert_eth_address(&args.token_addr)?;
-    let receive_addr = convert_eth_address(&args.receive_addr)?;
-    let settings = Settings::new(&args.config_path)?;
-    let lock_contract_addr = convert_eth_address(&settings.eth_token_locker_addr)?;
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
 
     let ckb_tx_hash = burn(
+        args.config_path.clone(),
+        args.network.clone(),
         args.ckb_privkey_path,
-        args.ckb_rpc_url.clone(),
-        args.indexer_rpc_url,
-        &args.config_path,
         args.tx_fee,
         args.unlock_fee,
         args.burn_amount,
-        token_addr,
-        receive_addr,
-        lock_contract_addr,
+        args.token_addr,
+        args.receive_addr,
     )
     .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
 
-    let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, args.ckb_rpc_url.clone())?;
-
-    let settings = Settings::new(&args.config_path)?;
-    let light_client = convert_eth_address(&settings.eth_ckb_chain_addr)?;
-    let to = convert_eth_address(&settings.eth_token_locker_addr)?;
-
+    let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, ckb_rpc_url.clone())?;
+    let light_client = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
+    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     wait_block_submit(
-        args.eth_rpc_url.clone(),
-        args.ckb_rpc_url,
+        ethereum_rpc_url.clone(),
+        ckb_rpc_url,
         light_client,
         ckb_tx_hash,
         lock_contract_addr,
     )
     .await?;
     let result = unlock(
-        to,
+        args.config_path.clone(),
+        args.network,
         args.eth_privkey_path,
+        deployed_contracts.eth_token_locker_addr.clone(),
         tx_proof,
         tx_info,
-        args.eth_rpc_url,
         args.gas_price,
         args.wait,
     )
@@ -345,22 +325,18 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     println!("unlock tx hash : {:?}", result);
     Ok(())
 }
+
 pub async fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
     debug!("mock_transfer_sudt_handler args: {:?}", &args);
-    let token_addr = convert_eth_address(&args.token_addr)?;
-    let settings = Settings::new(&args.config_path)?;
-    let lock_contract_addr = convert_eth_address(&settings.eth_token_locker_addr)?;
     transfer_sudt(
-        args.private_key_path,
-        args.ckb_rpc_url,
-        args.indexer_rpc_url,
         args.config_path,
+        args.network,
+        args.private_key_path,
         args.to_addr,
         args.tx_fee,
         args.ckb_amount,
         args.sudt_amount,
-        token_addr,
-        lock_contract_addr,
+        args.token_addr,
     )
     .await?;
     Ok(())
@@ -368,30 +344,17 @@ pub async fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
 
 pub async fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> {
     debug!("query sudt balance handler args: {:?}", &args);
-    let token_addr = convert_eth_address(&args.token_addr)?;
-    let settings = Settings::new(&args.config_path)?;
-    let lock_contract_addr = convert_eth_address(&settings.eth_token_locker_addr)?;
-
-    let result = get_balance(
-        args.ckb_rpc_url,
-        args.indexer_rpc_url,
-        args.config_path,
-        args.addr,
-        token_addr,
-        lock_contract_addr,
-    )
-    .await?;
+    let result = get_balance(args.config_path, args.network, args.addr, args.token_addr).await?;
     info!("sudt balance is {} ", result);
     Ok(())
 }
 
 pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     debug!("eth_relay_handler args: {:?}", &args);
+    let config_path = tilde(args.config_path.as_str()).into_owned();
     let mut eth_relayer = ETHRelayer::new(
-        args.config_path,
-        args.ckb_rpc_url,
-        args.eth_rpc_url,
-        args.indexer_rpc_url,
+        config_path,
+        args.network,
         args.private_key_path,
         args.proof_data_path,
     )?;
@@ -406,19 +369,26 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
-    let settings = Settings::new(&args.config_path)?;
-    let to = convert_eth_address(&settings.eth_ckb_chain_addr)?;
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+    let priv_key = parse_private_key(&args.private_key_path, &force_config, &args.network)?;
     let mut ckb_relayer = CKBRelayer::new(
-        args.ckb_rpc_url,
-        args.indexer_rpc_url,
-        args.eth_rpc_url.clone(),
-        to,
-        args.private_key_path,
+        ckb_rpc_url,
+        ckb_indexer_url,
+        eth_rpc_url.clone(),
+        priv_key,
+        deployed_contracts.eth_ckb_chain_addr.clone(),
         args.gas_price,
     )?;
     loop {
         ckb_relayer
-            .start(args.eth_rpc_url.clone(), args.per_amount)
+            .start(eth_rpc_url.clone(), args.per_amount)
             .await?;
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
