@@ -13,7 +13,7 @@ use force_eth_lib::util::ckb_util::{parse_privkey_path, ETHSPVProofJson, Generat
 use force_eth_lib::util::config;
 use force_eth_lib::util::config::ForceConfig;
 use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
-use log::{debug, info};
+use log::{debug, error, info};
 use rusty_receipt_proof_maker::generate_eth_proof;
 use serde_json::{json, Value};
 use shellexpand::tilde;
@@ -361,7 +361,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     loop {
         let res = eth_relayer.start().await;
         if let Err(err) = res {
-            println!("An error occurred during the eth relay. Err: {:?}", err)
+            error!("An error occurred during the eth relay. Err: {:?}", err)
         }
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
@@ -387,9 +387,12 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         args.gas_price,
     )?;
     loop {
-        ckb_relayer
+        let res = ckb_relayer
             .start(eth_rpc_url.clone(), args.per_amount)
-            .await?;
+            .await;
+        if let Err(err) = res {
+            error!("An error occurred during the ckb relay. Err: {:?}", err)
+        }
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
 }

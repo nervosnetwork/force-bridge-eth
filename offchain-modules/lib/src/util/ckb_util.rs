@@ -5,7 +5,7 @@ use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::MIN_SECP_CELL_CAPACITY;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
-use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
+use ckb_types::core::{BlockView, Capacity, DepType, ScriptHashType, TransactionView};
 use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
@@ -424,7 +424,7 @@ impl Generator {
             .build();
         let lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
-            .hash_type(DepType::Code.into())
+            .hash_type(ScriptHashType::Data.into())
             .args(args.as_bytes().pack())
             .build();
 
@@ -464,7 +464,7 @@ impl Generator {
             let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash)?;
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
-                .hash_type(DepType::Code.into())
+                .hash_type(ScriptHashType::Data.into())
                 .args(lockscript.calc_script_hash().as_bytes().pack())
                 .build();
 
@@ -725,7 +725,7 @@ impl Generator {
 
             let recipient_typescript: Script = Script::new_builder()
                 .code_hash(Byte32::from_slice(&recipient_typescript_code_hash)?)
-                .hash_type(DepType::Code.into())
+                .hash_type(ScriptHashType::Data.into())
                 .build();
 
             let eth_recipient_output = CellOutput::new_builder()
@@ -921,7 +921,7 @@ pub fn get_sudt_type_script(
     let sudt_typescript_code_hash = hex::decode(sudt_code_hash).map_err(|err| anyhow!(err))?;
     Ok(Script::new_builder()
         .code_hash(Byte32::from_slice(&sudt_typescript_code_hash).map_err(|err| anyhow!(err))?)
-        .hash_type(DepType::Code.into())
+        .hash_type(ScriptHashType::Data.into())
         .args(bridge_lockscript.calc_script_hash().as_bytes().pack())
         .build())
 }
@@ -948,7 +948,7 @@ pub fn get_eth_bridge_lock_script(
 
     Ok(Script::new_builder()
         .code_hash(Byte32::from_slice(bridge_lock_code_hash).map_err(|err| anyhow!(err))?)
-        .hash_type(DepType::Code.into())
+        .hash_type(ScriptHashType::Data.into())
         .args(args.as_bytes().pack())
         .build())
 }
