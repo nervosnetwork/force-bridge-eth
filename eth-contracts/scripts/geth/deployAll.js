@@ -50,11 +50,13 @@ async function main() {
 
   console.error(`
   DAIAddr: ${DAIAddr}, USDTAddr: ${USDTAddr}, USDCAddr: ${USDCAddr}
+  ERC20Addr: ${DAIAddr}
   CKBChin deploy to: ${CKBChinDeployAddr}
   locker deploy to: ${lockerAddr}
   `);
 
   const address = {
+    erc20: DAIAddr,
     dai: DAIAddr,
     usdt: USDTAddr,
     usdc: USDCAddr,
