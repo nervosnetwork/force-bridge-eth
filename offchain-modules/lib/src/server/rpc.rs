@@ -6,9 +6,11 @@ pub async fn start(
     network: Option<String>,
     private_key_path: String,
     listen_url: String,
+    db_path: String,
 ) -> std::io::Result<()> {
-    let dapp_state =
-        DappState::new(config_path, network, private_key_path).expect("init dapp server error");
+    let dapp_state = DappState::new(config_path, network, private_key_path, db_path)
+        .await
+        .expect("init dapp server error");
     let local = tokio::task::LocalSet::new();
     let sys = actix_web::rt::System::run_in_tokio("server", &local);
     let _server_res = HttpServer::new(move || {
@@ -23,6 +25,8 @@ pub async fn start(
             .service(lock)
             .service(get_best_block_height)
             .service(get_sudt_balance)
+            .service(get_eth_to_ckb_status)
+            .service(relay_eth_to_ckb_proof)
     })
     .bind(&listen_url)?
     .run()

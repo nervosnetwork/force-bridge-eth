@@ -3,7 +3,8 @@ use cmd_lib::run_fun;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::ETHRelayer;
 use force_eth_lib::transfer::to_ckb::{
-    self, approve, create_bridge_cell, get_header_rlp, lock_eth, lock_token, send_eth_spv_proof_tx,
+    self, approve, create_bridge_cell, generate_eth_spv_proof_json, get_header_rlp, lock_eth,
+    lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
@@ -174,40 +175,12 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-
-    let eth_spv_proof = generate_eth_proof(args.hash.clone(), ethereum_rpc_url.clone())
-        .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
-    let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
-    info!("eth_spv_proof: {:?}", eth_spv_proof);
-    let hash_str = args.hash.clone();
-    let log_index = eth_spv_proof.log_index;
-    let network = ethereum_rpc_url;
-    let proof_hex = run_fun! {
-    node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --network ${network}}
-    .unwrap();
-    let proof_json: Value = serde_json::from_str(&proof_hex.clone()).unwrap();
-    info!("generate proof json: {:?}", proof_json);
-    // TODO: refactor to parse with static struct instead of dynamic parsing
-    let mut proof_vec = vec![];
-    for item in proof_json["proof"].as_array().unwrap() {
-        proof_vec.push(item.as_str().unwrap().to_owned());
-    }
-
-    let eth_proof = ETHSPVProofJson {
-        log_index: u64::try_from(log_index).unwrap(),
-        log_entry_data: String::from(proof_json["log_data"].as_str().unwrap()),
-        receipt_index: eth_spv_proof.receipt_index,
-        receipt_data: String::from(proof_json["receipt_data"].as_str().unwrap()),
-        header_data: header_rlp.clone(),
-        proof: proof_vec,
-        token: eth_spv_proof.token,
-        lock_amount: eth_spv_proof.lock_amount,
-        recipient_lockscript: eth_spv_proof.recipient_lockscript,
-        sudt_extra_data: eth_spv_proof.sudt_extra_data,
-        bridge_fee: eth_spv_proof.bridge_fee,
-        replay_resist_outpoint: eth_spv_proof.replay_resist_outpoint,
-        eth_address: convert_eth_address(&deployed_contracts.eth_token_locker_addr)?,
-    };
+    let eth_proof = generate_eth_spv_proof_json(
+        args.hash.clone(),
+        ethereum_rpc_url.clone(),
+        deployed_contracts.eth_token_locker_addr.clone(),
+    )
+    .await?;
     let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow::anyhow!(e))?;
     // wait_header_sync_success(

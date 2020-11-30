@@ -40,6 +40,8 @@ pub struct ServerArgs {
     pub private_key_path: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
+    #[clap(long, default_value = "~/.force-bridge/force.db")]
+    pub db_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
