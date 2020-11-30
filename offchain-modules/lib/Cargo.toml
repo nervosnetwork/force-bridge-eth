@@ -28,10 +28,14 @@ toml = "0.5"
 ethereum-tx-sign = "3.0.3"
 ethabi = "12.0.0"
 tokio = { version = "0.2.9", features = ["full"]}
-rusty-receipt-proof-maker = { git = "https://github.com/LeonLi000/ethereum-receipt-proof-maker.git" }
+rusty-receipt-proof-maker = { git = "https://github.com/LeonLi000/ethereum-receipt-proof-maker.git", rev = "14eddf2" }
 faster-hex = "0.4"
 eth-spv-lib = { git = "https://github.com/LeonLi000/eth-spv-lib.git", default-features = false }
 cmd_lib = "0.8.5"
 force-eth-types = { path = "../../ckb-contracts/types" }
 tiny-keccak = "2.0.2"
 molecule = { version = "0.6", default-features = false }
+shellexpand = "2.0.0"
+actix-web = "3"
+derive_more = "0.99"
+actix-cors = "0.5"

@@ -1,4 +1,4 @@
-ci: check-fmt test-cli clippy
+ci: check-fmt clippy
 
 fmt:
 	cargo fmt

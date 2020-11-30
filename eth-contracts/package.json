@@ -4,13 +4,13 @@
   "description": "CKB SPV proofs in Solidity",
   "scripts": {
     "compile": "hardhat compile",
-    "start-geth": "docker run -d --name geth-node --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23 && ./wait-for-it.sh -t 0 127.0.0.1:8545 -- echo \"node is up\" && node scripts/waitForMiner.js",
+    "start-geth": "docker run -d --rm -it --name geth-node --mount type=bind,source=\"$(pwd)/../docker/geth\",target=/config --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23 && ./wait-for-it.sh -t 0 127.0.0.1:8545 -- echo \"node is up\" && node scripts/waitForMiner.js",
     "stop-geth": "docker rm -f geth-node",
     "pretest": "npm run start-geth",
     "test": "hardhat test --network geth || (npm run stop-geth && false)",
     "posttest": "npm run stop-geth",
     "test:coverage": "solidity-coverage",
-    "lint": "solium -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js --check",
+    "lint": "solium -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --check",
     "lint:fix": "solium --fix -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write"
   },
   "author": "cosinlink",
@@ -22,7 +22,6 @@
     "bn.js": "^5.0.0",
     "chai": "^4.2.0",
     "dotenv": "^8.2.0",
-    "eth-gas-reporter": "^0.2.8",
     "ethereum-waffle": "^3.1.1",
     "ethers": "^5.0.18",
     "hardhat": "^2.0.2",
@@ -35,6 +34,8 @@
     "web3": "^1.3.0"
   },
   "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@nervosnetwork/ckb-sdk-utils": "^0.37.0",
     "@openzeppelin/contracts": "^3.2.0",
     "hardhat-gas-reporter": "^1.0.0"
   },

@@ -22,6 +22,7 @@ contract TokenLocker {
     ICKBSpv public ckbSpv_;
     bytes32 public recipientCellTypescriptCodeHash_;
     uint8 public recipientCellTypescriptHashType_;
+    bytes32 public bridgeCellLockscriptCodeHash_;
 
     // txHash -> Used
     mapping(bytes32 => bool) public usedTx_;
@@ -31,7 +32,7 @@ contract TokenLocker {
         address indexed sender,
         uint256 lockedAmount,
         uint256 bridgeFee,
-        bytes  recipientLockscript,
+        bytes recipientLockscript,
         bytes replayResistOutpoint,
         bytes sudtExtraData
     );
@@ -44,11 +45,18 @@ contract TokenLocker {
         uint256 bridgeFee
     );
 
-    constructor(address ckbSpvAddress, uint64 numConfirmations, bytes32 typescriptCodeHash, uint8 typescriptHashType) public {
+    constructor(
+        address ckbSpvAddress,
+        uint64 numConfirmations,
+        bytes32 recipientCellTypescriptCodeHash,
+        uint8 typescriptHashType,
+        bytes32 bridgeCellLockscriptCodeHash
+    ) public {
         ckbSpv_ = ICKBSpv(ckbSpvAddress);
         numConfirmations_ = numConfirmations;
-        recipientCellTypescriptCodeHash_ = typescriptCodeHash;
+        recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
         recipientCellTypescriptHashType_ = typescriptHashType;
+        bridgeCellLockscriptCodeHash_ = bridgeCellLockscriptCodeHash;
     }
 
     function lockETH(
@@ -128,10 +136,14 @@ contract TokenLocker {
     ){
         bytes29 rawTx = ckbTx.ref(uint40(CKBTxView.CKBTxTypes.RawTx));
         bytes29 recipientCellTypescript = rawTx.outputs().recipientCellOutput().typescript();
-        require((recipientCellTypescript.codeHash() == recipientCellTypescriptCodeHash_), "invalid recipient cell typescript code hash");
+        require(
+            (recipientCellTypescript.recipientTypescriptCodeHash() == recipientCellTypescriptCodeHash_),
+            "invalid recipient cell typescript code hash"
+        );
         require((recipientCellTypescript.hashType() == recipientCellTypescriptHashType_), "invalid recipient cell typescript hash type");
-        require((recipientCellTypescript.args() == address(this)), "invalid recipient cell typescript args");
         bytes29 recipientCellData = rawTx.outputsData().recipientCellData();
+        require((recipientCellData.contractAddress() == address(this)), "invalid contract address in recipient cell");
+        require((recipientCellData.bridgeLockscriptCodeHash() == bridgeCellLockscriptCodeHash_), "invalid contract address in recipient cell");
         return (
             recipientCellData.bridgeAmount(),
             recipientCellData.bridgeFee(),

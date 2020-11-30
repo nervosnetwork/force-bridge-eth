@@ -1,5 +1,5 @@
 use crate::indexer::{Cell, IndexerRpcClient, Order, Pagination, ScriptType, SearchKey};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types as rpc_types;
 use ckb_jsonrpc_types::{Script as JsonScript, Uint32};
@@ -26,16 +26,6 @@ pub fn clear_0x(s: &str) -> &str {
     } else {
         s
     }
-}
-
-pub fn parse_privkey_path(path: &str) -> Result<secp256k1::SecretKey> {
-    let content = std::fs::read_to_string(path)?;
-    let privkey_string = content
-        .split_whitespace()
-        .next()
-        .ok_or_else(|| anyhow!("File is empty"))?;
-    let privkey_bytes = hex::decode(clear_0x(privkey_string))?;
-    Ok(secp256k1::SecretKey::from_slice(&privkey_bytes)?)
 }
 
 // Get max mature block number
@@ -206,7 +196,7 @@ pub fn check_capacity(capacity: u64, to_data_len: usize) -> Result<(), String> {
     Ok(())
 }
 
-pub fn send_tx_sync(
+pub async fn send_tx_sync(
     rpc_client: &mut HttpRpcClient,
     tx: &TransactionView,
     timeout: u64,
@@ -228,12 +218,12 @@ pub fn send_tx_sync(
         if status == Some(ckb_jsonrpc_types::Status::Committed) {
             return Ok(tx_hash);
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
     Err(format!("tx {} not commited", &tx_hash))
 }
 
-pub fn ensure_indexer_sync(
+pub async fn ensure_indexer_sync(
     rpc_client: &mut HttpRpcClient,
     indexer_client: &mut IndexerRpcClient,
     timeout: u64,
@@ -248,7 +238,7 @@ pub fn ensure_indexer_sync(
         if indexer_tip >= rpc_tip {
             return Ok(());
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
     Ok(())
 }

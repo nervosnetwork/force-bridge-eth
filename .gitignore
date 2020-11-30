@@ -1,6 +1,12 @@
 .idea/
 target/
-offchain-modules/lib/Cargo.lock
 **/sdk/Cargo.lock
 **.DS_Store
-
+demo/data/
+demo/bin/
+demo/contracts/
+demo/.force-bridge-cli-config.toml
+demo/eth-proof
+demo/vendor
+offchain-modules/data/proof_data.json
+offchain-modules/data/proof_data_temp.json

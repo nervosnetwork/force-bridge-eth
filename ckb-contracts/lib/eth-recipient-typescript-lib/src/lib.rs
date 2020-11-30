@@ -37,13 +37,14 @@ mod tests {
     use ckb_std::ckb_constants::Source;
     use core::convert::TryFrom;
     use force_eth_types::eth_recipient_cell::{ETHAddress, ETHRecipientDataView};
-    use molecule::bytes::Bytes;
 
     #[test]
     fn mock_return_ok() {
         let data = ETHRecipientDataView {
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_bridge_lock_hash: [1u8; 32],
             token_amount: 100,
             fee: 1,
         };
@@ -51,9 +52,6 @@ mod tests {
         mock.expect_load_output_data()
             .times(1)
             .returning(move || Some(data.clone()));
-        mock.expect_load_script_args()
-            .times(1)
-            .returning(|| Bytes::from([0u8; 20].to_vec()));
         mock.expect_get_sudt_amount_from_source()
             .times(2)
             .returning(|x, _y| if x == Source::Input { 1000 } else { 900 });
@@ -67,6 +65,8 @@ mod tests {
         let data = ETHRecipientDataView {
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_bridge_lock_hash: [1u8; 32],
             token_amount: 100,
             fee: 1,
         };
@@ -74,9 +74,6 @@ mod tests {
         mock.expect_load_output_data()
             .times(1)
             .returning(move || Some(data.clone()));
-        mock.expect_load_script_args()
-            .times(1)
-            .returning(|| Bytes::from([0u8; 20].to_vec()));
         mock.expect_get_sudt_amount_from_source()
             .times(2)
             .returning(|x, _y| if x == Source::Input { 900 } else { 1000 });
@@ -90,6 +87,8 @@ mod tests {
         let data = ETHRecipientDataView {
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_bridge_lock_hash: [1u8; 32],
             token_amount: 100,
             fee: 1,
         };
@@ -97,9 +96,6 @@ mod tests {
         mock.expect_load_output_data()
             .times(1)
             .returning(move || Some(data.clone()));
-        mock.expect_load_script_args()
-            .times(1)
-            .returning(|| Bytes::from([0u8; 20].to_vec()));
         mock.expect_get_sudt_amount_from_source()
             .times(2)
             .returning(|x, _y| if x == Source::Input { 1000 } else { 800 });
@@ -113,6 +109,8 @@ mod tests {
         let data = ETHRecipientDataView {
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
+            eth_bridge_lock_hash: [1u8; 32],
             token_amount: 100,
             fee: 100,
         };
@@ -120,9 +118,6 @@ mod tests {
         mock.expect_load_output_data()
             .times(1)
             .returning(move || Some(data.clone()));
-        mock.expect_load_script_args()
-            .times(1)
-            .returning(|| Bytes::from([0u8; 20].to_vec()));
         mock.expect_get_sudt_amount_from_source()
             .times(2)
             .returning(|x, _y| if x == Source::Input { 1000 } else { 900 });
