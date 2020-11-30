@@ -46,8 +46,10 @@ pub async fn get_or_create_bridge_cell(
 #[post("/get_eth_to_ckb_status")]
 pub async fn get_eth_to_ckb_status(
     data: web::Data<DappState>,
-    args: web::Json<EthLockTxHash>,
+    args: web::Json<Value>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: EthLockTxHash =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     let status = db::get_eth_to_ckb_status(&data.db, &args.eth_lock_tx_hash)
         .await?
         .ok_or(format!("eth lock tx {} not found", &args.eth_lock_tx_hash))?;
@@ -57,8 +59,10 @@ pub async fn get_eth_to_ckb_status(
 #[post("/get_crosschain_history")]
 pub async fn get_crosschain_history(
     data: web::Data<DappState>,
-    args: web::Json<GetCrosschainHistoryArgs>,
+    args: web::Json<Value>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: GetCrosschainHistoryArgs =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     let crosschain_history =
         db::get_crosschain_history(&data.db, &args.ckb_recipient_lockscript).await?;
     Ok(HttpResponse::Ok().json(json!({
@@ -69,8 +73,10 @@ pub async fn get_crosschain_history(
 #[post("/relay_eth_to_ckb_proof")]
 pub async fn relay_eth_to_ckb_proof(
     data: web::Data<DappState>,
-    args: web::Json<EthLockTxHash>,
+    args: web::Json<Value>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: EthLockTxHash =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     let _eth_lock_tx_hash = convert_hex_to_h256(&args.eth_lock_tx_hash)
         .map_err(|e| format!("invalid tx hash {}. err: {}", &args.eth_lock_tx_hash, e))?;
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
