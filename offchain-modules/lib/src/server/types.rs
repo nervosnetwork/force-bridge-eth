@@ -11,6 +11,31 @@ pub struct CreateBridgeCellArgs {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EthLockTxHash {
+    pub eth_lock_tx_hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetEthToCkbStatusArgs {
+    pub ckb_recipient_lockscript: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetCrosschainHistoryArgs {
+    pub ckb_recipient_lockscript: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetCrosschainHistoryRes {
+    pub ckb_recipient_lockscript: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GetCkbToEthStatusArgs {
+    pub ckb_burn_tx_hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateBridgeCellResponse {
     pub outpoint: String,
 }

@@ -8,6 +8,7 @@ pub async fn server_handler(args: ServerArgs) -> Result<()> {
         args.network,
         args.private_key_path,
         args.listen_url,
+        args.db_path,
     )
     .await?)
 }
