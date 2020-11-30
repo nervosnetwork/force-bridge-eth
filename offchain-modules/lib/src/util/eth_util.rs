@@ -123,6 +123,10 @@ impl Web3Client {
         }
     }
 
+    pub async fn get_blocks(&mut self, start: BlockId, end: BlockId) -> Result<Vec<Block<H256>>> {
+        todo!()
+    }
+
     pub async fn get_header_rlp(&mut self, hash_or_number: BlockId) -> Result<String> {
         let block = self.get_block(hash_or_number).await?;
         let mut stream = RlpStream::new();
