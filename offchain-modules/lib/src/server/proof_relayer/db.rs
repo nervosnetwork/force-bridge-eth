@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqlitePool;
 use sqlx::Done;
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct EthToCkbRecord {
     pub id: i64,
     pub eth_lock_tx_hash: String,
@@ -20,13 +20,13 @@ pub struct EthToCkbRecord {
 
 pub async fn create_eth_to_ckb_status_record(pool: &SqlitePool, tx_hash: String) -> Result<i64> {
     let mut conn = pool.acquire().await?;
-    let id = sqlx::query!(
+    let id = sqlx::query(
         r#"
 INSERT INTO eth_to_ckb ( eth_lock_tx_hash )
 VALUES ( ?1 )
         "#,
-        tx_hash
     )
+    .bind(tx_hash)
     .execute(&mut conn)
     .await?
     .last_insert_rowid();
@@ -36,7 +36,7 @@ VALUES ( ?1 )
 
 pub async fn update_eth_to_ckb_status(pool: &SqlitePool, record: &EthToCkbRecord) -> Result<bool> {
     log::info!("update_eth_to_ckb_status, record: {:?}", record);
-    let rows_affected = sqlx::query!(
+    let rows_affected = sqlx::query(
         r#"
 UPDATE eth_to_ckb SET 
     status = ?2,
@@ -50,17 +50,17 @@ UPDATE eth_to_ckb SET
     err_msg = ?10
 WHERE id = ?1
         "#,
-        record.id,
-        record.status,
-        record.token_addr,
-        record.sender_addr,
-        record.locked_amount,
-        record.bridge_fee,
-        record.ckb_recipient_lockscript,
-        record.sudt_extra_data,
-        record.ckb_tx_hash,
-        record.err_msg
     )
+    .bind(record.id)
+    .bind(record.status.clone())
+    .bind(record.token_addr.as_ref())
+    .bind(record.sender_addr.as_ref())
+    .bind(record.locked_amount.as_ref())
+    .bind(record.bridge_fee.as_ref())
+    .bind(record.ckb_recipient_lockscript.as_ref())
+    .bind(record.sudt_extra_data.as_ref())
+    .bind(record.ckb_tx_hash.as_ref())
+    .bind(record.err_msg.as_ref())
     .execute(pool)
     .await?
     .rows_affected();
@@ -71,20 +71,19 @@ pub async fn get_eth_to_ckb_status(
     pool: &SqlitePool,
     eth_lock_tx_hash: &str,
 ) -> Result<Option<EthToCkbRecord>> {
-    Ok(sqlx::query_as!(
-        EthToCkbRecord,
+    Ok(sqlx::query_as::<_, EthToCkbRecord>(
         r#"
 SELECT *
 FROM eth_to_ckb
 where eth_lock_tx_hash = ?
         "#,
-        eth_lock_tx_hash
     )
+    .bind(eth_lock_tx_hash)
     .fetch_optional(pool)
     .await?)
 }
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CrosschainHistory {
     pub id: i64,
     pub eth_lock_tx_hash: String,
@@ -95,16 +94,15 @@ pub async fn get_crosschain_history(
     pool: &SqlitePool,
     ckb_recipient_lockscript: &str,
 ) -> Result<Vec<CrosschainHistory>> {
-    Ok(sqlx::query_as!(
-        CrosschainHistory,
+    Ok(sqlx::query_as::<_, CrosschainHistory>(
         r#"
 SELECT id, eth_lock_tx_hash, ckb_tx_hash
 FROM eth_to_ckb
-where ckb_recipient_lockscript = ?1 
+where ckb_recipient_lockscript = ?1
     and status != "error"
         "#,
-        ckb_recipient_lockscript
     )
+    .bind(ckb_recipient_lockscript)
     .fetch_all(pool)
     .await?)
 }
