@@ -48,7 +48,7 @@ pub fn verify_add_headers<T: Adapter>(data_loader: T) {
         headers_raw.push(header);
     }
 
-    let (header, prev) = match input_data {
+    match input_data {
         Some(data) => verify_push_header(&data, &output_data, &headers_raw),
         None => {
             assert_eq!(
@@ -60,7 +60,7 @@ pub fn verify_add_headers<T: Adapter>(data_loader: T) {
         }
     };
 
-    verify_merkle_proof(data_loader, witness_reader, &output_data, &header, prev)
+    //todo verify merkle proof
 }
 
 fn verify_merkle_proof<T: Adapter>(
@@ -84,6 +84,7 @@ fn verify_merkle_proof<T: Adapter>(
 
     // parse dep data
     let merkle_root = parse_dep_data(data_loader, witness, header.number);
+
     if !verify_header(&header, prev, merkle_root, &proofs) {
         panic!("verify_witness, verify header fail");
     }
@@ -384,7 +385,6 @@ fn verify_main_not_reorg(
     }
 
     let right: u64 = header_difficulty;
-    debug!("The total difficulty of the output chain is the total difficulty of the input chain plus the difficulty of the new block");
     debug!(
         "left difficulty u64: {} right difficulty u64: {}",
         to_u64(&left),
