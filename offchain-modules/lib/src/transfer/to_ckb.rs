@@ -197,7 +197,7 @@ pub async fn generate_eth_spv_proof_json(
     let proof_hex = run_fun! {
     node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --network ${network}}
     .unwrap();
-    let proof_json: Value = serde_json::from_str(&proof_hex.clone()).unwrap();
+    let proof_json: Value = serde_json::from_str(&proof_hex).unwrap();
     info!("generate proof json: {:?}", proof_json);
     // TODO: refactor to parse with static struct instead of dynamic parsing
     let mut proof_vec = vec![];
@@ -209,7 +209,7 @@ pub async fn generate_eth_spv_proof_json(
         log_entry_data: String::from(proof_json["log_data"].as_str().unwrap()),
         receipt_index: eth_spv_proof.receipt_index,
         receipt_data: String::from(proof_json["receipt_data"].as_str().unwrap()),
-        header_data: header_rlp.clone(),
+        header_data: header_rlp,
         proof: proof_vec,
         token: eth_spv_proof.token,
         lock_amount: eth_spv_proof.lock_amount,

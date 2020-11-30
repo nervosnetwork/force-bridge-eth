@@ -1,15 +1,14 @@
 use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
-use crate::transfer::to_ckb::{generate_eth_spv_proof_json, send_eth_spv_proof_tx};
-use crate::util::ckb_util::{parse_privkey_path, ETHSPVProofJson, Generator};
-use crate::util::eth_util::{convert_eth_address, convert_hex_to_h256, Web3Client};
+use crate::transfer::to_ckb::generate_eth_spv_proof_json;
+use crate::util::ckb_util::Generator;
+use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_sdk::AddressPayload;
 use ckb_sdk::SECP256K1;
-use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
+use ckb_types::packed::Script;
 use force_sdk::tx_helper::sign;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
-use web3::types::{H160, H256, U256};
 
 pub async fn relay_eth_to_ckb_proof(
     mut record: EthToCkbRecord,

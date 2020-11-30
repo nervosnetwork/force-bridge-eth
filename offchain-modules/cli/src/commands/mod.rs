@@ -1,24 +1,21 @@
 use anyhow::{anyhow, Result};
-use cmd_lib::run_fun;
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::ETHRelayer;
 use force_eth_lib::transfer::to_ckb::{
-    self, approve, create_bridge_cell, generate_eth_spv_proof_json, get_header_rlp, lock_eth,
-    lock_token, send_eth_spv_proof_tx,
+    self, approve, create_bridge_cell, generate_eth_spv_proof_json, lock_eth, lock_token,
+    send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
     wait_block_submit,
 };
-use force_eth_lib::util::ckb_util::{parse_privkey_path, ETHSPVProofJson, Generator};
+use force_eth_lib::util::ckb_util::{parse_privkey_path, Generator};
 use force_eth_lib::util::config;
 use force_eth_lib::util::config::ForceConfig;
 use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
 use log::{debug, error, info};
-use rusty_receipt_proof_maker::generate_eth_proof;
-use serde_json::{json, Value};
+use serde_json::json;
 use shellexpand::tilde;
-use std::convert::TryFrom;
 use types::*;
 
 pub mod server;

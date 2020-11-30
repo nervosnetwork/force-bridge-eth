@@ -27,6 +27,7 @@ pub async fn start(
             .service(get_sudt_balance)
             .service(get_eth_to_ckb_status)
             .service(relay_eth_to_ckb_proof)
+            .service(get_crosschain_history)
     })
     .bind(&listen_url)?
     .run()

@@ -83,3 +83,28 @@ where eth_lock_tx_hash = ?
     .fetch_optional(pool)
     .await?)
 }
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct CrosschainHistory {
+    pub id: i64,
+    pub eth_lock_tx_hash: String,
+    pub ckb_tx_hash: Option<String>,
+}
+
+pub async fn get_crosschain_history(
+    pool: &SqlitePool,
+    ckb_recipient_lockscript: &str,
+) -> Result<Vec<CrosschainHistory>> {
+    Ok(sqlx::query_as!(
+        CrosschainHistory,
+        r#"
+SELECT id, eth_lock_tx_hash, ckb_tx_hash
+FROM eth_to_ckb
+where ckb_recipient_lockscript = ?1 
+    and status != "error"
+        "#,
+        ckb_recipient_lockscript
+    )
+    .fetch_all(pool)
+    .await?)
+}
