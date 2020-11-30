@@ -1,11 +1,13 @@
 use super::error::RpcError;
 use super::state::DappState;
 use super::types::*;
+use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
+use crate::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb::create_bridge_cell;
 use crate::util::ckb_util::{build_lockscript_from_address, parse_cell, parse_main_chain_headers};
 use crate::util::eth_util::{
-    build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
-    rlp_transaction, Web3Client,
+    build_lock_eth_payload, build_lock_token_payload, convert_eth_address, convert_hex_to_h256,
+    make_transaction, rlp_transaction, Web3Client,
 };
 use actix_web::{get, post, web, HttpResponse, Responder};
 use ckb_jsonrpc_types::{Uint128, Uint64};
@@ -39,6 +41,94 @@ pub async fn get_or_create_bridge_cell(
     )
     .await?;
     Ok(HttpResponse::Ok().json(CreateBridgeCellResponse { outpoint }))
+}
+
+#[post("/get_eth_to_ckb_status")]
+pub async fn get_eth_to_ckb_status(
+    data: web::Data<DappState>,
+    args: web::Json<Value>,
+) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: EthLockTxHash =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    let status = db::get_eth_to_ckb_status(&data.db, &args.eth_lock_tx_hash)
+        .await?
+        .ok_or(format!("eth lock tx {} not found", &args.eth_lock_tx_hash))?;
+    Ok(HttpResponse::Ok().json(status))
+}
+
+#[post("/get_crosschain_history")]
+pub async fn get_crosschain_history(
+    data: web::Data<DappState>,
+    args: web::Json<Value>,
+) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: GetCrosschainHistoryArgs =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    let crosschain_history =
+        db::get_crosschain_history(&data.db, &args.ckb_recipient_lockscript).await?;
+    Ok(HttpResponse::Ok().json(json!({
+        "crosschain_history": crosschain_history,
+    })))
+}
+
+#[post("/relay_eth_to_ckb_proof")]
+pub async fn relay_eth_to_ckb_proof(
+    data: web::Data<DappState>,
+    args: web::Json<Value>,
+) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: EthLockTxHash =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    let _eth_lock_tx_hash = convert_hex_to_h256(&args.eth_lock_tx_hash)
+        .map_err(|e| format!("invalid tx hash {}. err: {}", &args.eth_lock_tx_hash, e))?;
+    let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
+    let status = db::get_eth_to_ckb_status(&data.db, &eth_lock_tx_hash).await?;
+    if status.is_some() {
+        return Err("proof relay processing/processed".into());
+    }
+    let row_id = db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await?;
+    let generator = data.get_generator().await?;
+    tokio::spawn(async move {
+        let mut record = EthToCkbRecord {
+            id: row_id,
+            eth_lock_tx_hash: eth_lock_tx_hash.clone(),
+            status: "pending".to_string(),
+            ..Default::default()
+        };
+        let res = handler::relay_eth_to_ckb_proof(
+            record.clone(),
+            data.eth_rpc_url.clone(),
+            data.deployed_contracts.eth_token_locker_addr.clone(),
+            generator,
+            data.config_path.clone(),
+            data.from_privkey,
+            &data.db,
+        )
+        .await;
+        match res {
+            Ok(_) => {
+                log::info!("relay eth_lock_tx_hash {} successfully", &eth_lock_tx_hash);
+            }
+            Err(e) => {
+                log::error!(
+                    "relay eth_lock_tx_hash {} failed, err: {}",
+                    &eth_lock_tx_hash,
+                    e
+                );
+                record.err_msg = Some(e.to_string());
+                record.status = "error".to_string();
+                let res = update_eth_to_ckb_status(&data.db, &record).await;
+                if res.is_err() {
+                    log::error!(
+                        "save error msg for record {:?} failed, err: {}",
+                        record,
+                        res.unwrap_err()
+                    )
+                }
+            }
+        }
+    });
+    Ok(HttpResponse::Ok().json(json!({
+        "message": "tx proof relay submitted"
+    })))
 }
 
 #[post("/burn")]

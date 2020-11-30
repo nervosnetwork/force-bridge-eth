@@ -12,7 +12,9 @@ use std::io::BufReader;
 use std::time::Duration;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
-use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, H160, H256, U256};
+use web3::types::{
+    Address, Block, BlockHeader, BlockId, Bytes, TransactionReceipt, H160, H256, U256,
+};
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
@@ -128,6 +130,10 @@ impl Web3Client {
             Some(block) => Ok(block),
             None => anyhow::bail!("the block is not exist."),
         }
+    }
+
+    pub async fn get_receipt(&mut self, hash: H256) -> Result<Option<TransactionReceipt>> {
+        Ok(self.client.eth().transaction_receipt(hash).await?)
     }
 
     pub async fn get_header_rlp(&mut self, hash_or_number: BlockId) -> Result<String> {
@@ -394,8 +400,8 @@ pub fn convert_eth_address(mut address: &str) -> Result<H160> {
     Ok(H160::from_slice(hex::decode(address)?.as_slice()))
 }
 
-pub fn convert_hex_to_h256(hex: String) -> Result<H256> {
-    let bytes = strip_hex_prefix(&hex).and_then(decode_hex)?;
+pub fn convert_hex_to_h256(hex: &str) -> Result<H256> {
+    let bytes = strip_hex_prefix(hex).and_then(decode_hex)?;
     Ok(H256::from_slice(&bytes))
 }
 
