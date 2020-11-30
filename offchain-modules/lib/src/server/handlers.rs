@@ -23,8 +23,10 @@ use web3::types::U256;
 #[post("/get_or_create_bridge_cell")]
 pub async fn get_or_create_bridge_cell(
     data: web::Data<DappState>,
-    args: web::Json<CreateBridgeCellArgs>,
+    args: web::Json<Value>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: CreateBridgeCellArgs =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     let tx_fee = "0.1".to_string();
     let capacity = "283".to_string();
     let outpoint = create_bridge_cell(
@@ -126,8 +128,10 @@ pub async fn relay_eth_to_ckb_proof(
 #[post("/burn")]
 pub async fn burn(
     data: web::Data<DappState>,
-    args: web::Json<BurnArgs>,
+    args: web::Json<Value>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: BurnArgs =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     let from_lockscript = Script::from(
         Address::from_str(args.from_lockscript_addr.as_str())
             .map_err(|err| format!("ckb_address to script fail: {}", err))?
@@ -158,8 +162,10 @@ pub async fn burn(
 #[post("/get_sudt_balance")]
 pub async fn get_sudt_balance(
     data: web::Data<DappState>,
-    args: web::Json<GetSudtBalanceArgs>,
+    args: web::Json<Value>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: GetSudtBalanceArgs =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     let token_address = convert_eth_address(args.token_address.as_str())
         .map_err(|e| format!("token address parse fail: {}", e))?;
     let lock_contract_address =
@@ -240,8 +246,10 @@ pub async fn lock(
 #[post("/get_best_block_height")]
 pub async fn get_best_block_height(
     data: web::Data<DappState>,
-    args: web::Json<GetBestBlockHeightArgs>,
+    args: web::Json<Value>,
 ) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: GetBestBlockHeightArgs =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     match args.chain.as_str() {
         "ckb" => {
             let contract_address = convert_eth_address(&data.deployed_contracts.eth_ckb_chain_addr)

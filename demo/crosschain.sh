@@ -11,14 +11,14 @@ PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. &
 DATA_DIR="${PROJECT_DIR}"/demo/data
 mkdir -p "${DATA_DIR}"
 FORCE_CLI=${PROJECT_DIR}/offchain-modules/target/debug/force-eth-cli
-FORTH_ETH_CONFIG_PATH=/tmp/eth-contracts.json
+FORTH_ETH_CONFIG_PATH=~/.force-bridge/erc20-contracts.json
 ETH_BRIDGE_CELL_CONFIG_PATH="${DATA_DIR}"/eth-bridge-cell-config.json
 TOKEN_BRIDGE_CELL_CONFIG_PATH="${DATA_DIR}"/token-bridge-cell-config.json
 LOCK_TOKEN_PATH="${DATA_DIR}"/lock_token.log
 LOCK_ETH_PATH="${DATA_DIR}"/lock_eth.log
 
 export FORCE_CONFIG_PATH=~/.force-bridge/config.toml
-TOKEN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .erc20)
+TOKEN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .daiContractAddr)
 ETH_ADDRESS="0x0000000000000000000000000000000000000000"
 RECIPIENT_ADDR="ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4"
 bridge_fee=2
