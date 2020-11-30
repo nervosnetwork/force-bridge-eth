@@ -6,7 +6,7 @@ use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
 use ckb_sdk::{AddressPayload, SECP256K1};
-use ckb_types::core::{DepType, TransactionView};
+use ckb_types::core::{ScriptHashType, TransactionView};
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity};
 use cmd_lib::run_cmd;
@@ -135,7 +135,7 @@ impl ETHRelayer {
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
-            .hash_type(DepType::Code.into())
+            .hash_type(ScriptHashType::Data.into())
             .build();
 
         let lockscript = Script::new_builder()
@@ -152,7 +152,7 @@ impl ETHRelayer {
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
-            .hash_type(DepType::Code.into())
+            .hash_type(ScriptHashType::Data.into())
             .build();
         let current_number = self.eth_client.client().eth().block_number().await?;
         let block = self.eth_client.get_block(current_number.into()).await?;

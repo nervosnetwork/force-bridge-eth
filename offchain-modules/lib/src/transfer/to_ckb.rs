@@ -438,7 +438,7 @@ pub fn build_eth_bridge_lock_args(
 // fn build_cell_script(args: ETHBridgeLockArgs, code_hash: &[u8]) -> Result<Script> {
 //     let script = Script::new_builder()
 //         .code_hash(Byte32::from_slice(&code_hash)?)
-//         .hash_type(DepType::Code.into())
+//         .hash_type(ScriptHashType::Data.into())
 //         .args(args.as_bytes().pack())
 //         .build();
 //     Ok(script)
