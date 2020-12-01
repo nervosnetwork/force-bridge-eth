@@ -68,19 +68,26 @@ pub async fn get_crosschain_history(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: GetCrosschainHistoryArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    log::info!("get_crosschain_history args: {:?}", args);
     let ckb_recipient_lockscript = match args.ckb_recipient_lockscript {
         Some(lockscript_raw) => lockscript_raw,
-        None => hex::encode(
-            Address::from_str(
-                &args
-                    .ckb_recipient_lockscript_addr
-                    .ok_or_else(|| anyhow!("arg ckb_recipient_lockscript not provided"))?,
-            )
-            .map_err(|err| anyhow!("invalid ckb_recipient_lockscript, err: {}", err))?
-            .payload()
-            .to_bytes(),
-        ),
+        None => {
+            let from_lockscript = Script::from(
+                Address::from_str(
+                    &args
+                        .ckb_recipient_lockscript_addr
+                        .ok_or_else(|| anyhow!("arg ckb_recipient_lockscript not provided"))?,
+                )
+                .map_err(|err| format!("ckb_address to script fail: {}", err))?
+                .payload(),
+            );
+            hex::encode(from_lockscript.as_slice())
+        }
     };
+    log::info!(
+        "ckb_recipient_lockscript args: {:?}",
+        ckb_recipient_lockscript
+    );
     let crosschain_history =
         db::get_crosschain_history(&data.db, &ckb_recipient_lockscript).await?;
     Ok(HttpResponse::Ok().json(json!({
