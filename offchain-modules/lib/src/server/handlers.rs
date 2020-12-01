@@ -10,12 +10,13 @@ use crate::util::eth_util::{
     make_transaction, rlp_transaction, Web3Client,
 };
 use actix_web::{get, post, web, HttpResponse, Responder};
+use anyhow::anyhow;
 use ckb_jsonrpc_types::{Uint128, Uint64};
 use ckb_sdk::{Address, HumanCapacity};
-use ckb_types::packed::Script;
+use ckb_types::packed::{Script, ScriptReader};
 use ethabi::Token;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
-use molecule::prelude::Entity;
+use molecule::prelude::{Entity, Reader};
 use serde_json::{json, Value};
 use std::str::FromStr;
 use web3::types::U256;
@@ -64,8 +65,21 @@ pub async fn get_crosschain_history(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: GetCrosschainHistoryArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    let ckb_recipient_lockscript = match args.ckb_recipient_lockscript {
+        Some(lockscript_raw) => lockscript_raw,
+        None => hex::encode(
+            Address::from_str(
+                &args
+                    .ckb_recipient_lockscript_addr
+                    .ok_or_else(|| anyhow!("arg ckb_recipient_lockscript not provided"))?,
+            )
+            .map_err(|err| anyhow!("invalid ckb_recipient_lockscript, err: {}", err))?
+            .payload()
+            .to_bytes(),
+        ),
+    };
     let crosschain_history =
-        db::get_crosschain_history(&data.db, &args.ckb_recipient_lockscript).await?;
+        db::get_crosschain_history(&data.db, &ckb_recipient_lockscript).await?;
     Ok(HttpResponse::Ok().json(json!({
         "crosschain_history": crosschain_history,
     })))
@@ -183,8 +197,24 @@ pub async fn get_sudt_balance(
 
     let mut generator = data.get_generator().await?;
 
+    let addr_lockscript: Script = {
+        if args.address.is_some() {
+            Address::from_str(&args.address.unwrap())
+                .map_err(|err| anyhow!(err))?
+                .payload()
+                .into()
+        } else if args.script.is_some() {
+            let script = hex::decode(args.script.unwrap())
+                .map_err(|e| anyhow!("invalid ckb_script, err: {}", e))?;
+            ScriptReader::verify(&script, false)
+                .map_err(|e| anyhow!("invalid ckb_script, err: {}", e))?;
+            Script::from_slice(&script).map_err(|e| anyhow!("invalid ckb_script, err: {}", e))?
+        } else {
+            return Err(anyhow!("ckb_address or ckb_script should be provided").into());
+        }
+    };
     let balance: Uint128 = generator
-        .get_sudt_balance(args.address.clone(), token_address, lock_contract_address)
+        .get_sudt_balance(addr_lockscript, token_address, lock_contract_address)
         .map_err(|e| format!("get_sudt_balance fail, err: {}", e))?
         .into();
     Ok(HttpResponse::Ok().json(json! ({

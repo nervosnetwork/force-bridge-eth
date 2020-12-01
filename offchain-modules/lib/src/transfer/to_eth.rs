@@ -450,8 +450,12 @@ pub async fn get_balance(
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+    let addr_lockscript: Script = Address::from_str(&address)
+        .map_err(|err| anyhow!(err))?
+        .payload()
+        .into();
     let balance = generator
-        .get_sudt_balance(address.clone(), token_addr, lock_contract_addr)
+        .get_sudt_balance(addr_lockscript, token_addr, lock_contract_addr)
         .map_err(|e| anyhow!("failed to get balance of {:?}  : {}", address, e))?;
     Ok(balance)
 }

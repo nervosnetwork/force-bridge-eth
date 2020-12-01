@@ -824,15 +824,10 @@ impl Generator {
 
     pub fn get_sudt_balance(
         &mut self,
-        address: String,
+        addr_lockscript: Script,
         token_addr: H160,
         lock_contract_addr: H160,
     ) -> Result<u128> {
-        let addr_lockscript: Script = Address::from_str(&address)
-            .map_err(|err| anyhow!(err))?
-            .payload()
-            .into();
-
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
             &self.deployed_contracts.sudt.code_hash,
