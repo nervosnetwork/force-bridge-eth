@@ -172,7 +172,7 @@ pub struct LockEthArgs {
     #[clap(short, long)]
     pub bridge_fee: u128,
     #[clap(long)]
-    pub sudt_extra_data: String,
+    pub sudt_extra_data: Option<String>,
     #[clap(long)]
     pub ckb_recipient_address: String,
     #[clap(long)]
