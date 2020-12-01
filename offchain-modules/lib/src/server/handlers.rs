@@ -83,7 +83,9 @@ pub async fn relay_eth_to_ckb_proof(
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
     let status = db::get_eth_to_ckb_status(&data.db, &eth_lock_tx_hash).await?;
     if status.is_some() {
-        return Err("proof relay processing/processed".into());
+        return Ok(HttpResponse::Ok().json(json!({
+            "message": "tx proof relay processing/processed"
+        })));
     }
     let row_id = db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await?;
     let generator = data.get_generator().await?;
