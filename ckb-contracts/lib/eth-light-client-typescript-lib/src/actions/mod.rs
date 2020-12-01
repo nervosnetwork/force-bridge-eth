@@ -3,33 +3,26 @@ mod helper;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-
 use crate::adapter::Adapter;
 use crate::debug;
 
 use ckb_std::ckb_constants::Source;
 use eth_spv_lib::eth_types::*;
-use force_eth_types::generated::eth_header_cell::MerkleProofVecReader;
 use force_eth_types::{
     config::CONFIRM,
     eth_header_cell::ETHHeaderCellDataView,
     generated::{
         basic::BytesVecReader,
-        eth_header_cell::{
-            DagsMerkleRootsReader, DoubleNodeWithMerkleProofReader, ETHChainReader,
-            ETHHeaderInfoReader, ETHLightClientWitnessReader,
-        },
+        eth_header_cell::{ETHChainReader, ETHHeaderInfoReader, ETHLightClientWitnessReader},
     },
 };
-use helper::{DoubleNodeWithMerkleProof, *};
 use molecule::prelude::Reader;
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
 
 pub fn verify_add_headers<T: Adapter>(data_loader: T) {
+    debug!("start add headers");
     let input_data = data_loader.load_data_from_source(Source::GroupInput);
     let output_data = data_loader
         .load_data_from_source(Source::GroupOutput)
@@ -41,57 +34,36 @@ pub fn verify_add_headers<T: Adapter>(data_loader: T) {
     }
     let witness_reader = ETHLightClientWitnessReader::new_unchecked(&witness_args);
 
-    let header_count = witness_reader.headers().len();
-    let mut headers_raw = vec![];
-    for i in 0..header_count {
-        let header = witness_reader.headers().get_unchecked(i).raw_data();
-        headers_raw.push(header);
+    let new_headers_len = witness_reader.headers().len();
+    let mut new_headers_rlp = vec![];
+    let mut new_headers = vec![];
+    for i in 0..new_headers_len {
+        let header_rlp = witness_reader.headers().get_unchecked(i).raw_data();
+        new_headers_rlp.push(header_rlp);
+
+        let header: BlockHeader = rlp::decode(header_rlp).unwrap();
+        new_headers.push(header);
     }
+    verify_witness_headers_consequent(&new_headers);
 
     match input_data {
-        Some(data) => verify_push_header(&data, &output_data, &headers_raw),
+        Some(data) => verify_push_header(&data, &output_data, &new_headers, &new_headers_rlp),
         None => {
             assert_eq!(
                 data_loader.load_first_outpoint(),
                 data_loader.load_script_args(),
                 "invalid first cell id"
             );
-            verify_init_header(&output_data, &headers_raw)
+            verify_init_header(&output_data, &new_headers, &new_headers_rlp)
         }
     };
 
     //todo verify merkle proof
 }
 
-fn verify_merkle_proof<T: Adapter>(
-    data_loader: T,
-    witness: ETHLightClientWitnessReader,
-    output: &ETHHeaderCellDataView,
-    header: &BlockHeader,
-    prev: Option<BlockHeader>,
-) {
-    if MerkleProofVecReader::verify(&output.merkle_proofs, false).is_err() {
-        panic!("verify_merkle_proof, invalid output.merkle_proof");
-    }
-    let merkle_proof_vec = MerkleProofVecReader::new_unchecked(&output.merkle_proofs);
-    let mut proofs = vec![];
-    let merkle_proofs = merkle_proof_vec.get_unchecked(merkle_proof_vec.len() - 1);
-    for i in 0..merkle_proofs.len() {
-        let proof_raw = merkle_proofs.get_unchecked(i).raw_data();
-        let proof = parse_proof(proof_raw);
-        proofs.push(proof);
-    }
-
-    // parse dep data
-    let merkle_root = parse_dep_data(data_loader, witness, header.number);
-
-    if !verify_header(&header, prev, merkle_root, &proofs) {
-        panic!("verify_witness, verify header fail");
-    }
-}
-
-fn verify_witness_headers_consequent(headers: &Vec<BlockHeader>, header_count: usize) {
-    for i in 1..header_count - 1 {
+fn verify_witness_headers_consequent(headers: &[BlockHeader]) {
+    let new_headers_len = headers.len();
+    for i in 1..new_headers_len {
         if headers[i - 1].hash.unwrap() != headers[i].parent_hash {
             panic!("witness headers are not consequent");
         }
@@ -100,8 +72,9 @@ fn verify_witness_headers_consequent(headers: &Vec<BlockHeader>, header_count: u
 
 fn verify_init_header(
     output: &ETHHeaderCellDataView,
-    headers: &Vec<&[u8]>,
-) -> (BlockHeader, Option<BlockHeader>) {
+    new_headers: &[BlockHeader],
+    new_headers_rlp: &[&[u8]],
+) {
     debug!("init header list.");
     if ETHChainReader::verify(&output.headers, false).is_err() {
         panic!("verify_init_header, invalid output headers");
@@ -110,60 +83,21 @@ fn verify_init_header(
     let main_reader = chain_reader.main();
     let uncle_reader = chain_reader.uncle();
     assert_eq!(
-        main_reader.len() == headers.len(),
+        main_reader.len() == new_headers.len(),
         true,
         "invalid main chain"
     );
     assert_eq!(uncle_reader.is_empty(), true, "invalid uncle chain");
 
-    let header_count = headers.len();
-    let mut witness_headers = vec![];
-    for i in 0..header_count {
-        let witness_header: BlockHeader = rlp::decode(headers[i].to_vec().as_slice()).unwrap();
-
-        let output_header_info = main_reader.get_unchecked(i).raw_data();
-        if ETHHeaderInfoReader::verify(&output_header_info, false).is_err() {
-            panic!("verify_init_header, invalid output header info");
-        }
-        let output_header_reader = ETHHeaderInfoReader::new_unchecked(output_header_info);
-        let output_header_raw = output_header_reader.header().raw_data();
-        let output_header_hash = output_header_reader.hash().raw_data();
-
-        assert_eq!(
-            output_header_raw, headers[i],
-            "invalid header raw data index {:?}",
-            i
-        );
-        assert_eq!(
-            output_header_hash,
-            witness_header
-                .hash
-                .expect("header hash is none")
-                .0
-                .as_bytes(),
-            "invalid hash"
-        );
-        witness_headers.push(witness_header);
-    }
-    verify_witness_headers_consequent(&witness_headers, header_count);
-
-    (witness_headers[0].clone(), Option::None)
+    check_new_headers_in_output(new_headers, new_headers_rlp, main_reader);
 }
 
 fn verify_push_header(
     input: &ETHHeaderCellDataView,
     output: &ETHHeaderCellDataView,
-    headers: &Vec<&[u8]>,
-) -> (BlockHeader, Option<BlockHeader>) {
-    let mut witness_headers = vec![];
-    for i in 0..headers.len() {
-        debug!("verify input && output data. make sure the main chain is right.");
-        let header: BlockHeader = rlp::decode(headers[i].to_vec().as_slice()).unwrap();
-        debug!("header after decode is {:?}", header);
-
-        witness_headers.push(header);
-    }
-
+    new_headers: &[BlockHeader],
+    new_headers_rlp: &[&[u8]],
+) {
     let (main_input_reader, uncle_input_reader) = get_main_and_uncle_from_headers(&input.headers);
     let (main_output_reader, uncle_output_reader) =
         get_main_and_uncle_from_headers(&output.headers);
@@ -171,9 +105,10 @@ fn verify_push_header(
     let (_, main_tail_header_output) = get_tail_info(main_output_reader);
 
     // header is on uncle chain, just do append.
-    if main_tail_header_output != headers[headers.len() - 1] {
+    if main_tail_header_output != new_headers_rlp[new_headers_rlp.len() - 1] {
+        check_new_headers_in_output(new_headers, new_headers_rlp, uncle_output_reader);
         return verify_uncle_header(
-            witness_headers[0].clone(),
+            new_headers,
             main_input_reader,
             main_output_reader,
             uncle_input_reader,
@@ -181,8 +116,10 @@ fn verify_push_header(
         );
     }
 
+    check_new_headers_in_output(new_headers, new_headers_rlp, main_output_reader);
+
     verify_main_header(
-        &witness_headers.clone(),
+        new_headers,
         main_input_reader,
         main_output_reader,
         uncle_input_reader,
@@ -211,33 +148,54 @@ fn get_tail_info(main_reader: BytesVecReader) -> (ETHHeaderInfoReader, &[u8]) {
     (main_tail_info_reader, main_tail_header)
 }
 
+fn check_new_headers_in_output(
+    headers: &[BlockHeader],
+    headers_rlp: &[&[u8]],
+    output_reader: BytesVecReader,
+) {
+    let output_len = output_reader.len();
+    let new_headers_len = headers.len();
+    let start_index = output_len - new_headers_len;
+
+    for i in start_index..output_len {
+        let header_info = output_reader.get_unchecked(i).raw_data();
+        if ETHHeaderInfoReader::verify(&header_info, false).is_err() {
+            panic!("check_new_headers_in_output, invalid header info");
+        }
+        let header_info_reader = ETHHeaderInfoReader::new_unchecked(header_info);
+        assert_eq!(
+            headers[i - start_index].hash.unwrap().0.as_bytes(),
+            header_info_reader.hash().raw_data(),
+            "new header is not in outputs"
+        );
+        assert_eq!(
+            headers_rlp[i - start_index],
+            header_info_reader.header().raw_data(),
+            "invalid header raw data",
+        );
+    }
+}
+
 fn verify_uncle_header(
-    header: BlockHeader,
+    headers: &[BlockHeader],
     main_input_reader: BytesVecReader,
     main_output_reader: BytesVecReader,
     uncle_input_reader: BytesVecReader,
     uncle_output_reader: BytesVecReader,
-) -> (BlockHeader, Option<BlockHeader>) {
+) {
     debug!("warning: the new header is not on main chain.");
-    verify_original_chain_data(
-        1,
-        uncle_input_reader,
-        uncle_output_reader,
-        UNCLE_HEADER_CACHE_LIMIT,
-    );
+    verify_uncle_original_chain_data(headers.len(), uncle_input_reader, uncle_output_reader);
     // the main chain should be the same.
     assert_eq!(main_output_reader.as_slice(), main_input_reader.as_slice());
-    let (prev, _) = get_parent_header(header.clone(), main_input_reader, uncle_input_reader);
-    (header, Option::Some(prev))
 }
 
 fn verify_main_header(
-    headers: &Vec<BlockHeader>,
+    headers: &[BlockHeader],
     main_input_reader: BytesVecReader,
     main_output_reader: BytesVecReader,
     uncle_input_reader: BytesVecReader,
     uncle_output_reader: BytesVecReader,
-) -> (BlockHeader, Option<BlockHeader>) {
+) {
     debug!("the new header is on main chain");
 
     verify_main_and_uncle_length(
@@ -249,11 +207,6 @@ fn verify_main_header(
 
     let (main_tail_info_input_reader, main_tail_header_input) = get_tail_info(main_input_reader);
     let (main_tail_info_output_reader, _) = get_tail_info(main_output_reader);
-
-    assert_eq!(
-        main_tail_info_output_reader.hash().raw_data(),
-        headers[headers.len() - 1].hash.unwrap().0.as_bytes()
-    );
 
     let main_tail_input: BlockHeader =
         rlp::decode(main_tail_header_input.to_vec().as_slice()).unwrap();
@@ -271,12 +224,7 @@ fn verify_main_header(
             main_tail_info_input_reader,
             main_tail_info_output_reader,
         );
-        verify_original_chain_data(
-            headers.len(),
-            main_input_reader,
-            main_output_reader,
-            MAIN_HEADER_CACHE_LIMIT,
-        );
+        verify_original_chain_data(headers.len(), main_input_reader, main_output_reader);
         // the uncle chain should be the same.
         assert_eq!(
             uncle_input_reader.as_slice(),
@@ -336,10 +284,6 @@ fn verify_main_header(
             }
         }
     }
-    (
-        headers[headers.len() - 1].clone(),
-        get_prev_from_output(main_output_reader),
-    )
 }
 
 fn verify_main_and_uncle_length(
@@ -357,21 +301,8 @@ fn verify_main_and_uncle_length(
     }
 }
 
-fn get_prev_from_output(main_output_reader: BytesVecReader) -> Option<BlockHeader> {
-    match main_output_reader.len() {
-        0 => panic!("output reader can't be zero length"),
-        1 => None,
-        _ => {
-            let header_raw = main_output_reader
-                .get_unchecked(main_output_reader.len() - 2)
-                .raw_data();
-            Some(extra_header(header_raw))
-        }
-    }
-}
-
 fn verify_main_not_reorg(
-    headers: &Vec<BlockHeader>,
+    headers: &[BlockHeader],
     main_tail_info_input_reader: ETHHeaderInfoReader,
     main_tail_info_output_reader: ETHHeaderInfoReader,
 ) {
@@ -398,7 +329,7 @@ fn verify_main_not_reorg(
 }
 
 fn verify_difficulty(
-    headers: &Vec<BlockHeader>,
+    headers: &[BlockHeader],
     main_tail_info_input_reader: ETHHeaderInfoReader,
     main_tail_info_output_reader: ETHHeaderInfoReader,
     main_input_reader: BytesVecReader,
@@ -567,44 +498,88 @@ fn traverse_uncle_chain(
     }
 }
 
-fn verify_original_chain_data(
-    headers_count: usize,
+fn verify_uncle_original_chain_data(
+    new_headers_len: usize,
     input_reader: BytesVecReader,
     output_reader: BytesVecReader,
-    limit: usize,
 ) {
-    if input_reader.len() == output_reader.len() && output_reader.len() == limit {
+    let input_len = input_reader.len();
+    let output_len = output_reader.len();
+
+    if input_len == output_len && output_len == UNCLE_HEADER_CACHE_LIMIT {
         let mut input_data = vec![];
-        for i in headers_count..input_reader.len() {
+        for i in new_headers_len..input_len {
             input_data.push(input_reader.get_unchecked(i).raw_data())
         }
+
         let mut output_data = vec![];
-        for i in 0..output_reader.len() - headers_count {
+        for i in 0..output_len - new_headers_len {
             output_data.push(output_reader.get_unchecked(i).raw_data())
         }
+
         assert_eq!(input_data, output_data, "invalid output data.");
-    } else if input_reader.len() < output_reader.len() {
-        if output_reader.len() <= CONFIRM {
+    } else if input_len < output_len {
+        if output_len <= UNCLE_HEADER_CACHE_LIMIT {
             let mut input_data = vec![];
-            for i in 0..input_reader.len() {
+            for i in 0..input_len {
                 input_data.push(input_reader.get_unchecked(i).raw_data())
             }
             let mut output_data = vec![];
-            for i in 0..output_reader.len() - headers_count {
+            for i in 0..output_len - new_headers_len {
+                output_data.push(output_reader.get_unchecked(i).raw_data())
+            }
+            assert_eq!(input_data, output_data, "invalid output data.");
+        } else {
+            panic!("uncle data exceed cache limit")
+        }
+    } else {
+        panic!("input uncle length over output uncle")
+    }
+}
+
+fn verify_original_chain_data(
+    new_headers_len: usize,
+    input_reader: BytesVecReader,
+    output_reader: BytesVecReader,
+) {
+    let input_len = input_reader.len();
+    let output_len = output_reader.len();
+
+    if input_reader.len() == output_len && output_len == MAIN_HEADER_CACHE_LIMIT {
+        let mut input_data = vec![];
+        for i in new_headers_len..input_len {
+            input_data.push(input_reader.get_unchecked(i).raw_data())
+        }
+
+        let mut output_data = vec![];
+        for i in 0..output_len - new_headers_len {
+            output_data.push(output_reader.get_unchecked(i).raw_data())
+        }
+
+        assert_eq!(input_data, output_data, "invalid output data.");
+    } else if input_len < output_len {
+        if output_len <= CONFIRM {
+            let mut input_data = vec![];
+            for i in 0..input_len {
+                input_data.push(input_reader.get_unchecked(i).raw_data())
+            }
+            let mut output_data = vec![];
+            for i in 0..output_len - new_headers_len {
                 output_data.push(output_reader.get_unchecked(i).raw_data())
             }
             assert_eq!(input_data, output_data, "invalid output data.");
         } else {
             let mut input_data = vec![];
-            for i in 0..input_reader.len() {
+            for i in 0..input_len {
                 input_data.push(input_reader.get_unchecked(i).raw_data())
             }
 
             let mut start_index = 0;
-            if input_reader.len() > CONFIRM {
-                start_index = input_reader.len() - CONFIRM;
+            if input_len > CONFIRM {
+                start_index = input_len - CONFIRM;
             }
-            for i in start_index..output_reader.len() - CONFIRM {
+            #[allow(clippy::needless_range_loop)]
+            for i in start_index..output_len - CONFIRM {
                 if ETHHeaderInfoReader::verify(input_data[i], false).is_err() {
                     panic!("invalid header info");
                 }
@@ -614,7 +589,7 @@ fn verify_original_chain_data(
             }
 
             let mut output_data = vec![];
-            for i in 0..input_reader.len() {
+            for i in 0..input_len {
                 output_data.push(output_reader.get_unchecked(i).raw_data());
             }
             assert_eq!(input_data, output_data, "invalid output data.");
@@ -622,54 +597,6 @@ fn verify_original_chain_data(
     } else {
         panic!("invalid data")
     }
-}
-
-fn parse_proof(proof_raw: &[u8]) -> DoubleNodeWithMerkleProof {
-    if DoubleNodeWithMerkleProofReader::verify(&proof_raw, false).is_err() {
-        panic!("invalid proof raw");
-    }
-    let merkle_proof = DoubleNodeWithMerkleProofReader::new_unchecked(proof_raw);
-    let mut dag_nodes = vec![];
-    for i in 0..merkle_proof.dag_nodes().len() {
-        let mut node = [0u8; 64];
-        node.copy_from_slice(merkle_proof.dag_nodes().get_unchecked(i).raw_data());
-        dag_nodes.push(H512(node.into()));
-    }
-    let mut proofs = vec![];
-    for i in 0..merkle_proof.proof().len() {
-        let mut proof = [0u8; 16];
-        proof.copy_from_slice(merkle_proof.proof().get_unchecked(i).raw_data());
-        proofs.push(H128(proof.into()));
-    }
-    DoubleNodeWithMerkleProof::new(dag_nodes, proofs)
-}
-
-fn parse_dep_data<T: Adapter>(
-    data_loader: T,
-    witness: ETHLightClientWitnessReader,
-    number: u64,
-) -> H128 {
-    let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
-    if cell_dep_index_list.len() != 1 {
-        panic!("parse_dep_data, witness cell dep index len is not 1");
-    }
-    let dep_data = data_loader.load_data_from_dep(cell_dep_index_list[0].into());
-    // debug!("dep data is {:?}", &dep_data);
-    if DagsMerkleRootsReader::verify(&dep_data, false).is_err() {
-        panic!(
-            "parse_dep_data, invalid dags {:?} {:?}",
-            dep_data, cell_dep_index_list[0]
-        );
-    }
-    let dags_reader = DagsMerkleRootsReader::new_unchecked(&dep_data);
-    let idx: usize = (number / 30000) as usize;
-    let merkle_root_tmp = dags_reader
-        .dags_merkle_roots()
-        .get_unchecked(idx)
-        .raw_data();
-    let mut merkle_root = [0u8; 16];
-    merkle_root.copy_from_slice(merkle_root_tmp);
-    H128(merkle_root.into())
 }
 
 fn to_u64(data: &[u8]) -> u64 {

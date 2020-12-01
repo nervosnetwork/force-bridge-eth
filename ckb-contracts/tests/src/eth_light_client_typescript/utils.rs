@@ -37,7 +37,7 @@ pub fn create_data(
 pub fn create_cell_data(
     main: Vec<basic::Bytes>,
     uncle: Option<Vec<basic::Bytes>>,
-    blocks: &Vec<BlockWithProofs>,
+    blocks: &[BlockWithProofs],
 ) -> eth_header_cell::ETHHeaderCellData {
     let mut merkle_proofs = vec![];
     for block in blocks {
