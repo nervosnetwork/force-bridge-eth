@@ -44,7 +44,7 @@ pub struct CreateBridgeCellResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BurnArgs {
     pub from_lockscript_addr: String,
-    pub tx_fee: String,
+    pub tx_fee: Option<String>,
     pub unlock_fee: Uint128,
     pub amount: Uint128,
     pub token_address: String,

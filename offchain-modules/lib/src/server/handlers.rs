@@ -169,7 +169,8 @@ pub async fn burn(
 
     let mut generator = data.get_generator().await?;
 
-    let tx_fee: u64 = HumanCapacity::from_str(&args.tx_fee)?.into();
+    let tx_fee: u64 =
+        HumanCapacity::from_str(&args.tx_fee.clone().unwrap_or("0.0001".to_string()))?.into();
 
     let tx = generator.burn(
         tx_fee,
@@ -181,8 +182,13 @@ pub async fn burn(
         recipient_address,
     )?;
     let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx.clone());
+    log::info!(
+        "burn args: {} tx: {}",
+        serde_json::to_string_pretty(&args).unwrap(),
+        serde_json::to_string_pretty(&rpc_tx).unwrap()
+    );
     tokio::spawn(async move {
-        for i in 0..10 {
+        for i in 0u8..10 {
             let res = handler::relay_ckb_to_eth_proof(
                 data.config_path.clone(),
                 data.eth_private_key_path.clone(),
