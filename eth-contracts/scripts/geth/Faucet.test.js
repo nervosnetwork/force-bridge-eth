@@ -33,14 +33,14 @@ contract("Faucet", () => {
     // disable timeout
     this.timeout(0);
 
-    it("Should getTestToken verified", async () => {
+    it("Should claimTestToken verified", async () => {
       let res, receipt;
       const testUser = "0x1234567890123456789012345678901234567890";
       for (const erc20 of contracts) {
         const decimal = await erc20.callStatic.decimals();
         const supply = 100 * Math.pow(10, decimal);
         const beforeBalance = await erc20.callStatic.balanceOf(testUser);
-        res = await erc20.getTestToken(testUser);
+        res = await erc20.claimTestToken(testUser);
         receipt = await res.wait(1);
         const afterBalance = await erc20.callStatic.balanceOf(testUser);
         expect(afterBalance - beforeBalance).to.equal(supply);

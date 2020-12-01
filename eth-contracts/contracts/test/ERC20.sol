@@ -239,7 +239,7 @@ contract DAI is ERC20 {
     uint constant _supply = 100000000000000000000;
     address private governance;
 
-    // record the last timestamp the user getTestToken
+    // record the last timestamp the user claimTestToken
     mapping(address => uint) lastGotTime;
     uint constant GET_TEST_TOKEN_INTERVAL = 1 days;
 
@@ -249,7 +249,7 @@ contract DAI is ERC20 {
     }
 
     modifier updateGetTime(address account) {
-        require(block.timestamp - lastGotTime[account] >= GET_TEST_TOKEN_INTERVAL, "account can only getTestToken once per 24 hours");
+        require(block.timestamp - lastGotTime[account] >= GET_TEST_TOKEN_INTERVAL, "account can only claimTestToken once per 24 hours");
         lastGotTime[account] = block.timestamp;
         _;
     }
@@ -259,7 +259,7 @@ contract DAI is ERC20 {
         _mint(msg.sender, _supply);
     }
 
-    function getTestToken(address account) external updateGetTime(account) {
+    function claimTestToken(address account) external updateGetTime(account) {
         _mint(account, _supply);
     }
 
@@ -276,7 +276,7 @@ contract USDT is ERC20 {
     uint constant _supply = 100000000;
     address private governance;
 
-    // record the last timestamp the user getTestToken
+    // record the last timestamp the user claimTestToken
     mapping(address => uint) lastGotTime;
     uint constant GET_TEST_TOKEN_INTERVAL = 1 days;
 
@@ -286,7 +286,7 @@ contract USDT is ERC20 {
     }
 
     modifier updateGetTime(address account) {
-        require(block.timestamp - lastGotTime[account] >= GET_TEST_TOKEN_INTERVAL, "account can only getTestToken once per 24 hours");
+        require(block.timestamp - lastGotTime[account] >= GET_TEST_TOKEN_INTERVAL, "account can only claimTestToken once per 24 hours");
         lastGotTime[account] = block.timestamp;
         _;
     }
@@ -296,7 +296,7 @@ contract USDT is ERC20 {
         _mint(msg.sender, _supply);
     }
 
-    function getTestToken(address account) external updateGetTime(account) {
+    function claimTestToken(address account) external updateGetTime(account) {
         _mint(account, _supply);
     }
 
@@ -312,7 +312,7 @@ contract USDC is ERC20 {
     uint constant _supply = 100000000;
     address private governance;
 
-    // record the last timestamp the user getTestToken
+    // record the last timestamp the user claimTestToken
     mapping(address => uint) lastGotTime;
     uint constant GET_TEST_TOKEN_INTERVAL = 1 days;
 
@@ -322,7 +322,7 @@ contract USDC is ERC20 {
     }
 
     modifier updateGetTime(address account) {
-        require(block.timestamp - lastGotTime[account] >= GET_TEST_TOKEN_INTERVAL, "account can only getTestToken once per 24 hours");
+        require(block.timestamp - lastGotTime[account] >= GET_TEST_TOKEN_INTERVAL, "account can only claimTestToken once per 24 hours");
         lastGotTime[account] = block.timestamp;
         _;
     }
@@ -332,7 +332,7 @@ contract USDC is ERC20 {
         _mint(msg.sender, _supply);
     }
 
-    function getTestToken(address account) external updateGetTime(account) {
+    function claimTestToken(address account) external updateGetTime(account) {
         _mint(account, _supply);
     }
 
