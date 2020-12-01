@@ -13,7 +13,7 @@ use ckb_hash::blake2b_256;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
 use ckb_types::core::{BlockView, TransactionView};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
-use ckb_types::prelude::{Builder, Entity};
+use ckb_types::prelude::{Builder, Entity, Pack};
 use cmd_lib::run_fun;
 use ethabi::{Function, Param, ParamType, Token};
 use force_eth_types::generated::basic::ETHAddress;
@@ -406,7 +406,8 @@ pub async fn create_bridge_cell(
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
-) -> Result<String> {
+    cell_num: u32,
+) -> Result<Vec<String>> {
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
@@ -445,6 +446,7 @@ pub async fn create_bridge_cell(
             eth_contract_address,
             recipient_lockscript,
             bridge_fee,
+            cell_num,
         )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
     let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
@@ -457,10 +459,16 @@ pub async fn create_bridge_cell(
     let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60)
         .await
         .map_err(|err| anyhow!(err))?;
-    let outpoint = OutPoint::new_builder()
-        .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
-        .build();
-    Ok(hex::encode(outpoint.as_slice()))
+    let mut res = vec![];
+    for i in 0..cell_num {
+        let outpoint = OutPoint::new_builder()
+            .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
+            .index(i.pack())
+            .build();
+        let outpoint_hex = hex::encode(outpoint.as_slice());
+        res.push(outpoint_hex);
+    }
+    Ok(res)
 }
 
 pub fn build_eth_bridge_lock_args(

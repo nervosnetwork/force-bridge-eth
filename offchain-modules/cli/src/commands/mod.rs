@@ -95,13 +95,14 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
+        1,
     )
     .await?;
     info!(
-        "create bridge cell successfully for {}, outpoint: {}",
+        "create bridge cell successfully for {}, outpoint: {:?}",
         &args.recipient_address, &outpoint_hex
     );
-    println!("{}", json!({ "outpoint": outpoint_hex }));
+    println!("{}", json!({ "outpoint": outpoint_hex[0] }));
     Ok(())
 }
 

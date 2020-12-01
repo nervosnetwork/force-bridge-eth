@@ -597,6 +597,7 @@ impl Generator {
         eth_contract_address: H160,
         recipient_lockscript: Script,
         bridge_fee: u128,
+        cell_num: u32,
     ) -> Result<TransactionView> {
         let mut tx_helper = TxHelper::default();
         // add cell deps
@@ -641,7 +642,9 @@ impl Generator {
             .type_(Some(bridge_typescript).pack())
             .lock(bridge_lockscript)
             .build();
-        tx_helper.add_output(output, bridge_data.as_bytes());
+        for _ in 0..cell_num {
+            tx_helper.add_output(output.clone(), bridge_data.as_bytes());
+        }
         // build tx
         let tx = tx_helper
             .supply_capacity(
