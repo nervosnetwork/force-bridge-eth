@@ -351,7 +351,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
 
-        // TODO use safeMath for blockNumber + numConfirmations calc
         require(
             blockNumber + numConfirmations <= latestBlockNumber,
             "blockNumber from txProofData is too ahead of the latestBlockNumber"
@@ -371,7 +370,6 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
-        // TODO optimize rawTxRoot calculation with assembly code
         bytes32 rawTxRoot = proofView.txHash();
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
