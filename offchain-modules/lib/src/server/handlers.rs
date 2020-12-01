@@ -272,6 +272,7 @@ pub async fn lock(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: LockArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    log::info!("lock args: {:?}", args);
     let to = convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
         .map_err(|e| format!("lock contract address parse fail: {}", e))?;
     let nonce = U256::from(u128::from(args.nonce));
