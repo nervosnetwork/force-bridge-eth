@@ -88,6 +88,7 @@ pub struct CrosschainHistory {
     pub id: i64,
     pub eth_lock_tx_hash: String,
     pub ckb_tx_hash: Option<String>,
+    pub status: String,
 }
 
 pub async fn get_crosschain_history(
@@ -96,10 +97,9 @@ pub async fn get_crosschain_history(
 ) -> Result<Vec<CrosschainHistory>> {
     Ok(sqlx::query_as::<_, CrosschainHistory>(
         r#"
-SELECT id, eth_lock_tx_hash, ckb_tx_hash
+SELECT id, eth_lock_tx_hash, ckb_tx_hash, status
 FROM eth_to_ckb
 where ckb_recipient_lockscript = ?1
-    and status != "error"
         "#,
     )
     .bind(ckb_recipient_lockscript)
