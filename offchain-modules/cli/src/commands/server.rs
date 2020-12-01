@@ -6,7 +6,8 @@ pub async fn server_handler(args: ServerArgs) -> Result<()> {
     Ok(start(
         args.config_path,
         args.network,
-        args.private_key_path,
+        args.ckb_private_key_path,
+        args.eth_private_key_path,
         args.listen_url,
         args.db_path,
     )

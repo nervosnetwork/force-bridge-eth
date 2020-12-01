@@ -1,14 +1,58 @@
 use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
 use crate::transfer::to_ckb::generate_eth_spv_proof_json;
+use crate::transfer::to_eth::{get_ckb_proof_info, unlock, wait_block_submit};
 use crate::util::ckb_util::Generator;
-use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
+use crate::util::config::ForceConfig;
+use crate::util::eth_util::{convert_eth_address, convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_sdk::AddressPayload;
 use ckb_sdk::SECP256K1;
+use ckb_types::core::TransactionView;
 use ckb_types::packed::Script;
 use force_sdk::tx_helper::sign;
+use molecule::prelude::Entity;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
+
+pub async fn relay_ckb_to_eth_proof(
+    config_path: String,
+    eth_privkey_path: String,
+    network: Option<String>,
+    tx: TransactionView,
+) -> Result<()> {
+    let ckb_tx_hash = hex::encode(tx.hash().as_slice());
+    let force_config = ForceConfig::new(config_path.as_str())?;
+    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, ckb_rpc_url.clone())?;
+    let light_client = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
+    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+    wait_block_submit(
+        ethereum_rpc_url.clone(),
+        ckb_rpc_url,
+        light_client,
+        ckb_tx_hash,
+        lock_contract_addr,
+    )
+    .await?;
+    let result = unlock(
+        config_path,
+        network,
+        eth_privkey_path,
+        deployed_contracts.eth_token_locker_addr.clone(),
+        tx_proof,
+        tx_info,
+        0,
+        true,
+    )
+    .await?;
+    log::info!("unlock result: {:?}", result);
+    Ok(())
+}
 
 pub async fn relay_eth_to_ckb_proof(
     mut record: EthToCkbRecord,

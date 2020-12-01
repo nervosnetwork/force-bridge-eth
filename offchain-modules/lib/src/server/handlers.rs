@@ -35,7 +35,7 @@ pub async fn get_or_create_bridge_cell(
     let outpoints = create_bridge_cell(
         data.config_path.clone(),
         data.network.clone(),
-        data.private_key_path.clone(),
+        data.ckb_private_key_path.clone(),
         tx_fee,
         capacity,
         args.eth_token_address.clone(),
@@ -180,7 +180,25 @@ pub async fn burn(
         lock_contract_address,
         recipient_address,
     )?;
-    let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
+    let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx.clone());
+    tokio::spawn(async move {
+        for i in 0..10 {
+            let res = handler::relay_ckb_to_eth_proof(
+                data.config_path.clone(),
+                data.eth_private_key_path.clone(),
+                data.network.clone(),
+                tx.clone(),
+            )
+            .await;
+            match res {
+                Ok(_) => break,
+                Err(e) => {
+                    log::error!("unlock failed. index: {}, err: {}", i, e);
+                    tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                }
+            }
+        }
+    });
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
 
