@@ -30,6 +30,7 @@ pub async fn get_or_create_bridge_cell(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: CreateBridgeCellArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    log::info!("get_or_create_bridge_cell args: {:?}", args);
     let tx_fee = "0.1".to_string();
     let capacity = "283".to_string();
     let outpoints = create_bridge_cell(
@@ -94,6 +95,7 @@ pub async fn relay_eth_to_ckb_proof(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: EthLockTxHash =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    log::info!("relay_eth_to_ckb_proof args: {:?}", args);
     let _eth_lock_tx_hash = convert_hex_to_h256(&args.eth_lock_tx_hash)
         .map_err(|e| format!("invalid tx hash {}. err: {}", &args.eth_lock_tx_hash, e))?;
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
