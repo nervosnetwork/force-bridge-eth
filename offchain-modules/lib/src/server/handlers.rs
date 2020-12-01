@@ -4,14 +4,16 @@ use super::types::*;
 use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
 use crate::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb::create_bridge_cell;
-use crate::util::ckb_util::{build_lockscript_from_address, parse_cell, parse_main_chain_headers};
+use crate::util::ckb_util::{
+    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
+};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, convert_hex_to_h256,
     make_transaction, rlp_transaction, Web3Client,
 };
 use actix_web::{get, post, web, HttpResponse, Responder};
 use anyhow::anyhow;
-use ckb_jsonrpc_types::{Uint128, Uint64};
+use ckb_jsonrpc_types::{Script as ScriptJson, Uint128, Uint64};
 use ckb_sdk::{Address, HumanCapacity};
 use ckb_types::packed::{Script, ScriptReader};
 use ethabi::Token;
@@ -194,6 +196,13 @@ pub async fn get_sudt_balance(
     let lock_contract_address =
         convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
             .map_err(|e| format!("lock contract address parse fail: {}", e))?;
+    let sudt_script: ScriptJson = get_sudt_type_script(
+        &data.deployed_contracts.bridge_lockscript.code_hash,
+        &data.deployed_contracts.sudt.code_hash,
+        token_address,
+        lock_contract_address,
+    )?
+    .into();
 
     let mut generator = data.get_generator().await?;
 
@@ -219,6 +228,7 @@ pub async fn get_sudt_balance(
         .into();
     Ok(HttpResponse::Ok().json(json! ({
         "balance": balance,
+        "sudt_script": sudt_script,
     })))
 }
 
