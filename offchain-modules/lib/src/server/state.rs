@@ -1,4 +1,5 @@
-use crate::util::ckb_util::{parse_privkey_path, Generator};
+use crate::util::ckb_tx_generator::Generator;
+use crate::util::ckb_util::parse_privkey_path;
 use crate::util::config::{DeployedContracts, ForceConfig};
 use anyhow::{anyhow, Result};
 use force_sdk::util::ensure_indexer_sync;

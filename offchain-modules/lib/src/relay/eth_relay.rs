@@ -1,6 +1,5 @@
-use crate::util::ckb_util::{
-    parse_cell, parse_main_chain_headers, parse_privkey_path, Generator, CONFIRM,
-};
+use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path};
 use crate::util::config::ForceConfig;
 use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
@@ -156,7 +155,12 @@ impl ETHRelayer {
             .build();
         let current_number = self.eth_client.client().eth().block_number().await?;
         let block = self.eth_client.get_block(current_number.into()).await?;
-        let witness = self.generate_witness(block.number.unwrap().as_u64())?;
+        // let witness = self.generate_witness(block.number.unwrap().as_u64())?;
+        let witness = Witness {
+            cell_dep_index_list: vec![],
+            header: vec![],
+            merkle_proof: vec![],
+        };
         let from_privkey = self.secret_key;
         let from_lockscript = self.generate_from_lockscript(from_privkey)?;
         let unsigned_tx = self.generator.init_light_client_tx(
@@ -246,7 +250,7 @@ impl ETHRelayer {
             .number
             .ok_or_else(|| anyhow!("the block number is not exist."))?;
         loop {
-            let mut witnesses = vec![];
+            let witnesses = vec![];
             let start = number.add(1 as u64);
             let end = start.add(HEADER_LIMIT_IN_TX as u64);
             let headers_result = self
@@ -265,10 +269,12 @@ impl ETHRelayer {
                     .ok_or_else(|| anyhow!("the block hash is not exist."))?
             {
                 // No reorg
-                for item in headers.clone() {
-                    let witness = self.generate_witness(item.number.unwrap().as_u64())?;
-                    witnesses.push(witness);
-                }
+                // don't remove it, it will be used in later.
+
+                // for item in headers.clone() {
+                //     let witness = self.generate_witness(item.number.unwrap().as_u64())?;
+                //     witnesses.push(witness);
+                // }
             } else {
                 // Reorg occurred, need to go back
                 info!("reorg occurred, ready to go back");
@@ -286,7 +292,6 @@ impl ETHRelayer {
                 continue;
             }
 
-            // let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
             let from_lockscript = self.generate_from_lockscript(self.secret_key)?;
             let unsigned_tx = self.generator.generate_eth_light_client_tx(
                 &headers,

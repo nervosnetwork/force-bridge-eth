@@ -9,7 +9,8 @@ use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
     wait_block_submit,
 };
-use force_eth_lib::util::ckb_util::{parse_privkey_path, Generator};
+use force_eth_lib::util::ckb_tx_generator::Generator;
+use force_eth_lib::util::ckb_util::parse_privkey_path;
 use force_eth_lib::util::config;
 use force_eth_lib::util::config::ForceConfig;
 use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
