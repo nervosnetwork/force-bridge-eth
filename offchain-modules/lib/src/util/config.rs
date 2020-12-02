@@ -123,7 +123,12 @@ pub struct DeployedContracts {
     pub sudt: ScriptConf,
     pub dag_merkle_roots: OutpointConf,
     pub light_client_cell_script: CellScript,
-    pub pw_lock: Vec<OutpointConf>,
+    pub pw_locks: PwLocks,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct PwLocks {
+    pub inner: Vec<OutpointConf>,
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
