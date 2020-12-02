@@ -1,61 +1,103 @@
 const fs = require("fs");
-const toml = require("toml");
-// const utils = require("@nervosnetwork/ckb-sdk-utils");
-const utils = require("../test/utils");
-
-const forceConfigPath = "/tmp/.force-bridge-cli/config.toml";
-const forceConfig = toml.parse(fs.readFileSync(forceConfigPath));
-const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
-// console.log(bridge_lockscript_code_hash);
+const TOML = require("@iarna/toml");
+const { sleep } = require("../test/utils");
 
 async function main() {
-  let factory = await ethers.getContractFactory(
-    "contracts/test/ERC20.sol:ERC20"
+  const forceConfigPath = process.env.FORCE_CONFIG_PATH;
+  const network = process.env.FORCE_NETWORK;
+  if (!forceConfigPath) {
+    throw "FORCE_CONFIG_PATH not set";
+  }
+  const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
+  let network_config;
+  if (network) {
+    network_config = forceConfig.networks_config[network];
+  } else {
+    network_config = forceConfig.networks_config[forceConfig.default_network];
+  }
+  const provider = new ethers.providers.JsonRpcProvider(
+    network_config.ethereum_rpc_url
   );
-  const erc20 = await factory.deploy();
-  await erc20.deployed();
-  console.error("erc20 deployed to:", erc20.address);
+  const deployedContracts = forceConfig.deployed_contracts;
+  const bridge_lockscript_code_hash =
+    deployedContracts.bridge_lockscript.code_hash;
+  const recipient_typescript_code_hash =
+    deployedContracts.recipient_typescript.code_hash;
+  const wallet = new ethers.Wallet(
+    "0x" + network_config.ethereum_private_keys[0],
+    provider
+  );
 
-  factory = await ethers.getContractFactory(
-    "contracts/test/MockCKBSpv.sol:MockCKBSpv"
-  );
-  const mockSpv = await factory.deploy();
-  await mockSpv.deployed();
+  const contractPaths = [
+    "contracts/test/ERC20.sol:DAI",
+    "contracts/test/ERC20.sol:USDT",
+    "contracts/test/ERC20.sol:USDC",
+    "contracts/CKBChain.sol:CKBChain",
+  ];
 
-  factory = await ethers.getContractFactory(
-    "contracts/TokenLocker.sol:TokenLocker"
+  const contracts = [];
+  const promises = [];
+  for (const path of contractPaths) {
+    const factory = await ethers.getContractFactory(path, wallet);
+    const contract = await factory.deploy();
+    contracts.push(contract);
+    promises.push(contract.deployTransaction.wait(1));
+    // because nonce should increase in sequence
+    await sleep(1);
+  }
+  await Promise.all(promises);
+  const [DAIAddr, USDTAddr, USDCAddr, CKBChainAddr] = contracts.map(
+    (contract) => contract.address
   );
-  const tokenLocker = await factory.deploy(
-    mockSpv.address,
-    123,
-    "0x" + bridge_lockscript_code_hash,
-    0
+
+  console.error(`
+    DAIAddr: ${DAIAddr}, USDTAddr: ${USDTAddr}, USDCAddr: ${USDCAddr}, 
+    CKBChinAddr: ${CKBChainAddr}
+  `);
+
+  // deploy TokenLocker
+  let TokenLocker = await ethers.getContractFactory(
+    "contracts/TokenLocker.sol:TokenLocker",
+    wallet
   );
-  await tokenLocker.deployed();
-  console.error("tokenLocker deployed to:", tokenLocker.address);
-  const output = {
-    tokenLocker: tokenLocker.address,
-    erc20: erc20.address,
+  const locker = await TokenLocker.deploy(
+    CKBChainAddr,
+    1,
+    "0x" + recipient_typescript_code_hash,
+    0,
+    "0x" + bridge_lockscript_code_hash
+  );
+  await locker.deployed();
+  const lockerAddr = locker.address;
+  console.error("tokenLocker", lockerAddr);
+
+  const address = {
+    daiContractAddr: DAIAddr,
+    usdtContractAddr: USDTAddr,
+    usdcContractAddr: USDCAddr,
   };
-  console.log(JSON.stringify(output));
+  const data = JSON.stringify(address);
+  console.log(data);
 
-  // lockETH 0.123
-  // let provider = tokenLocker.provider;
-  // let amount = ethers.utils.parseEther("0.123");
-  // const res = await tokenLocker.lockETH(
-  //     ethers.utils.parseEther("0.001"),
-  //     "0x12345600",
-  //     "0x12345611",
-  //     "0x12345622",
-  //     { value: amount }
-  // );
-  // // console.log("lockETH res: ", res);
-  // const receipt = await utils.waitingForReceipt(provider, res);
-  // console.log(`receipt:`, receipt);
+  // write eth address to settings
+  deployedContracts.eth_token_locker_addr = lockerAddr;
+  deployedContracts.eth_ckb_chain_addr = CKBChainAddr;
+  const new_config = TOML.stringify(forceConfig);
+  fs.writeFileSync(forceConfigPath, new_config);
+  console.error("write eth addr into config successfully");
 
-  // unlockETH
-  // res = await locker.unlockToken([0], [0]);
-  // console.log("unlockETH res: ", res);
+  const tokenLockerJson = require("../artifacts/contracts/TokenLocker.sol/TokenLocker.json");
+  const lockerABI = tokenLockerJson.abi;
+  const ckbChainJSON = require("../artifacts/contracts/CKBChain.sol/CKBChain.json");
+  const ckbChainABI = ckbChainJSON.abi;
+  fs.writeFileSync(
+    "../offchain-modules/lib/src/util/token_locker_abi.json",
+    JSON.stringify(lockerABI, null, 2)
+  );
+  fs.writeFileSync(
+    "../offchain-modules/lib/src/util/ckb_chain_abi.json",
+    JSON.stringify(ckbChainABI, null, 2)
+  );
 }
 
 // We recommend this pattern to be able to use async/await everywhere
