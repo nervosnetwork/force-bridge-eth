@@ -29,7 +29,7 @@ pub async fn get_or_create_bridge_cell(
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     let tx_fee = "0.1".to_string();
     let capacity = "283".to_string();
-    let outpoint = create_bridge_cell(
+    let outpoints = create_bridge_cell(
         data.config_path.clone(),
         data.network.clone(),
         data.private_key_path.clone(),
@@ -38,9 +38,10 @@ pub async fn get_or_create_bridge_cell(
         args.eth_token_address.clone(),
         args.recipient_address.clone(),
         args.bridge_fee.into(),
+        5,
     )
     .await?;
-    Ok(HttpResponse::Ok().json(CreateBridgeCellResponse { outpoint }))
+    Ok(HttpResponse::Ok().json(CreateBridgeCellResponse { outpoints }))
 }
 
 #[post("/get_eth_to_ckb_status")]

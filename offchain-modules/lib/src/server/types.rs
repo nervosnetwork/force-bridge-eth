@@ -37,7 +37,7 @@ pub struct GetCkbToEthStatusArgs {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateBridgeCellResponse {
-    pub outpoint: String,
+    pub outpoints: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
