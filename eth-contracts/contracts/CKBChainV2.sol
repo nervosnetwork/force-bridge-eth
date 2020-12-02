@@ -14,7 +14,7 @@ import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
-contract CKBChain is ICKBChain, ICKBSpv {
+contract CKBChainV2 is ICKBChain, ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
@@ -122,6 +122,16 @@ contract CKBChain is ICKBChain, ICKBSpv {
     // query
     function getLatestEpoch() public returns (uint64) {
         return latestHeader.epoch;
+    }
+
+    function checkSig(address user, uint8 v, bytes32 r, bytes32 s, uint times) external returns (uint){
+        bytes32 digest = bytes32(0x0000000000000000000000000000000000000000000000000000000000001234);
+        uint before = gasleft();
+        for (uint i = 0; i < times; i++) {
+            address recoveredAddress = ecrecover(digest, v, r, s);
+            require(recoveredAddress != address(0) && recoveredAddress == user, "INVALID_SIGNATURE");
+        }
+        return before - gasleft();
     }
 
     function initWithHeader(
@@ -351,6 +361,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
 
+        // TODO use safeMath for blockNumber + numConfirmations calc
         require(
             blockNumber + numConfirmations <= latestBlockNumber,
             "blockNumber from txProofData is too ahead of the latestBlockNumber"
@@ -370,6 +381,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
+        // TODO optimize rawTxRoot calculation with assembly code
         bytes32 rawTxRoot = proofView.txHash();
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
