@@ -21,7 +21,7 @@ use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
 use force_eth_types::generated::eth_header_cell::{
     DoubleNodeWithMerkleProof, ETHChain, ETHHeaderCellData, ETHHeaderCellDataReader, ETHHeaderInfo,
-    ETHHeaderInfoReader, ETHLightClientWitness,
+    ETHHeaderInfoReader, ETHLightClientWitness, MerkleProof, MerkleProofVec,
 };
 use force_eth_types::generated::{basic, witness};
 use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
@@ -33,7 +33,7 @@ use rlp::Rlp;
 use secp256k1::SecretKey;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use std::ops::{Add, Sub};
+use std::ops::Add;
 use std::str::FromStr;
 use web3::types::{Block, BlockHeader};
 
@@ -103,14 +103,18 @@ impl Generator {
                     .main(BytesVec::new_builder().set(main_chain_data).build())
                     .build(),
             )
-            .merkle_proof(BytesVec::new_builder().set(proofs).build())
+            .merkle_proofs(MerkleProofVec::new_builder().set(vec![proofs]).build())
             .build()
             .as_bytes();
         helper.add_output(output.clone(), output_data);
         // add witness
         {
             let witness_data = ETHLightClientWitness::new_builder()
-                .header(witness.header.clone().into())
+                .headers(
+                    BytesVec::new_builder()
+                        .set(vec![witness.header.clone().into()])
+                        .build(),
+                )
                 .cell_dep_index_list(witness.cell_dep_index_list.clone().into())
                 .build();
             let witness_args = WitnessArgs::new_builder()
@@ -156,12 +160,13 @@ impl Generator {
     #[allow(clippy::mutable_key_type)]
     pub fn generate_eth_light_client_tx(
         &mut self,
-        header: &Block<ethereum_types::H256>,
+        headers: &[Block<ethereum_types::H256>],
         cell: &Cell,
-        witness: &Witness,
-        headers: &[BlockHeader],
+        witness: &[Witness],
+        un_confirmed_headers: &[BlockHeader],
         from_lockscript: Script,
     ) -> Result<TransactionView> {
+        info!("generate eth light client tx.");
         let tx_fee: u64 = 500_000;
         let mut helper = TxHelper::default();
 
@@ -195,83 +200,87 @@ impl Generator {
                 .lock(cell_output.lock())
                 .type_(cell_output.type_())
                 .build();
-            let tip = &headers[headers.len() - 1];
+            let tip = &un_confirmed_headers[un_confirmed_headers.len() - 1];
             let input_cell_data = packed::Bytes::from(cell.clone().output_data).raw_data();
             let (mut unconfirmed, mut confirmed) = parse_main_raw_data(&input_cell_data)?;
             let mut uncle_raw_data = parse_uncle_raw_data(&input_cell_data)?;
-            let header_rlp = convert_to_header_rlp(header)?;
-            let header_info;
-            if tip.parent_hash == header.hash.unwrap()
-                || header.number.unwrap().as_u64() >= tip.number.unwrap().as_u64()
+            let header_infos;
+            info!("tip: {:?}", tip);
+            info!("header: {:?}", headers[0]);
+            if tip.hash.unwrap() == headers[0].parent_hash
+            // || headers[0].number.unwrap().as_u64() >= tip.number.unwrap().as_u64()
             {
-                // the new header is on main chain.
-                let temp_data = unconfirmed[0];
-                ETHHeaderInfoReader::verify(&temp_data, false).map_err(|err| anyhow!(err))?;
-                let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
-                let hash = header_info_reader.hash().raw_data();
-                if unconfirmed.len() == CONFIRM {
-                    unconfirmed.remove(0);
-                    confirmed.push(hash);
+                // the main chain is not reorg.
+                if unconfirmed.len().add(headers.len()) > CONFIRM {
+                    let mut idx = unconfirmed.len().add(headers.len()) - CONFIRM;
+                    while idx > 0 {
+                        let temp_data = unconfirmed[0];
+                        ETHHeaderInfoReader::verify(&temp_data, false)
+                            .map_err(|err| anyhow!(err))?;
+                        let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
+                        let hash = header_info_reader.hash().raw_data();
+                        confirmed.push(hash);
+                        unconfirmed.remove(0);
+                        idx -= 1;
+                    }
                 }
-                if confirmed.len().add(unconfirmed.len()) == MAIN_HEADER_CACHE_LIMIT {
-                    confirmed.remove(0);
+                if confirmed.len().add(unconfirmed.len()).add(headers.len())
+                    > MAIN_HEADER_CACHE_LIMIT
+                {
+                    let mut idx = confirmed.len().add(unconfirmed.len()).add(headers.len())
+                        - MAIN_HEADER_CACHE_LIMIT;
+                    while idx > 0 {
+                        confirmed.remove(0);
+                        idx -= 1;
+                    }
                 }
 
-                // if confirmed.len().add(unconfirmed.len()) == MAIN_HEADER_CACHE_LIMIT {
-                //     confirmed.remove(0);
-                //     let temp_data = unconfirmed[0];
-                //     ETHHeaderInfoReader::verify(&temp_data, false).map_err(|err| anyhow!(err))?;
-                //     let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
-                //     let hash = header_info_reader.hash().raw_data();
-                //     confirmed.push(hash);
-                //     unconfirmed.remove(0);
-                // }
                 let input_tail_raw = unconfirmed[unconfirmed.len() - 1];
-                ETHHeaderInfoReader::verify(&input_tail_raw, false).map_err(|err| anyhow!(err))?;
-                let input_tail_reader = ETHHeaderInfoReader::new_unchecked(&input_tail_raw);
-                let total_difficulty = input_tail_reader.total_difficulty().raw_data();
-                header_info = ETHHeaderInfo::new_builder()
-                    .header(hex::decode(header_rlp)?.into())
-                    .total_difficulty(
-                        header
-                            .difficulty
-                            .as_u64()
-                            .add(to_u64(total_difficulty))
-                            .into(),
-                    )
-                    .hash(basic::Byte32::from_slice(header.hash.unwrap().as_bytes()).unwrap())
-                    .build();
-                unconfirmed.push(header_info.as_slice());
+                header_infos = handle_unconfirmed(input_tail_raw, headers)?;
+                for item in &header_infos {
+                    unconfirmed.push(item.as_slice());
+                }
                 info!(
                     "main chain confirmed len: {:?}, un_confirmed len: {:?}",
                     confirmed.len(),
                     unconfirmed.len()
                 );
             } else {
-                // the new header is on uncle chain.
-                if uncle_raw_data.len() == UNCLE_HEADER_CACHE_LIMIT {
-                    uncle_raw_data.remove(0);
-                }
-                if header.number.unwrap() < headers[0].number.unwrap() {
-                    anyhow::bail!("invalid header number.");
-                }
-                let mut idx: usize = 0;
-                while idx < headers.len() {
-                    if headers[idx].number.unwrap() == header.number.unwrap() {
+                // the main chain had been reorged.
+                let mut idx = un_confirmed_headers.len() - 1;
+                while idx > 0 {
+                    let header = &un_confirmed_headers[idx - 1];
+                    if header.hash.unwrap() == headers[0].parent_hash {
                         break;
                     }
-                    idx += 1;
+                    idx -= 1;
                 }
-                let input_tail_reader = ETHHeaderInfoReader::new_unchecked(unconfirmed[idx]);
-                let total_difficulty_raw = input_tail_reader.total_difficulty().raw_data();
-                let total_difficulty =
-                    to_u64(total_difficulty_raw).sub(headers[idx].difficulty.as_u64());
-                header_info = ETHHeaderInfo::new_builder()
-                    .header(basic::Bytes::from(header_rlp.as_bytes().to_vec()))
-                    .total_difficulty(header.difficulty.as_u64().add(total_difficulty).into())
-                    .hash(basic::Byte32::from_slice(header.hash.unwrap().as_bytes()).unwrap())
-                    .build();
-                uncle_raw_data.push(&header_info.as_slice());
+                // remove the item to uncle chain if the index >= idx
+                for i in idx..un_confirmed_headers.len() {
+                    if uncle_raw_data.len() == UNCLE_HEADER_CACHE_LIMIT {
+                        uncle_raw_data.remove(0);
+                    }
+                    unconfirmed.remove(i);
+                    uncle_raw_data.push(unconfirmed[i]);
+                }
+
+                let input_tail_raw = unconfirmed[idx - 1];
+                header_infos = handle_unconfirmed(input_tail_raw, headers)?;
+                for item in &header_infos {
+                    unconfirmed.push(item.as_slice());
+                    if unconfirmed.len() > CONFIRM {
+                        let temp_data = unconfirmed[0];
+                        ETHHeaderInfoReader::verify(&temp_data, false)
+                            .map_err(|err| anyhow!(err))?;
+                        let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
+                        let hash = header_info_reader.hash().raw_data();
+                        confirmed.push(hash);
+                        if confirmed.len() > MAIN_HEADER_CACHE_LIMIT {
+                            confirmed.remove(0);
+                        }
+                        unconfirmed.remove(0);
+                    }
+                }
             }
             let mut main_chain_data: Vec<basic::Bytes> = vec![];
             for item in confirmed {
@@ -284,7 +293,12 @@ impl Generator {
             for item in uncle_raw_data {
                 uncle_chain_data.push(item.to_vec().into());
             }
-            let proofs = build_merkle_proofs(&witness)?;
+            let mut proofs: Vec<MerkleProof> = vec![];
+            for item in witness {
+                let proof = build_merkle_proofs(&item)?;
+                proofs.push(proof);
+            }
+
             let output_data = ETHHeaderCellData::new_builder()
                 .headers(
                     ETHChain::new_builder()
@@ -292,7 +306,7 @@ impl Generator {
                         .uncle(BytesVec::new_builder().set(uncle_chain_data).build())
                         .build(),
                 )
-                .merkle_proof(BytesVec::new_builder().set(proofs).build())
+                // .merkle_proofs(MerkleProofVec::new_builder().set(proofs).build())
                 .build()
                 .as_bytes();
             helper.add_output_with_auto_capacity(output, output_data);
@@ -300,9 +314,13 @@ impl Generator {
 
         {
             // add witness
+            let mut headers_raw = vec![];
+            for item in witness {
+                headers_raw.push(basic::Bytes::from(item.header.clone()))
+            }
             let witness_data = ETHLightClientWitness::new_builder()
-                .header(witness.header.clone().into())
-                .cell_dep_index_list(witness.cell_dep_index_list.clone().into())
+                .headers(BytesVec::new_builder().set(headers_raw).build())
+                .cell_dep_index_list(vec![0].into())
                 .build();
 
             let witness_args = WitnessArgs::new_builder()
@@ -806,9 +824,7 @@ impl Generator {
     }
 }
 
-pub fn build_merkle_proofs(
-    witness: &Witness,
-) -> Result<Vec<force_eth_types::generated::basic::Bytes>> {
+pub fn build_merkle_proofs(witness: &Witness) -> Result<MerkleProof> {
     let proof_vec = &witness.merkle_proof;
     let mut proof_json_vec = vec![];
     for item in proof_vec {
@@ -836,7 +852,8 @@ pub fn build_merkle_proofs(
     for item in merkle_proofs {
         proofs.push(basic::Bytes::from(item.as_slice().to_vec()));
     }
-    Ok(proofs)
+    let result = MerkleProof::new_builder().set(proofs).build();
+    Ok(result)
 }
 
 pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256> {
@@ -987,6 +1004,27 @@ pub fn parse_main_chain_headers(data: Vec<u8>) -> Result<(Vec<BlockHeader>, Vec<
     }
     un_confirmed.reverse();
     Ok((un_confirmed, confirmed))
+}
+
+fn handle_unconfirmed(
+    input_tail_raw: &[u8],
+    headers: &[Block<ethereum_types::H256>],
+) -> Result<Vec<ETHHeaderInfo>> {
+    let mut header_infos = vec![];
+    ETHHeaderInfoReader::verify(&input_tail_raw, false).map_err(|err| anyhow!(err))?;
+    let input_tail_reader = ETHHeaderInfoReader::new_unchecked(&input_tail_raw);
+    let mut total_difficulty = to_u64(input_tail_reader.total_difficulty().raw_data());
+    for item in headers {
+        let header_rlp = convert_to_header_rlp(item).unwrap();
+        total_difficulty = item.difficulty.as_u64().add(total_difficulty);
+        let header_info = ETHHeaderInfo::new_builder()
+            .header(hex::decode(header_rlp)?.into())
+            .total_difficulty(total_difficulty.into())
+            .hash(basic::Byte32::from_slice(item.hash.unwrap().as_bytes()).unwrap())
+            .build();
+        header_infos.push(header_info);
+    }
+    Ok(header_infos)
 }
 
 fn to_u64(data: &[u8]) -> u64 {

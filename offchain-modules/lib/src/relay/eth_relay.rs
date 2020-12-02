@@ -13,12 +13,12 @@ use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::sign;
 use force_sdk::util::{parse_privkey_path, send_tx_sync};
-use log::{debug, info};
+use log::info;
 use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
-// pub const INIT_ETH_HEIGHT: u64 = 15;
+pub const HEADER_LIMIT_IN_TX: usize = 5;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -174,10 +174,6 @@ impl ETHRelayer {
             header: block_with_proofs.header_rlp.0.clone(),
             merkle_proof: block_with_proofs.to_double_node_with_merkle_proof_vec(),
         };
-        debug!(
-            "generate witness for header_rlp. header_rlp: {:?}, witness: {:?}",
-            block_with_proofs.header_rlp.0, witness
-        );
         Ok(witness)
     }
 
@@ -216,7 +212,7 @@ impl ETHRelayer {
 
     pub async fn do_relay_loop(&mut self, mut cell: Cell) -> Result<()> {
         let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
-        let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
+        let (mut un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
         let index: isize = (un_confirmed_headers.len() - 1) as isize;
         // Determine whether the latest_header is on the Ethereum main chain
         // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
@@ -230,8 +226,11 @@ impl ETHRelayer {
         loop {
             let mut witnesses = vec![];
             let start = number.add(1 as u64);
-            let end = number.add(3 as u64);
-            let headers_result = self.eth_client.get_blocks(start.into(), end.into()).await;
+            let end = start.add(HEADER_LIMIT_IN_TX as u64);
+            let headers_result = self
+                .eth_client
+                .get_blocks(start.as_u64(), end.as_u64())
+                .await;
             if headers_result.is_err() {
                 info!("current block is newest, waiting for new header on ethereum.");
                 tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
@@ -244,16 +243,10 @@ impl ETHRelayer {
                     .ok_or_else(|| anyhow!("the block hash is not exist."))?
             {
                 // No reorg
-                info!(
-                    "no reorg occurred, ready to relay new header: {:?}",
-                    new_header
-                );
-                for item in headers {
+                for item in headers.clone() {
                     let witness = self.generate_witness(item.number.unwrap().as_u64())?;
                     witnesses.push(witness);
                 }
-
-                info!("Successfully relayed the current header, ready to relay the next one. current_number: {:?}", number);
             } else {
                 // Reorg occurred, need to go back
                 info!("reorg occurred, ready to go back");
@@ -282,8 +275,6 @@ impl ETHRelayer {
             )?;
             let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
                 .map_err(|err| anyhow::anyhow!(err))?;
-            // send_tx_sync(&mut self.generator.rpc_client, &tx, 60)
-            //     .map_err(|err| anyhow::anyhow!(err))?;
             self.generator
                 .rpc_client
                 .send_transaction(tx.data())
@@ -295,67 +286,13 @@ impl ETHRelayer {
                 .map_err(|err| anyhow::anyhow!(err))?;
             current_block = headers[headers.len() - 1].clone();
             number = current_block.number.unwrap();
-            // let new_number = number.add(1 as u64);
-            // let new_header_temp = self.eth_client.get_block(new_number.into()).await;
-            // if new_header_temp.is_err() {
-            //     tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
-            //     continue;
-            // }
-            // let new_header = new_header_temp.unwrap();
-            // if new_header.parent_hash
-            //     == current_block
-            //         .hash
-            //         .ok_or_else(|| anyhow!("the block hash is not exist."))?
-            // {
-            //     // No reorg
-            //     info!(
-            //         "no reorg occurred, ready to relay new header: {:?}",
-            //         new_header
-            //     );
-            //
-            //     let witness = self.generate_witness(new_number.as_u64())?;
-            //     let from_privkey = parse_privkey_path(self.priv_key_path.as_str())?;
-            //     let from_lockscript = self.generate_from_lockscript(from_privkey)?;
-            //     let unsigned_tx = self.generator.generate_eth_light_client_tx(
-            //         &new_header,
-            //         &cell,
-            //         &witness,
-            //         &un_confirmed_headers,
-            //         from_lockscript,
-            //     )?;
-            //     let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
-            //         .map_err(|err| anyhow::anyhow!(err))?;
-            //     // send_tx_sync(&mut self.generator.rpc_client, &tx, 60)
-            //     //     .map_err(|err| anyhow::anyhow!(err))?;
-            //     self.generator
-            //         .rpc_client
-            //         .send_transaction(tx.data())
-            //         .map_err(|err| anyhow!(err))?;
-            //
-            //     // update cell current_block and number.
-            //     update_cell_sync(&mut self.generator.indexer_client, &tx, 60, &mut cell)
-            //         .await
-            //         .map_err(|err| anyhow::anyhow!(err))?;
-            //     number = new_number;
-            //     current_block = new_header;
-            //     info!("Successfully relayed the current header, ready to relay the next one. current_number: {:?}", number);
-            // } else {
-            //     // Reorg occurred, need to go back
-            //     info!("reorg occurred, ready to go back");
-            //     let index: isize = (un_confirmed_headers.len() - 1) as isize;
-            //     current_block = self
-            //         .lookup_common_ancestor(&un_confirmed_headers, index)
-            //         .await?;
-            //     info!(
-            //         "reorg occurred, found the common ancestor. {:?}",
-            //         current_block
-            //     );
-            //     number = current_block
-            //         .number
-            //         .ok_or_else(|| anyhow!("the block number is not exist."))?;
-            // }
-
-            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
+            let (un_confirmed, _) = parse_main_chain_headers(ckb_cell_data)?;
+            un_confirmed_headers = un_confirmed;
+            info!(
+                "Successfully relayed the headers, ready to relay the next one. next number: {:?}",
+                number
+            );
         }
     }
 }
