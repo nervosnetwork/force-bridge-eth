@@ -700,7 +700,7 @@ impl Generator {
                 self.deployed_contracts.sudt.outpoint.clone(),
             ];
             // add pw_lock deps
-            outpoints.extend(self.deployed_contracts.pw_lock.clone());
+            outpoints.extend(self.deployed_contracts.pw_locks.inner.clone());
             self.add_cell_deps(&mut helper, outpoints)
                 .map_err(|err| anyhow!(err))?;
         }
