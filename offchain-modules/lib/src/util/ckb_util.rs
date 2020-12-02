@@ -5,7 +5,7 @@ use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::MIN_SECP_CELL_CAPACITY;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
-use ckb_types::core::{BlockView, Capacity, ScriptHashType, TransactionView};
+use ckb_types::core::{BlockView, Capacity, DepType, ScriptHashType, TransactionView};
 use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
@@ -395,29 +395,29 @@ impl Generator {
         let mut helper = TxHelper::default();
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_cli_config = ForceConfig::new(config_path.as_str())?;
-        let _deployed_contracts = force_cli_config
+        let deployed_contracts = force_cli_config
             .deployed_contracts
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
         // add cell deps.
         {
-            // let cell_script = parse_cell(
-            //     deployed_contracts
-            //         .light_client_cell_script
-            //         .cell_script
-            //         .as_str(),
-            // )?;
-            // let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
-            //     .map_err(|err| anyhow!(err))?
-            //     .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
-            // let mut builder = helper.transaction.as_advanced_builder();
-            // builder = builder.cell_dep(
-            //     CellDep::new_builder()
-            //         .out_point(cell.out_point.into())
-            //         .dep_type(DepType::Code.into())
-            //         .build(),
-            // );
-            // helper.transaction = builder.build();
+            let cell_script = parse_cell(
+                deployed_contracts
+                    .light_client_cell_script
+                    .cell_script
+                    .as_str(),
+            )?;
+            let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
+                .map_err(|err| anyhow!(err))?
+                .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
+            let mut builder = helper.transaction.as_advanced_builder();
+            builder = builder.cell_dep(
+                CellDep::new_builder()
+                    .out_point(cell.out_point.into())
+                    .dep_type(DepType::Code.into())
+                    .build(),
+            );
+            helper.transaction = builder.build();
 
             let outpoints = vec![
                 self.deployed_contracts.bridge_lockscript.outpoint.clone(),

@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
-use force_eth_lib::relay::eth_relay::ETHRelayer;
+use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
 use force_eth_lib::transfer::to_ckb::{
     self, approve, create_bridge_cell, generate_eth_spv_proof_json, lock_eth, lock_token,
     send_eth_spv_proof_tx,
@@ -181,15 +181,15 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     .await?;
     let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow::anyhow!(e))?;
-    // wait_header_sync_success(
-    //     &mut generator,
-    //     deployed_contracts
-    //         .light_client_cell_script
-    //         .cell_script
-    //         .as_str(),
-    //     header_rlp.clone(),
-    // )
-    // .await?;
+    wait_header_sync_success(
+        &mut generator,
+        deployed_contracts
+            .light_client_cell_script
+            .cell_script
+            .as_str(),
+        eth_proof.header_data.clone(),
+    )
+    .await?;
     let from_privkey =
         parse_privkey_path(args.private_key_path.as_str(), &force_config, &args.network)?;
     let config_path = tilde(args.config_path.as_str()).into_owned();
