@@ -16,9 +16,12 @@ use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use cmd_lib::run_fun;
 use ethabi::{Function, Param, ParamType, Token};
+use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::ETHAddress;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
+use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
+use force_sdk::cell_collector::collect_bridge_cells;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{ensure_indexer_sync, send_tx_sync};
@@ -404,7 +407,7 @@ pub async fn deploy_ckb(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn create_bridge_cell(
+pub async fn get_or_create_bridge_cell(
     config_path: String,
     network: Option<String>,
     private_key_path: String,
@@ -413,7 +416,7 @@ pub async fn create_bridge_cell(
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
-    cell_num: u32,
+    cell_num: usize,
 ) -> Result<Vec<String>> {
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
@@ -444,14 +447,49 @@ pub async fn create_bridge_cell(
             .map_err(|err| anyhow!("invalid recipient address: {}", err))?
             .payload(),
     );
+    // build scripts
+    let bridge_lockscript_args =
+        build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
+    let bridge_lockscript = Script::new_builder()
+        .code_hash(Byte32::from_slice(&hex::decode(
+            &deployed_contracts.bridge_lockscript.code_hash,
+        )?)?)
+        .args(bridge_lockscript_args.as_bytes().pack())
+        .build();
+    let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
+        .bridge_lock_hash(
+            basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap(),
+        )
+        .recipient_lock_hash(
+            basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice()).unwrap(),
+        )
+        .build();
+    let bridge_typescript = Script::new_builder()
+        .code_hash(Byte32::from_slice(
+            &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
+        )?)
+        .args(bridge_typescript_args.as_bytes().pack())
+        .build();
+    let cells = collect_bridge_cells(
+        &mut generator.indexer_client,
+        bridge_lockscript.clone(),
+        bridge_typescript.clone(),
+        cell_num,
+    )
+    .map_err(|e| anyhow!("failed to collect bridge cells {}", e))?;
+    if cells.len() >= cell_num {
+        return Ok(cells
+            .into_iter()
+            .map(|cell| hex::encode(OutPoint::from(cell.out_point).as_slice()))
+            .collect());
+    }
     let unsigned_tx = generator
         .create_bridge_cell(
             tx_fee,
             capacity,
             from_lockscript,
-            eth_token_address,
-            eth_contract_address,
-            recipient_lockscript,
+            bridge_typescript,
+            bridge_lockscript,
             bridge_fee,
             cell_num,
         )
