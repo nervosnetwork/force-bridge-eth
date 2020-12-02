@@ -19,7 +19,6 @@ pub struct EthToCkbRecord {
 }
 
 pub async fn create_eth_to_ckb_status_record(pool: &SqlitePool, tx_hash: String) -> Result<i64> {
-    let mut conn = pool.acquire().await?;
     let id = sqlx::query(
         r#"
 INSERT INTO eth_to_ckb ( eth_lock_tx_hash )
@@ -27,7 +26,7 @@ VALUES ( ?1 )
         "#,
     )
     .bind(tx_hash)
-    .execute(&mut conn)
+    .execute(pool)
     .await?
     .last_insert_rowid();
 
