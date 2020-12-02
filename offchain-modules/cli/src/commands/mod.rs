@@ -152,7 +152,7 @@ pub async fn lock_eth_handler(args: LockEthArgs) -> Result<()> {
         args.ckb_recipient_address,
         args.amount,
         args.bridge_fee,
-        args.sudt_extra_data,
+        args.sudt_extra_data.unwrap_or_default(),
         args.replay_resist_outpoint,
         args.gas_price,
         args.wait,

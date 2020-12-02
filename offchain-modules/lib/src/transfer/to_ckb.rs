@@ -343,6 +343,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
+                dep_type: 0,
             },
         },
         bridge_typescript: ScriptConf {
@@ -350,6 +351,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
+                dep_type: 0,
             },
         },
         light_client_typescript: ScriptConf {
@@ -357,6 +359,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 2,
+                dep_type: 0,
             },
         },
         light_client_lockscript: ScriptConf {
@@ -364,6 +367,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 3,
+                dep_type: 0,
             },
         },
         recipient_typescript: ScriptConf {
@@ -371,6 +375,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 4,
+                dep_type: 0,
             },
         },
         sudt: ScriptConf {
@@ -378,11 +383,13 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 5,
+                dep_type: 0,
             },
         },
         dag_merkle_roots: OutpointConf {
             tx_hash: tx_hash_hex,
             index: 6,
+            dep_type: 0,
         },
         light_client_cell_script: CellScript {
             cell_script: "".to_string(),

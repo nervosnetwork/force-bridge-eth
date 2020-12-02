@@ -4,18 +4,21 @@ use super::types::*;
 use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
 use crate::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb::create_bridge_cell;
-use crate::util::ckb_util::{build_lockscript_from_address, parse_cell, parse_main_chain_headers};
+use crate::util::ckb_util::{
+    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
+};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, convert_hex_to_h256,
     make_transaction, rlp_transaction, Web3Client,
 };
 use actix_web::{get, post, web, HttpResponse, Responder};
-use ckb_jsonrpc_types::{Uint128, Uint64};
+use anyhow::anyhow;
+use ckb_jsonrpc_types::{Script as ScriptJson, Uint128, Uint64};
 use ckb_sdk::{Address, HumanCapacity};
-use ckb_types::packed::Script;
+use ckb_types::packed::{Script, ScriptReader};
 use ethabi::Token;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
-use molecule::prelude::Entity;
+use molecule::prelude::{Entity, Reader};
 use serde_json::{json, Value};
 use std::str::FromStr;
 use web3::types::U256;
@@ -27,12 +30,13 @@ pub async fn get_or_create_bridge_cell(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: CreateBridgeCellArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    log::info!("get_or_create_bridge_cell args: {:?}", args);
     let tx_fee = "0.1".to_string();
     let capacity = "283".to_string();
     let outpoints = create_bridge_cell(
         data.config_path.clone(),
         data.network.clone(),
-        data.private_key_path.clone(),
+        data.ckb_private_key_path.clone(),
         tx_fee,
         capacity,
         args.eth_token_address.clone(),
@@ -64,8 +68,28 @@ pub async fn get_crosschain_history(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: GetCrosschainHistoryArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    log::info!("get_crosschain_history args: {:?}", args);
+    let ckb_recipient_lockscript = match args.ckb_recipient_lockscript {
+        Some(lockscript_raw) => lockscript_raw,
+        None => {
+            let from_lockscript = Script::from(
+                Address::from_str(
+                    &args
+                        .ckb_recipient_lockscript_addr
+                        .ok_or_else(|| anyhow!("arg ckb_recipient_lockscript not provided"))?,
+                )
+                .map_err(|err| format!("ckb_address to script fail: {}", err))?
+                .payload(),
+            );
+            hex::encode(from_lockscript.as_slice())
+        }
+    };
+    log::info!(
+        "ckb_recipient_lockscript args: {:?}",
+        ckb_recipient_lockscript
+    );
     let crosschain_history =
-        db::get_crosschain_history(&data.db, &args.ckb_recipient_lockscript).await?;
+        db::get_crosschain_history(&data.db, &ckb_recipient_lockscript).await?;
     Ok(HttpResponse::Ok().json(json!({
         "crosschain_history": crosschain_history,
     })))
@@ -78,12 +102,15 @@ pub async fn relay_eth_to_ckb_proof(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: EthLockTxHash =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    log::info!("relay_eth_to_ckb_proof args: {:?}", args);
     let _eth_lock_tx_hash = convert_hex_to_h256(&args.eth_lock_tx_hash)
         .map_err(|e| format!("invalid tx hash {}. err: {}", &args.eth_lock_tx_hash, e))?;
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
     let status = db::get_eth_to_ckb_status(&data.db, &eth_lock_tx_hash).await?;
     if status.is_some() {
-        return Err("proof relay processing/processed".into());
+        return Ok(HttpResponse::Ok().json(json!({
+            "message": "tx proof relay processing/processed"
+        })));
     }
     let row_id = db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await?;
     let generator = data.get_generator().await?;
@@ -151,7 +178,9 @@ pub async fn burn(
 
     let mut generator = data.get_generator().await?;
 
-    let tx_fee: u64 = HumanCapacity::from_str(&args.tx_fee)?.into();
+    let tx_fee: u64 =
+        HumanCapacity::from_str(&args.tx_fee.clone().unwrap_or_else(|| "0.0001".to_string()))?
+            .into();
 
     let tx = generator.burn(
         tx_fee,
@@ -162,7 +191,30 @@ pub async fn burn(
         lock_contract_address,
         recipient_address,
     )?;
-    let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
+    let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx.clone());
+    log::info!(
+        "burn args: {} tx: {}",
+        serde_json::to_string_pretty(&args).unwrap(),
+        serde_json::to_string_pretty(&rpc_tx).unwrap()
+    );
+    tokio::spawn(async move {
+        for i in 0u8..10 {
+            let res = handler::relay_ckb_to_eth_proof(
+                data.config_path.clone(),
+                data.eth_private_key_path.clone(),
+                data.network.clone(),
+                tx.clone(),
+            )
+            .await;
+            match res {
+                Ok(_) => break,
+                Err(e) => {
+                    log::error!("unlock failed. index: {}, err: {}", i, e);
+                    tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                }
+            }
+        }
+    });
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
 
@@ -178,15 +230,39 @@ pub async fn get_sudt_balance(
     let lock_contract_address =
         convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
             .map_err(|e| format!("lock contract address parse fail: {}", e))?;
+    let sudt_script: ScriptJson = get_sudt_type_script(
+        &data.deployed_contracts.bridge_lockscript.code_hash,
+        &data.deployed_contracts.sudt.code_hash,
+        token_address,
+        lock_contract_address,
+    )?
+    .into();
 
     let mut generator = data.get_generator().await?;
 
+    let addr_lockscript: Script = {
+        if args.address.is_some() {
+            Address::from_str(&args.address.unwrap())
+                .map_err(|err| anyhow!(err))?
+                .payload()
+                .into()
+        } else if args.script.is_some() {
+            let script = hex::decode(args.script.unwrap())
+                .map_err(|e| anyhow!("invalid ckb_script, err: {}", e))?;
+            ScriptReader::verify(&script, false)
+                .map_err(|e| anyhow!("invalid ckb_script, err: {}", e))?;
+            Script::from_slice(&script).map_err(|e| anyhow!("invalid ckb_script, err: {}", e))?
+        } else {
+            return Err(anyhow!("ckb_address or ckb_script should be provided").into());
+        }
+    };
     let balance: Uint128 = generator
-        .get_sudt_balance(args.address.clone(), token_address, lock_contract_address)
+        .get_sudt_balance(addr_lockscript, token_address, lock_contract_address)
         .map_err(|e| format!("get_sudt_balance fail, err: {}", e))?
         .into();
     Ok(HttpResponse::Ok().json(json! ({
         "balance": balance,
+        "sudt_script": sudt_script,
     })))
 }
 
@@ -197,6 +273,7 @@ pub async fn lock(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: LockArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    log::info!("lock args: {:?}", args);
     let to = convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
         .map_err(|e| format!("lock contract address parse fail: {}", e))?;
     let nonce = U256::from(u128::from(args.nonce));

@@ -5,7 +5,7 @@ use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::MIN_SECP_CELL_CAPACITY;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, SECP256K1};
-use ckb_types::core::{BlockView, Capacity, DepType, ScriptHashType, TransactionView};
+use ckb_types::core::{BlockView, Capacity, ScriptHashType, TransactionView};
 use ckb_types::packed::{HeaderVec, ScriptReader, WitnessArgs};
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
@@ -538,7 +538,7 @@ impl Generator {
             builder = builder.cell_dep(
                 CellDep::new_builder()
                     .out_point(outpoint)
-                    .dep_type(DepType::Code.into())
+                    .dep_type(conf.dep_type.into())
                     .build(),
             );
         }
@@ -673,7 +673,7 @@ impl Generator {
 
         // add cellDeps
         {
-            let outpoints = vec![
+            let mut outpoints = vec![
                 self.deployed_contracts.bridge_lockscript.outpoint.clone(),
                 self.deployed_contracts
                     .recipient_typescript
@@ -681,6 +681,8 @@ impl Generator {
                     .clone(),
                 self.deployed_contracts.sudt.outpoint.clone(),
             ];
+            // add pw_lock deps
+            outpoints.extend(self.deployed_contracts.pw_lock.clone());
             self.add_cell_deps(&mut helper, outpoints)
                 .map_err(|err| anyhow!(err))?;
         }
@@ -824,15 +826,10 @@ impl Generator {
 
     pub fn get_sudt_balance(
         &mut self,
-        address: String,
+        addr_lockscript: Script,
         token_addr: H160,
         lock_contract_addr: H160,
     ) -> Result<u128> {
-        let addr_lockscript: Script = Address::from_str(&address)
-            .map_err(|err| anyhow!(err))?
-            .payload()
-            .into();
-
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
             &self.deployed_contracts.sudt.code_hash,
@@ -920,6 +917,10 @@ pub fn get_sudt_type_script(
         token_addr,
         lock_contract_addr,
     )?;
+    log::info!(
+        "bridge lockscript: {}",
+        serde_json::to_string(&ckb_jsonrpc_types::Script::from(bridge_lockscript.clone())).unwrap()
+    );
 
     let sudt_typescript_code_hash = hex::decode(sudt_code_hash).map_err(|err| anyhow!(err))?;
     Ok(Script::new_builder()

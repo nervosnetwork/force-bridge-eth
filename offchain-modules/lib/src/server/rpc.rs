@@ -4,13 +4,20 @@ use actix_web::{App, HttpServer};
 pub async fn start(
     config_path: String,
     network: Option<String>,
-    private_key_path: String,
+    ckb_private_key_path: String,
+    eth_private_key_path: String,
     listen_url: String,
     db_path: String,
 ) -> std::io::Result<()> {
-    let dapp_state = DappState::new(config_path, network, private_key_path, db_path)
-        .await
-        .expect("init dapp server error");
+    let dapp_state = DappState::new(
+        config_path,
+        network,
+        ckb_private_key_path,
+        eth_private_key_path,
+        db_path,
+    )
+    .await
+    .expect("init dapp server error");
     let local = tokio::task::LocalSet::new();
     let sys = actix_web::rt::System::run_in_tokio("server", &local);
     let _server_res = HttpServer::new(move || {
@@ -29,6 +36,7 @@ pub async fn start(
             .service(relay_eth_to_ckb_proof)
             .service(get_crosschain_history)
     })
+    .workers(18)
     .bind(&listen_url)?
     .run()
     .await?;

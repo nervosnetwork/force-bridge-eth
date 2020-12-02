@@ -8,7 +8,7 @@ use crate::util::generated::ckb_tx_proof;
 use anyhow::anyhow;
 use anyhow::Result;
 use ckb_sdk::rpc::{BlockView, TransactionView};
-use ckb_sdk::{Address, HttpRpcClient, HumanCapacity};
+use ckb_sdk::{Address, AddressPayload, HttpRpcClient, HumanCapacity, NetworkType};
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Entity, Pack, Unpack};
 use ckb_types::utilities::CBMT;
@@ -118,6 +118,9 @@ pub async fn burn(
 
     let from_privkey = parse_privkey_path(&privkey_path, &force_config, &network)?;
     let from_lockscript = parse_privkey(&from_privkey);
+    let from_addr_payload: AddressPayload = from_lockscript.clone().into();
+    let from_addr = Address::new(NetworkType::Dev, from_addr_payload);
+    log::info!("from_addr: {}", from_addr);
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
         .map_err(|e| anyhow!(e))?
         .into();
@@ -288,9 +291,9 @@ pub fn get_ckb_proof_info(tx_hash_str: &str, rpc_url: String) -> Result<(String,
     let tx_hash = covert_to_h256(tx_hash_str)?;
     let mut rpc_client = HttpRpcClient::new(rpc_url.clone());
     let tx: packed::Transaction = rpc_client
-        .get_transaction(tx_hash)
-        .map_err(|e| anyhow!("failed to sign tx : {}", e))?
-        .ok_or_else(|| anyhow!("failed to sign tx : {}"))?
+        .get_transaction(tx_hash.clone())
+        .map_err(|e| anyhow!("failed to get tx {}, err: {}", &tx_hash, e))?
+        .ok_or_else(|| anyhow!("failed to get tx : {}", &tx_hash))?
         .transaction
         .inner
         .into();
@@ -450,8 +453,12 @@ pub async fn get_balance(
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+    let addr_lockscript: Script = Address::from_str(&address)
+        .map_err(|err| anyhow!(err))?
+        .payload()
+        .into();
     let balance = generator
-        .get_sudt_balance(address.clone(), token_addr, lock_contract_addr)
+        .get_sudt_balance(addr_lockscript, token_addr, lock_contract_addr)
         .map_err(|e| anyhow!("failed to get balance of {:?}  : {}", address, e))?;
     Ok(balance)
 }

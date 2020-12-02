@@ -22,7 +22,8 @@ pub struct GetEthToCkbStatusArgs {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetCrosschainHistoryArgs {
-    pub ckb_recipient_lockscript: String,
+    pub ckb_recipient_lockscript_addr: Option<String>,
+    pub ckb_recipient_lockscript: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -43,7 +44,7 @@ pub struct CreateBridgeCellResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BurnArgs {
     pub from_lockscript_addr: String,
-    pub tx_fee: String,
+    pub tx_fee: Option<String>,
     pub unlock_fee: Uint128,
     pub amount: Uint128,
     pub token_address: String,
@@ -57,7 +58,8 @@ pub struct BurnResult {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetSudtBalanceArgs {
-    pub address: String,
+    pub address: Option<String>,
+    pub script: Option<String>,
     pub token_address: String,
 }
 

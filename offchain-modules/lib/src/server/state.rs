@@ -10,7 +10,8 @@ use sqlx::SqlitePool;
 pub struct DappState {
     pub config_path: String,
     pub network: Option<String>,
-    pub private_key_path: String,
+    pub ckb_private_key_path: String,
+    pub eth_private_key_path: String,
     pub from_privkey: SecretKey,
     pub deployed_contracts: DeployedContracts,
     pub indexer_url: String,
@@ -23,7 +24,8 @@ impl DappState {
     pub async fn new(
         config_path: String,
         network: Option<String>,
-        private_key_path: String,
+        ckb_private_key_path: String,
+        eth_private_key_path: String,
         db_path: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
@@ -31,9 +33,11 @@ impl DappState {
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
-        let from_privkey = parse_privkey_path(private_key_path.as_str(), &force_config, &network)?;
+        let from_privkey =
+            parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
         Ok(Self {
-            private_key_path,
+            ckb_private_key_path,
+            eth_private_key_path,
             config_path,
             indexer_url,
             ckb_rpc_url,
