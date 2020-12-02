@@ -235,8 +235,8 @@ contract ERC20 is IERC20 {
 contract DAI is ERC20 {
     string public constant name = "DAI Test Token";
     string public constant symbol = "DAI";
-    uint8 public constant decimals = 18;
-    uint constant _supply = 100000000000000000000;
+    uint8 public constant decimals = 8;
+    uint constant _supply = 10000000000;
     address private governance;
 
     modifier onlyGov() {
@@ -262,8 +262,8 @@ contract DAI is ERC20 {
 contract USDT is ERC20 {
     string public constant name = "USDT Test Token";
     string public constant symbol = "USDT";
-    uint8 public constant decimals = 6;
-    uint constant _supply = 100000000;
+    uint8 public constant decimals = 8;
+    uint constant _supply = 10000000000;
     address private governance;
 
     modifier onlyGov() {
@@ -288,8 +288,8 @@ contract USDT is ERC20 {
 contract USDC is ERC20 {
     string public constant name = "USDC Test Token";
     string public constant symbol = "USDC";
-    uint8 public constant decimals = 6;
-    uint constant _supply = 100000000;
+    uint8 public constant decimals = 8;
+    uint constant _supply = 10000000000;
     address private governance;
 
     modifier onlyGov() {
