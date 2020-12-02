@@ -179,7 +179,8 @@ pub async fn burn(
     let mut generator = data.get_generator().await?;
 
     let tx_fee: u64 =
-        HumanCapacity::from_str(&args.tx_fee.clone().unwrap_or("0.0001".to_string()))?.into();
+        HumanCapacity::from_str(&args.tx_fee.clone().unwrap_or_else(|| "0.0001".to_string()))?
+            .into();
 
     let tx = generator.burn(
         tx_fee,

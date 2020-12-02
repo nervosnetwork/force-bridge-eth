@@ -30,6 +30,12 @@ http "${URL}"/lock <<< '''
 }
 '''
 
+http "${URL}"/relay_eth_to_ckb_proof <<< '''
+{
+    "eth_lock_tx_hash": "0x0f645e07f6b45487d4a0156779101fb605fcf92d77adac9233f6a4290bb15f5b"
+}
+'''
+
 http "${URL}"/burn <<< '''
 {
   "from_lockscript_addr": "ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4",
@@ -45,5 +51,11 @@ http "${URL}"/get_sudt_balance <<< '''
 {
   "address": "ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4",
   "token_address": "0x0000000000000000000000000000000000000000"
+}
+'''
+
+http "${URL}"/get_crosschain_history <<< '''
+{
+    "ckb_recipient_lockscript_addr": "ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4"
 }
 '''
