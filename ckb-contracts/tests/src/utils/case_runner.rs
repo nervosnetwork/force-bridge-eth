@@ -88,9 +88,6 @@ pub fn run_test(case: TestCase) {
         &mut outputs_data,
     );
 
-    dbg!("inputs: {:?}", &inputs);
-    dbg!("outputs: {:?}", &outputs);
-
     // Witnesses
     let mut witnesses = vec![];
     for witness in case.witnesses {
@@ -106,8 +103,6 @@ pub fn run_test(case: TestCase) {
         .witnesses(witnesses)
         .build();
     let tx = context.complete_tx(tx);
-    dbg!(&tx);
-    dbg!(tx.inputs());
 
     // Test tx
     let res = context.verify_tx(&tx, MAX_CYCLES);

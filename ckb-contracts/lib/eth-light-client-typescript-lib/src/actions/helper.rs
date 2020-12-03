@@ -1,7 +1,23 @@
+#![allow(dead_code)]
+#![allow(clippy::all)]
+
+use crate::adapter::Adapter;
 use crate::debug;
 #[cfg(not(feature = "std"))]
+use alloc::vec;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+
 use eth_spv_lib::eth_types::*;
+
+use force_eth_types::{
+    eth_header_cell::ETHHeaderCellDataView,
+    generated::eth_header_cell::{
+        DagsMerkleRootsReader, DoubleNodeWithMerkleProofReader, ETHLightClientWitnessReader,
+        MerkleProofVecReader,
+    },
+};
+use molecule::prelude::Reader;
 
 #[derive(Default, Debug, Clone)]
 pub struct DoubleNodeWithMerkleProof {
@@ -44,6 +60,33 @@ impl DoubleNodeWithMerkleProof {
             }
         }
         leaf
+    }
+}
+
+fn verify_merkle_proof<T: Adapter>(
+    data_loader: T,
+    witness: ETHLightClientWitnessReader,
+    output: &ETHHeaderCellDataView,
+    header: &BlockHeader,
+    prev: Option<BlockHeader>,
+) {
+    if MerkleProofVecReader::verify(&output.merkle_proofs, false).is_err() {
+        panic!("verify_merkle_proof, invalid output.merkle_proof");
+    }
+    let merkle_proof_vec = MerkleProofVecReader::new_unchecked(&output.merkle_proofs);
+    let mut proofs = vec![];
+    let merkle_proofs = merkle_proof_vec.get_unchecked(merkle_proof_vec.len() - 1);
+    for i in 0..merkle_proofs.len() {
+        let proof_raw = merkle_proofs.get_unchecked(i).raw_data();
+        let proof = parse_proof(proof_raw);
+        proofs.push(proof);
+    }
+
+    // parse dep data
+    let merkle_root = parse_dep_data(data_loader, witness, header.number);
+
+    if !verify_header(&header, prev, merkle_root, &proofs) {
+        panic!("verify_witness, verify header fail");
     }
 }
 
@@ -119,4 +162,52 @@ fn hashimoto_merkle(
     );
 
     (H256(pair.0), H256(pair.1))
+}
+
+fn parse_proof(proof_raw: &[u8]) -> DoubleNodeWithMerkleProof {
+    if DoubleNodeWithMerkleProofReader::verify(&proof_raw, false).is_err() {
+        panic!("invalid proof raw");
+    }
+    let merkle_proof = DoubleNodeWithMerkleProofReader::new_unchecked(proof_raw);
+    let mut dag_nodes = vec![];
+    for i in 0..merkle_proof.dag_nodes().len() {
+        let mut node = [0u8; 64];
+        node.copy_from_slice(merkle_proof.dag_nodes().get_unchecked(i).raw_data());
+        dag_nodes.push(H512(node.into()));
+    }
+    let mut proofs = vec![];
+    for i in 0..merkle_proof.proof().len() {
+        let mut proof = [0u8; 16];
+        proof.copy_from_slice(merkle_proof.proof().get_unchecked(i).raw_data());
+        proofs.push(H128(proof.into()));
+    }
+    DoubleNodeWithMerkleProof::new(dag_nodes, proofs)
+}
+
+fn parse_dep_data<T: Adapter>(
+    data_loader: T,
+    witness: ETHLightClientWitnessReader,
+    number: u64,
+) -> H128 {
+    let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
+    if cell_dep_index_list.len() != 1 {
+        panic!("parse_dep_data, witness cell dep index len is not 1");
+    }
+    let dep_data = data_loader.load_data_from_dep(cell_dep_index_list[0].into());
+    // debug!("dep data is {:?}", &dep_data);
+    if DagsMerkleRootsReader::verify(&dep_data, false).is_err() {
+        panic!(
+            "parse_dep_data, invalid dags {:?} {:?}",
+            dep_data, cell_dep_index_list[0]
+        );
+    }
+    let dags_reader = DagsMerkleRootsReader::new_unchecked(&dep_data);
+    let idx: usize = (number / 30000) as usize;
+    let merkle_root_tmp = dags_reader
+        .dags_merkle_roots()
+        .get_unchecked(idx)
+        .raw_data();
+    let mut merkle_root = [0u8; 16];
+    merkle_root.copy_from_slice(merkle_root_tmp);
+    H128(merkle_root.into())
 }

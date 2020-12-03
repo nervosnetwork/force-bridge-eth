@@ -13,7 +13,7 @@ use std::time::Duration;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
 use web3::types::{
-    Address, Block, BlockHeader, BlockId, Bytes, TransactionReceipt, H160, H256, U256,
+    Address, Block, BlockHeader, BlockId, Bytes, TransactionReceipt, H160, H256, U256, U64,
 };
 use web3::Web3;
 
@@ -134,6 +134,15 @@ impl Web3Client {
 
     pub async fn get_receipt(&mut self, hash: H256) -> Result<Option<TransactionReceipt>> {
         Ok(self.client.eth().transaction_receipt(hash).await?)
+    }
+
+    pub async fn get_blocks(&mut self, start: u64, end: u64) -> Result<Vec<Block<H256>>> {
+        let mut result = vec![];
+        for i in start..end {
+            let block = self.get_block(U64::from(i).into()).await?;
+            result.push(block);
+        }
+        Ok(result)
     }
 
     pub async fn get_header_rlp(&mut self, hash_or_number: BlockId) -> Result<String> {

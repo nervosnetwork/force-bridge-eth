@@ -1,7 +1,6 @@
+use crate::util::ckb_tx_generator::{Generator, CONFIRM};
 use crate::util::ckb_types::CkbTxProof;
-use crate::util::ckb_util::{
-    covert_to_h256, parse_privkey, parse_privkey_path, Generator, CONFIRM,
-};
+use crate::util::ckb_util::{covert_to_h256, parse_privkey, parse_privkey_path};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use crate::util::generated::ckb_tx_proof;

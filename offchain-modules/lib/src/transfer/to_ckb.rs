@@ -1,6 +1,7 @@
+use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
     build_lockscript_from_address, get_secret_key, parse_privkey, parse_privkey_path,
-    ETHSPVProofJson, Generator,
+    ETHSPVProofJson,
 };
 use crate::util::config::{CellScript, DeployedContracts, ForceConfig, OutpointConf, ScriptConf};
 use crate::util::eth_proof_helper::{read_roots_collection_raw, RootsCollectionJson};

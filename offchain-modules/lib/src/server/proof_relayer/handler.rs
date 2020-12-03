@@ -1,7 +1,7 @@
 use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
 use crate::transfer::to_ckb::generate_eth_spv_proof_json;
 use crate::transfer::to_eth::{get_ckb_proof_info, unlock, wait_block_submit};
-use crate::util::ckb_util::Generator;
+use crate::util::ckb_tx_generator::Generator;
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
