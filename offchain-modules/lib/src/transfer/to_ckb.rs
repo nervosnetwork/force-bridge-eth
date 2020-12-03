@@ -25,7 +25,7 @@ use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
 use force_sdk::cell_collector::collect_bridge_cells;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{sign, TxHelper};
-use force_sdk::util::{ensure_indexer_sync, send_tx_sync};
+use force_sdk::util::{ensure_indexer_sync, send_tx_sync, send_tx_sync_with_response};
 use log::info;
 use rusty_receipt_proof_maker::generate_eth_proof;
 use secp256k1::SecretKey;
@@ -234,33 +234,52 @@ pub async fn send_eth_spv_proof_tx(
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
-
-    let unsigned_tx = generator.generate_eth_spv_tx(config_path, from_lockscript, eth_proof)?;
-    let tx =
-        sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
-    log::info!(
-        "tx: \n{}",
-        serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
-            .map_err(|err| anyhow!(err))?
-    );
-    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 120)
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
-    let cell_typescript = tx
-        .output(0)
-        .ok_or_else(|| anyhow!("no out_put found"))?
-        .type_()
-        .to_opt();
-    let cell_script = match cell_typescript {
-        Some(script) => hex::encode(script.as_slice()),
-        None => "".to_owned(),
-    };
-    let print_res = serde_json::json!({
-        "tx_hash": hex::encode(tx.hash().as_slice()),
-        "cell_typescript": cell_script,
-    });
-    println!("{}", serde_json::to_string_pretty(&print_res)?);
-    Ok(tx_hash)
+    let mut retry_times = 3;
+    while retry_times > 0 {
+        let unsigned_tx = generator.generate_eth_spv_tx(
+            config_path.clone(),
+            from_lockscript.clone(),
+            eth_proof,
+        )?;
+        let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
+            .map_err(|err| anyhow!(err))?;
+        log::info!(
+            "tx: \n{}",
+            serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
+                .map_err(|err| anyhow!(err))?
+        );
+        let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 30).await;
+        if result.is_err() {
+            log::info!("Failed to send tx, Err: {:?}", result.err().unwrap());
+            continue;
+        }
+        let (tx_hash, success) = result.unwrap();
+        if success {
+            let cell_typescript = tx
+                .output(0)
+                .ok_or_else(|| anyhow!("no out_put found"))?
+                .type_()
+                .to_opt();
+            let cell_script = match cell_typescript {
+                Some(script) => hex::encode(script.as_slice()),
+                None => "".to_owned(),
+            };
+            let print_res = serde_json::json!({
+                "tx_hash": hex::encode(tx.hash().as_slice()),
+                "cell_typescript": cell_script,
+            });
+            println!("{}", serde_json::to_string_pretty(&print_res)?);
+            return Ok(tx_hash);
+        } else {
+            log::info!(
+                "tx {:?} is not commit, retry times: {:?}",
+                tx_hash,
+                4 - retry_times
+            );
+            retry_times -= 1;
+        }
+    }
+    anyhow::bail!("tx is not commit")
 }
 
 pub fn verify_eth_spv_proof() -> bool {
