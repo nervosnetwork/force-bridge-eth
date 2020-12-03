@@ -239,7 +239,6 @@ impl ETHRecipientCellDataBuilder {
         self
     }
 }
-
 impl molecule::prelude::Builder for ETHRecipientCellDataBuilder {
     type Entity = ETHRecipientCellData;
     const NAME: &'static str = "ETHRecipientCellDataBuilder";

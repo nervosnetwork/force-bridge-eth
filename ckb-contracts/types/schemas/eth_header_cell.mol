@@ -2,9 +2,10 @@
 
 import basic;
 
-table ETHHeaderCellData {
-    headers: ETHChain,
-    merkle_proof: BytesVec,
+table ETHHeaderInfo {
+    header: Bytes,
+    total_difficulty: Uint64,
+    hash: Byte32,
 }
 
 table ETHChain {
@@ -12,10 +13,12 @@ table ETHChain {
     uncle: BytesVec,
 }
 
-table ETHHeaderInfo {
-    header: Bytes,
-    total_difficulty: Uint64,
-    hash: Byte32,
+vector MerkleProof <Bytes>;
+vector MerkleProofVec <MerkleProof>;
+
+table ETHHeaderCellData {
+    headers: ETHChain,
+    merkle_proofs: MerkleProofVec,
 }
 
 table DagsMerkleRoots {
@@ -28,6 +31,6 @@ table DoubleNodeWithMerkleProof {
 }
 
 table ETHLightClientWitness {
-    header: Bytes,
+    headers: BytesVec,
     cell_dep_index_list: Bytes,
 }
