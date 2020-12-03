@@ -7,7 +7,7 @@ use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::Witness;
 use crate::util::eth_util::convert_to_header_rlp;
 use anyhow::{anyhow, bail, Result};
-use ckb_sdk::constants::MIN_SECP_CELL_CAPACITY;
+use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, Capacity, DepType, ScriptHashType, TransactionView};
 use ckb_types::packed::{HeaderVec, WitnessArgs};
@@ -368,7 +368,7 @@ impl Generator {
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = 10000;
+        let tx_fee: u64 = ONE_CKB / 2;
         let mut helper = TxHelper::default();
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_cli_config = ForceConfig::new(config_path.as_str())?;
