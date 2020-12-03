@@ -1,4 +1,3 @@
-use crate::transfer::to_ckb::build_eth_bridge_lock_args;
 use crate::util::ckb_util::{
     get_sudt_type_script, handle_unconfirmed_headers, parse_cell, parse_main_raw_data,
     parse_uncle_raw_data, ETHSPVProofJson, EthWitness,
@@ -21,7 +20,7 @@ use force_eth_types::eth_recipient_cell::{ETHAddress, ETHRecipientDataView};
 use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
+use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeData;
 use force_eth_types::generated::eth_header_cell::{
     ETHChain, ETHHeaderCellData, ETHHeaderInfo, ETHHeaderInfoReader, ETHLightClientWitness,
 };
@@ -588,11 +587,10 @@ impl Generator {
         tx_fee: u64,
         capacity: u64,
         from_lockscript: Script,
-        eth_token_address: H160,
-        eth_contract_address: H160,
-        recipient_lockscript: Script,
+        bridge_typescript: Script,
+        bridge_lockscript: Script,
         bridge_fee: u128,
-        cell_num: u32,
+        cell_num: usize,
     ) -> Result<TransactionView> {
         let mut tx_helper = TxHelper::default();
         // add cell deps
@@ -602,34 +600,10 @@ impl Generator {
         ];
         self.add_cell_deps(&mut tx_helper, outpoints)
             .map_err(|err| anyhow!(err))?;
-        // build lockscript
-        let bridge_lockscript_args =
-            build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
-        let bridge_lockscript = Script::new_builder()
-            .code_hash(Byte32::from_slice(&hex::decode(
-                &self.deployed_contracts.bridge_lockscript.code_hash,
-            )?)?)
-            .args(bridge_lockscript_args.as_bytes().pack())
-            .build();
-        // build typescript
-        let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
-            .bridge_lock_hash(
-                basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap(),
-            )
-            .recipient_lock_hash(
-                basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice())
-                    .unwrap(),
-            )
-            .build();
+        // build bridge data
         let bridge_data = ETHBridgeTypeData::new_builder()
             .owner_lock_script(from_lockscript.as_slice().to_vec().into())
             .fee(bridge_fee.into())
-            .build();
-        let bridge_typescript = Script::new_builder()
-            .code_hash(Byte32::from_slice(
-                &hex::decode(&self.deployed_contracts.bridge_typescript.code_hash).unwrap(),
-            )?)
-            .args(bridge_typescript_args.as_bytes().pack())
             .build();
         // build output
         let output = CellOutput::new_builder()

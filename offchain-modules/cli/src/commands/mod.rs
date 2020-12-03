@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
 use force_eth_lib::transfer::to_ckb::{
-    self, approve, create_bridge_cell, generate_eth_spv_proof_json, lock_eth, lock_token,
+    self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, lock_eth, lock_token,
     send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
@@ -87,7 +87,7 @@ pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
 }
 
 pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
-    let outpoint_hex = create_bridge_cell(
+    let outpoint_hex = get_or_create_bridge_cell(
         args.config_path,
         args.network,
         args.private_key_path,

@@ -3,7 +3,7 @@ use super::state::DappState;
 use super::types::*;
 use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
 use crate::server::proof_relayer::{db, handler};
-use crate::transfer::to_ckb::create_bridge_cell;
+use crate::transfer::to_ckb;
 use crate::util::ckb_util::{
     build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
 };
@@ -33,7 +33,7 @@ pub async fn get_or_create_bridge_cell(
     log::info!("get_or_create_bridge_cell args: {:?}", args);
     let tx_fee = "0.1".to_string();
     let capacity = "283".to_string();
-    let outpoints = create_bridge_cell(
+    let outpoints = to_ckb::get_or_create_bridge_cell(
         data.config_path.clone(),
         data.network.clone(),
         data.ckb_private_key_path.clone(),
