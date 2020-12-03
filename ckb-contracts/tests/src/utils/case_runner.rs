@@ -110,7 +110,10 @@ pub fn run_test(case: TestCase) {
     dbg!(context.captured_messages());
 
     match res {
-        Ok(_cycles) => assert_eq!(case.expect_return_error_info, String::default()),
+        Ok(cycles) => {
+            dbg!("cycles used {}", cycles);
+            assert_eq!(case.expect_return_error_info, String::default())
+        }
         Err(_err) => {
             assert_ne!(case.expect_return_error_info, String::default());
             assert!(check_err(&context, case.expect_return_error_info));
