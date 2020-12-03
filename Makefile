@@ -36,7 +36,7 @@ setup-dev-env: build-all start-docker-network deploy-contracts start-offchain-se
 
 close-dev-env: stop-offchain-services remove-docker-network
 
-integration-ci: setup-dev-env demo-crosschain
+integration-ci: setup-dev-env demo-crosschain close-dev-env
 
 demo-crosschain:
 	bash demo/crosschain.sh
