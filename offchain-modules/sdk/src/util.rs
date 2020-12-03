@@ -1,5 +1,5 @@
 use crate::indexer::{Cell, IndexerRpcClient, Order, Pagination, ScriptType, SearchKey};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types as rpc_types;
 use ckb_jsonrpc_types::{Script as JsonScript, Uint32};
@@ -194,6 +194,35 @@ pub fn check_capacity(capacity: u64, to_data_len: usize) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+pub async fn send_tx_sync_with_response(
+    rpc_client: &mut HttpRpcClient,
+    tx: &TransactionView,
+    timeout: u64,
+) -> Result<(H256, bool)> {
+    let tx_hash = rpc_client
+        .send_transaction(tx.data())
+        .map_err(|err| anyhow!(err))?;
+    assert_eq!(tx.hash(), tx_hash.pack());
+    for i in 0..timeout {
+        let status = rpc_client
+            .get_transaction(tx_hash.clone())
+            .map_err(|err| anyhow!(err))?
+            .map(|t| t.tx_status.status);
+        log::info!(
+            "waiting for tx {} to be committed, loop index: {}, status: {:?}",
+            &tx_hash,
+            i,
+            status
+        );
+        if status == Some(ckb_jsonrpc_types::Status::Committed) {
+            return Ok((tx_hash, true));
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+    }
+    // Err(format!("tx {} not commited", &tx_hash))
+    Ok((tx_hash, false))
 }
 
 pub async fn send_tx_sync(
