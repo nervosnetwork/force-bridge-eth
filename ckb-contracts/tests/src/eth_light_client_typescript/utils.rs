@@ -4,6 +4,12 @@ use eth_spv_lib::eth_types::*;
 use force_eth_types::generated::{basic, eth_header_cell};
 use molecule::bytes::Bytes;
 use molecule::prelude::*;
+use std::convert::From;
+
+pub fn create_hash_data(block_with_proof: &BlockWithProofs) -> basic::Bytes {
+    let header: BlockHeader = rlp::decode(block_with_proof.header_rlp.0.as_slice()).unwrap();
+    header.hash.unwrap().0.as_bytes().to_vec().into()
+}
 
 pub fn create_data(
     block_with_proof: &BlockWithProofs,
