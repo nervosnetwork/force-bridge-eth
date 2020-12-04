@@ -29,6 +29,7 @@ use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
 use log::info;
+use rand::Rng;
 use secp256k1::SecretKey;
 use shellexpand::tilde;
 use std::collections::HashMap;
@@ -270,8 +271,9 @@ impl Generator {
                     if uncle_raw_data.len() == UNCLE_HEADER_CACHE_LIMIT {
                         uncle_raw_data.remove(0);
                     }
+                    let data = unconfirmed[i];
                     unconfirmed.remove(i);
-                    uncle_raw_data.push(unconfirmed[i]);
+                    uncle_raw_data.push(data);
                 }
 
                 let input_tail_raw = unconfirmed[idx - 1];
@@ -367,7 +369,9 @@ impl Generator {
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = ONE_CKB / 2;
+        let mut rng = rand::thread_rng();
+        let tx_fee = rng.gen_range(ONE_CKB / 4, ONE_CKB / 2);
+        // let tx_fee: u64 = ONE_CKB / 2;
         let mut helper = TxHelper::default();
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_cli_config = ForceConfig::new(config_path.as_str())?;

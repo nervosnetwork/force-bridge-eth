@@ -1840,6 +1840,7 @@ dependencies = [
  "hex 0.4.2",
  "log",
  "molecule",
+ "rand 0.7.3",
  "rlp",
  "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=14eddf2)",
  "secp256k1",
