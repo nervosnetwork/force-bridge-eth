@@ -19,7 +19,7 @@ use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
-pub const HEADER_LIMIT_IN_TX: usize = 5;
+pub const HEADER_LIMIT_IN_TX: usize = 9;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
