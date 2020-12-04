@@ -329,7 +329,7 @@ pub async fn lock(
             None,
         )
         .await
-        .unwrap();
+        .map_err(|e| format!("estimate gas failed: {:?}", e))?;
 
     let raw_transaction = make_transaction(to, nonce, input_data, gas_price, gas_limit, eth_value);
     let result = LockResult {
