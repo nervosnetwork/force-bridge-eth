@@ -170,3 +170,27 @@ pub fn collect_sudt_amount(
     get_live_cells(indexer_client, search_key, terminator)?;
     Ok(collected_amount)
 }
+
+pub fn collect_bridge_cells(
+    indexer_client: &mut IndexerRpcClient,
+    lockscript: Script,
+    typescript: Script,
+    max_num: usize,
+) -> Result<Vec<Cell>, String> {
+    let mut collected_amount = 0;
+    let terminator = |_, cell: &Cell| {
+        if cell.output.type_ == Some(typescript.clone().into())
+            && cell.output.lock == lockscript.clone().into()
+        {
+            collected_amount += 1;
+            return (collected_amount >= max_num, true);
+        }
+        (false, false)
+    };
+    let search_key = SearchKey {
+        script: lockscript.clone().into(),
+        script_type: ScriptType::Lock,
+        args_len: None,
+    };
+    get_live_cells(indexer_client, search_key, terminator)
+}

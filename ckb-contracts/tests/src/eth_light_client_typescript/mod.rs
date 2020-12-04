@@ -267,6 +267,39 @@ fn test_correct_tx_when_push_header_reorg_and_update_uncles() {
     case_runner::run_test(case);
 }
 
+#[test]
+fn test_correct_tx_when_push_header_to_cache_limit() {
+    let mut case = get_correct_case();
+
+    let mut inputs = vec!["height-10917842.json".to_string(); 500];
+    inputs[0] = "height-10917838.json".to_string();
+    inputs[1] = "height-10917839.json".to_string();
+    inputs[2] = "height-10917840.json".to_string();
+    inputs[3] = "height-10917841.json".to_string();
+
+    let mut outputs = vec!["height-10917842.json".to_string(); 500];
+    outputs[0] = "height-10917841.json".to_string();
+    outputs[497] = "height-10917843.json".to_string();
+    outputs[498] = "height-10917844.json".to_string();
+    outputs[499] = "height-10917845.json".to_string();
+
+    if let CustomCell::ETHLightClientTypeCustomCell(script) = &mut case.script_cells.inputs[0] {
+        script.main = inputs;
+    }
+    if let CustomCell::ETHLightClientTypeCustomCell(script) = &mut case.script_cells.outputs[0] {
+        script.main = outputs;
+    }
+    if let Witness::ETHLightClientWitness(witness) = &mut case.witnesses[0] {
+        witness.headers = vec![
+            "height-10917843.json".to_string(),
+            "height-10917844.json".to_string(),
+            "height-10917845.json".to_string(),
+        ];
+    }
+
+    case_runner::run_test(case);
+}
+
 fn get_correct_case() -> TestCase {
     TestCase {
         cell_deps: vec![CellDepView::ETHLightClientTypeCellDep(
