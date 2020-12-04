@@ -248,12 +248,8 @@ pub async fn send_eth_spv_proof_tx(
             serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
                 .map_err(|err| anyhow!(err))?
         );
-        let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 30).await;
-        if result.is_err() {
-            log::info!("Failed to send tx, Err: {:?}", result.err().unwrap());
-            continue;
-        }
-        let (tx_hash, success) = result.unwrap();
+        let (tx_hash, success) =
+            send_tx_sync_with_response(&mut generator.rpc_client, &tx, 30).await?;
         if success {
             let cell_typescript = tx
                 .output(0)
