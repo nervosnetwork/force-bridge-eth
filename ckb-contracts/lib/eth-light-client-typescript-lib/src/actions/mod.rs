@@ -539,6 +539,10 @@ fn verify_uncle_original_chain_data(
     }
 }
 
+// based on inputs data, it can be divided into 3 parts:
+// 1. from inputs_hash_start_index to inputs_header_start_index, inputs' hash should be equal to outputs' hash
+// 2. from inputs_header_start_index to output_header_start_index, inputs' headers' hash should be equal to outputs' hash
+// 3. from output_header_start_index to input_len, inputs' headers should be equal to outputs' headers
 fn verify_original_chain_data(
     new_headers_len: usize,
     input_reader: BytesVecReader,
