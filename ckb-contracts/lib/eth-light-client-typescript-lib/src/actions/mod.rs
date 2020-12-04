@@ -547,70 +547,54 @@ fn verify_original_chain_data(
     let input_len = input_reader.len();
     let output_len = output_reader.len();
 
-    if input_reader.len() == output_len && output_len == MAIN_HEADER_CACHE_LIMIT {
-        for i in new_headers_len..input_len - CONFIRM {
-            assert_eq!(
-                input_reader.get_unchecked(i).raw_data(),
-                output_reader.get_unchecked(i - new_headers_len).raw_data()
-            );
-        }
-        for i in input_len - CONFIRM..input_len - CONFIRM + new_headers_len {
-            let input_data = input_reader.get_unchecked(i).raw_data();
-            if ETHHeaderInfoReader::verify(input_data, false).is_err() {
-                panic!("invalid header info");
-            }
-            let header_info_reader = ETHHeaderInfoReader::new_unchecked(input_data);
-            let hash = header_info_reader.hash().raw_data();
-            assert_eq!(
-                hash,
-                output_reader.get_unchecked(i - new_headers_len).raw_data()
-            );
-        }
-        for i in input_len - CONFIRM + new_headers_len..input_len {
-            assert_eq!(
-                input_reader.get_unchecked(i).raw_data(),
-                output_reader.get_unchecked(i - new_headers_len).raw_data()
-            );
-        }
-    } else if input_len < output_len {
-        if output_len <= CONFIRM {
-            let mut input_data = vec![];
-            for i in 0..input_len {
-                input_data.push(input_reader.get_unchecked(i).raw_data())
-            }
-            let mut output_data = vec![];
-            for i in 0..output_len - new_headers_len {
-                output_data.push(output_reader.get_unchecked(i).raw_data())
-            }
-            assert_eq!(input_data, output_data, "invalid output data.");
-        } else {
-            let mut input_data = vec![];
-            for i in 0..input_len {
-                input_data.push(input_reader.get_unchecked(i).raw_data())
-            }
+    assert_eq!(output_len >= input_len, true);
 
-            let mut start_index = 0;
-            if input_len > CONFIRM {
-                start_index = input_len - CONFIRM;
-            }
-            #[allow(clippy::needless_range_loop)]
-            for i in start_index..output_len - CONFIRM {
-                if ETHHeaderInfoReader::verify(input_data[i], false).is_err() {
-                    panic!("invalid header info");
-                }
-                let header_info_reader = ETHHeaderInfoReader::new_unchecked(input_data[i]);
-                let hash = header_info_reader.hash().raw_data();
-                input_data[i] = hash;
-            }
+    let mut input_hash_start_index = 0;
+    if output_len == MAIN_HEADER_CACHE_LIMIT {
+        input_hash_start_index = new_headers_len - (MAIN_HEADER_CACHE_LIMIT - input_len)
+    }
 
-            let mut output_data = vec![];
-            for i in 0..input_len {
-                output_data.push(output_reader.get_unchecked(i).raw_data());
-            }
-            assert_eq!(input_data, output_data, "invalid output data.");
+    let mut input_header_start_index = 0;
+    if input_len > CONFIRM {
+        input_header_start_index = input_len - CONFIRM;
+    }
+
+    let mut output_header_start_index = 0;
+    if output_len > CONFIRM {
+        output_header_start_index = output_len - CONFIRM + input_hash_start_index;
+    }
+
+    for i in input_hash_start_index..input_header_start_index {
+        assert_eq!(
+            input_reader.get_unchecked(i).raw_data(),
+            output_reader
+                .get_unchecked(i - input_hash_start_index)
+                .raw_data()
+        )
+    }
+
+    for i in input_header_start_index..output_header_start_index {
+        let input_data = input_reader.get_unchecked(i).raw_data();
+        if ETHHeaderInfoReader::verify(input_data, false).is_err() {
+            panic!("invalid header info");
         }
-    } else {
-        panic!("invalid data")
+        let header_info_reader = ETHHeaderInfoReader::new_unchecked(input_data);
+        let hash = header_info_reader.hash().raw_data();
+        assert_eq!(
+            hash,
+            output_reader
+                .get_unchecked(i - input_hash_start_index)
+                .raw_data()
+        )
+    }
+
+    for i in output_header_start_index..input_len {
+        assert_eq!(
+            input_reader.get_unchecked(i).raw_data(),
+            output_reader
+                .get_unchecked(i - input_hash_start_index)
+                .raw_data()
+        )
     }
 }
 
