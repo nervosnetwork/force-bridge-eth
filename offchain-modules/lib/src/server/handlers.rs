@@ -314,7 +314,7 @@ pub async fn lock(
                 .map_err(|e| format!("abi encode lock token data fail, err: {}", e))?
         }
     };
-    let raw_transaction = make_transaction(to, nonce, input_data, gas_price, eth_value);
+    let raw_transaction = make_transaction(to, nonce, input_data, gas_price, U256::from(123456), eth_value);
     let result = LockResult {
         nonce: raw_transaction.nonce,
         to: raw_transaction.to,

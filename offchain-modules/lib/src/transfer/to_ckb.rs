@@ -1,5 +1,5 @@
 use crate::util::ckb_util::{
-    build_lockscript_from_address, get_secret_key, parse_privkey, parse_privkey_path,
+    build_lockscript_from_address, parse_privkey, parse_privkey_path,
     ETHSPVProofJson, Generator,
 };
 use crate::util::config::{CellScript, DeployedContracts, ForceConfig, OutpointConf, ScriptConf};
@@ -193,9 +193,9 @@ pub async fn generate_eth_spv_proof_json(
     info!("eth_spv_proof: {:?}", eth_spv_proof);
     let hash_str = hash.clone();
     let log_index = eth_spv_proof.log_index;
-    let network = ethereum_rpc_url;
+    let eth_rpc_url = ethereum_rpc_url.clone();
     let proof_hex = run_fun! {
-    node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --network ${network}}
+    node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --url ${eth_rpc_url}}
     .unwrap();
     let proof_json: Value = serde_json::from_str(&proof_hex).unwrap();
     info!("generate proof json: {:?}", proof_json);
@@ -267,13 +267,14 @@ pub fn verify_eth_spv_proof() -> bool {
 pub async fn deploy_ckb(
     config_path: String,
     network: Option<String>,
+    private_key_path: String,
     eth_dag_path: Option<String>,
 ) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     let mut force_config = ForceConfig::new(config_path.as_str())?;
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
-    let ckb_private_keys = force_config.get_ckb_private_keys(&network)?;
+    let private_key = parse_privkey_path(private_key_path.as_str(), &force_config, &network)?;
     let eth_dag_path = if let Some(dag_path) = eth_dag_path.as_ref() {
         dag_path
     } else {
@@ -281,7 +282,6 @@ pub async fn deploy_ckb(
     };
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
-    let private_key = get_secret_key(&ckb_private_keys[0].as_str())?;
     let bridge_typescript_path = force_config.get_bridge_typescript_bin_path()?;
     let bridge_lockscript_path = force_config.get_bridge_lockscript_bin_path()?;
     let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
@@ -323,7 +323,6 @@ pub async fn deploy_ckb(
         recipient_typescript_bin,
         sudt_bin,
     ];
-
     let tx = deploy(
         &mut rpc_client,
         &mut indexer_client,
@@ -332,7 +331,7 @@ pub async fn deploy_ckb(
         eth_dag_path.as_str(),
     )
     .map_err(|err| anyhow!(err))?;
-    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 60)
+    let tx_hash = send_tx_sync(&mut rpc_client, &tx, 120)
         .await
         .map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
@@ -463,7 +462,7 @@ pub async fn create_bridge_cell(
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
             .map_err(|err| anyhow!(err))?
     );
-    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60)
+    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 120)
         .await
         .map_err(|err| anyhow!(err))?;
     let mut res = vec![];

@@ -70,7 +70,7 @@ pub fn parse_privkey_path(
 pub struct Generator {
     pub rpc_client: HttpRpcClient,
     pub indexer_client: IndexerRpcClient,
-    genesis_info: GenesisInfo,
+    pub genesis_info: GenesisInfo,
     pub deployed_contracts: DeployedContracts,
 }
 

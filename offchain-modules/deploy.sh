@@ -3,6 +3,9 @@
 # `bash deploy.sh` will deploy to default network, which is docker-dev-chain, and write deployed eth contracts address to /tmp/eth-contracts.json
 # `bash deploy.sh -n <customed-network> -e <customed-eth-contracts-path>` will deploy to customed network, and write deployed eth contracts address to customed path
 
+set -o errexit
+set -o xtrace
+
 export RUST_BACKTRACE=1
 export RUST_LOG=info,force=debug
 export FORCE_CONFIG_PATH=~/.force-bridge/config.toml
@@ -36,9 +39,9 @@ done
 
 if [ "${FORCE_NETWORK}" = "" ]
 then
-  ${FORCE_CLI} deploy-ckb
+  ${FORCE_CLI} deploy-ckb -k 0
 else
-  ${FORCE_CLI} deploy-ckb --network "${FORCE_NETWORK}"
+  ${FORCE_CLI} deploy-ckb -k 0  --network "${FORCE_NETWORK}"
 fi
 
 if [ "${ETH_CONTRACTS_JSON}" = "" ]

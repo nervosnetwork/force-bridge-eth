@@ -12,13 +12,10 @@ use std::io::BufReader;
 use std::time::Duration;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
-use web3::types::{
-    Address, Block, BlockHeader, BlockId, Bytes, TransactionReceipt, H160, H256, U256,
-};
+use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, TransactionReceipt, H160, H256, U256, CallRequest};
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
-const MAX_GAS_LIMIT: u64 = 3000000;
 
 const CKB_CHAIN_ABI: &[u8] = include_bytes!("ckb_chain_abi.json");
 const TOKEN_LOCKER_ABI: &[u8] = include_bytes!("token_locker_abi.json");
@@ -59,6 +56,7 @@ impl Web3Client {
                 eth_private_key,
                 data,
                 gas_price,
+                None,
                 eth_value,
                 U256::from(0),
             )
@@ -95,6 +93,7 @@ impl Web3Client {
         eth_private_key: H256,
         data: Vec<u8>,
         gas_price: U256,
+        gas_limit: Option<U256>,
         eth_value: U256,
         asec_nonce: U256,
     ) -> Result<Vec<u8>> {
@@ -113,7 +112,23 @@ impl Web3Client {
         } else {
             tx_gas_price = gas_price;
         }
-        let tx = make_transaction(to, nonce, data, tx_gas_price, eth_value);
+
+        let gas_limit = if let Some(gas_limit) = gas_limit {
+            gas_limit
+        } else {
+            let eth_key = SecretKey::from_slice(&eth_private_key.0)?;
+            let from = secret_key_address(&eth_key);
+            self.client().eth().estimate_gas(CallRequest{
+                from: Some(from),
+                to: Some(Address::from(to.clone())),
+                gas: None,
+                gas_price: None,
+                value: None,
+                data: Some(Bytes::from(data.clone()))
+            }, None).await?
+        };
+
+        let tx = make_transaction(to, nonce, data, tx_gas_price, gas_limit, eth_value);
         let signed_tx = tx.sign(&eth_private_key, &chain_id.as_u32());
         Ok(signed_tx)
     }
@@ -274,6 +289,7 @@ pub fn make_transaction(
     nonce: U256,
     data: Vec<u8>,
     gas_price: U256,
+    gas_limit: U256,
     eth_value: U256,
 ) -> RawTransaction {
     RawTransaction {
@@ -281,7 +297,7 @@ pub fn make_transaction(
         to: Some(convert_account(to)),
         value: eth_value,
         gas_price,
-        gas: U256::from(MAX_GAS_LIMIT),
+        gas: gas_limit,
         data,
     }
 }
