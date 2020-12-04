@@ -44,6 +44,7 @@ pub fn verify_add_headers<T: Adapter>(data_loader: T) {
         let header: BlockHeader = rlp::decode(header_rlp).unwrap();
         new_headers.push(header);
     }
+    debug!("new headers {:?}", new_headers);
     verify_witness_headers_consequent(&new_headers);
 
     match input_data {
@@ -317,9 +318,10 @@ fn verify_main_not_reorg(
 
     let right: u64 = header_difficulty;
     debug!(
-        "left difficulty u64: {} right difficulty u64: {}",
-        to_u64(&left),
-        right.checked_add(to_u64(&prev_difficult)).unwrap()
+        "prev difficulty: {}, new headers difficulty: {}, output difficulty {}",
+        to_u64(&prev_difficult),
+        header_difficulty,
+        to_u64(&left)
     );
     assert_eq!(
         to_u64(&left),
@@ -546,17 +548,30 @@ fn verify_original_chain_data(
     let output_len = output_reader.len();
 
     if input_reader.len() == output_len && output_len == MAIN_HEADER_CACHE_LIMIT {
-        let mut input_data = vec![];
-        for i in new_headers_len..input_len {
-            input_data.push(input_reader.get_unchecked(i).raw_data())
+        for i in new_headers_len..input_len - CONFIRM {
+            assert_eq!(
+                input_reader.get_unchecked(i).raw_data(),
+                output_reader.get_unchecked(i - new_headers_len).raw_data()
+            );
         }
-
-        let mut output_data = vec![];
-        for i in 0..output_len - new_headers_len {
-            output_data.push(output_reader.get_unchecked(i).raw_data())
+        for i in input_len - CONFIRM..input_len - CONFIRM + new_headers_len {
+            let input_data = input_reader.get_unchecked(i).raw_data();
+            if ETHHeaderInfoReader::verify(input_data, false).is_err() {
+                panic!("invalid header info");
+            }
+            let header_info_reader = ETHHeaderInfoReader::new_unchecked(input_data);
+            let hash = header_info_reader.hash().raw_data();
+            assert_eq!(
+                hash,
+                output_reader.get_unchecked(i - new_headers_len).raw_data()
+            );
         }
-
-        assert_eq!(input_data, output_data, "invalid output data.");
+        for i in input_len - CONFIRM + new_headers_len..input_len {
+            assert_eq!(
+                input_reader.get_unchecked(i).raw_data(),
+                output_reader.get_unchecked(i - new_headers_len).raw_data()
+            );
+        }
     } else if input_len < output_len {
         if output_len <= CONFIRM {
             let mut input_data = vec![];
