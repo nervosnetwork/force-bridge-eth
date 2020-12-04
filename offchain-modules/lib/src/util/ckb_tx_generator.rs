@@ -29,13 +29,13 @@ use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
 use log::info;
+use rand::Rng;
 use secp256k1::SecretKey;
 use shellexpand::tilde;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
-use rand::{ Rng};
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
 pub const CONFIRM: usize = 10;
@@ -370,7 +370,7 @@ impl Generator {
         eth_proof: &ETHSPVProofJson,
     ) -> Result<TransactionView> {
         let mut rng = rand::thread_rng();
-        let tx_fee = rng.gen_range(ONE_CKB/4,ONE_CKB/2);
+        let tx_fee = rng.gen_range(ONE_CKB / 4, ONE_CKB / 2);
         // let tx_fee: u64 = ONE_CKB / 2;
         let mut helper = TxHelper::default();
         let config_path = tilde(config_path.as_str()).into_owned();
