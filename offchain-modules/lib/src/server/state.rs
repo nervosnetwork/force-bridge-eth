@@ -1,5 +1,7 @@
-use crate::util::ckb_util::{parse_privkey_path, Generator};
+use crate::util::ckb_tx_generator::Generator;
+use crate::util::ckb_util::parse_privkey_path;
 use crate::util::config::{DeployedContracts, ForceConfig};
+use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
 use force_sdk::util::ensure_indexer_sync;
 use secp256k1::SecretKey;
@@ -62,5 +64,9 @@ impl DappState {
             .await
             .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
         Ok(generator)
+    }
+
+    pub fn get_web3_client(&self) -> Web3Client {
+        Web3Client::new(self.eth_rpc_url.clone())
     }
 }

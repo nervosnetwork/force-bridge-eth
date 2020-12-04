@@ -1,5 +1,5 @@
 use crate::transfer::to_eth::get_add_ckb_headers_func;
-use crate::util::ckb_util::Generator;
+use crate::util::ckb_tx_generator::Generator;
 use crate::util::eth_util::{convert_eth_address, relay_header_transaction, Web3Client};
 use anyhow::{anyhow, bail, Result};
 use ethabi::Token;

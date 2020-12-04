@@ -12,7 +12,10 @@ use std::io::BufReader;
 use std::time::Duration;
 use web3::contract::{Contract, Options};
 use web3::transports::Http;
-use web3::types::{Address, Block, BlockHeader, BlockId, Bytes, TransactionReceipt, H160, H256, U256, CallRequest};
+use web3::types::{
+    Address, Block, BlockHeader, BlockId, Bytes, CallRequest, TransactionReceipt, H160, H256, U256,
+    U64,
+};
 use web3::Web3;
 
 pub const ETH_ADDRESS_LENGTH: usize = 40;
@@ -87,6 +90,7 @@ impl Web3Client {
         Ok(tx_hash)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn build_sign_tx(
         &mut self,
         to: H160,
@@ -118,14 +122,20 @@ impl Web3Client {
         } else {
             let eth_key = SecretKey::from_slice(&eth_private_key.0)?;
             let from = secret_key_address(&eth_key);
-            self.client().eth().estimate_gas(CallRequest{
-                from: Some(from),
-                to: Some(Address::from(to.clone())),
-                gas: None,
-                gas_price: None,
-                value: None,
-                data: Some(Bytes::from(data.clone()))
-            }, None).await?
+            self.client()
+                .eth()
+                .estimate_gas(
+                    CallRequest {
+                        from: Some(from),
+                        to: Some(to),
+                        gas: None,
+                        gas_price: None,
+                        value: Some(eth_value),
+                        data: Some(Bytes::from(data.clone())),
+                    },
+                    None,
+                )
+                .await?
         };
 
         let tx = make_transaction(to, nonce, data, tx_gas_price, gas_limit, eth_value);
@@ -149,6 +159,15 @@ impl Web3Client {
 
     pub async fn get_receipt(&mut self, hash: H256) -> Result<Option<TransactionReceipt>> {
         Ok(self.client.eth().transaction_receipt(hash).await?)
+    }
+
+    pub async fn get_blocks(&mut self, start: u64, end: u64) -> Result<Vec<Block<H256>>> {
+        let mut result = vec![];
+        for i in start..end {
+            let block = self.get_block(U64::from(i).into()).await?;
+            result.push(block);
+        }
+        Ok(result)
     }
 
     pub async fn get_header_rlp(&mut self, hash_or_number: BlockId) -> Result<String> {

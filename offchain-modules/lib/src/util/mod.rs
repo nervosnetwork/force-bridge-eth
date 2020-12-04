@@ -1,3 +1,4 @@
+pub mod ckb_tx_generator;
 pub mod ckb_types;
 pub mod ckb_util;
 pub mod config;
@@ -5,16 +6,17 @@ pub mod eth_proof_helper;
 pub mod eth_util;
 pub mod generated;
 
-use anyhow::{anyhow, Result};
 use self::config::ForceConfig;
-use crate::util::ckb_util::{Generator, parse_privkey_path, parse_privkey};
-use force_sdk::util::ensure_indexer_sync;
-use ckb_sdk::{HumanCapacity, Address};
-use ::ckb_types::packed::{Script, CellOutput};
+use crate::util::ckb_tx_generator::Generator;
+use crate::util::ckb_util::{parse_privkey, parse_privkey_path};
 use ::ckb_types::core::Capacity;
-use ::ckb_types::prelude::{Entity, Pack, Builder};
-use std::str::FromStr;
+use ::ckb_types::packed::{CellOutput, Script};
+use ::ckb_types::prelude::{Builder, Entity, Pack};
+use anyhow::{anyhow, Result};
+use ckb_sdk::{Address, HumanCapacity};
 use force_sdk::tx_helper::TxHelper;
+use force_sdk::util::ensure_indexer_sync;
+use std::str::FromStr;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn transfer(

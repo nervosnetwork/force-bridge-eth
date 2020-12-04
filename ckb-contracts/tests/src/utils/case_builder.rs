@@ -227,19 +227,48 @@ pub struct ETHLightClientTypeCell {
     pub index: usize,
     pub main: Vec<String>,
     pub uncle: Vec<String>,
-    pub merkle: Option<String>,
+    pub merkle: Vec<String>,
 }
 
 impl ETHLightClientTypeCell {
     fn build_output_data(&self) -> Bytes {
         let mut main_vec = vec![];
+
+        let main_len = self.main.clone().len();
+        if main_len > 10 {
+            for i in 0..main_len - 10 {
+                let file = self.main[i].clone();
+                if i > 0 && file == self.main[i - 1].clone() {
+                    let block_with_proof = light_client_types::read_block(file);
+                    let data = light_client_utils::create_hash_data(&block_with_proof);
+                    let mut extra = vec![data; main_len - 10 - i];
+                    main_vec.append(&mut extra);
+                    break;
+                } else {
+                    let block_with_proof = light_client_types::read_block(file.clone());
+                    let data = light_client_utils::create_hash_data(&block_with_proof);
+                    main_vec.push(data);
+                }
+            }
+        }
+        let mut start_index = 0;
+        if main_len > 10 {
+            start_index = main_len - 10;
+        }
         let mut pre_difficulty: u64 = 0;
-        for file in self.main.clone() {
-            let block_with_proof = light_client_types::read_block(file);
-            let (data, difficulty) =
-                light_client_utils::create_data(&block_with_proof, pre_difficulty);
-            pre_difficulty = difficulty;
-            main_vec.push(data);
+        for i in start_index..main_len {
+            let file = self.main[i].clone();
+            if i > 0 && i < main_len - 1 && file == self.main[i + 1].clone() {
+                let block_with_proof = light_client_types::read_block(file.clone());
+                let (data, _) = light_client_utils::create_data(&block_with_proof, pre_difficulty);
+                main_vec.push(data);
+            } else {
+                let block_with_proof = light_client_types::read_block(file.clone());
+                let (data, difficulty) =
+                    light_client_utils::create_data(&block_with_proof, pre_difficulty);
+                pre_difficulty = difficulty;
+                main_vec.push(data);
+            }
         }
 
         let mut uncle_vec = vec![];
@@ -249,19 +278,16 @@ impl ETHLightClientTypeCell {
             uncle_vec.push(data);
         }
 
-        let mut block_with_proof =
-            light_client_types::read_block(self.main.last().unwrap().clone());
-
-        if self.merkle.is_some() {
-            block_with_proof = light_client_types::read_block(self.merkle.clone().unwrap());
+        let mut blocks = vec![];
+        for file in self.merkle.clone() {
+            let block_with_proof = light_client_types::read_block(file);
+            blocks.push(block_with_proof);
         }
 
         if uncle_vec.is_empty() {
-            return light_client_utils::create_cell_data(main_vec, None, &block_with_proof)
-                .as_bytes();
+            return light_client_utils::create_cell_data(main_vec, None, &blocks).as_bytes();
         }
-        return light_client_utils::create_cell_data(main_vec, Some(uncle_vec), &block_with_proof)
-            .as_bytes();
+        return light_client_utils::create_cell_data(main_vec, Some(uncle_vec), &blocks).as_bytes();
     }
 
     fn build_output_cell(
@@ -431,14 +457,17 @@ impl Witness {
 #[derive(Clone)]
 pub struct ETHLightClientTypeWitness {
     pub cell_dep_index_list: Vec<u8>,
-    pub header: String,
+    pub headers: Vec<String>,
 }
 
 impl ETHLightClientTypeWitness {
     pub fn as_bytes(&self) -> Bytes {
-        let block_with_proof = light_client_types::read_block(self.header.clone());
-        light_client_utils::create_witness(block_with_proof, self.cell_dep_index_list.clone())
-            .into()
+        let mut header_rlps = vec![];
+        for file in self.headers.clone() {
+            let block_with_proof = light_client_types::read_block(file);
+            header_rlps.push(block_with_proof.header_rlp);
+        }
+        light_client_utils::create_witness(header_rlps, self.cell_dep_index_list.clone()).into()
     }
 }
 
