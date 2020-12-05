@@ -79,3 +79,12 @@ Off-chain:
 - multi-sig-server ( rust )
   - depends on bridge lib
   - used by signers to maintain ckb/ethereum clients
+
+## Features
+
+- Security. The version 2.0 of force bridge will be full decentralized, permissionless bridge between CKB and Ethereum. Force bridge is secure as long as majority (1/2) of Etherem mining power and majority (1/2) of CKB mining power is honest. There are no additional security requirements. The whole crosschain process can be performed by anyone.
+- Extendability. Due to the low level abstraction of CKB script programming and flexible architecture of force bridge, it will be easy to extend its ability.
+  - The asset bridge we already implemented will support ETH and all ERC20 token natively. In most solutions, you have to deploy a new asset on the target chain, register the address on Ethereum, and specify the relationship between them before you can move your asset. In force bridge, you can move your asset right after you deployed the ERC20 contract. You will get the associated mirror token automatically.
+  - Move your asset to a user or to a dapp is the same thing for force bridge. As we will show in the DEX demo, users can place order with ETH to buy CKB in a single step, instead of locking the asset on ETH and then placing order on CKB. As long as the dapp follows some specific pattern, the dapp and bridge can be integrated without any changes of bridge.
+  - In the future version of force bridge, we may reuse the existing components to support new crosschain situation, e.g. ERC721. The eth light client on CKB can verify that a transaction or event did happened on Ethereum. Developers can write handler dapps on CKB to extend the ability as they want.
+- User experience and broader interoperability. For a typical crosschain process, users have to maintain at least one account on each chain with associated wallet. In force bridge, users can reuse existing tools and participate in the CKB ecosystem without learning new concepts. You can use Ethereum wallet (e.g. Metamask) to do the crosschain, manage your assets and interact with DeFi on CKB. In future, we will support connecting to other blockchain systems. Users from different chain may use their own wallet to trade in the same liquid pool on CKB.
