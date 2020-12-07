@@ -34,6 +34,8 @@ use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
+pub const MAX_RETRY_TIMES: isize = 3;
+
 pub async fn approve(
     config_path: String,
     network: Option<String>,
@@ -234,40 +236,58 @@ pub async fn send_eth_spv_proof_tx(
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
 
-    let unsigned_tx =
-        generator.generate_eth_spv_tx(config_path.clone(), from_lockscript.clone(), eth_proof)?;
-    let tx =
-        sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
-    log::info!(
-        "tx: \n{}",
-        serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
-            .map_err(|err| anyhow!(err))?
-    );
-    let (tx_hash, success) =
-        send_tx_sync_with_response(&mut generator.rpc_client, &tx, 120).await?;
-    if success {
-        let cell_typescript = tx
-            .output(0)
-            .ok_or_else(|| anyhow!("no out_put found"))?
-            .type_()
-            .to_opt();
-        let cell_script = match cell_typescript {
-            Some(script) => hex::encode(script.as_slice()),
-            None => "".to_owned(),
-        };
-        let print_res = serde_json::json!({
-            "tx_hash": hex::encode(tx.hash().as_slice()),
-            "cell_typescript": cell_script,
-        });
-        println!("{}", serde_json::to_string_pretty(&print_res)?);
-        Ok(tx_hash)
-    } else {
-        Err(anyhow!("mint tx timeout, tx hash {}", tx_hash))
+    let mut retry_times = 0;
+    while retry_times < MAX_RETRY_TIMES {
+        let unsigned_tx = generator.generate_eth_spv_tx(
+            config_path.clone(),
+            from_lockscript.clone(),
+            eth_proof,
+        )?;
+        let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
+            .map_err(|err| anyhow!(err))?;
+        log::info!(
+            "tx: \n{}",
+            serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
+                .map_err(|err| anyhow!(err))?
+        );
+        let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 120).await;
+        if result.is_err() {
+            log::info!(
+                "Failed to send tx, retry times: {:?},  Err: {:?}",
+                retry_times,
+                result.err().unwrap()
+            );
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            retry_times += 1;
+            continue;
+        }
+        let (tx_hash, success) = result.unwrap();
+        if success {
+            let cell_typescript = tx
+                .output(0)
+                .ok_or_else(|| anyhow!("no out_put found"))?
+                .type_()
+                .to_opt();
+            let cell_script = match cell_typescript {
+                Some(script) => hex::encode(script.as_slice()),
+                None => "".to_owned(),
+            };
+            let print_res = serde_json::json!({
+                "tx_hash": hex::encode(tx.hash().as_slice()),
+                "cell_typescript": cell_script,
+            });
+            println!("{}", serde_json::to_string_pretty(&print_res)?);
+            return Ok(tx_hash);
+        } else {
+            log::info!(
+                "tx {:?} is not commit, retry times: {:?}",
+                tx_hash,
+                retry_times
+            );
+            retry_times += 1;
+        }
     }
-}
-
-pub fn verify_eth_spv_proof() -> bool {
-    todo!()
+    anyhow::bail!("tx is not commit")
 }
 
 #[allow(clippy::too_many_arguments)]

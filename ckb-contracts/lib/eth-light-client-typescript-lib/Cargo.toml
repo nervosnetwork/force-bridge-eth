@@ -15,8 +15,7 @@ cfg-if = "0.1"
 ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
 mockall = { version = "0.8", optional = true }
 force-eth-types = { path = "../../types", default-features = false, features = ["contract"] }
-ethash = { git = "https://github.com/LeonLi000/rust-ethash.git", default-features = false}
-eth-spv-lib = { git = "https://github.com/LeonLi000/eth-spv-lib.git", default-features = false }
+eth-spv-lib = { path = "../../eth-spv-lib" }
 molecule = { version = "0.6.0", default-features = false }
 rlp = {version = "0.4.5", default-features = false }
 primitive-types = { version = "0.7.2", default-features = false }
