@@ -22,6 +22,7 @@ pub enum SubCommand {
     Mint(MintArgs),
     TransferFromCkb(TransferFromCkbArgs),
     TransferSudt(TransferSudtArgs),
+    Transfer(TransferArgs),
     Burn(BurnArgs),
     GenerateCkbProof(GenerateCkbProofArgs),
     Unlock(UnlockArgs),
@@ -110,6 +111,8 @@ pub struct DeployCKBArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
     #[clap(long)]
     pub eth_dag_path: Option<String>,
 }
@@ -321,6 +324,22 @@ pub struct TransferSudtArgs {
     pub ckb_amount: String,
     #[clap(long)]
     pub token_addr: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct TransferArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(short, long)]
+    pub to_addr: String,
+    #[clap(long)]
+    pub ckb_amount: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
 }

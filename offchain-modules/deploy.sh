@@ -39,9 +39,9 @@ done
 
 if [ "${FORCE_NETWORK}" = "" ]
 then
-  ${FORCE_CLI} deploy-ckb
+  ${FORCE_CLI} deploy-ckb -k 0
 else
-  ${FORCE_CLI} deploy-ckb --network "${FORCE_NETWORK}"
+  ${FORCE_CLI} deploy-ckb -k 0  --network "${FORCE_NETWORK}"
 fi
 
 if [ "${ETH_CONTRACTS_JSON}" = "" ]

@@ -172,7 +172,7 @@ impl ETHRelayer {
         )?;
         let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
             .map_err(|err| anyhow::anyhow!(err))?;
-        send_tx_sync(&mut self.generator.rpc_client, &tx, 60)
+        send_tx_sync(&mut self.generator.rpc_client, &tx, 120)
             .await
             .map_err(|err| anyhow::anyhow!(err))?;
 
