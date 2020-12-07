@@ -11,9 +11,9 @@ use force_eth_lib::transfer::to_eth::{
 };
 use force_eth_lib::util::ckb_tx_generator::Generator;
 use force_eth_lib::util::ckb_util::parse_privkey_path;
-use force_eth_lib::util::config;
-use force_eth_lib::util::config::ForceConfig;
+use force_eth_lib::util::config::{self, ForceConfig};
 use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
+use force_eth_lib::util::transfer;
 use log::{debug, error, info};
 use serde_json::json;
 use shellexpand::tilde;
@@ -47,6 +47,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::Unlock(args) => unlock_handler(args).await,
         SubCommand::TransferFromCkb(args) => transfer_from_ckb_handler(args).await,
         SubCommand::TransferSudt(args) => transfer_sudt_handler(args).await,
+        SubCommand::Transfer(args) => transfer_handler(args).await,
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args).await,
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
@@ -83,7 +84,13 @@ pub async fn init_config(args: InitArgs) -> Result<()> {
 }
 
 pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
-    to_ckb::deploy_ckb(args.config_path, args.network, args.eth_dag_path).await
+    to_ckb::deploy_ckb(
+        args.config_path,
+        args.network,
+        args.private_key_path,
+        args.eth_dag_path,
+    )
+    .await
 }
 
 pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
@@ -309,6 +316,20 @@ pub async fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {
         args.ckb_amount,
         args.sudt_amount,
         args.token_addr,
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn transfer_handler(args: TransferArgs) -> Result<()> {
+    debug!("transfer_handler args: {:?}", &args);
+    transfer(
+        args.config_path,
+        args.network,
+        args.private_key_path,
+        args.to_addr,
+        args.ckb_amount,
+        args.tx_fee,
     )
     .await?;
     Ok(())

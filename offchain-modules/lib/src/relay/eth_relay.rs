@@ -19,7 +19,7 @@ use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
-pub const HEADER_LIMIT_IN_TX: usize = 5;
+pub const HEADER_LIMIT_IN_TX: usize = 9;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -172,7 +172,7 @@ impl ETHRelayer {
         )?;
         let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
             .map_err(|err| anyhow::anyhow!(err))?;
-        send_tx_sync(&mut self.generator.rpc_client, &tx, 60)
+        send_tx_sync(&mut self.generator.rpc_client, &tx, 120)
             .await
             .map_err(|err| anyhow::anyhow!(err))?;
 

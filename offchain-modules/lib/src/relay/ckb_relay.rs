@@ -122,6 +122,7 @@ impl CKBRelayer {
                 self.priv_key,
                 add_headers_abi,
                 self.gas_price,
+                Some(U256::from(1_200_000)),
                 U256::from(0),
                 asec_nonce,
             )

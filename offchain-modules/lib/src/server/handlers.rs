@@ -21,7 +21,7 @@ use force_sdk::cell_collector::get_live_cell_by_typescript;
 use molecule::prelude::{Entity, Reader};
 use serde_json::{json, Value};
 use std::str::FromStr;
-use web3::types::U256;
+use web3::types::{CallRequest, U256};
 
 #[post("/get_or_create_bridge_cell")]
 pub async fn get_or_create_bridge_cell(
@@ -285,6 +285,7 @@ pub async fn lock(
         .map_err(|e| format!("token address parse fail: {}", e))?;
     let recipient_lockscript = build_lockscript_from_address(&args.ckb_recipient_address)
         .map_err(|e| format!("ckb recipient address parse fail: {}", e))?;
+    let web3_client = data.get_web3_client().client().clone();
 
     let data = [
         Token::Address(token_addr),
@@ -314,7 +315,23 @@ pub async fn lock(
                 .map_err(|e| format!("abi encode lock token data fail, err: {}", e))?
         }
     };
-    let raw_transaction = make_transaction(to, nonce, input_data, gas_price, eth_value);
+    let gas_limit = web3_client
+        .eth()
+        .estimate_gas(
+            CallRequest {
+                from: None,
+                to: Some(to),
+                gas: None,
+                gas_price: None,
+                value: Some(eth_value),
+                data: Some(input_data.clone().into()),
+            },
+            None,
+        )
+        .await
+        .map_err(|e| format!("estimate gas failed: {:?}", e))?;
+
+    let raw_transaction = make_transaction(to, nonce, input_data, gas_price, gas_limit, eth_value);
     let result = LockResult {
         nonce: raw_transaction.nonce,
         to: raw_transaction.to,
