@@ -1178,7 +1178,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "ckb-std",
  "eth-spv-lib 0.1.0",
- "ethash",
  "force-eth-types",
  "hex",
  "mockall",

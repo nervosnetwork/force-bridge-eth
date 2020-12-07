@@ -4,7 +4,6 @@ members = [
     "tests",
     "types",
     "eth-spv-lib",
-    "rust-ethash",
     "lib/eth-bridge-lockscript-lib",
     "lib/eth-bridge-typescript-lib",
     "lib/eth-light-client-typescript-lib",
