@@ -19,6 +19,7 @@ build-all:
 
 start-docker-network:
 	cd docker && docker-compose up -d
+	sleep 5
 
 remove-docker-network:
 	cd docker && docker-compose down
@@ -40,6 +41,9 @@ integration-ci: setup-dev-env demo-crosschain
 
 demo-crosschain:
 	bash demo/crosschain.sh
+
+testnet-demo:
+	bash offchain-modules/testnet-test.sh
 
 build-docker:
 	make -C docker build
