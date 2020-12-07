@@ -148,7 +148,6 @@ dependencies = [
 [[package]]
 name = "eth-spv-lib"
 version = "0.1.0"
-source = "git+https://github.com/LeonLi000/eth-spv-lib.git#1f8c2d3b75cf2e10bcc65d7e82ad6449a93b0f94"
 dependencies = [
  "derive_more",
  "ethereum-types",
@@ -161,7 +160,6 @@ dependencies = [
 [[package]]
 name = "ethash"
 version = "0.4.0"
-source = "git+https://github.com/LeonLi000/rust-ethash.git#faf25f98fa798d963fc96395ecd4fb38a7a54a8c"
 dependencies = [
  "byteorder",
  "ethereum-types",

@@ -157,8 +157,8 @@ fn hashimoto_merkle(
             data[32..].reverse();
             data.into()
         },
-        my_keccak256,
-        my_keccak512,
+        keccak256,
+        keccak512,
     );
 
     (H256(pair.0), H256(pair.1))

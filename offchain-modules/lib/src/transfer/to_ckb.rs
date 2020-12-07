@@ -35,6 +35,8 @@ use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
+pub const MAX_RETRY_TIMES: isize = 3;
+
 pub async fn approve(
     config_path: String,
     network: Option<String>,
@@ -234,8 +236,8 @@ pub async fn send_eth_spv_proof_tx(
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
-    let mut retry_times = 3;
-    while retry_times > 0 {
+    let mut retry_times = 0;
+    while retry_times < MAX_RETRY_TIMES {
         let unsigned_tx = generator.generate_eth_spv_tx(
             config_path.clone(),
             from_lockscript.clone(),
@@ -251,6 +253,7 @@ pub async fn send_eth_spv_proof_tx(
         let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 30).await;
         if result.is_err() {
             log::info!("Failed to send tx, Err: {:?}", result.err().unwrap());
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
             continue;
         }
         let (tx_hash, success) = result.unwrap();
@@ -274,9 +277,9 @@ pub async fn send_eth_spv_proof_tx(
             log::info!(
                 "tx {:?} is not commit, retry times: {:?}",
                 tx_hash,
-                4 - retry_times
+                retry_times
             );
-            retry_times -= 1;
+            retry_times += 1;
         }
     }
     anyhow::bail!("tx is not commit")

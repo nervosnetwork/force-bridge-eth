@@ -1136,7 +1136,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
  "ckb-std",
- "eth-spv-lib",
+ "eth-spv-lib 0.1.0",
  "ethereum-types",
  "force-eth-types",
  "hex",
@@ -1151,7 +1151,7 @@ name = "eth-bridge-typescript-lib"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
- "eth-spv-lib",
+ "eth-spv-lib 0.1.0",
  "ethereum-types",
  "force-eth-types",
  "hex",
@@ -1177,7 +1177,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
  "ckb-std",
- "eth-spv-lib",
+ "eth-spv-lib 0.1.0",
  "ethash",
  "force-eth-types",
  "hex",
@@ -1197,6 +1197,18 @@ dependencies = [
  "force-eth-types",
  "mockall",
  "molecule",
+]
+
+[[package]]
+name = "eth-spv-lib"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "ethereum-types",
+ "rlp",
+ "rlp-derive",
+ "sha2",
+ "sha3 0.9.1",
 ]
 
 [[package]]
@@ -1229,10 +1241,10 @@ dependencies = [
 [[package]]
 name = "ethash"
 version = "0.4.0"
-source = "git+https://github.com/LeonLi000/rust-ethash.git#faf25f98fa798d963fc96395ecd4fb38a7a54a8c"
 dependencies = [
  "byteorder",
  "ethereum-types",
+ "hex-literal",
  "primitive-types",
  "rlp",
  "sha3 0.8.2",
@@ -1357,7 +1369,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
- "eth-spv-lib",
+ "eth-spv-lib 0.1.0",
  "ethabi",
  "ethereum-types",
  "hex",
@@ -1653,6 +1665,25 @@ name = "hex"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
+
+[[package]]
+name = "hex-literal"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "961de220ec9a91af2e1e5bd80d02109155695e516771762381ef8581317066e0"
+dependencies = [
+ "hex-literal-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "hex-literal-impl"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "853f769599eb31de176303197b7ba4973299c38c7a7604a6bc88c3eef05b9b46"
+dependencies = [
+ "proc-macro-hack",
+]
 
 [[package]]
 name = "hostname"
@@ -3453,7 +3484,7 @@ version = "0.1.0"
 dependencies = [
  "ckb-testtool",
  "ckb-tool",
- "eth-spv-lib",
+ "eth-spv-lib 0.1.0 (git+https://github.com/LeonLi000/eth-spv-lib.git)",
  "force-eth-types",
  "hex",
  "molecule",
