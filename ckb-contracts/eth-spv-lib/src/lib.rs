@@ -12,4 +12,3 @@ pub mod eth_types;
 
 /// `ethspv` provides higher-levels of abstraction for evaluating SPV proofs.
 pub mod ethspv;
-
