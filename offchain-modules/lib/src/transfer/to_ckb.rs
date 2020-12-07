@@ -1,6 +1,7 @@
+use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
     build_lockscript_from_address, get_secret_key, parse_privkey, parse_privkey_path,
-    ETHSPVProofJson, Generator,
+    ETHSPVProofJson,
 };
 use crate::util::config::{CellScript, DeployedContracts, ForceConfig, OutpointConf, ScriptConf};
 use crate::util::eth_proof_helper::{read_roots_collection_raw, RootsCollectionJson};
@@ -13,15 +14,18 @@ use ckb_hash::blake2b_256;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
 use ckb_types::core::{BlockView, TransactionView};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
-use ckb_types::prelude::{Builder, Entity};
+use ckb_types::prelude::{Builder, Entity, Pack};
 use cmd_lib::run_fun;
 use ethabi::{Function, Param, ParamType, Token};
+use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::ETHAddress;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
+use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
+use force_sdk::cell_collector::collect_bridge_cells;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{sign, TxHelper};
-use force_sdk::util::{ensure_indexer_sync, send_tx_sync};
+use force_sdk::util::{ensure_indexer_sync, send_tx_sync, send_tx_sync_with_response};
 use log::info;
 use rusty_receipt_proof_maker::generate_eth_proof;
 use secp256k1::SecretKey;
@@ -230,33 +234,48 @@ pub async fn send_eth_spv_proof_tx(
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
-
-    let unsigned_tx = generator.generate_eth_spv_tx(config_path, from_lockscript, eth_proof)?;
-    let tx =
-        sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
-    log::info!(
-        "tx: \n{}",
-        serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
-            .map_err(|err| anyhow!(err))?
-    );
-    let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 120)
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
-    let cell_typescript = tx
-        .output(0)
-        .ok_or_else(|| anyhow!("no out_put found"))?
-        .type_()
-        .to_opt();
-    let cell_script = match cell_typescript {
-        Some(script) => hex::encode(script.as_slice()),
-        None => "".to_owned(),
-    };
-    let print_res = serde_json::json!({
-        "tx_hash": hex::encode(tx.hash().as_slice()),
-        "cell_typescript": cell_script,
-    });
-    println!("{}", serde_json::to_string_pretty(&print_res)?);
-    Ok(tx_hash)
+    let mut retry_times = 3;
+    while retry_times > 0 {
+        let unsigned_tx = generator.generate_eth_spv_tx(
+            config_path.clone(),
+            from_lockscript.clone(),
+            eth_proof,
+        )?;
+        let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
+            .map_err(|err| anyhow!(err))?;
+        log::info!(
+            "tx: \n{}",
+            serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
+                .map_err(|err| anyhow!(err))?
+        );
+        let (tx_hash, success) =
+            send_tx_sync_with_response(&mut generator.rpc_client, &tx, 30).await?;
+        if success {
+            let cell_typescript = tx
+                .output(0)
+                .ok_or_else(|| anyhow!("no out_put found"))?
+                .type_()
+                .to_opt();
+            let cell_script = match cell_typescript {
+                Some(script) => hex::encode(script.as_slice()),
+                None => "".to_owned(),
+            };
+            let print_res = serde_json::json!({
+                "tx_hash": hex::encode(tx.hash().as_slice()),
+                "cell_typescript": cell_script,
+            });
+            println!("{}", serde_json::to_string_pretty(&print_res)?);
+            return Ok(tx_hash);
+        } else {
+            log::info!(
+                "tx {:?} is not commit, retry times: {:?}",
+                tx_hash,
+                4 - retry_times
+            );
+            retry_times -= 1;
+        }
+    }
+    anyhow::bail!("tx is not commit")
 }
 
 pub fn verify_eth_spv_proof() -> bool {
@@ -343,6 +362,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
+                dep_type: 0,
             },
         },
         bridge_typescript: ScriptConf {
@@ -350,6 +370,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
+                dep_type: 0,
             },
         },
         light_client_typescript: ScriptConf {
@@ -357,6 +378,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 2,
+                dep_type: 0,
             },
         },
         light_client_lockscript: ScriptConf {
@@ -364,6 +386,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 3,
+                dep_type: 0,
             },
         },
         recipient_typescript: ScriptConf {
@@ -371,6 +394,7 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 4,
+                dep_type: 0,
             },
         },
         sudt: ScriptConf {
@@ -378,11 +402,13 @@ pub async fn deploy_ckb(
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 5,
+                dep_type: 0,
             },
         },
         dag_merkle_roots: OutpointConf {
             tx_hash: tx_hash_hex,
             index: 6,
+            dep_type: 0,
         },
         light_client_cell_script: CellScript {
             cell_script: "".to_string(),
@@ -397,7 +423,7 @@ pub async fn deploy_ckb(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn create_bridge_cell(
+pub async fn get_or_create_bridge_cell(
     config_path: String,
     network: Option<String>,
     private_key_path: String,
@@ -406,7 +432,8 @@ pub async fn create_bridge_cell(
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
-) -> Result<String> {
+    cell_num: usize,
+) -> Result<Vec<String>> {
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
@@ -436,15 +463,51 @@ pub async fn create_bridge_cell(
             .map_err(|err| anyhow!("invalid recipient address: {}", err))?
             .payload(),
     );
+    // build scripts
+    let bridge_lockscript_args =
+        build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
+    let bridge_lockscript = Script::new_builder()
+        .code_hash(Byte32::from_slice(&hex::decode(
+            &deployed_contracts.bridge_lockscript.code_hash,
+        )?)?)
+        .args(bridge_lockscript_args.as_bytes().pack())
+        .build();
+    let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
+        .bridge_lock_hash(
+            basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap(),
+        )
+        .recipient_lock_hash(
+            basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice()).unwrap(),
+        )
+        .build();
+    let bridge_typescript = Script::new_builder()
+        .code_hash(Byte32::from_slice(
+            &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
+        )?)
+        .args(bridge_typescript_args.as_bytes().pack())
+        .build();
+    let cells = collect_bridge_cells(
+        &mut generator.indexer_client,
+        bridge_lockscript.clone(),
+        bridge_typescript.clone(),
+        cell_num,
+    )
+    .map_err(|e| anyhow!("failed to collect bridge cells {}", e))?;
+    if cells.len() >= cell_num {
+        return Ok(cells
+            .into_iter()
+            .map(|cell| hex::encode(OutPoint::from(cell.out_point).as_slice()))
+            .collect());
+    }
     let unsigned_tx = generator
         .create_bridge_cell(
             tx_fee,
             capacity,
             from_lockscript,
-            eth_token_address,
-            eth_contract_address,
-            recipient_lockscript,
+            bridge_typescript,
+            bridge_lockscript,
             bridge_fee,
+            cell_num,
         )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
     let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
@@ -457,10 +520,16 @@ pub async fn create_bridge_cell(
     let tx_hash = send_tx_sync(&mut generator.rpc_client, &tx, 60)
         .await
         .map_err(|err| anyhow!(err))?;
-    let outpoint = OutPoint::new_builder()
-        .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
-        .build();
-    Ok(hex::encode(outpoint.as_slice()))
+    let mut res = vec![];
+    for i in 0..cell_num {
+        let outpoint = OutPoint::new_builder()
+            .tx_hash(Byte32::from_slice(tx_hash.as_ref())?)
+            .index(i.pack())
+            .build();
+        let outpoint_hex = hex::encode(outpoint.as_slice());
+        res.push(outpoint_hex);
+    }
+    Ok(res)
 }
 
 pub fn build_eth_bridge_lock_args(

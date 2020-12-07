@@ -249,8 +249,8 @@ contract DAI is ERC20 {
         _mint(msg.sender, _supply);
     }
 
-    function getTestToken() external {
-        _mint(msg.sender, _supply);
+    function claimTestToken(address account) external {
+        _mint(account, _supply);
     }
 
     function mint(uint256 amount) external onlyGov {
@@ -276,8 +276,8 @@ contract USDT is ERC20 {
         _mint(msg.sender, _supply);
     }
 
-    function getTestToken() external {
-        _mint(msg.sender, _supply);
+    function claimTestToken(address account) external {
+        _mint(account, _supply);
     }
 
     function mint(uint256 amount) external onlyGov {
@@ -302,8 +302,8 @@ contract USDC is ERC20 {
         _mint(msg.sender, _supply);
     }
 
-    function getTestToken() external {
-        _mint(msg.sender, _supply);
+    function claimTestToken(address account) external {
+        _mint(account, _supply);
     }
 
     function mint(uint256 amount) external onlyGov {

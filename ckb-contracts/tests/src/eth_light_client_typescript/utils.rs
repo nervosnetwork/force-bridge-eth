@@ -4,6 +4,12 @@ use eth_spv_lib::eth_types::*;
 use force_eth_types::generated::{basic, eth_header_cell};
 use molecule::bytes::Bytes;
 use molecule::prelude::*;
+use std::convert::From;
+
+pub fn create_hash_data(block_with_proof: &BlockWithProofs) -> basic::Bytes {
+    let header: BlockHeader = rlp::decode(block_with_proof.header_rlp.0.as_slice()).unwrap();
+    header.hash.unwrap().0.as_bytes().to_vec().into()
+}
 
 pub fn create_data(
     block_with_proof: &BlockWithProofs,
@@ -37,9 +43,17 @@ pub fn create_data(
 pub fn create_cell_data(
     main: Vec<basic::Bytes>,
     uncle: Option<Vec<basic::Bytes>>,
-    block_with_proof: &BlockWithProofs,
+    blocks: &[BlockWithProofs],
 ) -> eth_header_cell::ETHHeaderCellData {
-    let merkle_proof = create_merkle_proof(block_with_proof);
+    let mut merkle_proofs = vec![];
+    for block in blocks {
+        let merkle_proof = create_merkle_proof(&block);
+        merkle_proofs.push(merkle_proof);
+    }
+    let merkle_proofs = eth_header_cell::MerkleProofVec::new_builder()
+        .set(merkle_proofs)
+        .build();
+
     match uncle {
         Some(u) => eth_header_cell::ETHHeaderCellData::new_builder()
             .headers(
@@ -48,7 +62,7 @@ pub fn create_cell_data(
                     .uncle(basic::BytesVec::new_builder().set(u).build())
                     .build(),
             )
-            .merkle_proof(merkle_proof)
+            .merkle_proofs(merkle_proofs)
             .build(),
         None => eth_header_cell::ETHHeaderCellData::new_builder()
             .headers(
@@ -56,12 +70,12 @@ pub fn create_cell_data(
                     .main(basic::BytesVec::new_builder().set(main).build())
                     .build(),
             )
-            .merkle_proof(merkle_proof)
+            .merkle_proofs(merkle_proofs)
             .build(),
     }
 }
 
-fn create_merkle_proof(block_with_proof: &BlockWithProofs) -> basic::BytesVec {
+fn create_merkle_proof(block_with_proof: &BlockWithProofs) -> eth_header_cell::MerkleProof {
     let proof_vec = block_with_proof.to_double_node_with_merkle_proof_vec();
     let mut proof_json_vec = vec![];
     for proof in proof_vec {
@@ -92,12 +106,19 @@ fn create_merkle_proof(block_with_proof: &BlockWithProofs) -> basic::BytesVec {
         proofs.push(basic::Bytes::from(merkle_proof.as_slice().to_vec()));
     }
 
-    basic::BytesVec::new_builder().set(proofs).build()
+    eth_header_cell::MerkleProof::new_builder()
+        .set(proofs)
+        .build()
 }
 
-pub fn create_witness(block_with_proof: BlockWithProofs, cell_dep_index_list: Vec<u8>) -> Bytes {
+pub fn create_witness(header_rlps: Vec<Hex>, cell_dep_index_list: Vec<u8>) -> Bytes {
+    let mut headers = vec![];
+    for rlp in header_rlps {
+        headers.push(basic::Bytes::from(rlp.0.to_vec()))
+    }
+
     let witness_data = eth_header_cell::ETHLightClientWitness::new_builder()
-        .header(block_with_proof.header_rlp.0.into())
+        .headers(basic::BytesVec::new_builder().set(headers).build())
         .cell_dep_index_list(cell_dep_index_list.into())
         .build();
     WitnessArgs::new_builder()

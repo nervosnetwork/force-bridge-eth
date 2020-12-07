@@ -36,8 +36,10 @@ pub struct ServerArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
-    #[clap(short = 'k', long)]
-    pub private_key_path: String,
+    #[clap(short = 'c', long)]
+    pub ckb_private_key_path: String,
+    #[clap(short = 'e', long)]
+    pub eth_private_key_path: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
     #[clap(long, default_value = "~/.force-bridge/force.db")]
@@ -170,7 +172,7 @@ pub struct LockEthArgs {
     #[clap(short, long)]
     pub bridge_fee: u128,
     #[clap(long)]
-    pub sudt_extra_data: String,
+    pub sudt_extra_data: Option<String>,
     #[clap(long)]
     pub ckb_recipient_address: String,
     #[clap(long)]
