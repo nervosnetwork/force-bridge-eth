@@ -267,13 +267,12 @@ impl Generator {
                     idx -= 1;
                 }
                 // remove the item to uncle chain if the index >= idx
-                for i in idx..un_confirmed_headers.len() {
+                while unconfirmed.len() > idx {
                     if uncle_raw_data.len() == UNCLE_HEADER_CACHE_LIMIT {
                         uncle_raw_data.remove(0);
                     }
-                    let data = unconfirmed[i];
-                    unconfirmed.remove(i);
-                    uncle_raw_data.push(data);
+                    uncle_raw_data.push(unconfirmed[idx]);
+                    unconfirmed.remove(idx);
                 }
 
                 let input_tail_raw = unconfirmed[idx - 1];
