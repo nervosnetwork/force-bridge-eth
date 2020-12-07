@@ -31,7 +31,7 @@ bridge_cell_outpoint=$(cat "${ETH_BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
 ${FORCE_CLI} lock-eth --config-path "${FORCE_CONFIG_PATH}" -k 0 --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${bridge_cell_outpoint}" --amount 100 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_ETH_PATH}"
 
 # token crosschain
-${FORCE_CLI} approve --config-path "${FORCE_CONFIG_PATH}" -k 0 --erc20-addr "${TOKEN_ADDRESS}"
+${FORCE_CLI} approve --config-path "${FORCE_CONFIG_PATH}" -k 0 --erc20-addr "${TOKEN_ADDRESS}" --wait
 ${FORCE_CLI} create-bridge-cell --config-path "${FORCE_CONFIG_PATH}" -k 0 --eth-token-address "${TOKEN_ADDRESS}" --recipient-address "${RECIPIENT_ADDR}" --bridge-fee "${bridge_fee}" > "${TOKEN_BRIDGE_CELL_CONFIG_PATH}"
 token_bridge_cell_outpoint=$(cat "${TOKEN_BRIDGE_CELL_CONFIG_PATH}" | jq -r .outpoint)
 ${FORCE_CLI} lock-token --config-path "${FORCE_CONFIG_PATH}" -k 0 --ckb-recipient-address "${RECIPIENT_ADDR}" --replay-resist-outpoint "${token_bridge_cell_outpoint}" --token  "${TOKEN_ADDRESS}" --amount 100 --bridge-fee "${bridge_fee}" --sudt-extra-data sudt_extra_data --wait > "${LOCK_TOKEN_PATH}"
