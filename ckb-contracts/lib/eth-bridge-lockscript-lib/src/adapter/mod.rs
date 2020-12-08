@@ -7,7 +7,7 @@ use ckb_std::ckb_types::{
     prelude::Pack,
 };
 use ckb_std::error::SysError;
-use force_eth_types::config::SUDT_CODE_HASH;
+use force_eth_types::config::{SUDT_CODE_HASH, SUDT_HASH_TYPE};
 #[cfg(feature = "std")]
 use mockall::predicate::*;
 #[cfg(feature = "std")]
@@ -44,6 +44,7 @@ pub trait Adapter {
         let script_hash = self.load_script_hash();
         Script::new_builder()
             .code_hash(Byte32::from_slice(SUDT_CODE_HASH.as_ref()).unwrap())
+            .hash_type(SUDT_HASH_TYPE.into())
             .args(Bytes::from(script_hash.to_vec()).pack())
             .build()
     }
