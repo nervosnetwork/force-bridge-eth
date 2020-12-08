@@ -31,6 +31,7 @@ impl DappState {
         db_path: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
+        let db_path = tilde(db_path.as_str());
         let force_config = ForceConfig::new(config_path.as_str())?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
