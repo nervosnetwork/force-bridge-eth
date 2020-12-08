@@ -362,7 +362,8 @@ pub async fn deploy_ckb(
 
     let deployed_contracts = DeployedContracts {
         bridge_lockscript: ScriptConf {
-            code_hash: bridge_lockscript_code_hash_hex,
+            code_hash__: bridge_lockscript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
@@ -370,7 +371,8 @@ pub async fn deploy_ckb(
             },
         },
         bridge_typescript: ScriptConf {
-            code_hash: bridge_typescript_code_hash_hex,
+            code_hash__: bridge_typescript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
@@ -378,7 +380,8 @@ pub async fn deploy_ckb(
             },
         },
         light_client_typescript: ScriptConf {
-            code_hash: light_client_typescript_code_hash_hex,
+            code_hash__: light_client_typescript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 2,
@@ -386,7 +389,8 @@ pub async fn deploy_ckb(
             },
         },
         light_client_lockscript: ScriptConf {
-            code_hash: light_client_lockscript_code_hash_hex,
+            code_hash__: light_client_lockscript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 3,
@@ -394,7 +398,8 @@ pub async fn deploy_ckb(
             },
         },
         recipient_typescript: ScriptConf {
-            code_hash: recipient_typescript_code_hash_hex,
+            code_hash__: recipient_typescript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 4,
@@ -402,7 +407,8 @@ pub async fn deploy_ckb(
             },
         },
         sudt: ScriptConf {
-            code_hash: sudt_code_hash_hex,
+            code_hash__: sudt_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 5,
@@ -472,8 +478,9 @@ pub async fn get_or_create_bridge_cell(
         build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
     let bridge_lockscript = Script::new_builder()
         .code_hash(Byte32::from_slice(&hex::decode(
-            &deployed_contracts.bridge_lockscript.code_hash,
+            &deployed_contracts.bridge_lockscript.code_hash__,
         )?)?)
+        .hash_type(deployed_contracts.bridge_lockscript.hash_type.into())
         .args(bridge_lockscript_args.as_bytes().pack())
         .build();
     let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
@@ -486,8 +493,9 @@ pub async fn get_or_create_bridge_cell(
         .build();
     let bridge_typescript = Script::new_builder()
         .code_hash(Byte32::from_slice(
-            &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
+            &hex::decode(&deployed_contracts.bridge_typescript.code_hash__).unwrap(),
         )?)
+        .hash_type(deployed_contracts.bridge_typescript.hash_type.into())
         .args(bridge_typescript_args.as_bytes().pack())
         .build();
     let cells = collect_bridge_cells(

@@ -408,7 +408,7 @@ impl Generator {
         }
 
         let lockscript_code_hash =
-            hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash)?;
+            hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash__)?;
         use force_eth_types::generated::basic::ETHAddress;
         let args = ETHBridgeLockArgs::new_builder()
             .eth_token_address(
@@ -421,7 +421,7 @@ impl Generator {
             .build();
         let lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(self.deployed_contracts.bridge_lockscript.hash_type.into())
             .args(args.as_bytes().pack())
             .build();
 
@@ -458,10 +458,10 @@ impl Generator {
         {
             let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript).unwrap();
 
-            let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash)?;
+            let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash__)?;
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
-                .hash_type(ScriptHashType::Data.into())
+                .hash_type(self.deployed_contracts.sudt.hash_type.into())
                 .args(lockscript.calc_script_hash().as_bytes().pack())
                 .build();
 
@@ -669,8 +669,9 @@ impl Generator {
         }
 
         let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            &self.deployed_contracts.sudt.code_hash,
+            &self.deployed_contracts.bridge_lockscript.code_hash__,
+            &self.deployed_contracts.sudt.code_hash__,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;
@@ -679,7 +680,7 @@ impl Generator {
         {
             let mut eth_bridge_lock_hash = [0u8; 32];
             eth_bridge_lock_hash.copy_from_slice(
-                &hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash)
+                &hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash__)
                     .map_err(|err| anyhow!(err))?,
             );
             let eth_recipient_data = ETHRecipientDataView {
@@ -706,12 +707,17 @@ impl Generator {
                 .as_molecule_data()
                 .map_err(|err| anyhow!(err))?;
             let recipient_typescript_code_hash =
-                hex::decode(&self.deployed_contracts.recipient_typescript.code_hash)
+                hex::decode(&self.deployed_contracts.recipient_typescript.code_hash__)
                     .map_err(|err| anyhow!(err))?;
 
             let recipient_typescript: Script = Script::new_builder()
                 .code_hash(Byte32::from_slice(&recipient_typescript_code_hash)?)
-                .hash_type(ScriptHashType::Data.into())
+                .hash_type(
+                    self.deployed_contracts
+                        .recipient_typescript
+                        .hash_type
+                        .into(),
+                )
                 .build();
 
             let eth_recipient_output = CellOutput::new_builder()
@@ -767,8 +773,9 @@ impl Generator {
             .map_err(|err| anyhow!(err))?;
 
         let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            &self.deployed_contracts.sudt.code_hash,
+            &self.deployed_contracts.bridge_lockscript.code_hash__,
+            &self.deployed_contracts.sudt.code_hash__,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;
@@ -812,8 +819,9 @@ impl Generator {
         lock_contract_addr: H160,
     ) -> Result<u128> {
         let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            &self.deployed_contracts.sudt.code_hash,
+            &self.deployed_contracts.bridge_lockscript.code_hash__,
+            &self.deployed_contracts.sudt.code_hash__,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;

@@ -128,13 +128,19 @@ impl ETHRelayer {
                             .generator
                             .deployed_contracts
                             .light_client_typescript
-                            .code_hash,
+                            .code_hash__,
                     )?
                     .as_slice(),
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(
+                self.generator
+                    .deployed_contracts
+                    .light_client_typescript
+                    .hash_type
+                    .into(),
+            )
             .build();
 
         let lockscript = Script::new_builder()
@@ -145,13 +151,19 @@ impl ETHRelayer {
                             .generator
                             .deployed_contracts
                             .light_client_lockscript
-                            .code_hash,
+                            .code_hash__,
                     )?
                     .as_slice(),
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(
+                self.generator
+                    .deployed_contracts
+                    .light_client_lockscript
+                    .hash_type
+                    .into(),
+            )
             .build();
         let current_number = self.eth_client.client().eth().block_number().await?;
         let block = self.eth_client.get_block(current_number.into()).await?;
