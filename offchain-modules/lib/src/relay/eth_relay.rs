@@ -346,7 +346,7 @@ pub async fn update_cell_sync(
             Ok(temp_cell) => {
                 if temp_cell.clone().unwrap().block_number.value() > cell.block_number.value() {
                     *cell = temp_cell.unwrap();
-                    break;
+                    return Ok(());
                 }
             }
             _ => {
@@ -356,7 +356,7 @@ pub async fn update_cell_sync(
         info!("waiting for cell to be committed, loop index: {}", i,);
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
-    Ok(())
+    anyhow::bail!("failed to update cell. please try again.")
 }
 
 pub async fn wait_header_sync_success(

@@ -32,7 +32,7 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
-pub const MAX_RETRY_TIMES: isize = 3;
+pub const MAX_RETRY_TIMES: u64 = 5;
 
 pub async fn approve(
     config_path: String,
@@ -251,8 +251,7 @@ pub async fn send_eth_spv_proof_tx(
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
 
-    let mut retry_times = 0;
-    while retry_times < MAX_RETRY_TIMES {
+    for retry_times in 0..MAX_RETRY_TIMES {
         let unsigned_tx = generator.generate_eth_spv_tx(
             config_path.clone(),
             from_lockscript.clone(),
@@ -266,43 +265,42 @@ pub async fn send_eth_spv_proof_tx(
                 .map_err(|err| anyhow!(err))?
         );
         let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 120).await;
-        if result.is_err() {
-            log::info!(
-                "Failed to send tx, retry times: {:?},  Err: {:?}",
-                retry_times,
-                result.err().unwrap()
-            );
-            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
-            retry_times += 1;
-            continue;
+        match result {
+            Ok((tx_hash, true)) => {
+                let cell_typescript = tx
+                    .output(0)
+                    .ok_or_else(|| anyhow!("no out_put found"))?
+                    .type_()
+                    .to_opt();
+                let cell_script = match cell_typescript {
+                    Some(script) => hex::encode(script.as_slice()),
+                    None => "".to_owned(),
+                };
+                let print_res = serde_json::json!({
+                    "tx_hash": hex::encode(tx.hash().as_slice()),
+                    "cell_typescript": cell_script,
+                });
+                println!("{}", serde_json::to_string_pretty(&print_res)?);
+                return Ok(tx_hash);
+            }
+            Ok((tx_hash, false)) => {
+                log::info!(
+                    "tx {:?} is not commit, retry times: {:?}",
+                    tx_hash,
+                    retry_times
+                );
+            }
+            Err(e) => {
+                log::info!(
+                    "Failed to send tx, retry times: {:?},  Err: {:?}",
+                    retry_times,
+                    e
+                );
+            }
         }
-        let (tx_hash, success) = result.unwrap();
-        if success {
-            let cell_typescript = tx
-                .output(0)
-                .ok_or_else(|| anyhow!("no out_put found"))?
-                .type_()
-                .to_opt();
-            let cell_script = match cell_typescript {
-                Some(script) => hex::encode(script.as_slice()),
-                None => "".to_owned(),
-            };
-            let print_res = serde_json::json!({
-                "tx_hash": hex::encode(tx.hash().as_slice()),
-                "cell_typescript": cell_script,
-            });
-            println!("{}", serde_json::to_string_pretty(&print_res)?);
-            return Ok(tx_hash);
-        } else {
-            log::info!(
-                "tx {:?} is not commit, retry times: {:?}",
-                tx_hash,
-                retry_times
-            );
-            retry_times += 1;
-        }
+        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
-    anyhow::bail!("tx is not commit")
+    anyhow::bail!("tx is not committed, reach max retry times")
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -518,6 +516,7 @@ pub async fn get_or_create_bridge_cell(
             from_lockscript,
             bridge_typescript,
             bridge_lockscript,
+            recipient_lockscript,
             bridge_fee,
             cell_num,
         )
