@@ -625,7 +625,7 @@ impl Generator {
             .capacity((ONE_CKB * 61).pack())
             .lock(recipient_lockscript)
             .build();
-        tx_helper.add_output(addtional_output.clone(), Bytes::new());
+        tx_helper.add_output(addtional_output, Bytes::new());
         // build tx
         let tx = tx_helper
             .supply_capacity(
