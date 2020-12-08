@@ -48,10 +48,12 @@ jobs:
           profile: minimal
           toolchain: nightly-2020-10-22
           override: true
-          components: rustfmt, clippy
+          components: rustfmt, clippy, tarpaulin
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all --tests -- -D warnings
       - run: capsule build
       - run: cargo test -- --nocapture
       - name: lib code coverage
-        run: ./ckb_script_coverage.sh
+        run: |
+          cargo install cargo-tarpaulin
+          ./ckb_script_coverage.sh
