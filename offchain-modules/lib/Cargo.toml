@@ -40,3 +40,4 @@ actix-web = "3"
 derive_more = "0.99"
 actix-cors = "0.5"
 sqlx = { version = "0.4.0", features = [ "sqlite", "runtime-actix-native-tls" ] }
+rand = "0.7.3"

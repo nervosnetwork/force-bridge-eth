@@ -1,0 +1,9 @@
+build/*
+target/*
+contracts/**/target/*
+.cache/.cargo/*
+!.gitkeep
+.tmp/
+**.idea
+**.DS_Store
+**.lock
