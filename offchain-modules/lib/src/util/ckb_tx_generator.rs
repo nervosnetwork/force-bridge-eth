@@ -8,7 +8,7 @@ use crate::util::eth_util::convert_to_header_rlp;
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
-use ckb_types::core::{BlockView, Capacity, DepType, ScriptHashType, TransactionView};
+use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
 use ckb_types::packed::{HeaderVec, WitnessArgs};
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{

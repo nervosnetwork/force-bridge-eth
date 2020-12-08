@@ -5,7 +5,7 @@ use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
 use ckb_sdk::{AddressPayload, SECP256K1};
-use ckb_types::core::{ScriptHashType, TransactionView};
+use ckb_types::core::TransactionView;
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity};
 use cmd_lib::run_cmd;
