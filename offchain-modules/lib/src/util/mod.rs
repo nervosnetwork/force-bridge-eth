@@ -28,15 +28,11 @@ pub async fn transfer(
     tx_fee: String,
 ) -> Result<String> {
     let force_config = ForceConfig::new(config_path.as_str())?;
-    let deployed_contracts = force_config
-        .deployed_contracts
-        .as_ref()
-        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
 
-    let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
-        .map_err(|e| anyhow!(e))?;
+    let mut generator =
+        Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default()).map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;

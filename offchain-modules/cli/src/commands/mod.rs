@@ -84,13 +84,7 @@ pub async fn init_config(args: InitArgs) -> Result<()> {
 }
 
 pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
-    to_ckb::deploy_ckb(
-        args.config_path,
-        args.network,
-        args.private_key_path,
-        args.eth_dag_path,
-    )
-    .await
+    to_ckb::deploy_ckb(args.config_path, args.network, args.private_key_path).await
 }
 
 pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {

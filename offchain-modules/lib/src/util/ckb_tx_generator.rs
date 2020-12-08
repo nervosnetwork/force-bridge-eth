@@ -79,7 +79,6 @@ impl Generator {
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
-            self.deployed_contracts.dag_merkle_roots.clone(),
             self.deployed_contracts
                 .light_client_lockscript
                 .outpoint
@@ -180,7 +179,6 @@ impl Generator {
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
-            self.deployed_contracts.dag_merkle_roots.clone(),
             self.deployed_contracts
                 .light_client_lockscript
                 .outpoint
