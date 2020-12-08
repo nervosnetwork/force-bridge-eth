@@ -510,6 +510,7 @@ pub async fn get_or_create_bridge_cell(
             from_lockscript,
             bridge_typescript,
             bridge_lockscript,
+            recipient_lockscript,
             bridge_fee,
             cell_num,
         )
