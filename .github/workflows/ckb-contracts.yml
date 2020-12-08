@@ -48,7 +48,7 @@ jobs:
           profile: minimal
           toolchain: nightly-2020-10-22
           override: true
-          components: rustfmt, clippy, tarpaulin
+          components: rustfmt, clippy
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all --tests -- -D warnings
       - run: capsule build
