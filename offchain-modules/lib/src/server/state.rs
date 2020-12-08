@@ -31,13 +31,13 @@ impl DappState {
         db_path: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
-        let db_path = tilde(db_path.as_str());
         let force_config = ForceConfig::new(config_path.as_str())?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let from_privkey =
             parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
+        let db_path = tilde(db_path.as_str()).into_owned();
         Ok(Self {
             ckb_private_key_path,
             eth_private_key_path,
