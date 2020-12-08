@@ -31,8 +31,8 @@ pub async fn transfer(
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
 
-    let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
-        .map_err(|e| anyhow!(e))?;
+    let mut generator =
+        Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default()).map_err(|e| anyhow!(e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;

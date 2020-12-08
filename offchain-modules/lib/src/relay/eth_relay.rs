@@ -312,7 +312,7 @@ impl ETHRelayer {
                 .map_err(|err| anyhow!(err))?;
 
             // update cell current_block and number.
-            update_cell_sync(&mut self.generator.indexer_client, &tx, 60, &mut cell)
+            update_cell_sync(&mut self.generator.indexer_client, &tx, 120, &mut cell)
                 .await
                 .map_err(|err| anyhow::anyhow!(err))?;
             current_block = headers[headers.len() - 1].clone();

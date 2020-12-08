@@ -40,10 +40,10 @@ ${FORCE_CLI} lock-token --config-path "${FORCE_CONFIG_PATH}" -k 0 --ckb-recipien
 lock_eth_hash=`cat "${LOCK_ETH_PATH}"| awk '{print $4}'`
 ${FORCE_CLI} mint --config-path "${FORCE_CONFIG_PATH}" -k 0 --hash "${lock_eth_hash}"
 ${FORCE_CLI} query-sudt-blance --config-path "${FORCE_CONFIG_PATH}" --addr ${RECIPIENT_ADDR} --token-addr "${ETH_ADDRESS}"
-${FORCE_CLI} transfer-from-ckb --config-path "${FORCE_CONFIG_PATH}" --ckb-privkey-path 0 --eth-privkey-path 1 --burn-amount 2 --unlock-fee 1 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr ${ETH_ADDRESS} --wait
+${FORCE_CLI} transfer-from-ckb --config-path "${FORCE_CONFIG_PATH}" --ckb-privkey-path 0 --eth-privkey-path 3 --burn-amount 2 --unlock-fee 1 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d   --token-addr ${ETH_ADDRESS} --wait
 
 # token crosschain
 lock_token_hash=`cat "${LOCK_TOKEN_PATH}"| awk '{print $5}'`
 ${FORCE_CLI} mint --config-path "${FORCE_CONFIG_PATH}" -k 0 --hash "${lock_token_hash}"
 ${FORCE_CLI} query-sudt-blance --config-path "${FORCE_CONFIG_PATH}" --addr ${RECIPIENT_ADDR} --token-addr "${TOKEN_ADDRESS}"
-${FORCE_CLI} transfer-from-ckb --config-path "${FORCE_CONFIG_PATH}" --ckb-privkey-path 0 --eth-privkey-path 1 --burn-amount 2 --unlock-fee 1 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d --wait --token-addr "${TOKEN_ADDRESS}"
+${FORCE_CLI} transfer-from-ckb --config-path "${FORCE_CONFIG_PATH}" --ckb-privkey-path 0 --eth-privkey-path 3 --burn-amount 2 --unlock-fee 1 --receive-addr 0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d --wait --token-addr "${TOKEN_ADDRESS}"

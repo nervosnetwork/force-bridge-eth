@@ -7,6 +7,8 @@ use force_sdk::util::ensure_indexer_sync;
 use secp256k1::SecretKey;
 use shellexpand::tilde;
 use sqlx::SqlitePool;
+use std::fs::OpenOptions;
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct DappState {
@@ -37,6 +39,8 @@ impl DappState {
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let from_privkey =
             parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
+        let db_path = tilde(db_path.as_str()).into_owned();
+        OpenOptions::new().create(true).open(Path::new(&db_path))?;
         Ok(Self {
             ckb_private_key_path,
             eth_private_key_path,
