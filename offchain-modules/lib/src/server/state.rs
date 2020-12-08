@@ -7,8 +7,6 @@ use force_sdk::util::ensure_indexer_sync;
 use secp256k1::SecretKey;
 use shellexpand::tilde;
 use sqlx::SqlitePool;
-use std::fs::OpenOptions;
-use std::path::Path;
 
 #[derive(Clone)]
 pub struct DappState {
