@@ -128,7 +128,7 @@ impl ETHRelayer {
                             .generator
                             .deployed_contracts
                             .light_client_typescript
-                            .code_hash__,
+                            .code_hash,
                     )?
                     .as_slice(),
                 )
@@ -151,7 +151,7 @@ impl ETHRelayer {
                             .generator
                             .deployed_contracts
                             .light_client_lockscript
-                            .code_hash__,
+                            .code_hash,
                     )?
                     .as_slice(),
                 )
