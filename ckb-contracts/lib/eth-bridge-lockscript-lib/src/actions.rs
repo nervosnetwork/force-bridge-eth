@@ -23,13 +23,8 @@ pub fn verify_manage_mode<T: Adapter>(data_loader: &T) {
 }
 
 pub fn verify_mint_token<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader) {
-    verify_eth_light_client();
     let eth_receipt_info = verify_witness(data_loader, witness);
     verify_eth_receipt_info(data_loader, eth_receipt_info);
-}
-
-fn verify_eth_light_client() {
-    // todo!()
 }
 
 /// Verify eth witness data.
