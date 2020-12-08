@@ -190,25 +190,25 @@ pub async fn generate_eth_spv_proof_json(
     ethereum_rpc_url: String,
     eth_token_locker_addr: String,
 ) -> Result<ETHSPVProofJson> {
-    let mut retry = 2;
-    let eth_spv_proof;
-    loop {
-        let ret = generate_eth_proof(hash.clone(), ethereum_rpc_url.clone());
-        if ret.is_err() {
-            info!("get eth receipt proof failed, retried {} times", 2 - retry);
-            retry -= 1;
-        } else {
-            eth_spv_proof = ret.unwrap();
-            break;
+    let eth_spv_proof_retry = |max_retry_times| {
+        for retry in 0..max_retry_times {
+            let ret = generate_eth_proof(hash.clone(), ethereum_rpc_url.clone());
+            match ret {
+                Ok(proof) => return Ok(proof),
+                Err(e) => {
+                    info!(
+                        "get eth receipt proof failed, retried {} times, err: {}",
+                        retry, e
+                    );
+                }
+            }
         }
-        if retry > 0 {
-            continue;
-        } else {
-            return Err(ret
-                .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))
-                .unwrap_err());
-        }
-    }
+        Err(anyhow!(
+            "Failed to generate eth proof after retry {} times",
+            max_retry_times
+        ))
+    };
+    let eth_spv_proof = eth_spv_proof_retry(3)?;
     let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
     info!("eth_spv_proof: {:?}", eth_spv_proof);
     let hash_str = hash.clone();
