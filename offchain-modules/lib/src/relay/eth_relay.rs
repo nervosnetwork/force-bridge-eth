@@ -14,7 +14,7 @@ use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::sign;
 use force_sdk::util::send_tx_sync;
-use log::info;
+use log::{debug, info};
 use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
@@ -415,7 +415,7 @@ pub async fn wait_header_sync_success(
                 cell = cell_op.unwrap();
             }
             Err(_) => {
-                info!("waiting for finding cell deps, loop index: {}", i);
+                debug!("waiting for finding cell deps, loop index: {}", i);
                 tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 i += 1;
                 continue;
