@@ -210,7 +210,7 @@ pub async fn send_tx_sync_with_response(
             .get_transaction(tx_hash.clone())
             .map_err(|err| anyhow!(err))?
             .map(|t| t.tx_status.status);
-        log::debug!(
+        log::info!(
             "waiting for tx {} to be committed, loop index: {}, status: {:?}",
             &tx_hash,
             i,
