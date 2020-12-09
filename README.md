@@ -47,7 +47,7 @@ Take assets transfer as an example:
 
 ## Architecture
 
-![architecture](../docs/media/multi-sig-architecture.png)
+![architecture](./docs/media/multi-sig-architecture.png)
 
 Force-bridge-eth will support assets transfer natively, the system consists of on-chain contracts and off-chain components.
 
