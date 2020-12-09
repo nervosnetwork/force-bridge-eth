@@ -17,3 +17,4 @@ mockall = { version = "0.8", optional = true }
 force-eth-types = { path = "../../types", default-features = false, features = ["contract"] }
 molecule = { version = "0.6", default-features = false }
 blake2b-ref = "0.1.0"
+hex = { version = "0.4", default-features = false }

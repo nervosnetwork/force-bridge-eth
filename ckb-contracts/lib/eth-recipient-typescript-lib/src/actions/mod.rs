@@ -1,4 +1,4 @@
-use crate::adapter::Adapter;
+use crate::adapter::{get_sudt_amount_from_source, Adapter};
 use crate::debug;
 use ckb_std::ckb_constants::Source;
 
@@ -22,9 +22,9 @@ pub fn verify_burn_token<T: Adapter>(data_loader: T, data: ETHRecipientDataView)
         &data.eth_bridge_lock_hash,
     );
     let input_sudt_num =
-        data_loader.get_sudt_amount_from_source(Source::Input, &eth_bridge_lock_hash);
+        get_sudt_amount_from_source(&data_loader, Source::Input, &eth_bridge_lock_hash);
     let output_sudt_num =
-        data_loader.get_sudt_amount_from_source(Source::Output, &eth_bridge_lock_hash);
+        get_sudt_amount_from_source(&data_loader, Source::Output, &eth_bridge_lock_hash);
     if input_sudt_num < output_sudt_num {
         panic!(
             "input sudt less than output sudt, input {:?}, output {:?}",
@@ -46,7 +46,7 @@ pub fn verify_burn_token<T: Adapter>(data_loader: T, data: ETHRecipientDataView)
     }
 }
 
-fn calc_eth_bridge_lock_hash(
+pub fn calc_eth_bridge_lock_hash(
     eth_contract_address: ETHAddress,
     eth_token_address: ETHAddress,
     eth_bridge_lock_hash: &[u8; 32],
