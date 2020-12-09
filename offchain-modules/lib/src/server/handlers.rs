@@ -84,7 +84,7 @@ pub async fn get_crosschain_history(
             hex::encode(from_lockscript.as_slice())
         }
     };
-    log::info!(
+    log::debug!(
         "ckb_recipient_lockscript args: {:?}",
         ckb_recipient_lockscript
     );
