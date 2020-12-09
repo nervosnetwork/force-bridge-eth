@@ -55,6 +55,5 @@ jobs:
       - run: cargo test -- --nocapture
       - name: lib code coverage
         run: |
-          cargo install cargo-tarpaulin
           chmod 777 ./ckb_script_coverage.sh
           ./ckb_script_coverage.sh
