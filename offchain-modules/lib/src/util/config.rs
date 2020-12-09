@@ -131,6 +131,7 @@ pub struct OutpointConf {
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct ScriptConf {
     pub code_hash: String,
+    pub hash_type: u8,
     pub outpoint: OutpointConf,
 }
 
