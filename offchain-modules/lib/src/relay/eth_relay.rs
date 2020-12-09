@@ -239,8 +239,9 @@ impl ETHRelayer {
                 )
                 .await;
             if block.is_ok() {
-                if block.unwrap().hash.unwrap() == latest_header.hash.unwrap() {
-                    return Ok(block.unwrap());
+                let block = block.unwrap();
+                if block.hash.unwrap() == latest_header.hash.unwrap() {
+                    return Ok(block);
                 }
             }
             // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
