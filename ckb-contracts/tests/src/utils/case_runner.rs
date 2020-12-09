@@ -2,9 +2,9 @@
 
 use super::case_builder::{
     CellBuilder, OutpointsContext, TestCase, ALWAYS_SUCCESS_OUTPOINT_KEY,
-    ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY, ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY,
-    ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY, ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY,
-    FIRST_INPUT_OUTPOINT_KEY, SUDT_TYPESCRIPT_OUTPOINT_KEY,
+    ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY, ETH_BRIDGE_TYPESCRIPT_OUTPOINT_KEY,
+    ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY, ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY,
+    ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY, FIRST_INPUT_OUTPOINT_KEY, SUDT_TYPESCRIPT_OUTPOINT_KEY,
 };
 use crate::*;
 use ckb_testtool::{builtin::ALWAYS_SUCCESS, context::Context};
@@ -125,6 +125,9 @@ fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContex
     let eth_bridge_lockscript_bin: Bytes = Loader::default().load_binary("eth-bridge-lockscript");
     let eth_bridge_lockscript_point = context.deploy_cell(eth_bridge_lockscript_bin);
 
+    let eth_bridge_typescript_bin: Bytes = Loader::default().load_binary("eth-bridge-typescript");
+    let eth_bridge_typescript_point = context.deploy_cell(eth_bridge_typescript_bin);
+
     let eth_light_client_lockscript_bin: Bytes =
         Loader::default().load_binary("eth-light-client-lockscript");
     let eth_light_client_lockscript_point = context.deploy_cell(eth_light_client_lockscript_bin);
@@ -145,6 +148,10 @@ fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContex
     outpoints_context.insert(
         ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY,
         eth_bridge_lockscript_point.clone(),
+    );
+    outpoints_context.insert(
+        ETH_BRIDGE_TYPESCRIPT_OUTPOINT_KEY,
+        eth_bridge_typescript_point.clone(),
     );
     outpoints_context.insert(
         ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY,
@@ -206,9 +213,8 @@ fn build_output_cell<I, B>(
 }
 
 fn check_err(context: &Context, info: String) -> bool {
-    let expected = format!("panic occurred: {}", info);
     for message in context.captured_messages() {
-        if message.message.contains(&expected.clone()) {
+        if message.message.contains("panic occurred:") && message.message.contains(&info.clone()) {
             return true;
         }
     }

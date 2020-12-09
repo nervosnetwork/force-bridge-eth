@@ -19,7 +19,9 @@ use std::vec::Vec;
 use crate::eth_light_client_typescript::types as light_client_types;
 use crate::eth_light_client_typescript::utils as light_client_utils;
 
-pub const ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY: &str = "eth_bridge_lockcript_outpoint_key";
+pub const ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY: &str = "eth_bridge_lockscript_outpoint_key";
+pub const ETH_BRIDGE_TYPESCRIPT_OUTPOINT_KEY: &str = "eth_bridge_typescript_outpoint_key";
+
 pub const ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY: &str =
     "eth_light_client_lockcript_outpoint_key";
 pub const ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY: &str =
@@ -68,7 +70,7 @@ pub enum CustomCell {
     ETHRecipientCustomCell(ETHRecipientCell),
     ETHLightClientLockCustomCell(ETHLightClientLockCell),
     ETHLightClientTypeCustomCell(ETHLightClientTypeCell),
-    ETHBridgeLockCustomCell(ETHBridgeLockCell),
+    ETHBridgeCustomCell(ETHBridgeCell),
 }
 
 impl CellBuilder for CustomCell {
@@ -78,8 +80,8 @@ impl CellBuilder for CustomCell {
         outpoints: &OutpointsContext,
     ) -> (OutPoint, CellInput) {
         match self {
-            CustomCell::ETHBridgeLockCustomCell(eth_bridge_lock_cell) => {
-                eth_bridge_lock_cell.build_input_cell(context, outpoints)
+            CustomCell::ETHBridgeCustomCell(eth_bridge_cell) => {
+                eth_bridge_cell.build_input_cell(context, outpoints)
             }
             _ => {
                 let (cell_data, cell) = self.build_output_cell(context, outpoints);
@@ -107,8 +109,8 @@ impl CellBuilder for CustomCell {
             CustomCell::ETHLightClientTypeCustomCell(eth_light_client_type_cell) => {
                 eth_light_client_type_cell.build_output_cell(context, outpoints)
             }
-            CustomCell::ETHBridgeLockCustomCell(eth_bridge_lock_cell) => {
-                eth_bridge_lock_cell.build_output_cell(context, outpoints)
+            CustomCell::ETHBridgeCustomCell(eth_bridge_cell) => {
+                eth_bridge_cell.build_output_cell(context, outpoints)
             }
         }
     }
@@ -122,7 +124,7 @@ impl CellBuilder for CustomCell {
             CustomCell::ETHLightClientTypeCustomCell(eth_light_client_type_cell) => {
                 eth_light_client_type_cell.index
             }
-            CustomCell::ETHBridgeLockCustomCell(eth_bridge_lock_cell) => eth_bridge_lock_cell.index,
+            CustomCell::ETHBridgeCustomCell(eth_bridge_cell) => eth_bridge_cell.index,
         }
     }
 }
@@ -376,14 +378,14 @@ impl ETHLightClientTypeCell {
     }
 }
 
-pub struct ETHBridgeLockCell {
+pub struct ETHBridgeCell {
     pub capacity: u64,
     pub index: usize,
     pub eth_contract_address: String,
     pub eth_token_address: String,
 }
 
-impl ETHBridgeLockCell {
+impl ETHBridgeCell {
     fn build_input_cell(
         &self,
         context: &mut Context,
