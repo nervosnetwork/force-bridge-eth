@@ -53,3 +53,9 @@ jobs:
       - run: cargo clippy --all --tests -- -D warnings
       - run: capsule build
       - run: cargo test -- --nocapture
+      - name: lib code coverage
+        run: |
+          chmod 777 ./ckb_script_coverage.sh
+          cargo install cargo-tarpaulin -f
+          export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
+          bash ./ckb_script_coverage.sh
