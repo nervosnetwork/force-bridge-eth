@@ -46,7 +46,12 @@ fi
 
 if [ "${ETH_CONTRACTS_JSON}" = "" ]
 then
-  cd ${ETH_CONTRACTS_DIR} && npx hardhat run ./scripts/deploy.js > ~/.force-bridge/erc20-contracts.json
+  cd ${ETH_CONTRACTS_DIR} \
+  && npx hardhat run ./scripts/deploy.js \
+  && npx hardhat run ./scripts/deploy-erc20.js > ~/.force-bridge/erc20-contracts.json
+
 else
-  cd ${ETH_CONTRACTS_DIR} && npx hardhat run ./scripts/deploy.js > ${ETH_CONTRACTS_JSON}
+  cd ${ETH_CONTRACTS_DIR} \
+  && npx hardhat run ./scripts/deploy.js \
+  && npx hardhat run ./scripts/deploy-erc20.js > "${ETH_CONTRACTS_JSON}"
 fi

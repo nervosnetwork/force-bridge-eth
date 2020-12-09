@@ -37,6 +37,7 @@ impl DappState {
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let from_privkey =
             parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
+        let db_path = tilde(db_path.as_str()).into_owned();
         Ok(Self {
             ckb_private_key_path,
             eth_private_key_path,
