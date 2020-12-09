@@ -43,7 +43,6 @@ jobs:
           wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.2.3/capsule_v0.2.3_x86_64-linux.tar.gz
           tar -zxvf capsule_v0.2.3_x86_64-linux.tar.gz
           cp capsule_v0.2.3_x86_64-linux/capsule ~/.cargo/bin
-          cargo install cargo-tarpaulin
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -57,5 +56,6 @@ jobs:
       - name: lib code coverage
         run: |
           chmod 777 ./ckb_script_coverage.sh
+          cargo install cargo-tarpaulin -f
           export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
           bash ./ckb_script_coverage.sh

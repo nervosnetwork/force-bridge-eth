@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+echo $CODECOV_TOKEN
 lib_dirs=("lib/eth-bridge-lockscript-lib" "lib/eth-light-client-lockscript-lib" "lib/eth-recipient-typescript-lib")
 for dir in "${lib_dirs[@]}"
 do
