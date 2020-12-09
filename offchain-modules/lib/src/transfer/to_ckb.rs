@@ -308,7 +308,7 @@ pub async fn deploy_ckb(
     config_path: String,
     network: Option<String>,
     private_key_path: String,
-    deploy_sudt: Option<bool>,
+    deploy_sudt: bool,
 ) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     let mut force_config = ForceConfig::new(config_path.as_str())?;
@@ -341,7 +341,6 @@ pub async fn deploy_ckb(
     let recipient_typescript_code_hash = blake2b_256(&recipient_typescript_bin);
     let recipient_typescript_code_hash_hex = hex::encode(&recipient_typescript_code_hash);
 
-
     let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
@@ -349,7 +348,7 @@ pub async fn deploy_ckb(
         light_client_lockscript_bin,
         recipient_typescript_bin,
     ];
-    let sudt_code_hash_hex = if deploy_sudt.is_some() {
+    let sudt_code_hash_hex = if deploy_sudt {
         let sudt_path = force_config.get_sudt_typescript_bin_path()?;
         let sudt_bin = std::fs::read(sudt_path)?;
         let sudt_code_hash = blake2b_256(&sudt_bin);
@@ -367,7 +366,7 @@ pub async fn deploy_ckb(
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
     let (pw_locks, sudt_conf) = match (force_config.deployed_contracts, deploy_sudt) {
-        (Some(deployed_contracts), Some(_)) => {
+        (Some(deployed_contracts), true) => {
             let sudt_conf = ScriptConf {
                 code_hash: sudt_code_hash_hex.expect("should have value"),
                 hash_type: 0,
@@ -378,11 +377,9 @@ pub async fn deploy_ckb(
                 },
             };
             (deployed_contracts.pw_locks, sudt_conf)
-        },
-        (Some(deployed_contracts), None) => {
-            (deployed_contracts.pw_locks, deployed_contracts.sudt)
-        },
-        (None, Some(_)) => {
+        }
+        (Some(deployed_contracts), false) => (deployed_contracts.pw_locks, deployed_contracts.sudt),
+        (None, true) => {
             let sudt_conf = ScriptConf {
                 code_hash: sudt_code_hash_hex.expect("should have value"),
                 hash_type: 0,
@@ -393,10 +390,8 @@ pub async fn deploy_ckb(
                 },
             };
             (Default::default(), sudt_conf)
-        },
-        (None, None) => {
-            (Default::default(), Default::default())
         }
+        (None, false) => (Default::default(), Default::default()),
     };
 
     let deployed_contracts = DeployedContracts {
@@ -440,7 +435,7 @@ pub async fn deploy_ckb(
             code_hash: recipient_typescript_code_hash_hex,
             hash_type: 0,
             outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
+                tx_hash: tx_hash_hex,
                 index: 4,
                 dep_type: 0,
             },

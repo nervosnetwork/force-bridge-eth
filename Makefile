@@ -34,6 +34,9 @@ remove-docker-network:
 deploy-ckb:
 	${FORCE_CLI} deploy-ckb -k 0
 
+deploy-ckb-sudt:
+	${FORCE_CLI} deploy-ckb --sudt -k 0
+
 deploy-eth:
 	export FORCE_CONFIG_PATH=~/.force-bridge/config.toml \
 	&& cd eth-contracts \
@@ -73,7 +76,7 @@ restart-force-server:
 
 start-services: start-relay start-force-services
 
-restart-services: restart-relay restart-force-services
+restart-services: restart-relay restart-force-server
 
 deploy-from-scratch: deploy-contracts init-light-client start-services
 
@@ -83,7 +86,7 @@ start-offchain-services:
 stop-offchain-services:
 	bash offchain-modules/stop-services.sh
 
-setup-dev-env: build-all start-docker-network deploy-contracts deploy-erc20 start-offchain-services
+setup-dev-env: build-all start-docker-network deploy-ckb-sudt deploy-eth deploy-erc20 start-offchain-services
 
 close-dev-env: stop-offchain-services remove-docker-network
 
