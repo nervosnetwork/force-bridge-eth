@@ -53,7 +53,7 @@ init-light-client:
 	${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
 
 ckb2eth-relay:
-	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 2 --per-amount 5"
+	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 1 --per-amount 5"
 
 eth2ckb-relay:
 	pm2 start --name eth2ckb-relay "${FORCE_CLI} eth-relay -k 1"
