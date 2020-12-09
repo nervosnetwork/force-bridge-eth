@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export CODECOV_TOKEN="9049b41d-9a3b-4610-94e2-ddaddff3ad11"
+export CODECOV_TOKEN="5dd6c58b-314c-419a-9a75-3f323d68aa1e"
 lib_dirs=("lib/eth-bridge-lockscript-lib" "lib/eth-light-client-lockscript-lib" "lib/eth-recipient-typescript-lib")
 for dir in "${lib_dirs[@]}"
 do
