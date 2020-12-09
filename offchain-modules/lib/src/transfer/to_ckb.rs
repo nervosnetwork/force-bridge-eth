@@ -298,7 +298,7 @@ pub async fn send_eth_spv_proof_tx(
                 );
             }
         }
-        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        tokio::time::delay_for(std::time::Duration::from_secs(retry_times * 3 + 1)).await;
     }
     anyhow::bail!("tx is not committed, reach max retry times")
 }
