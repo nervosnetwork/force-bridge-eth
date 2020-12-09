@@ -18,8 +18,9 @@ use crate::util::{get_live_cell_with_cache, get_privkey_signer};
 use ckb_sdk::constants::{
     MIN_SECP_CELL_CAPACITY, MULTISIG_TYPE_HASH, ONE_CKB, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH,
 };
-use ckb_sdk::HttpRpcClient;
+use ckb_sdk::{Address, HttpRpcClient};
 use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since};
+use failure::_core::str::FromStr;
 use secp256k1::SecretKey;
 
 pub const CKB_UNITS: u64 = 100_000_000;
@@ -69,6 +70,30 @@ pub fn sign(
     };
     let mut tx_helper = TxHelper::new(tx);
     tx_helper.sign(get_live_cell_fn, privkey)
+}
+
+#[allow(clippy::mutable_key_type)]
+pub fn sign_with_multi_key(
+    tx: TransactionView,
+    rpc_client: &mut HttpRpcClient,
+    privkeys: Vec<&SecretKey>,
+) -> Result<TransactionView, String> {
+    let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> = Default::default();
+    let get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+        get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+            .map(|(output, _)| output)
+    };
+    let mut tx_helper = TxHelper::new(tx);
+    let address_a = Address::from_str("ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk").unwrap();
+    let address_b = Address::from_str("ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37").unwrap();
+    let addresses = vec![address_a, address_b];
+    let sighash_addresses = addresses
+        .into_iter()
+        .map(|address| address.payload().clone())
+        .collect::<Vec<_>>();
+    let cfg = MultisigConfig::new_with(sighash_addresses, 0, 2)?;
+    tx_helper.add_multisig_config(cfg);
+    tx_helper.sign_with_multi_key(get_live_cell_fn, privkeys)
 }
 
 /// A transaction helper handle input/output with secp256k1(sighash/multisg) lock
@@ -544,6 +569,24 @@ impl TxHelper {
         let signer = get_privkey_signer(*privkey);
         for (lock_arg, signature) in self.sign_inputs(signer, &mut get_live_cell_fn, true)? {
             self.add_signature(lock_arg, signature)?;
+        }
+        self.build_tx(&mut get_live_cell_fn, true)
+    }
+
+    pub fn sign_with_multi_key<F: FnMut(OutPoint, bool) -> Result<CellOutput, String>>(
+        &mut self,
+        mut get_live_cell_fn: F,
+        privkeys: Vec<&SecretKey>,
+    ) -> Result<TransactionView, String> {
+        dbg!(privkeys.clone());
+        for key in privkeys {
+            dbg!(key);
+            let signer = get_privkey_signer(*key);
+            for (lock_arg, signature) in self.sign_inputs(signer, &mut get_live_cell_fn, true)? {
+                dbg!(hex::encode(lock_arg.clone()));
+                dbg!(hex::encode(signature.clone()));
+                self.add_signature(lock_arg, signature)?;
+            }
         }
         self.build_tx(&mut get_live_cell_fn, true)
     }

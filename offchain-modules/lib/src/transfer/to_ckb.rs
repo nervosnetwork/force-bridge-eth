@@ -308,27 +308,27 @@ pub async fn deploy_ckb(
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
     let bridge_typescript_path = force_config.get_bridge_typescript_bin_path()?;
     let bridge_lockscript_path = force_config.get_bridge_lockscript_bin_path()?;
-    let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
-    let light_client_lockscript_path = force_config.get_light_client_lockscript_bin_path()?;
+    // let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
+    // let light_client_lockscript_path = force_config.get_light_client_lockscript_bin_path()?;
     let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
     let sudt_path = force_config.get_sudt_typescript_bin_path()?;
 
     // dev deploy
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
-    let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
-    let light_client_lockscript_bin = std::fs::read(light_client_lockscript_path)?;
+    // let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
+    // let light_client_lockscript_bin = std::fs::read(light_client_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
     let sudt_bin = std::fs::read(sudt_path)?;
 
     let bridge_typescript_code_hash = blake2b_256(&bridge_typescript_bin);
     let bridge_typescript_code_hash_hex = hex::encode(&bridge_typescript_code_hash);
 
-    let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
-    let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
+    // let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
+    // let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
 
-    let light_client_lockscript_code_hash = blake2b_256(&light_client_lockscript_bin);
-    let light_client_lockscript_code_hash_hex = hex::encode(&light_client_lockscript_code_hash);
+    // let light_client_lockscript_code_hash = blake2b_256(&light_client_lockscript_bin);
+    // let light_client_lockscript_code_hash_hex = hex::encode(&light_client_lockscript_code_hash);
 
     let bridge_lockscript_code_hash = blake2b_256(&bridge_lockscript_bin);
     let bridge_lockscript_code_hash_hex = hex::encode(&bridge_lockscript_code_hash);
@@ -342,8 +342,8 @@ pub async fn deploy_ckb(
     let data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
-        light_client_typescript_bin,
-        light_client_lockscript_bin,
+        // light_client_typescript_bin,
+        // light_client_lockscript_bin,
         recipient_typescript_bin,
         sudt_bin,
     ];
@@ -377,27 +377,11 @@ pub async fn deploy_ckb(
                 dep_type: 0,
             },
         },
-        light_client_typescript: ScriptConf {
-            code_hash: light_client_typescript_code_hash_hex,
-            outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
-                index: 2,
-                dep_type: 0,
-            },
-        },
-        light_client_lockscript: ScriptConf {
-            code_hash: light_client_lockscript_code_hash_hex,
-            outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
-                index: 3,
-                dep_type: 0,
-            },
-        },
         recipient_typescript: ScriptConf {
             code_hash: recipient_typescript_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
-                index: 4,
+                index: 2,
                 dep_type: 0,
             },
         },
@@ -405,13 +389,13 @@ pub async fn deploy_ckb(
             code_hash: sudt_code_hash_hex,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
-                index: 5,
+                index: 3,
                 dep_type: 0,
             },
         },
         dag_merkle_roots: OutpointConf {
             tx_hash: tx_hash_hex,
-            index: 6,
+            index: 4,
             dep_type: 0,
         },
         light_client_cell_script: CellScript {

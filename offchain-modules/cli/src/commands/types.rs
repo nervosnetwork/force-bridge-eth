@@ -292,6 +292,8 @@ pub struct EthRelayArgs {
     pub private_key_path: String,
     #[clap(long, default_value = "data/proof_data.json")]
     pub proof_data_path: String,
+    #[clap(long)]
+    pub multisig_args: String,
 }
 
 #[derive(Clap, Clone, Debug)]
