@@ -221,17 +221,27 @@ impl ETHRelayer {
                 .eth_client
                 .get_block(
                     latest_header
-                        .hash
-                        .ok_or_else(|| anyhow!("the block hash is not exist."))?
+                        .number
+                        .ok_or_else(|| anyhow!("this number of block is not exist."))?
                         .into(),
                 )
                 .await;
-            if block.is_err() {
-                // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
-                index -= 1;
-                continue;
+            match block {
+                Ok(block) => {
+                    if block.hash.unwrap() == latest_header.hash.unwrap() {
+                        return Ok(block);
+                    } else {
+                        // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+                        index -= 1;
+                        continue;
+                    }
+                }
+                Err(_) => {
+                    // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+                    index -= 1;
+                    continue;
+                }
             }
-            return Ok(block.unwrap());
         }
         anyhow::bail!("system error! can not find the common ancestor with main chain.")
     }
