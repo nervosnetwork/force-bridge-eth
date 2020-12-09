@@ -56,4 +56,5 @@ jobs:
       - name: lib code coverage
         run: |
           chmod 777 ./ckb_script_coverage.sh
+          export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
           ./ckb_script_coverage.sh
