@@ -102,6 +102,7 @@ pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256> {
 pub fn get_sudt_type_script(
     bridge_lock_code_hash: &str,
     sudt_code_hash: &str,
+    sudt_hash_type: u8,
     token_addr: H160,
     lock_contract_addr: H160,
 ) -> Result<Script> {
@@ -120,7 +121,7 @@ pub fn get_sudt_type_script(
     let sudt_typescript_code_hash = hex::decode(sudt_code_hash).map_err(|err| anyhow!(err))?;
     Ok(Script::new_builder()
         .code_hash(Byte32::from_slice(&sudt_typescript_code_hash).map_err(|err| anyhow!(err))?)
-        .hash_type(ScriptHashType::Data.into())
+        .hash_type(sudt_hash_type.into())
         .args(bridge_lockscript.calc_script_hash().as_bytes().pack())
         .build())
 }

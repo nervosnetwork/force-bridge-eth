@@ -13,7 +13,7 @@ use ckb_std::high_level::{
     load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type, load_cell_type_hash,
     load_script, load_script_hash, load_witness_args, QueryIter,
 };
-use force_eth_types::config::SUDT_CODE_HASH;
+use force_eth_types::config::{SUDT_CODE_HASH, SUDT_HASH_TYPE};
 use force_eth_types::generated::eth_bridge_type_cell::{
     ETHBridgeTypeArgs, ETHBridgeTypeArgsReader, ETHBridgeTypeData,
 };
@@ -71,6 +71,7 @@ impl Adapter for ChainAdapter {
     fn get_associated_udt_script(&self, bridge_lock_hash: &[u8]) -> Script {
         Script::new_builder()
             .code_hash(Byte32::from_slice(SUDT_CODE_HASH.as_ref()).unwrap())
+            .hash_type(SUDT_HASH_TYPE.into())
             .args(Bytes::from(bridge_lock_hash).pack())
             .build()
     }

@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 ckb-tool = "0.2"
 ckb-testtool = "0.2.2"
-force-eth-types = { path = "../types", default-features = false, features = ["contract"] }
+force-eth-types = { path = "../types", default-features = false, features = ["contract", "devnet"] }
 hex = "0.4"
 eth-spv-lib = { git = "https://github.com/LeonLi000/eth-spv-lib.git", default-features = false }
 molecule = { version = "=0.6.0", default-features = false }

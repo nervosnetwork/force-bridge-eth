@@ -203,6 +203,7 @@ dependencies = [
 name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "eth-spv-lib",
  "ethereum-types",
  "molecule",
