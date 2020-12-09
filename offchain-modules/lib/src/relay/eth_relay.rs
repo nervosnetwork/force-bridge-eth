@@ -238,22 +238,13 @@ impl ETHRelayer {
                         .into(),
                 )
                 .await;
-            match block {
-                Ok(block) => {
-                    if block.hash.unwrap() == latest_header.hash.unwrap() {
-                        return Ok(block);
-                    } else {
-                        // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
-                        index -= 1;
-                        continue;
-                    }
-                }
-                Err(_) => {
-                    // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
-                    index -= 1;
-                    continue;
+            if block.is_ok() {
+                if block.unwrap().hash.unwrap() == latest_header.hash.unwrap() {
+                    return Ok(block.unwrap());
                 }
             }
+            // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+            index -= 1;
         }
         anyhow::bail!("system error! can not find the common ancestor with main chain.")
     }
