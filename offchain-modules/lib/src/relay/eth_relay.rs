@@ -5,7 +5,7 @@ use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
 use ckb_sdk::{AddressPayload, SECP256K1};
-use ckb_types::core::{ScriptHashType, TransactionView};
+use ckb_types::core::TransactionView;
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity};
 use cmd_lib::run_cmd;
@@ -134,7 +134,13 @@ impl ETHRelayer {
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(
+                self.generator
+                    .deployed_contracts
+                    .light_client_typescript
+                    .hash_type
+                    .into(),
+            )
             .build();
 
         let lockscript = Script::new_builder()
@@ -151,7 +157,13 @@ impl ETHRelayer {
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(
+                self.generator
+                    .deployed_contracts
+                    .light_client_lockscript
+                    .hash_type
+                    .into(),
+            )
             .build();
         let current_number = self.eth_client.client().eth().block_number().await?;
         let block = self.eth_client.get_block(current_number.into()).await?;
@@ -221,17 +233,19 @@ impl ETHRelayer {
                 .eth_client
                 .get_block(
                     latest_header
-                        .hash
-                        .ok_or_else(|| anyhow!("the block hash is not exist."))?
+                        .number
+                        .ok_or_else(|| anyhow!("this number of block is not exist."))?
                         .into(),
                 )
                 .await;
-            if block.is_err() {
-                // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
-                index -= 1;
-                continue;
+            if block.is_ok() {
+                let block = block.unwrap();
+                if block.hash.unwrap() == latest_header.hash.unwrap() {
+                    return Ok(block);
+                }
             }
-            return Ok(block.unwrap());
+            // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+            index -= 1;
         }
         anyhow::bail!("system error! can not find the common ancestor with main chain.")
     }
@@ -312,7 +326,7 @@ impl ETHRelayer {
                 .map_err(|err| anyhow!(err))?;
 
             // update cell current_block and number.
-            update_cell_sync(&mut self.generator.indexer_client, &tx, 60, &mut cell)
+            update_cell_sync(&mut self.generator.indexer_client, &tx, 120, &mut cell)
                 .await
                 .map_err(|err| anyhow::anyhow!(err))?;
             current_block = headers[headers.len() - 1].clone();
@@ -346,7 +360,7 @@ pub async fn update_cell_sync(
             Ok(temp_cell) => {
                 if temp_cell.clone().unwrap().block_number.value() > cell.block_number.value() {
                     *cell = temp_cell.unwrap();
-                    break;
+                    return Ok(());
                 }
             }
             _ => {
@@ -356,7 +370,7 @@ pub async fn update_cell_sync(
         info!("waiting for cell to be committed, loop index: {}", i,);
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
-    Ok(())
+    anyhow::bail!("failed to update cell. please try again.")
 }
 
 pub async fn wait_header_sync_success(

@@ -1854,7 +1854,7 @@ dependencies = [
  "molecule",
  "rand 0.7.3",
  "rlp",
- "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=14eddf2)",
+ "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=3470810)",
  "secp256k1",
  "serde 1.0.117",
  "serde_derive",
@@ -1871,6 +1871,7 @@ dependencies = [
 name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 0.1.10",
  "eth-spv-lib 0.1.0",
  "ethereum-types",
  "molecule",
@@ -3758,7 +3759,7 @@ dependencies = [
 [[package]]
 name = "rusty-receipt-proof-maker"
 version = "0.1.0"
-source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=14eddf2#14eddf2eff5c628a335136f90a2367558a877c83"
+source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=3470810#3470810879632c7c30b714e563d8d1b349238cbb"
 dependencies = [
  "chrono",
  "docopt",
