@@ -38,7 +38,7 @@ use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
-pub const CONFIRM: usize = 10;
+pub const CONFIRM: usize = 15;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
 
 pub struct Generator {
@@ -175,7 +175,9 @@ impl Generator {
         from_lockscript: Script,
     ) -> Result<TransactionView> {
         info!("generate eth light client tx.");
-        let tx_fee: u64 = 500_000;
+        // let tx_fee: u64 = 500_000;
+        let mut rng = rand::thread_rng();
+        let tx_fee = rng.gen_range(ONE_CKB / 20, ONE_CKB / 10);
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
