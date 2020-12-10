@@ -33,7 +33,7 @@ remove-docker-network:
 	cd docker && docker-compose down
 
 init-config:
-	${FORCE_CLI} init --project-path $(pwd)
+	${FORCE_CLI} init --project-path ${shell pwd}
 
 deploy-ckb:
 	${FORCE_CLI} deploy-ckb -k 0
