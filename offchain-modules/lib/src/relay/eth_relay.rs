@@ -7,14 +7,13 @@ use anyhow::{anyhow, Result};
 use ckb_sdk::constants::MULTISIG_TYPE_HASH;
 use ckb_sdk::{AddressPayload, SECP256K1};
 use ckb_types::core::{ScriptHashType, TransactionView};
-use ckb_types::packed::{Byte32, Script};
+use ckb_types::packed::Script;
 use ckb_types::prelude::{Builder, Entity, Pack};
 use cmd_lib::run_cmd;
 use ethereum_types::H256;
-use force_sdk::cell_collector::{get_live_cell_by_lockscript, get_live_cell_by_typescript};
+use force_sdk::cell_collector::get_live_cell_by_lockscript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
-use force_sdk::tx_helper::{sign, sign_with_multi_key};
-use force_sdk::util::send_tx_sync;
+use force_sdk::tx_helper::sign_with_multi_key;
 use log::{debug, info};
 use secp256k1::SecretKey;
 use std::ops::Add;
@@ -63,7 +62,7 @@ impl ETHRelayer {
         generator
             .deployed_contracts
             .light_client_cell_script
-            .cell_script = hex::encode(multisig_script.clone().as_slice());
+            .cell_script = hex::encode(multisig_script.as_slice());
         force_config.deployed_contracts = Some(generator.deployed_contracts.clone());
         force_config.write(&config_path)?;
         Ok(ETHRelayer {
@@ -147,7 +146,7 @@ impl ETHRelayer {
         let mut un_confirmed_headers = vec![];
         let mut index: isize = 0;
         if !ckb_cell_data.is_empty() {
-            let (mut headers, _) = parse_main_chain_headers(ckb_cell_data)?;
+            let (headers, _) = parse_main_chain_headers(ckb_cell_data)?;
             un_confirmed_headers = headers;
             index = (un_confirmed_headers.len() - 1) as isize;
         }
@@ -267,7 +266,7 @@ pub async fn update_cell_sync(
         .ok_or_else(|| anyhow!("no out_put found"))?
         .lock();
     for i in 0..timeout {
-        let temp_cell = get_live_cell_by_lockscript(index_client, cell_typescript.clone())
+        let temp_cell = get_live_cell_by_lockscript(index_client, cell_lockscript.clone())
             .map_err(|e| anyhow!("failed to get temp_cell: {}", e))?;
         if let Some(c) = temp_cell {
             if c.block_number.value() > cell.block_number.value() {

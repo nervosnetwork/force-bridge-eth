@@ -578,13 +578,9 @@ impl TxHelper {
         mut get_live_cell_fn: F,
         privkeys: Vec<&SecretKey>,
     ) -> Result<TransactionView, String> {
-        dbg!(privkeys.clone());
         for key in privkeys {
-            dbg!(key);
             let signer = get_privkey_signer(*key);
             for (lock_arg, signature) in self.sign_inputs(signer, &mut get_live_cell_fn, true)? {
-                dbg!(hex::encode(lock_arg.clone()));
-                dbg!(hex::encode(signature.clone()));
                 self.add_signature(lock_arg, signature)?;
             }
         }

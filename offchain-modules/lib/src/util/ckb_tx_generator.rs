@@ -6,10 +6,10 @@ use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::Witness;
 use crate::util::eth_util::convert_to_header_rlp;
 use anyhow::{anyhow, bail, Result};
-use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
+use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
-use ckb_types::packed::{HeaderVec, WitnessArgs};
+use ckb_types::packed::HeaderVec;
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
     bytes::Bytes,
@@ -22,7 +22,7 @@ use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeData;
 use force_eth_types::generated::eth_header_cell::{
-    ETHChain, ETHHeaderCellData, ETHHeaderInfo, ETHHeaderInfoReader, ETHLightClientWitness,
+    ETHChain, ETHHeaderCellData, ETHHeaderInfo, ETHHeaderInfoReader,
 };
 use force_sdk::cell_collector::{
     collect_sudt_amount, get_live_cell_by_lockscript, get_live_cell_by_typescript,
