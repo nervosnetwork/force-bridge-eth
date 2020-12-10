@@ -19,7 +19,7 @@ use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
-pub const HEADER_LIMIT_IN_TX: usize = 9;
+pub const HEADER_LIMIT_IN_TX: usize = 14;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -266,17 +266,24 @@ impl ETHRelayer {
         loop {
             let witnesses = vec![];
             let start = number.add(1 as u64);
-            let end = start.add(HEADER_LIMIT_IN_TX as u64);
-            let headers_result = self
-                .eth_client
-                .get_blocks(start.as_u64(), end.as_u64())
-                .await;
-            if headers_result.is_err() {
+            let mut latest_number = self.eth_client.client().eth().block_number().await?;
+            if latest_number <= start {
                 info!("current block is newest, waiting for new header on ethereum.");
                 tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 continue;
             }
-            let headers = headers_result.unwrap();
+            if latest_number.as_u64() - start.as_u64() > HEADER_LIMIT_IN_TX as u64 {
+                latest_number = start.add(HEADER_LIMIT_IN_TX as u64);
+            }
+            info!(
+                "try to relay eth light client, block height start: {:?}, end: {:?}",
+                start.as_u64(),
+                latest_number.as_u64()
+            );
+            let headers = self
+                .eth_client
+                .get_blocks(start.as_u64(), latest_number.as_u64())
+                .await?;
             if headers[0].parent_hash
                 == current_block
                     .hash
