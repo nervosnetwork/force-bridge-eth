@@ -365,35 +365,21 @@ pub async fn deploy_ckb(
         .map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
-    let (pw_locks, sudt_conf) = match (force_config.deployed_contracts, deploy_sudt) {
-        (Some(deployed_contracts), true) => {
-            let sudt_conf = ScriptConf {
-                code_hash: sudt_code_hash_hex.expect("should have value"),
-                hash_type: 0,
-                outpoint: OutpointConf {
-                    tx_hash: tx_hash_hex.clone(),
-                    index: 5,
-                    dep_type: 0,
-                },
-            };
-            (deployed_contracts.pw_locks, sudt_conf)
+    let original_config = force_config.deployed_contracts.unwrap_or_default();
+    let pw_locks = original_config.pw_locks;
+    let sudt_conf = if deploy_sudt {
+        ScriptConf {
+            code_hash: sudt_code_hash_hex.expect("should have value"),
+            hash_type: 0,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex.clone(),
+                index: 5,
+                dep_type: 0,
+            },
         }
-        (Some(deployed_contracts), false) => (deployed_contracts.pw_locks, deployed_contracts.sudt),
-        (None, true) => {
-            let sudt_conf = ScriptConf {
-                code_hash: sudt_code_hash_hex.expect("should have value"),
-                hash_type: 0,
-                outpoint: OutpointConf {
-                    tx_hash: tx_hash_hex.clone(),
-                    index: 5,
-                    dep_type: 0,
-                },
-            };
-            (Default::default(), sudt_conf)
-        }
-        (None, false) => (Default::default(), Default::default()),
+    } else {
+        original_config.sudt
     };
-
     let deployed_contracts = DeployedContracts {
         bridge_lockscript: ScriptConf {
             code_hash: bridge_lockscript_code_hash_hex,
