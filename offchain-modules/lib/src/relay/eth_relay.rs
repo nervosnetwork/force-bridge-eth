@@ -362,15 +362,13 @@ pub async fn update_cell_sync(
         .to_opt()
         .ok_or_else(|| anyhow!("cell_typescript is not found."))?;
     for i in 0..timeout {
-        let temp_cell = get_live_cell_by_typescript(index_client, cell_typescript.clone());
-        match temp_cell {
-            Ok(temp_cell) => {
-                if temp_cell.clone().unwrap().block_number.value() > cell.block_number.value() {
-                    *cell = temp_cell.unwrap();
-                    return Ok(());
-                }
+        let temp_cell = get_live_cell_by_typescript(index_client, cell_typescript.clone())
+            .map_err(|e| anyhow!("failed to get temp_cell: {}", e))?;
+        if let Some(c) = temp_cell {
+            if c.block_number.value() > cell.block_number.value() {
+                *cell = c;
+                return Ok(());
             }
-            _ => {}
         }
         info!("waiting for cell to be committed, loop index: {}", i);
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
