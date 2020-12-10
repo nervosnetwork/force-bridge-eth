@@ -326,7 +326,7 @@ impl ETHRelayer {
                 .map_err(|err| anyhow!(err))?;
 
             // update cell current_block and number.
-            update_cell_sync(&mut self.generator.indexer_client, &tx, 120, &mut cell)
+            update_cell_sync(&mut self.generator.indexer_client, &tx, 600, &mut cell)
                 .await
                 .map_err(|err| anyhow::anyhow!(err))?;
             current_block = headers[headers.len() - 1].clone();
@@ -363,14 +363,15 @@ pub async fn update_cell_sync(
                     return Ok(());
                 }
             }
-            _ => {
-                info!("waiting for cell to be committed, loop index: {}", i,);
-            }
+            _ => {}
         }
-        info!("waiting for cell to be committed, loop index: {}", i,);
+        info!("waiting for cell to be committed, loop index: {}", i);
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
-    anyhow::bail!("failed to update cell. please try again.")
+    anyhow::bail!(
+        "failed to update cell after waiting for {} secends. please try again.",
+        timeout
+    )
 }
 
 pub async fn wait_header_sync_success(
