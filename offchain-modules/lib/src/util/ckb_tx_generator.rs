@@ -8,7 +8,7 @@ use crate::util::eth_util::convert_to_header_rlp;
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
-use ckb_types::core::{BlockView, Capacity, DepType, ScriptHashType, TransactionView};
+use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
 use ckb_types::packed::{HeaderVec, WitnessArgs};
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
@@ -38,7 +38,7 @@ use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
-pub const CONFIRM: usize = 10;
+pub const CONFIRM: usize = 15;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
 
 pub struct Generator {
@@ -64,106 +64,6 @@ impl Generator {
             genesis_info,
             deployed_contracts: settings,
         })
-    }
-
-    #[allow(clippy::mutable_key_type)]
-    pub fn init_light_client_tx(
-        &mut self,
-        block: &Block<ethereum_types::H256>,
-        _witness: &Witness,
-        from_lockscript: Script,
-        typescript: Script,
-        lockscript: Script,
-    ) -> Result<TransactionView> {
-        let tx_fee: u64 = 500_000;
-        let mut helper = TxHelper::default();
-
-        let outpoints = vec![
-            self.deployed_contracts.dag_merkle_roots.clone(),
-            self.deployed_contracts
-                .light_client_lockscript
-                .outpoint
-                .clone(),
-            self.deployed_contracts
-                .light_client_typescript
-                .outpoint
-                .clone(),
-        ];
-        self.add_cell_deps(&mut helper, outpoints)
-            .map_err(|err| anyhow!(err))?;
-        let output = CellOutput::new_builder()
-            .capacity(Capacity::shannons(1000 * MIN_SECP_CELL_CAPACITY).pack())
-            .build();
-        let header_rlp = convert_to_header_rlp(block)?;
-        let header_info = ETHHeaderInfo::new_builder()
-            .header(hex::decode(header_rlp)?.into())
-            .total_difficulty(block.total_difficulty.unwrap().as_u64().into())
-            .hash(basic::Byte32::from_slice(block.hash.unwrap().as_bytes()).unwrap())
-            .build();
-        let main_chain_data: Vec<basic::Bytes> = vec![header_info.as_slice().to_vec().into()];
-
-        // let proofs = build_merkle_proofs(&witness)?;
-        let output_data = ETHHeaderCellData::new_builder()
-            .headers(
-                ETHChain::new_builder()
-                    .main(BytesVec::new_builder().set(main_chain_data).build())
-                    .build(),
-            )
-            // .merkle_proofs(MerkleProofVec::new_builder().set(vec![proofs]).build())
-            .build()
-            .as_bytes();
-        helper.add_output(output.clone(), output_data);
-        // add witness
-        {
-            let header_rlp = convert_to_header_rlp(block)?;
-            let witness_data = ETHLightClientWitness::new_builder()
-                .headers(
-                    BytesVec::new_builder()
-                        .set(vec![hex::decode(header_rlp)
-                            .map_err(|err| anyhow!(err))?
-                            .into()])
-                        .build(),
-                )
-                .cell_dep_index_list(vec![0].into())
-                .build();
-            let witness_args = WitnessArgs::new_builder()
-                .input_type(Some(witness_data.as_bytes()).pack())
-                .build();
-            helper.transaction = helper
-                .transaction
-                .as_advanced_builder()
-                .set_witnesses(vec![witness_args.as_bytes().pack()])
-                .build();
-        }
-
-        // build tx
-        let tx = helper
-            .supply_capacity(
-                &mut self.rpc_client,
-                &mut self.indexer_client,
-                from_lockscript,
-                &self.genesis_info,
-                tx_fee,
-            )
-            .map_err(|err| anyhow!(err))?;
-        let first_outpoint = tx
-            .inputs()
-            .get(0)
-            .expect("should have input")
-            .previous_output()
-            .as_bytes();
-        let typescript_args = first_outpoint.as_ref();
-        let new_typescript = typescript.as_builder().args(typescript_args.pack()).build();
-
-        let new_output = CellOutput::new_builder()
-            .capacity(output.capacity())
-            .type_(Some(new_typescript).pack())
-            .lock(lockscript)
-            .build();
-        let mut new_outputs = tx.outputs().into_iter().collect::<Vec<_>>();
-        new_outputs[0] = new_output;
-        let tx = tx.as_advanced_builder().set_outputs(new_outputs).build();
-        Ok(tx)
     }
 
     #[allow(clippy::mutable_key_type)]
@@ -452,7 +352,7 @@ impl Generator {
             .build();
         let lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(self.deployed_contracts.bridge_lockscript.hash_type.into())
             .args(args.as_bytes().pack())
             .build();
 
@@ -492,7 +392,7 @@ impl Generator {
             let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash)?;
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
-                .hash_type(ScriptHashType::Data.into())
+                .hash_type(self.deployed_contracts.sudt.hash_type.into())
                 .args(lockscript.calc_script_hash().as_bytes().pack())
                 .build();
 
@@ -623,6 +523,7 @@ impl Generator {
         from_lockscript: Script,
         bridge_typescript: Script,
         bridge_lockscript: Script,
+        recipient_lockscript: Script,
         bridge_fee: u128,
         cell_num: usize,
     ) -> Result<TransactionView> {
@@ -648,6 +549,14 @@ impl Generator {
         for _ in 0..cell_num {
             tx_helper.add_output(output.clone(), bridge_data.as_bytes());
         }
+        // create an extra cell with 61 CKB capacity for user, enable user do actions on ckb after the crosschain.
+        // used in testnet version temporarily.
+        // TODO: remove it in mainnet version.
+        let addtional_output = CellOutput::new_builder()
+            .capacity((ONE_CKB * 61).pack())
+            .lock(recipient_lockscript)
+            .build();
+        tx_helper.add_output(addtional_output, Bytes::new());
         // build tx
         let tx = tx_helper
             .supply_capacity(
@@ -693,6 +602,7 @@ impl Generator {
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
             &self.deployed_contracts.sudt.code_hash,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;
@@ -733,7 +643,12 @@ impl Generator {
 
             let recipient_typescript: Script = Script::new_builder()
                 .code_hash(Byte32::from_slice(&recipient_typescript_code_hash)?)
-                .hash_type(ScriptHashType::Data.into())
+                .hash_type(
+                    self.deployed_contracts
+                        .recipient_typescript
+                        .hash_type
+                        .into(),
+                )
                 .build();
 
             let eth_recipient_output = CellOutput::new_builder()
@@ -791,6 +706,7 @@ impl Generator {
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
             &self.deployed_contracts.sudt.code_hash,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;
@@ -836,6 +752,7 @@ impl Generator {
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
             &self.deployed_contracts.sudt.code_hash,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;

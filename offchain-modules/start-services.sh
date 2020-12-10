@@ -37,7 +37,7 @@ cd ${PROJECT_DIR}/offchain-modules
 if [ "${FORCE_NETWORK}" = "" ]
 then
   ${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
-  ${FORCE_CLI} ckb-relay -k 2 --per-amount 5 > ${FORCE_LOG_PATH}/ckb-relayer.log 2>&1 &
+  ${FORCE_CLI} ckb-relay -k 1 --per-amount 5 > ${FORCE_LOG_PATH}/ckb-relayer.log 2>&1 &
 #  echo "" |  ${CKB_CLI} account import --privkey-path ${PRIVKEY_PATH}/ckb1
 #  echo "" |  ${CKB_CLI} account import --privkey-path ${PRIVKEY_PATH}/ckb2
   ${CKB_CLI} tx build-multisig-address --sighash-address ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37 --threshold 2 > mutisig.log
@@ -51,6 +51,6 @@ then
   ${FORCE_CLI} eth-relay -k 1 --multisig-args  $lock_args > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 else
   ${FORCE_CLI} init-ckb-light-contract --network "${FORCE_NETWORK}" -k 0 -f 500 -c 40000 --wait
-  ${FORCE_CLI} ckb-relay --network "${FORCE_NETWORK}" -k 2 --per-amount 5 > ${FORCE_LOG_PATH}/ckb-relayer.log 2>&1 &
+  ${FORCE_CLI} ckb-relay --network "${FORCE_NETWORK}" -k 1 --per-amount 5 > ${FORCE_LOG_PATH}/ckb-relayer.log 2>&1 &
   ${FORCE_CLI} eth-relay --network "${FORCE_NETWORK}" -k 1 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 fi

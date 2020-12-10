@@ -1,3 +1,10 @@
+FORCE_CLI := ./offchain-modules/target/debug/force-eth-cli
+
+.EXPORT_ALL_VARIABLES:
+
+RUST_BACKTRACE=1
+RUST_LOG=info,force=debug
+
 ci: modules-ci integration-ci
 
 modules-ci: ckb-contracts-ci eth-contracts-ci offchain-modules-ci
@@ -24,8 +31,52 @@ start-docker-network:
 remove-docker-network:
 	cd docker && docker-compose down
 
-deploy-contracts:
-	bash offchain-modules/deploy.sh
+deploy-ckb:
+	${FORCE_CLI} init --project-path . -f
+	${FORCE_CLI} deploy-ckb -k 0
+
+deploy-eth:
+	export FORCE_CONFIG_PATH=~/.force-bridge/config.toml \
+	&& cd eth-contracts \
+	&& npx hardhat run ./scripts/deploy.js
+
+deploy-erc20:
+	export FORCE_CONFIG_PATH=~/.force-bridge/config.toml \
+    && cd eth-contracts \
+	&& npx hardhat run ./scripts/deploy-erc20.js > ~/.force-bridge/erc20-contracts.json
+
+deploy-contracts: deploy-ckb deploy-eth
+
+init-light-client:
+	${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
+
+ckb2eth-relay:
+	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 2 --per-amount 5"
+
+eth2ckb-relay:
+	pm2 start --name eth2ckb-relay "${FORCE_CLI} eth-relay -k 1"
+
+start-relay: ckb2eth-relay eth2ckb-relay
+
+restart-ckb2eth-relay:
+	pm2 restart ckb2eth-relay
+
+restart-eth2ckb-relay:
+	pm2 restart eth2ckb-relay
+
+restart-relay: restart-ckb2eth-relay restart-eth2ckb-relay
+
+start-force-server:
+	pm2 start --name force-server "${FORCE_CLI} server  --ckb-private-key-path 2 --eth-private-key-path 2 --listen-url 0.0.0.0:3003"
+
+restart-force-server:
+	pm2 restart force-server
+
+start-services: start-relay start-force-services
+
+restart-services: restart-relay restart-force-services
+
+deploy-from-scratch: deploy-contracts init-light-client start-services
 
 start-offchain-services:
 	bash offchain-modules/start-services.sh
@@ -33,7 +84,7 @@ start-offchain-services:
 stop-offchain-services:
 	bash offchain-modules/stop-services.sh
 
-setup-dev-env: build-all start-docker-network deploy-contracts start-offchain-services
+setup-dev-env: build-all start-docker-network deploy-contracts deploy-erc20 start-offchain-services
 
 close-dev-env: stop-offchain-services remove-docker-network
 

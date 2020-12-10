@@ -75,16 +75,8 @@ pub async fn init_config(
 
     let mut networks_config = Table::new();
     networks_config.insert(default_network.clone(), Value::Table(network_config));
-    let eth_dag_root_path = std::path::Path::new(project_path.as_str())
-        .join(std::path::Path::new(
-            "offchain-modules/data/dag_merkle_roots.json",
-        ))
-        .into_os_string()
-        .into_string()
-        .map_err(|e| anyhow!(format!("{:?}", e)))?;
     let force_cli_config = ForceConfig {
         project_path,
-        eth_dag_path: eth_dag_root_path,
         default_network,
         networks_config,
         deployed_contracts: None,
@@ -96,7 +88,6 @@ pub async fn init_config(
 pub struct ForceConfig {
     pub project_path: String,
     pub default_network: String,
-    pub eth_dag_path: String,
     pub deployed_contracts: Option<DeployedContracts>,
     #[serde(serialize_with = "toml::ser::tables_last")]
     pub networks_config: Table,
@@ -117,11 +108,10 @@ pub struct DeployedContracts {
     pub eth_ckb_chain_addr: String,
     pub bridge_lockscript: ScriptConf,
     pub bridge_typescript: ScriptConf,
-    pub light_client_typescript: ScriptConf,
-    pub light_client_lockscript: ScriptConf,
+    // pub light_client_typescript: ScriptConf,
+    // pub light_client_lockscript: ScriptConf,
     pub recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
-    pub dag_merkle_roots: OutpointConf,
     pub light_client_cell_script: CellScript,
     pub pw_locks: PwLocks,
 }
@@ -141,6 +131,7 @@ pub struct OutpointConf {
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct ScriptConf {
     pub code_hash: String,
+    pub hash_type: u8,
     pub outpoint: OutpointConf,
 }
 
@@ -341,7 +332,7 @@ impl ForceConfig {
     }
 
     pub fn write(&self, config_path: &str) -> Result<()> {
-        let s = toml::to_string(self).map_err(|e| anyhow!("toml serde error: {}", e))?;
+        let s = toml::to_string_pretty(self).map_err(|e| anyhow!("toml serde error: {}", e))?;
         let parent_path = std::path::Path::new(config_path)
             .parent()
             .ok_or_else(|| anyhow!("invalid config file path: {}", config_path))?;

@@ -20,7 +20,7 @@ use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader, U64};
 
-pub const HEADER_LIMIT_IN_TX: usize = 3;
+pub const HEADER_LIMIT_IN_TX: usize = 14;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -80,38 +80,6 @@ impl ETHRelayer {
     // current_height = common_ancestor_height + 1
     // 5. If reorg does not occur, directly use header as tip to build output
     pub async fn start(&mut self) -> Result<()> {
-        // let typescript;
-        // // The first relay will generate a unique typescript, and subsequent relays will always use this typescript.
-        // match &self.multi_lockscript {
-        //     None => {
-        //         let cell_script = self.do_first_relay().await?;
-        //         typescript = Script::new_builder()
-        //             .code_hash(cell_script.code_hash())
-        //             .hash_type(cell_script.hash_type())
-        //             .args(cell_script.args())
-        //             .build();
-        //         self.generator
-        //             .deployed_contracts
-        //             .light_client_cell_script
-        //             .cell_script = hex::encode(typescript.clone().as_slice());
-        //         self.config.deployed_contracts = Some(self.generator.deployed_contracts.clone());
-        //         self.config.write(&self.config_path)?;
-        //         self.cell_typescript = Some(cell_script);
-        //     }
-        //     Some(cell_script) => {
-        //         typescript = Script::new_builder()
-        //             .code_hash(cell_script.code_hash())
-        //             .hash_type(cell_script.hash_type())
-        //             .args(cell_script.args())
-        //             .build();
-        //     }
-        // }
-        // println!(
-        //     "start cell typescript: \n{}",
-        //     serde_json::to_string_pretty(&ckb_jsonrpc_types::Script::from(typescript.clone()))
-        //         .map_err(|err| anyhow!(err))?
-        // );
-        // tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
         // get the latest output cell
         let cell = get_live_cell_by_lockscript(
             &mut self.generator.indexer_client,
@@ -123,80 +91,6 @@ impl ETHRelayer {
         self.do_relay_loop(cell).await?;
         Ok(())
     }
-
-    //The first time the relay uses the outpoint of the first input when it is created,
-    // to ensure that the typescript is unique across the network
-    // pub async fn do_first_relay(&mut self) -> Result<Script> {
-    //     // let typescript = Script::new_builder()
-    //     //     .code_hash(
-    //     //         Byte32::from_slice(
-    //     //             hex::decode(
-    //     //                 &self
-    //     //                     .generator
-    //     //                     .deployed_contracts
-    //     //                     .light_client_typescript
-    //     //                     .code_hash,
-    //     //             )?
-    //     //             .as_slice(),
-    //     //         )
-    //     //         .map_err(|err| anyhow::anyhow!(err))?,
-    //     //     )
-    //     //     .hash_type(ScriptHashType::Data.into())
-    //     //     .build();
-    //     //
-    //     let lockscript = Script::new_builder()
-    //         .code_hash(
-    //             Byte32::from_slice(
-    //                 hex::decode(
-    //                     &self
-    //                         .generator
-    //                         .deployed_contracts
-    //                         .light_client_lockscript
-    //                         .code_hash,
-    //                 )?
-    //                 .as_slice(),
-    //             )
-    //             .map_err(|err| anyhow::anyhow!(err))?,
-    //         )
-    //         .hash_type(ScriptHashType::Data.into())
-    //         .build();
-    //
-    //     let current_number = self.eth_client.client().eth().block_number().await?;
-    //     let block = self.eth_client.get_block(current_number.into()).await?;
-    //     // let witness = self.generate_witness(block.number.unwrap().as_u64())?;
-    //     let witness = Witness {
-    //         cell_dep_index_list: vec![],
-    //         header: vec![],
-    //         merkle_proof: vec![],
-    //     };
-    //     let from_privkey = self.secret_key;
-    //     let from_lockscript = self.generate_from_lockscript(from_privkey)?;
-    //     let unsigned_tx = self.generator.init_light_client_tx(
-    //         &block,
-    //         &witness,
-    //         from_lockscript,
-    //         typescript,
-    //         lockscript,
-    //     )?;
-    //     let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
-    //         .map_err(|err| anyhow::anyhow!(err))?;
-    //     send_tx_sync(&mut self.generator.rpc_client, &tx, 120)
-    //         .await
-    //         .map_err(|err| anyhow::anyhow!(err))?;
-    //
-    //     let cell_typescript = tx
-    //         .output(0)
-    //         .ok_or_else(|| anyhow!("no out_put found"))?
-    //         .type_()
-    //         .to_opt()
-    //         .ok_or_else(|| anyhow!("cell_typescript is not found."))?;
-    //     println!(
-    //         "first relay cell typescript: \n{}",
-    //         serde_json::to_string_pretty(&ckb_jsonrpc_types::Script::from(cell_typescript.clone()))
-    //             .map_err(|err| anyhow!(err))?
-    //     );
-    //     Ok(cell_typescript)
-    // }
 
     pub fn generate_witness(&mut self, number: u64) -> Result<Witness> {
         let proof_data_path = self.proof_data_path.clone();
@@ -229,17 +123,19 @@ impl ETHRelayer {
                 .eth_client
                 .get_block(
                     latest_header
-                        .hash
-                        .ok_or_else(|| anyhow!("the block hash is not exist."))?
+                        .number
+                        .ok_or_else(|| anyhow!("this number of block is not exist."))?
                         .into(),
                 )
                 .await;
-            if block.is_err() {
-                // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
-                index -= 1;
-                continue;
+            if block.is_ok() {
+                let block = block.unwrap();
+                if block.hash.unwrap() == latest_header.hash.unwrap() {
+                    return Ok(block);
+                }
             }
-            return Ok(block.unwrap());
+            // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+            index -= 1;
         }
         anyhow::bail!("system error! can not find the common ancestor with main chain.")
     }
@@ -283,17 +179,24 @@ impl ETHRelayer {
         loop {
             let witnesses = vec![];
             let start = number.add(1 as u64);
-            let end = start.add(HEADER_LIMIT_IN_TX as u64);
-            let headers_result = self
-                .eth_client
-                .get_blocks(start.as_u64(), end.as_u64())
-                .await;
-            if headers_result.is_err() {
+            let mut latest_number = self.eth_client.client().eth().block_number().await?;
+            if latest_number < start {
                 info!("current block is newest, waiting for new header on ethereum.");
                 tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 continue;
             }
-            let headers = headers_result.unwrap();
+            if latest_number.as_u64() - start.as_u64() > HEADER_LIMIT_IN_TX as u64 {
+                latest_number = start.add(HEADER_LIMIT_IN_TX as u64);
+            }
+            info!(
+                "try to relay eth light client, block height start: {:?}, end: {:?}",
+                start.as_u64(),
+                latest_number.as_u64()
+            );
+            let headers = self
+                .eth_client
+                .get_blocks(start.as_u64(), latest_number.as_u64())
+                .await?;
             if headers[0].parent_hash
                 == current_block
                     .hash
