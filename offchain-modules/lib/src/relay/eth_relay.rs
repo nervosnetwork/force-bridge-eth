@@ -267,7 +267,7 @@ impl ETHRelayer {
             let witnesses = vec![];
             let start = number.add(1 as u64);
             let mut latest_number = self.eth_client.client().eth().block_number().await?;
-            if latest_number < start {
+            if latest_number <= start {
                 info!("current block is newest, waiting for new header on ethereum.");
                 tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 continue;
