@@ -308,6 +308,7 @@ pub async fn deploy_ckb(
     config_path: String,
     network: Option<String>,
     private_key_path: String,
+    deploy_sudt: bool,
 ) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     let mut force_config = ForceConfig::new(config_path.as_str())?;
@@ -322,42 +323,41 @@ pub async fn deploy_ckb(
     let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
     let light_client_lockscript_path = force_config.get_light_client_lockscript_bin_path()?;
     let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
-    let sudt_path = force_config.get_sudt_typescript_bin_path()?;
 
-    // dev deploy
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
     let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
     let light_client_lockscript_bin = std::fs::read(light_client_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
-    let sudt_bin = std::fs::read(sudt_path)?;
 
     let bridge_typescript_code_hash = blake2b_256(&bridge_typescript_bin);
     let bridge_typescript_code_hash_hex = hex::encode(&bridge_typescript_code_hash);
-
     let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
     let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
-
     let light_client_lockscript_code_hash = blake2b_256(&light_client_lockscript_bin);
     let light_client_lockscript_code_hash_hex = hex::encode(&light_client_lockscript_code_hash);
-
     let bridge_lockscript_code_hash = blake2b_256(&bridge_lockscript_bin);
     let bridge_lockscript_code_hash_hex = hex::encode(&bridge_lockscript_code_hash);
-
     let recipient_typescript_code_hash = blake2b_256(&recipient_typescript_bin);
     let recipient_typescript_code_hash_hex = hex::encode(&recipient_typescript_code_hash);
 
-    let sudt_code_hash = blake2b_256(&sudt_bin);
-    let sudt_code_hash_hex = hex::encode(&sudt_code_hash);
-
-    let data = vec![
+    let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
         light_client_typescript_bin,
         light_client_lockscript_bin,
         recipient_typescript_bin,
-        sudt_bin,
     ];
+    let sudt_code_hash_hex = if deploy_sudt {
+        let sudt_path = force_config.get_sudt_typescript_bin_path()?;
+        let sudt_bin = std::fs::read(sudt_path)?;
+        let sudt_code_hash = blake2b_256(&sudt_bin);
+        data.push(sudt_bin);
+        Some(hex::encode(&sudt_code_hash))
+    } else {
+        None
+    };
+
     let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
         .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 120)
@@ -365,10 +365,20 @@ pub async fn deploy_ckb(
         .map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
-    let pw_locks = if let Some(deployed_contracts) = force_config.deployed_contracts {
-        deployed_contracts.pw_locks
+    let original_config = force_config.deployed_contracts.unwrap_or_default();
+    let pw_locks = original_config.pw_locks;
+    let sudt_conf = if deploy_sudt {
+        ScriptConf {
+            code_hash: sudt_code_hash_hex.expect("should have value"),
+            hash_type: 0,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex.clone(),
+                index: 5,
+                dep_type: 0,
+            },
+        }
     } else {
-        Default::default()
+        original_config.sudt
     };
     let deployed_contracts = DeployedContracts {
         bridge_lockscript: ScriptConf {
@@ -411,20 +421,12 @@ pub async fn deploy_ckb(
             code_hash: recipient_typescript_code_hash_hex,
             hash_type: 0,
             outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
+                tx_hash: tx_hash_hex,
                 index: 4,
                 dep_type: 0,
             },
         },
-        sudt: ScriptConf {
-            code_hash: sudt_code_hash_hex,
-            hash_type: 0,
-            outpoint: OutpointConf {
-                tx_hash: tx_hash_hex,
-                index: 5,
-                dep_type: 0,
-            },
-        },
+        sudt: sudt_conf,
         light_client_cell_script: CellScript {
             cell_script: "".to_string(),
         },
