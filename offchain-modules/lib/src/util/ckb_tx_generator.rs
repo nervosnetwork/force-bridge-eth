@@ -24,7 +24,9 @@ use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeData;
 use force_eth_types::generated::eth_header_cell::{
     ETHChain, ETHHeaderCellData, ETHHeaderInfo, ETHHeaderInfoReader, ETHLightClientWitness,
 };
-use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
+use force_sdk::cell_collector::{
+    collect_sudt_amount, get_live_cell_by_lockscript, get_live_cell_by_typescript,
+};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
@@ -78,7 +80,7 @@ impl Generator {
         info!("generate eth light client tx.");
         // let tx_fee: u64 = 500_000;
         let mut rng = rand::thread_rng();
-        let tx_fee = rng.gen_range(ONE_CKB / 20, ONE_CKB / 10);
+        let tx_fee = rng.gen_range(ONE_CKB / 2000, ONE_CKB / 1000);
         let mut helper = TxHelper::default();
 
         // let outpoints = vec![
@@ -118,6 +120,7 @@ impl Generator {
         {
             let cell_output = CellOutput::from(cell.clone().output);
             let cap = cell.output.capacity.value() - tx_fee;
+            info!("the rest cap: {:?}", cap);
             let output = CellOutput::new_builder()
                 .capacity(Capacity::shannons(cap).pack())
                 .lock(cell_output.lock())
@@ -319,7 +322,7 @@ impl Generator {
                     .cell_script
                     .as_str(),
             )?;
-            let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
+            let cell = get_live_cell_by_lockscript(&mut self.indexer_client, cell_script)
                 .map_err(|err| anyhow!(err))?
                 .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
             let mut builder = helper.transaction.as_advanced_builder();

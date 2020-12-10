@@ -25,7 +25,6 @@ pub const HEADER_LIMIT_IN_TX: usize = 14;
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
     pub generator: Generator,
-    pub secret_key: SecretKey,
     pub proof_data_path: String,
     pub multisig_script: Script,
     pub config_path: String,
@@ -36,11 +35,10 @@ impl ETHRelayer {
     pub fn new(
         config_path: String,
         network: Option<String>,
-        priv_key_path: String,
         proof_data_path: String,
         multisig_args: String,
     ) -> Result<Self> {
-        let force_config = ForceConfig::new(config_path.as_str())?;
+        let mut force_config = ForceConfig::new(config_path.as_str())?;
         let deployed_contracts = force_config
             .deployed_contracts
             .as_ref()
@@ -49,8 +47,9 @@ impl ETHRelayer {
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
 
-        let generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
-            .map_err(|e| anyhow::anyhow!(e))?;
+        let mut generator =
+            Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
+                .map_err(|e| anyhow::anyhow!(e))?;
         let eth_client = Web3Client::new(eth_rpc_url);
         let multisig_script = Script::new_builder()
             .code_hash(MULTISIG_TYPE_HASH.pack())
@@ -61,11 +60,15 @@ impl ETHRelayer {
                     .pack(),
             )
             .build();
-        let secret_key = parse_privkey_path(&priv_key_path, &force_config, &network)?;
+        generator
+            .deployed_contracts
+            .light_client_cell_script
+            .cell_script = hex::encode(multisig_script.clone().as_slice());
+        force_config.deployed_contracts = Some(generator.deployed_contracts.clone());
+        force_config.write(&config_path)?;
         Ok(ETHRelayer {
             eth_client,
             generator,
-            secret_key,
             proof_data_path,
             multisig_script,
             config_path,
@@ -87,7 +90,6 @@ impl ETHRelayer {
         )
         .map_err(|err| anyhow::anyhow!(err))?
         .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
-
         self.do_relay_loop(cell).await?;
         Ok(())
     }
@@ -167,15 +169,6 @@ impl ETHRelayer {
                 .ok_or_else(|| anyhow!("the block number is not exist."))?;
         }
 
-        // // Determine whether the latest_header is on the Ethereum main chain
-        // // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
-        // // If it is not in the main chain, it means that reorg has occurred, and you need to trace back from latest_height until the back traced header is on the main chain
-        // let mut current_block = self
-        //     .lookup_common_ancestor(&un_confirmed_headers, index)
-        //     .await?;
-        // let mut number = current_block
-        //     .number
-        //     .ok_or_else(|| anyhow!("the block number is not exist."))?;
         loop {
             let witnesses = vec![];
             let start = number.add(1 as u64);
@@ -226,19 +219,19 @@ impl ETHRelayer {
                 continue;
             }
 
-            // let from_lockscript = self.generate_from_lockscript(self.secret_key)?;
             let unsigned_tx = self.generator.generate_eth_light_client_tx(
                 &headers,
                 &cell,
                 &witnesses,
                 &un_confirmed_headers,
-                // from_lockscript,
             )?;
-            let secret_key_b = parse_privkey_path("0", &self.config, &Option::None)?;
+            // FIXME: waiting for sign server.
+            let secret_key_a = parse_privkey_path("0", &self.config, &Option::None)?;
+            let secret_key_b = parse_privkey_path("1", &self.config, &Option::None)?;
             let tx = sign_with_multi_key(
                 unsigned_tx,
                 &mut self.generator.rpc_client,
-                vec![&self.secret_key, &secret_key_b],
+                vec![&secret_key_a, &secret_key_b],
             )
             .map_err(|err| anyhow::anyhow!(err))?;
             self.generator
@@ -323,7 +316,7 @@ pub async fn wait_header_sync_success(
     i = 0;
     loop {
         let cell_res =
-            get_live_cell_by_typescript(&mut generator.indexer_client, cell_script.clone());
+            get_live_cell_by_lockscript(&mut generator.indexer_client, cell_script.clone());
         let cell;
         match cell_res {
             Ok(cell_op) => {

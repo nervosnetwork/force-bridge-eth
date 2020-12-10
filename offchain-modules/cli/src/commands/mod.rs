@@ -342,7 +342,6 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     let mut eth_relayer = ETHRelayer::new(
         config_path,
         args.network,
-        args.private_key_path,
         args.proof_data_path,
         args.multisig_args,
     )?;
