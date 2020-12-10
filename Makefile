@@ -2,6 +2,7 @@ FORCE_CLI := ./offchain-modules/target/debug/force-eth-cli
 
 .EXPORT_ALL_VARIABLES:
 
+FORCE_CONFIG_PATH=${HOME}/.force-bridge/config.toml
 RUST_BACKTRACE=1
 RUST_LOG=info,force=debug
 
@@ -31,17 +32,22 @@ start-docker-network:
 remove-docker-network:
 	cd docker && docker-compose down
 
+init-config:
+	${FORCE_CLI} init --project-path ${shell pwd}
+
 deploy-ckb:
+	${FORCE_CLI} init --project-path . -f
 	${FORCE_CLI} deploy-ckb -k 0
 
+deploy-ckb-sudt:
+	${FORCE_CLI} deploy-ckb --sudt -k 0
+
 deploy-eth:
-	export FORCE_CONFIG_PATH=~/.force-bridge/config.toml \
-	&& cd eth-contracts \
+	cd eth-contracts \
 	&& npx hardhat run ./scripts/deploy.js
 
 deploy-erc20:
-	export FORCE_CONFIG_PATH=~/.force-bridge/config.toml \
-    && cd eth-contracts \
+	cd eth-contracts \
 	&& npx hardhat run ./scripts/deploy-erc20.js > ~/.force-bridge/erc20-contracts.json
 
 deploy-contracts: deploy-ckb deploy-eth
@@ -50,7 +56,7 @@ init-light-client:
 	${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
 
 ckb2eth-relay:
-	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 2 --per-amount 5"
+	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 1 --per-amount 5"
 
 eth2ckb-relay:
 	pm2 start --name eth2ckb-relay "${FORCE_CLI} eth-relay -k 1"
@@ -73,27 +79,26 @@ restart-force-server:
 
 start-services: start-relay start-force-services
 
-restart-services: restart-relay restart-force-services
+restart-services: restart-relay restart-force-server
 
 deploy-from-scratch: deploy-contracts init-light-client start-services
 
-start-offchain-services:
+start-demo-services:
 	bash offchain-modules/start-services.sh
 
-stop-offchain-services:
+stop-demo-services:
 	bash offchain-modules/stop-services.sh
 
-setup-dev-env: build-all start-docker-network deploy-contracts deploy-erc20 start-offchain-services
+setup-dev-env: build-all start-docker-network deploy-ckb-sudt deploy-eth deploy-erc20 start-demo-services
 
-close-dev-env: stop-offchain-services remove-docker-network
+close-dev-env: stop-demo-services remove-docker-network
 
 integration-ci: setup-dev-env demo-crosschain
 
 demo-crosschain:
 	bash demo/crosschain.sh
 
-testnet-demo:
-	bash offchain-modules/testnet-test.sh
+testnet-demo: deploy-contracts deploy-erc20 start-demo-services demo-crosschain
 
 build-docker:
 	make -C docker build
