@@ -38,7 +38,7 @@ use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
-pub const CONFIRM: usize = 10;
+pub const CONFIRM: usize = 15;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
 
 pub struct Generator {

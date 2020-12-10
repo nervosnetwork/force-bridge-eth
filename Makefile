@@ -32,6 +32,7 @@ remove-docker-network:
 	cd docker && docker-compose down
 
 deploy-ckb:
+	${FORCE_CLI} init --project-path . -f
 	${FORCE_CLI} deploy-ckb -k 0
 
 deploy-eth:
