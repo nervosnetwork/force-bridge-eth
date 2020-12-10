@@ -275,6 +275,8 @@ pub async fn lock(
     let args: LockArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     log::info!("lock args: {:?}", args);
+    let sender = convert_eth_address(args.sender.as_str())
+        .map_err(|e| format!("sender address parse fail: {}", e))?;
     let to = convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
         .map_err(|e| format!("lock contract address parse fail: {}", e))?;
     let nonce = U256::from(u128::from(args.nonce));
@@ -320,7 +322,7 @@ pub async fn lock(
         .eth()
         .estimate_gas(
             CallRequest {
-                from: None,
+                from: Some(sender),
                 to: Some(to),
                 gas: None,
                 gas_price: None,

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
 use force_eth_lib::transfer::to_ckb::{
@@ -373,13 +373,18 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         deployed_contracts.eth_ckb_chain_addr.clone(),
         args.gas_price,
     )?;
-    loop {
+    let mut consecutive_failures = 0;
+    while consecutive_failures < 5 {
         let res = ckb_relayer
             .start(eth_rpc_url.clone(), args.per_amount)
             .await;
         if let Err(err) = res {
-            error!("An error occurred during the ckb relay. Err: {:?}", err)
+            error!("An error occurred during the ckb relay. Err: {:?}", err);
+            consecutive_failures += 1;
+        } else {
+            consecutive_failures = 0;
         }
-        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
     }
+    bail!("5 consecutive failures when relay headers")
 }
