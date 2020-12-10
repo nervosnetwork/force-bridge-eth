@@ -2,6 +2,7 @@ FORCE_CLI := ./offchain-modules/target/debug/force-eth-cli
 
 .EXPORT_ALL_VARIABLES:
 
+FORCE_CONFIG_PATH=${HOME}/.force-bridge/config.toml
 RUST_BACKTRACE=1
 RUST_LOG=info,force=debug
 
@@ -38,13 +39,11 @@ deploy-ckb-sudt:
 	${FORCE_CLI} deploy-ckb --sudt -k 0
 
 deploy-eth:
-	export FORCE_CONFIG_PATH=~/.force-bridge/config.toml \
-	&& cd eth-contracts \
+	cd eth-contracts \
 	&& npx hardhat run ./scripts/deploy.js
 
 deploy-erc20:
-	export FORCE_CONFIG_PATH=~/.force-bridge/config.toml \
-    && cd eth-contracts \
+	cd eth-contracts \
 	&& npx hardhat run ./scripts/deploy-erc20.js > ~/.force-bridge/erc20-contracts.json
 
 deploy-contracts: deploy-ckb deploy-eth
