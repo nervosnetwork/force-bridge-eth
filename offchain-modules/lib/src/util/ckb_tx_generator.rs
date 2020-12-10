@@ -175,7 +175,9 @@ impl Generator {
         from_lockscript: Script,
     ) -> Result<TransactionView> {
         info!("generate eth light client tx.");
-        let tx_fee: u64 = 500_000;
+        // let tx_fee: u64 = 500_000;
+        let mut rng = rand::thread_rng();
+        let tx_fee = rng.gen_range(ONE_CKB / 20, ONE_CKB / 10);
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
