@@ -36,7 +36,6 @@ init-config:
 	${FORCE_CLI} init --project-path ${shell pwd}
 
 deploy-ckb:
-	${FORCE_CLI} init --project-path . -f
 	${FORCE_CLI} deploy-ckb -k 0
 
 deploy-ckb-sudt:
