@@ -4,11 +4,6 @@ use ckb_std::ckb_types::packed::Script;
 use ckb_std::error::SysError;
 use ckb_std::high_level::{load_cell_data, load_cell_type, QueryIter};
 
-use force_eth_types::{
-    config::{SUDT_CODE_HASH, UDT_LEN},
-    eth_recipient_cell::ETHRecipientDataView,
-};
-
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 

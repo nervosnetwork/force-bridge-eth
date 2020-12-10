@@ -1,11 +1,10 @@
 #[cfg(target_arch = "riscv64")]
 pub mod chain;
-#[cfg(feature = "std")]
-use mockall::predicate::*;
-#[cfg(feature = "std")]
-use mockall::*;
-
 use crate::actions::calc_eth_bridge_lock_hash;
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::{
     bytes::Bytes,
@@ -13,10 +12,14 @@ use ckb_std::ckb_types::{
     prelude::Pack,
 };
 use ckb_std::error::SysError;
+use core::convert::TryFrom;
 use force_eth_types::config::{SUDT_CODE_HASH, UDT_LEN};
 use force_eth_types::eth_recipient_cell::{ETHAddress, ETHRecipientDataView};
+#[cfg(feature = "std")]
+use mockall::predicate::*;
+#[cfg(feature = "std")]
+use mockall::*;
 use molecule::prelude::{Builder, Byte, Entity};
-use std::convert::TryFrom;
 
 #[cfg_attr(feature = "std", automock)]
 pub trait Adapter {
@@ -59,7 +62,7 @@ pub fn get_sudt_amount_from_source(
         {
             return true;
         }
-        return false;
+        false
     }
 
     let mut index = 0;
@@ -94,7 +97,7 @@ pub enum CellType {
     Success,
 }
 
-pub fn get_mock_load_output_data(token_amount: u128, fee: u128) -> (Vec<Vec<u8>>, [u8; 32]) {
+pub fn get_mock_load_output_data(token_amount: u128, fee: u128) -> (Vec<Vec<u8>>, Vec<u8>) {
     let data = ETHRecipientDataView {
         eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
         eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
@@ -103,18 +106,18 @@ pub fn get_mock_load_output_data(token_amount: u128, fee: u128) -> (Vec<Vec<u8>>
         token_amount,
         fee,
     };
-    let output_data = vec![data.clone().as_molecule_data().unwrap().to_vec()];
+    let output_data = vec![data.as_molecule_data().unwrap().to_vec()];
     let eth_bridge_lock_hash = calc_eth_bridge_lock_hash(
         data.eth_lock_contract_address,
         data.eth_token_address,
         &data.eth_bridge_lock_hash,
     );
-    (output_data, eth_bridge_lock_hash)
+    (output_data, eth_bridge_lock_hash.to_vec())
 }
 
 pub fn get_mock_load_cell_type(
     cell_type: CellType,
-    lock_hash: &[u8],
+    lock_hash: Vec<u8>,
 ) -> Result<Option<Script>, SysError> {
     match cell_type {
         CellType::IndexOutOfBound => Err(SysError::IndexOutOfBound),
@@ -128,36 +131,4 @@ pub fn get_mock_load_cell_type(
             Ok(Some(sudt_sctipt))
         }
     }
-}
-
-pub fn set_mock_chain_data(
-    mut mock: MockAdapter,
-    mol_data_vec: Vec<Vec<u8>>,
-    lock_hash: [u8; 32],
-    input_sudt_cell_data: String,
-    output_sudt_cell_data: String,
-) -> MockAdapter {
-    mock.expect_load_output_data_by_trait()
-        .times(1)
-        .returning(move || mol_data_vec.clone());
-    mock.expect_load_cell_type_by_trait()
-        .times(4)
-        .returning(move |index, _| {
-            if index == 0 {
-                get_mock_load_cell_type(CellType::Success, &lock_hash)
-            } else {
-                get_mock_load_cell_type(CellType::IndexOutOfBound, &lock_hash)
-            }
-        });
-
-    mock.expect_load_cell_data_by_trait()
-        .times(2)
-        .returning(move |_, input| {
-            if input == Source::Input {
-                hex::decode(&input_sudt_cell_data).unwrap()
-            } else {
-                hex::decode(&output_sudt_cell_data).unwrap()
-            }
-        });
-    mock
 }

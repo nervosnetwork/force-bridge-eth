@@ -35,6 +35,7 @@ pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
 mod tests {
     use super::_verify;
     use crate::adapter::*;
+    use ckb_std::ckb_constants::Source;
 
     #[test]
     fn mock_return_ok() {
@@ -123,7 +124,7 @@ mod tests {
             "64000000000000000000000000000000737564745f65787472615f64617461".to_string();
         let output_sudt_cell_data = "5a000000000000000000000000000000".to_string();
         let (mol_data_vec, _lock_hash) = get_mock_load_output_data(token_amount, fee);
-        let lock_hash = [0u8; 32];
+        let lock_hash = [0u8; 32].to_vec();
 
         let mut mock = MockAdapter::new();
         mock = set_mock_chain_data(
@@ -161,7 +162,39 @@ mod tests {
             .returning(move || mol_data_vec.clone());
         mock.expect_load_cell_type_by_trait()
             .times(2)
-            .returning(move |_, _| get_mock_load_cell_type(CellType::OtherErr, &lock_hash));
+            .returning(move |_, _| get_mock_load_cell_type(CellType::OtherErr, lock_hash.clone()));
         _verify(mock);
+    }
+
+    fn set_mock_chain_data(
+        mut mock: MockAdapter,
+        mol_data_vec: Vec<Vec<u8>>,
+        lock_hash: Vec<u8>,
+        input_sudt_cell_data: String,
+        output_sudt_cell_data: String,
+    ) -> MockAdapter {
+        mock.expect_load_output_data_by_trait()
+            .times(1)
+            .returning(move || mol_data_vec.clone());
+        mock.expect_load_cell_type_by_trait()
+            .times(4)
+            .returning(move |index, _| {
+                if index == 0 {
+                    get_mock_load_cell_type(CellType::Success, lock_hash.clone())
+                } else {
+                    get_mock_load_cell_type(CellType::IndexOutOfBound, lock_hash.clone())
+                }
+            });
+
+        mock.expect_load_cell_data_by_trait()
+            .times(2)
+            .returning(move |_, input| {
+                if input == Source::Input {
+                    hex::decode(&input_sudt_cell_data).unwrap()
+                } else {
+                    hex::decode(&output_sudt_cell_data).unwrap()
+                }
+            });
+        mock
     }
 }
