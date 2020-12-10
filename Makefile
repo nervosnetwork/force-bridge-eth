@@ -32,6 +32,9 @@ start-docker-network:
 remove-docker-network:
 	cd docker && docker-compose down
 
+init-config:
+	${FORCE_CLI} init --project-path $(pwd)
+
 deploy-ckb:
 	${FORCE_CLI} deploy-ckb -k 0
 
@@ -79,23 +82,22 @@ restart-services: restart-relay restart-force-server
 
 deploy-from-scratch: deploy-contracts init-light-client start-services
 
-start-offchain-services:
+start-demo-services:
 	bash offchain-modules/start-services.sh
 
-stop-offchain-services:
+stop-demo-services:
 	bash offchain-modules/stop-services.sh
 
-setup-dev-env: build-all start-docker-network deploy-ckb-sudt deploy-eth deploy-erc20 start-offchain-services
+setup-dev-env: build-all start-docker-network deploy-ckb-sudt deploy-eth deploy-erc20 start-demo-services
 
-close-dev-env: stop-offchain-services remove-docker-network
+close-dev-env: stop-demo-services remove-docker-network
 
 integration-ci: setup-dev-env demo-crosschain
 
 demo-crosschain:
 	bash demo/crosschain.sh
 
-testnet-demo:
-	bash offchain-modules/testnet-test.sh
+testnet-demo: deploy-contracts deploy-erc20 start-demo-services demo-crosschain
 
 build-docker:
 	make -C docker build
