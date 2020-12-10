@@ -114,7 +114,7 @@ pub struct DeployCKBArgs {
     #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(long)]
-    pub eth_dag_path: Option<String>,
+    pub sudt: bool,
 }
 
 #[derive(Clap, Clone, Debug)]

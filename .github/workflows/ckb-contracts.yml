@@ -53,3 +53,10 @@ jobs:
       - run: cargo clippy --all --tests -- -D warnings
       - run: capsule build
       - run: cargo test -- --nocapture
+      - name: install-tarpaulin
+        if: steps.cache-contract-target.outputs.cache-hit != 'true'
+        run: cargo install cargo-tarpaulin -f
+      - name: lib code coverage
+        run: |
+          export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
+          bash ./ckb_script_coverage.sh

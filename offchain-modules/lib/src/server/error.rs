@@ -30,9 +30,11 @@ impl From<String> for RpcError {
 
 impl error::ResponseError for RpcError {
     fn error_response(&self) -> HttpResponse {
+        let error_string = self.to_string();
+        log::error!("api return error: {}", error_string);
         HttpResponseBuilder::new(self.status_code())
             .set_header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-            .body(self.to_string())
+            .body(error_string)
     }
 
     fn status_code(&self) -> StatusCode {

@@ -5,7 +5,7 @@ use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
 use ckb_sdk::{AddressPayload, SECP256K1};
-use ckb_types::core::{ScriptHashType, TransactionView};
+use ckb_types::core::TransactionView;
 use ckb_types::packed::{Byte32, Script};
 use ckb_types::prelude::{Builder, Entity};
 use cmd_lib::run_cmd;
@@ -14,12 +14,12 @@ use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::sign;
 use force_sdk::util::send_tx_sync;
-use log::info;
+use log::{debug, info};
 use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
-pub const HEADER_LIMIT_IN_TX: usize = 9;
+pub const HEADER_LIMIT_IN_TX: usize = 14;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
@@ -134,7 +134,13 @@ impl ETHRelayer {
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(
+                self.generator
+                    .deployed_contracts
+                    .light_client_typescript
+                    .hash_type
+                    .into(),
+            )
             .build();
 
         let lockscript = Script::new_builder()
@@ -151,7 +157,13 @@ impl ETHRelayer {
                 )
                 .map_err(|err| anyhow::anyhow!(err))?,
             )
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(
+                self.generator
+                    .deployed_contracts
+                    .light_client_lockscript
+                    .hash_type
+                    .into(),
+            )
             .build();
         let current_number = self.eth_client.client().eth().block_number().await?;
         let block = self.eth_client.get_block(current_number.into()).await?;
@@ -221,17 +233,19 @@ impl ETHRelayer {
                 .eth_client
                 .get_block(
                     latest_header
-                        .hash
-                        .ok_or_else(|| anyhow!("the block hash is not exist."))?
+                        .number
+                        .ok_or_else(|| anyhow!("this number of block is not exist."))?
                         .into(),
                 )
                 .await;
-            if block.is_err() {
-                // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
-                index -= 1;
-                continue;
+            if block.is_ok() {
+                let block = block.unwrap();
+                if block.hash.unwrap() == latest_header.hash.unwrap() {
+                    return Ok(block);
+                }
             }
-            return Ok(block.unwrap());
+            // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+            index -= 1;
         }
         anyhow::bail!("system error! can not find the common ancestor with main chain.")
     }
@@ -252,17 +266,24 @@ impl ETHRelayer {
         loop {
             let witnesses = vec![];
             let start = number.add(1 as u64);
-            let end = start.add(HEADER_LIMIT_IN_TX as u64);
-            let headers_result = self
-                .eth_client
-                .get_blocks(start.as_u64(), end.as_u64())
-                .await;
-            if headers_result.is_err() {
+            let mut latest_number = self.eth_client.client().eth().block_number().await?;
+            if latest_number <= start {
                 info!("current block is newest, waiting for new header on ethereum.");
                 tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 continue;
             }
-            let headers = headers_result.unwrap();
+            if latest_number.as_u64() - start.as_u64() > HEADER_LIMIT_IN_TX as u64 {
+                latest_number = start.add(HEADER_LIMIT_IN_TX as u64);
+            }
+            info!(
+                "try to relay eth light client, block height start: {:?}, end: {:?}",
+                start.as_u64(),
+                latest_number.as_u64()
+            );
+            let headers = self
+                .eth_client
+                .get_blocks(start.as_u64(), latest_number.as_u64())
+                .await?;
             if headers[0].parent_hash
                 == current_block
                     .hash
@@ -312,7 +333,7 @@ impl ETHRelayer {
                 .map_err(|err| anyhow!(err))?;
 
             // update cell current_block and number.
-            update_cell_sync(&mut self.generator.indexer_client, &tx, 60, &mut cell)
+            update_cell_sync(&mut self.generator.indexer_client, &tx, 600, &mut cell)
                 .await
                 .map_err(|err| anyhow::anyhow!(err))?;
             current_block = headers[headers.len() - 1].clone();
@@ -341,22 +362,21 @@ pub async fn update_cell_sync(
         .to_opt()
         .ok_or_else(|| anyhow!("cell_typescript is not found."))?;
     for i in 0..timeout {
-        let temp_cell = get_live_cell_by_typescript(index_client, cell_typescript.clone());
-        match temp_cell {
-            Ok(temp_cell) => {
-                if temp_cell.clone().unwrap().block_number.value() > cell.block_number.value() {
-                    *cell = temp_cell.unwrap();
-                    break;
-                }
-            }
-            _ => {
-                info!("waiting for cell to be committed, loop index: {}", i,);
+        let temp_cell = get_live_cell_by_typescript(index_client, cell_typescript.clone())
+            .map_err(|e| anyhow!("failed to get temp_cell: {}", e))?;
+        if let Some(c) = temp_cell {
+            if c.block_number.value() > cell.block_number.value() {
+                *cell = c;
+                return Ok(());
             }
         }
-        info!("waiting for cell to be committed, loop index: {}", i,);
+        info!("waiting for cell to be committed, loop index: {}", i);
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
-    Ok(())
+    anyhow::bail!(
+        "failed to update cell after waiting for {} secends. please try again.",
+        timeout
+    )
 }
 
 pub async fn wait_header_sync_success(
@@ -403,7 +423,7 @@ pub async fn wait_header_sync_success(
                 cell = cell_op.unwrap();
             }
             Err(_) => {
-                info!("waiting for finding cell deps, loop index: {}", i);
+                debug!("waiting for finding cell deps, loop index: {}", i);
                 tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 i += 1;
                 continue;

@@ -1,6 +1,5 @@
 const fs = require("fs");
 const TOML = require("@iarna/toml");
-const { sleep } = require("../test/utils");
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
@@ -28,32 +27,14 @@ async function main() {
     provider
   );
 
-  const contractPaths = [
-    "contracts/test/ERC20.sol:DAI",
-    "contracts/test/ERC20.sol:USDT",
-    "contracts/test/ERC20.sol:USDC",
+  let CKBChainFactory = await ethers.getContractFactory(
     "contracts/CKBChain.sol:CKBChain",
-  ];
-
-  const contracts = [];
-  const promises = [];
-  for (const path of contractPaths) {
-    const factory = await ethers.getContractFactory(path, wallet);
-    const contract = await factory.deploy();
-    contracts.push(contract);
-    promises.push(contract.deployTransaction.wait(1));
-    // because nonce should increase in sequence
-    await sleep(1);
-  }
-  await Promise.all(promises);
-  const [DAIAddr, USDTAddr, USDCAddr, CKBChainAddr] = contracts.map(
-    (contract) => contract.address
+    wallet
   );
-
-  console.error(`
-    DAIAddr: ${DAIAddr}, USDTAddr: ${USDTAddr}, USDCAddr: ${USDCAddr}, 
-    CKBChinAddr: ${CKBChainAddr}
-  `);
+  const CKBChain = await CKBChainFactory.deploy();
+  await CKBChain.deployed();
+  const CKBChainAddr = CKBChain.address;
+  console.error("CKBChain address: ", CKBChainAddr);
 
   // deploy TokenLocker
   let TokenLocker = await ethers.getContractFactory(
@@ -69,15 +50,7 @@ async function main() {
   );
   await locker.deployed();
   const lockerAddr = locker.address;
-  console.error("tokenLocker", lockerAddr);
-
-  const address = {
-    daiContractAddr: DAIAddr,
-    usdtContractAddr: USDTAddr,
-    usdcContractAddr: USDCAddr,
-  };
-  const data = JSON.stringify(address);
-  console.log(data);
+  console.error("tokenLocker address: ", lockerAddr);
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;

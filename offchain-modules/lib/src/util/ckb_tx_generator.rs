@@ -8,7 +8,7 @@ use crate::util::eth_util::convert_to_header_rlp;
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
-use ckb_types::core::{BlockView, Capacity, DepType, ScriptHashType, TransactionView};
+use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
 use ckb_types::packed::{HeaderVec, WitnessArgs};
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
@@ -38,7 +38,7 @@ use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
-pub const CONFIRM: usize = 10;
+pub const CONFIRM: usize = 15;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
 
 pub struct Generator {
@@ -79,7 +79,6 @@ impl Generator {
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
-            self.deployed_contracts.dag_merkle_roots.clone(),
             self.deployed_contracts
                 .light_client_lockscript
                 .outpoint
@@ -176,11 +175,12 @@ impl Generator {
         from_lockscript: Script,
     ) -> Result<TransactionView> {
         info!("generate eth light client tx.");
-        let tx_fee: u64 = 500_000;
+        // let tx_fee: u64 = 500_000;
+        let mut rng = rand::thread_rng();
+        let tx_fee = rng.gen_range(ONE_CKB / 20, ONE_CKB / 10);
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
-            self.deployed_contracts.dag_merkle_roots.clone(),
             self.deployed_contracts
                 .light_client_lockscript
                 .outpoint
@@ -421,7 +421,7 @@ impl Generator {
             .build();
         let lockscript = Script::new_builder()
             .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
-            .hash_type(ScriptHashType::Data.into())
+            .hash_type(self.deployed_contracts.bridge_lockscript.hash_type.into())
             .args(args.as_bytes().pack())
             .build();
 
@@ -461,7 +461,7 @@ impl Generator {
             let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash)?;
             let sudt_typescript = Script::new_builder()
                 .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
-                .hash_type(ScriptHashType::Data.into())
+                .hash_type(self.deployed_contracts.sudt.hash_type.into())
                 .args(lockscript.calc_script_hash().as_bytes().pack())
                 .build();
 
@@ -617,7 +617,6 @@ impl Generator {
         for _ in 0..cell_num {
             tx_helper.add_output(output.clone(), bridge_data.as_bytes());
         }
-        // build tx
         let tx = tx_helper
             .supply_capacity(
                 &mut self.rpc_client,
@@ -662,6 +661,7 @@ impl Generator {
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
             &self.deployed_contracts.sudt.code_hash,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;
@@ -702,7 +702,12 @@ impl Generator {
 
             let recipient_typescript: Script = Script::new_builder()
                 .code_hash(Byte32::from_slice(&recipient_typescript_code_hash)?)
-                .hash_type(ScriptHashType::Data.into())
+                .hash_type(
+                    self.deployed_contracts
+                        .recipient_typescript
+                        .hash_type
+                        .into(),
+                )
                 .build();
 
             let eth_recipient_output = CellOutput::new_builder()
@@ -760,6 +765,7 @@ impl Generator {
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
             &self.deployed_contracts.sudt.code_hash,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;
@@ -805,6 +811,7 @@ impl Generator {
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
             &self.deployed_contracts.sudt.code_hash,
+            self.deployed_contracts.sudt.hash_type,
             token_addr,
             lock_contract_addr,
         )?;

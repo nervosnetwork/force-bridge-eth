@@ -5,6 +5,7 @@ pub use ckb_tool::ckb_types::bytes::Bytes;
 use ckb_tool::ckb_types::{packed::*, prelude::*};
 use core::convert::TryInto;
 use force_eth_types::{
+    config::CONFIRM,
     eth_recipient_cell::ETHAddress,
     generated::{
         basic, eth_bridge_lock_cell::ETHBridgeLockArgs, eth_header_cell,
@@ -293,13 +294,13 @@ impl ETHLightClientTypeCell {
         let mut main_vec = vec![];
 
         let main_len = self.main.clone().len();
-        if main_len > 10 {
-            for i in 0..main_len - 10 {
+        if main_len > CONFIRM {
+            for i in 0..main_len - CONFIRM {
                 let file = self.main[i].clone();
                 if i > 0 && file == self.main[i - 1].clone() {
                     let block_with_proof = light_client_types::read_block(file);
                     let data = light_client_utils::create_hash_data(&block_with_proof);
-                    let mut extra = vec![data; main_len - 10 - i];
+                    let mut extra = vec![data; main_len - CONFIRM - i];
                     main_vec.append(&mut extra);
                     break;
                 } else {
@@ -310,8 +311,8 @@ impl ETHLightClientTypeCell {
             }
         }
         let mut start_index = 0;
-        if main_len > 10 {
-            start_index = main_len - 10;
+        if main_len > CONFIRM {
+            start_index = main_len - CONFIRM;
         }
         let mut pre_difficulty: u64 = 0;
         for i in start_index..main_len {

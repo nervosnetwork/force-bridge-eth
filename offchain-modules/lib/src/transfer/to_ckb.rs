@@ -3,7 +3,6 @@ use crate::util::ckb_util::{
     build_lockscript_from_address, parse_privkey, parse_privkey_path, ETHSPVProofJson,
 };
 use crate::util::config::{CellScript, DeployedContracts, ForceConfig, OutpointConf, ScriptConf};
-use crate::util::eth_proof_helper::{read_roots_collection_raw, RootsCollectionJson};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, parse_private_key,
     Web3Client,
@@ -20,7 +19,6 @@ use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::ETHAddress;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
-use force_eth_types::generated::eth_header_cell::DagsMerkleRoots;
 use force_sdk::cell_collector::collect_bridge_cells;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{sign, TxHelper};
@@ -30,7 +28,7 @@ use rusty_receipt_proof_maker::generate_eth_proof;
 use secp256k1::SecretKey;
 use serde_json::Value;
 use shellexpand::tilde;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
@@ -192,8 +190,25 @@ pub async fn generate_eth_spv_proof_json(
     ethereum_rpc_url: String,
     eth_token_locker_addr: String,
 ) -> Result<ETHSPVProofJson> {
-    let eth_spv_proof = generate_eth_proof(hash.clone(), ethereum_rpc_url.clone())
-        .map_err(|e| anyhow!("Failed to generate eth proof. {:?}", e))?;
+    let eth_spv_proof_retry = |max_retry_times| {
+        for retry in 0..max_retry_times {
+            let ret = generate_eth_proof(hash.clone(), ethereum_rpc_url.clone());
+            match ret {
+                Ok(proof) => return Ok(proof),
+                Err(e) => {
+                    info!(
+                        "get eth receipt proof failed, retried {} times, err: {}",
+                        retry, e
+                    );
+                }
+            }
+        }
+        Err(anyhow!(
+            "Failed to generate eth proof after retry {} times",
+            max_retry_times
+        ))
+    };
+    let eth_spv_proof = eth_spv_proof_retry(3)?;
     let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
     info!("eth_spv_proof: {:?}", eth_spv_proof);
     let hash_str = hash.clone();
@@ -235,6 +250,7 @@ pub async fn send_eth_spv_proof_tx(
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
+
     for retry_times in 0..MAX_RETRY_TIMES {
         let unsigned_tx = generator.generate_eth_spv_tx(
             config_path.clone(),
@@ -282,7 +298,7 @@ pub async fn send_eth_spv_proof_tx(
                 );
             }
         }
-        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        tokio::time::delay_for(std::time::Duration::from_secs(retry_times * 3 + 1)).await;
     }
     anyhow::bail!("tx is not committed, reach max retry times")
 }
@@ -292,18 +308,14 @@ pub async fn deploy_ckb(
     config_path: String,
     network: Option<String>,
     private_key_path: String,
-    eth_dag_path: Option<String>,
+    deploy_sudt: bool,
 ) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     let mut force_config = ForceConfig::new(config_path.as_str())?;
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let private_key = parse_privkey_path(private_key_path.as_str(), &force_config, &network)?;
-    let eth_dag_path = if let Some(dag_path) = eth_dag_path.as_ref() {
-        dag_path
-    } else {
-        &force_config.eth_dag_path
-    };
+
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
     let bridge_typescript_path = force_config.get_bridge_typescript_bin_path()?;
@@ -311,58 +323,67 @@ pub async fn deploy_ckb(
     let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
     let light_client_lockscript_path = force_config.get_light_client_lockscript_bin_path()?;
     let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
-    let sudt_path = force_config.get_sudt_typescript_bin_path()?;
 
-    // dev deploy
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
     let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
     let light_client_lockscript_bin = std::fs::read(light_client_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
-    let sudt_bin = std::fs::read(sudt_path)?;
 
     let bridge_typescript_code_hash = blake2b_256(&bridge_typescript_bin);
     let bridge_typescript_code_hash_hex = hex::encode(&bridge_typescript_code_hash);
-
     let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
     let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
-
     let light_client_lockscript_code_hash = blake2b_256(&light_client_lockscript_bin);
     let light_client_lockscript_code_hash_hex = hex::encode(&light_client_lockscript_code_hash);
-
     let bridge_lockscript_code_hash = blake2b_256(&bridge_lockscript_bin);
     let bridge_lockscript_code_hash_hex = hex::encode(&bridge_lockscript_code_hash);
-
     let recipient_typescript_code_hash = blake2b_256(&recipient_typescript_bin);
     let recipient_typescript_code_hash_hex = hex::encode(&recipient_typescript_code_hash);
 
-    let sudt_code_hash = blake2b_256(&sudt_bin);
-    let sudt_code_hash_hex = hex::encode(&sudt_code_hash);
-
-    let data = vec![
+    let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
         light_client_typescript_bin,
         light_client_lockscript_bin,
         recipient_typescript_bin,
-        sudt_bin,
     ];
-    let tx = deploy(
-        &mut rpc_client,
-        &mut indexer_client,
-        &private_key,
-        data,
-        eth_dag_path.as_str(),
-    )
-    .map_err(|err| anyhow!(err))?;
+    let sudt_code_hash_hex = if deploy_sudt {
+        let sudt_path = force_config.get_sudt_typescript_bin_path()?;
+        let sudt_bin = std::fs::read(sudt_path)?;
+        let sudt_code_hash = blake2b_256(&sudt_bin);
+        data.push(sudt_bin);
+        Some(hex::encode(&sudt_code_hash))
+    } else {
+        None
+    };
+
+    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
+        .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 120)
         .await
         .map_err(|err| anyhow!(err))?;
     let tx_hash_hex = hex::encode(tx_hash.as_bytes());
 
+    let original_config = force_config.deployed_contracts.unwrap_or_default();
+    let pw_locks = original_config.pw_locks;
+    let sudt_conf = if deploy_sudt {
+        ScriptConf {
+            code_hash: sudt_code_hash_hex.expect("should have value"),
+            hash_type: 0,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex.clone(),
+                index: 5,
+                dep_type: 0,
+            },
+        }
+    } else {
+        original_config.sudt
+    };
     let deployed_contracts = DeployedContracts {
         bridge_lockscript: ScriptConf {
             code_hash: bridge_lockscript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
@@ -371,6 +392,7 @@ pub async fn deploy_ckb(
         },
         bridge_typescript: ScriptConf {
             code_hash: bridge_typescript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
@@ -379,6 +401,7 @@ pub async fn deploy_ckb(
         },
         light_client_typescript: ScriptConf {
             code_hash: light_client_typescript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 2,
@@ -387,6 +410,7 @@ pub async fn deploy_ckb(
         },
         light_client_lockscript: ScriptConf {
             code_hash: light_client_lockscript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 3,
@@ -395,28 +419,18 @@ pub async fn deploy_ckb(
         },
         recipient_typescript: ScriptConf {
             code_hash: recipient_typescript_code_hash_hex,
+            hash_type: 0,
             outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
+                tx_hash: tx_hash_hex,
                 index: 4,
                 dep_type: 0,
             },
         },
-        sudt: ScriptConf {
-            code_hash: sudt_code_hash_hex,
-            outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
-                index: 5,
-                dep_type: 0,
-            },
-        },
-        dag_merkle_roots: OutpointConf {
-            tx_hash: tx_hash_hex,
-            index: 6,
-            dep_type: 0,
-        },
+        sudt: sudt_conf,
         light_client_cell_script: CellScript {
             cell_script: "".to_string(),
         },
+        pw_locks,
         ..Default::default()
     };
     log::info!("ckb_scripts: {:?}", &deployed_contracts);
@@ -474,6 +488,7 @@ pub async fn get_or_create_bridge_cell(
         .code_hash(Byte32::from_slice(&hex::decode(
             &deployed_contracts.bridge_lockscript.code_hash,
         )?)?)
+        .hash_type(deployed_contracts.bridge_lockscript.hash_type.into())
         .args(bridge_lockscript_args.as_bytes().pack())
         .build();
     let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
@@ -488,6 +503,7 @@ pub async fn get_or_create_bridge_cell(
         .code_hash(Byte32::from_slice(
             &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
         )?)
+        .hash_type(deployed_contracts.bridge_typescript.hash_type.into())
         .args(bridge_typescript_args.as_bytes().pack())
         .build();
     let cells = collect_bridge_cells(
@@ -565,9 +581,6 @@ pub fn deploy(
     indexer_client: &mut IndexerRpcClient,
     privkey: &SecretKey,
     data: Vec<Vec<u8>>,
-    eth_dag_path: &str,
-    // token_cell_script: Script,
-    // eth_cell_script: Script,
 ) -> Result<TransactionView, String> {
     let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
     let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
@@ -579,29 +592,7 @@ pub fn deploy(
             .build();
         tx_helper.add_output_with_auto_capacity(output, data.into());
     }
-    // let output_token = CellOutput::new_builder()
-    //     .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
-    //     .lock(token_cell_script)
-    //     .build();
-    // tx_helper.add_output_with_auto_capacity(output_token, ckb_types::bytes::Bytes::default());
-    // let output_eth = CellOutput::new_builder()
-    //     .capacity(Capacity::shannons(PUBLIC_BRIDGE_CELL).pack())
-    //     .lock(eth_cell_script)
-    //     .build();
-    // tx_helper.add_output_with_auto_capacity(output_eth, ckb_types::bytes::Bytes::default());
-    let output_dag = CellOutput::new_builder().lock(lockscript.clone()).build();
-    let dep_data_raw = read_roots_collection_raw(eth_dag_path)?;
-    let mut dag_root = vec![];
-    for i in 0..dep_data_raw.dag_merkle_roots.len() {
-        dag_root.push(hex::encode(&dep_data_raw.dag_merkle_roots[i].0).clone());
-    }
-    let dep_data_string = RootsCollectionJson {
-        dag_merkle_roots: dag_root,
-    };
-    // dbg!(dep_data_string.clone());
-    let dep_data: DagsMerkleRoots = dep_data_string.try_into().unwrap();
-    // dbg!(hex::encode(dep_data.as_slice()));
-    tx_helper.add_output_with_auto_capacity(output_dag, dep_data.as_bytes());
+
     let genesis_block: BlockView = rpc_client
         .get_block_by_number(0)?
         .expect("Can not get genesis block?")
