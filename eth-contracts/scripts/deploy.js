@@ -1,6 +1,5 @@
 const fs = require("fs");
 const TOML = require("@iarna/toml");
-const { sleep } = require("../test/utils");
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;

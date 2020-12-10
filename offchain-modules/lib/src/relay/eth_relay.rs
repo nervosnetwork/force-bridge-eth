@@ -15,7 +15,7 @@ use force_sdk::cell_collector::{get_live_cell_by_lockscript, get_live_cell_by_ty
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, sign_with_multi_key};
 use force_sdk::util::send_tx_sync;
-use log::info;
+use log::{debug, info};
 use secp256k1::SecretKey;
 use std::ops::Add;
 use web3::types::{Block, BlockHeader, U64};
@@ -240,7 +240,7 @@ impl ETHRelayer {
                 .map_err(|err| anyhow!(err))?;
 
             // update cell current_block and number.
-            update_cell_sync(&mut self.generator.indexer_client, &tx, 120, &mut cell)
+            update_cell_sync(&mut self.generator.indexer_client, &tx, 600, &mut cell)
                 .await
                 .map_err(|err| anyhow::anyhow!(err))?;
             current_block = headers[headers.len() - 1].clone();
@@ -267,22 +267,21 @@ pub async fn update_cell_sync(
         .ok_or_else(|| anyhow!("no out_put found"))?
         .lock();
     for i in 0..timeout {
-        let temp_cell = get_live_cell_by_lockscript(index_client, cell_lockscript.clone());
-        match temp_cell {
-            Ok(temp_cell) => {
-                if temp_cell.clone().unwrap().block_number.value() > cell.block_number.value() {
-                    *cell = temp_cell.unwrap();
-                    return Ok(());
-                }
-            }
-            _ => {
-                info!("waiting for cell to be committed, loop index: {}", i,);
+        let temp_cell = get_live_cell_by_lockscript(index_client, cell_typescript.clone())
+            .map_err(|e| anyhow!("failed to get temp_cell: {}", e))?;
+        if let Some(c) = temp_cell {
+            if c.block_number.value() > cell.block_number.value() {
+                *cell = c;
+                return Ok(());
             }
         }
-        info!("waiting for cell to be committed, loop index: {}", i,);
+        info!("waiting for cell to be committed, loop index: {}", i);
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
-    anyhow::bail!("failed to update cell. please try again.")
+    anyhow::bail!(
+        "failed to update cell after waiting for {} secends. please try again.",
+        timeout
+    )
 }
 
 pub async fn wait_header_sync_success(
@@ -329,7 +328,7 @@ pub async fn wait_header_sync_success(
                 cell = cell_op.unwrap();
             }
             Err(_) => {
-                info!("waiting for finding cell deps, loop index: {}", i);
+                debug!("waiting for finding cell deps, loop index: {}", i);
                 tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
                 i += 1;
                 continue;

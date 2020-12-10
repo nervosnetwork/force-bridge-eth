@@ -238,7 +238,7 @@ pub async fn send_tx_sync(
         let status = rpc_client
             .get_transaction(tx_hash.clone())?
             .map(|t| t.tx_status.status);
-        log::info!(
+        log::debug!(
             "waiting for tx {} to be committed, loop index: {}, status: {:?}",
             &tx_hash,
             i,

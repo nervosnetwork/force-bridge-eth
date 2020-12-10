@@ -528,7 +528,6 @@ impl Generator {
         from_lockscript: Script,
         bridge_typescript: Script,
         bridge_lockscript: Script,
-        recipient_lockscript: Script,
         bridge_fee: u128,
         cell_num: usize,
     ) -> Result<TransactionView> {
@@ -554,15 +553,6 @@ impl Generator {
         for _ in 0..cell_num {
             tx_helper.add_output(output.clone(), bridge_data.as_bytes());
         }
-        // create an extra cell with 61 CKB capacity for user, enable user do actions on ckb after the crosschain.
-        // used in testnet version temporarily.
-        // TODO: remove it in mainnet version.
-        let addtional_output = CellOutput::new_builder()
-            .capacity((ONE_CKB * 61).pack())
-            .lock(recipient_lockscript)
-            .build();
-        tx_helper.add_output(addtional_output, Bytes::new());
-        // build tx
         let tx = tx_helper
             .supply_capacity(
                 &mut self.rpc_client,
