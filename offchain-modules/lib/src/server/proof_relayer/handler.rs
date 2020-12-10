@@ -112,7 +112,7 @@ pub async fn relay_eth_to_ckb_proof(
             .get_transaction(tx_hash.clone())
             .map_err(|e| anyhow!("get tx err: {}", e))?
             .map(|t| t.tx_status.status);
-        log::info!(
+        log::debug!(
             "waiting for tx {} to be committed, loop index: {}, status: {:?}",
             &tx_hash,
             i,

@@ -68,7 +68,7 @@ pub async fn get_crosschain_history(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: GetCrosschainHistoryArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
-    log::info!("get_crosschain_history args: {:?}", args);
+    log::debug!("get_crosschain_history args: {:?}", args);
     let ckb_recipient_lockscript = match args.ckb_recipient_lockscript {
         Some(lockscript_raw) => lockscript_raw,
         None => {
@@ -84,7 +84,7 @@ pub async fn get_crosschain_history(
             hex::encode(from_lockscript.as_slice())
         }
     };
-    log::info!(
+    log::debug!(
         "ckb_recipient_lockscript args: {:?}",
         ckb_recipient_lockscript
     );
