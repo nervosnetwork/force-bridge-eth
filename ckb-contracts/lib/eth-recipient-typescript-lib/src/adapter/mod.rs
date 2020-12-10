@@ -13,7 +13,7 @@ use ckb_std::ckb_types::{
 };
 use ckb_std::error::SysError;
 use core::convert::TryFrom;
-use force_eth_types::config::{SUDT_CODE_HASH, UDT_LEN};
+use force_eth_types::config::{SUDT_CODE_HASH, SUDT_HASH_TYPE, UDT_LEN};
 use force_eth_types::eth_recipient_cell::{ETHAddress, ETHRecipientDataView};
 #[cfg(feature = "std")]
 use mockall::predicate::*;
@@ -58,7 +58,7 @@ pub fn get_sudt_amount_from_source(
         let script = script.unwrap();
         if script.code_hash().raw_data().as_ref() == SUDT_CODE_HASH.as_ref()
             && script.args().raw_data().as_ref() == lock_hash
-            && script.hash_type() == 0u8.into()
+            && script.hash_type() == SUDT_HASH_TYPE.into()
         {
             return true;
         }
@@ -125,7 +125,7 @@ pub fn get_mock_load_cell_type(
         CellType::Success => {
             let sudt_sctipt = Script::new_builder()
                 .code_hash(Byte32::from_slice(SUDT_CODE_HASH.as_ref()).unwrap())
-                .hash_type(Byte::new(0))
+                .hash_type(Byte::new(SUDT_HASH_TYPE))
                 .args(Bytes::from(lock_hash).pack())
                 .build();
             Ok(Some(sudt_sctipt))
