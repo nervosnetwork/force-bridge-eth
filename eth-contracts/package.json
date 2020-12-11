@@ -1,5 +1,5 @@
 {
-  "name": "@cosinlink/ckb-spv",
+  "name": "@nervosnetwork/force-bridge-eth",
   "version": "0.0.1",
   "description": "CKB SPV proofs in Solidity",
   "scripts": {
@@ -40,6 +40,6 @@
     "@openzeppelin/contracts": "^3.2.0",
     "hardhat-gas-reporter": "^1.0.0"
   },
-  "repository": "github.com/cosinlink/ckb-spv.git",
+  "repository": "https://github.com/nervosnetwork/force-bridge-eth.git",
   "license": "MIT"
 }
