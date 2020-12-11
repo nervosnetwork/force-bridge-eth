@@ -223,6 +223,9 @@ pub async fn send_tx_sync_with_response(
             }
             // keep waiting if the status become proposed
             Some(ckb_jsonrpc_types::Status::Proposed) => {}
+            None => {
+                return Err(anyhow!("tx pool error, tx {} status become none", &tx_hash));
+            }
             _ => {
                 if i > timeout {
                     return Ok((tx_hash, false));
