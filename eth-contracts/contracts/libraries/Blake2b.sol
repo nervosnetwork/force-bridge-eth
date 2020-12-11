@@ -4,6 +4,7 @@ pragma solidity ^0.5.10;
 library  Blake2b {
 
     function digest208(bytes memory input208) internal view returns (bytes32 ret){
+        // solium-disable-next-line
         assembly{
 
         // reject not ckbinput
@@ -179,6 +180,7 @@ library  Blake2b {
     }
 
     function digest208Ptr(uint256 input_ptr) internal view returns (bytes32 ret){
+        // solium-disable-next-line
         assembly{
         // the init vector is 0x
         //  08c9bc3f 67e6096a 3ba7ca84 85ae67bb
@@ -346,6 +348,7 @@ library  Blake2b {
     }
 
     function digest64(bytes memory input64) internal view returns (bytes32 ret){
+        // solium-disable-next-line
         assembly{
         // reject not ckbinput
         // 64 = 0x40
@@ -400,6 +403,7 @@ library  Blake2b {
     }
 
     function digest64Merge(bytes32 left, bytes32 right) internal view returns (bytes32 ret){
+        // solium-disable-next-line
         assembly{
             let memory_ptr := mload(0x40)
 

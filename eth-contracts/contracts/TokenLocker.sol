@@ -145,10 +145,10 @@ contract TokenLocker {
         require((recipientCellData.contractAddress() == address(this)), "invalid contract address in recipient cell");
         require((recipientCellData.bridgeLockscriptCodeHash() == bridgeCellLockscriptCodeHash_), "invalid contract address in recipient cell");
         return (
-            recipientCellData.bridgeAmount(),
-            recipientCellData.bridgeFee(),
-            recipientCellData.tokenAddress(),
-            recipientCellData.recipientAddress()
+        recipientCellData.bridgeAmount(),
+        recipientCellData.bridgeFee(),
+        recipientCellData.tokenAddress(),
+        recipientCellData.recipientAddress()
         );
     }
 }
