@@ -1,10 +1,10 @@
 use crate::transfer::to_eth::get_add_ckb_headers_func;
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::eth_util::{convert_eth_address, relay_header_transaction, Web3Client};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use ethabi::Token;
 use ethereum_types::U256;
-use futures::future::join_all;
+use futures::future::try_join_all;
 use log::info;
 use std::ops::Add;
 use std::time::Instant;
@@ -50,10 +50,9 @@ impl CKBRelayer {
             .get_contract_height("initBlockNumber", self.contract_addr)
             .await?;
         if client_block_number < client_init_height {
-            bail!(
-                "contract current height  : {}  <  init height : {}",
-                client_block_number,
-                client_init_height
+            panic!(
+                "light client contract state error: latest height  : {}  <  init height : {}",
+                client_block_number, client_init_height
             );
         }
         while client_block_number > client_init_height {
@@ -61,8 +60,8 @@ impl CKBRelayer {
                 .ckb_client
                 .rpc_client
                 .get_block_hash(client_block_number)
-                .map_err(|e| anyhow!("failed to get block hash: {}", e))?
-                .ok_or_else(|| anyhow!("block {:?}  hash is none", client_block_number))?;
+                .map_err(|e| anyhow!("failed to get ckb block hash: {}", e))?
+                .ok_or_else(|| anyhow!("ckb block {:?}  hash is none", client_block_number))?;
 
             if self
                 .web3_client
@@ -71,18 +70,20 @@ impl CKBRelayer {
             {
                 break;
             }
+            info!(
+                "client contract forked, forked block height: {}",
+                client_block_number
+            );
             client_block_number -= 1;
         }
 
         let mut block_height = client_block_number + 1;
-
         let ckb_current_height = self
             .ckb_client
             .rpc_client
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
         info!("ckb_current_height:{:?}", ckb_current_height);
-
         let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
         let mut sequence: u64 = 0;
 
@@ -98,7 +99,7 @@ impl CKBRelayer {
         }
         if !futures.is_empty() {
             let now = Instant::now();
-            let results = join_all(futures).await;
+            let results = try_join_all(futures).await?;
             info!("join_all execute result {:?}", results);
             info!("relay headers time elapsed: {:?}", now.elapsed());
         }
@@ -115,14 +116,16 @@ impl CKBRelayer {
 
         let add_headers_func = get_add_ckb_headers_func();
         let add_headers_abi = add_headers_func.encode_input(&[Token::Bytes(headers)])?;
+        let increased_gas_price =
+            self.web3_client.client().eth().gas_price().await?.as_u128() * 3 / 2;
         let signed_tx = self
             .web3_client
             .build_sign_tx(
                 self.contract_addr,
                 self.priv_key,
                 add_headers_abi,
-                self.gas_price,
-                Some(U256::from(1_200_000)),
+                U256::from(increased_gas_price),
+                Some(U256::from(1_500_000)),
                 U256::from(0),
                 asec_nonce,
             )

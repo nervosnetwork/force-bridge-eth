@@ -65,6 +65,7 @@ pub struct GetSudtBalanceArgs {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LockArgs {
+    pub sender: String,
     pub token_address: String,
     pub amount: Uint128,
     pub bridge_fee: Uint128,
