@@ -1,16 +1,13 @@
 const chai = require('chai')
-const { MaxUint256 } = ethers.constants
-const {
-  bigNumberify,
-  hexlify,
-  keccak256,
-  defaultAbiCoder,
-  toUtf8Bytes,
-  solidityPack,
-} = ethers.utils
+const { keccak256, defaultAbiCoder, toUtf8Bytes, solidityPack } = ethers.utils
 const { solidity } = require('ethereum-waffle')
 
-const { log, generateWallets, generateSignatures } = require('./utils')
+const {
+  log,
+  generateWallets,
+  generateSignatures,
+  runErrorCase,
+} = require('./utils')
 const testJson = require('./data/testTokenLocker.json')
 
 const recipientCellTypescript = testJson.recipientCellTypescript
@@ -151,48 +148,32 @@ contract('TokenLocker in TokenLockerV2', () => {
       let signatures = generateSignatures(msgHash, wallets)
       // expect error of `invalid v of signature(r, s, v)`
       let wrongSignatures = signatures.slice(0, signatures.length - 2) + 'ff'
-      try {
-        await tokenLocker.setNewCkbSpv(newSpvAddress, nonce, wrongSignatures)
-      } catch (e) {
-        const error = e.error.toString()
-        expect(error.indexOf('invalid v of signature(r, s, v)') > -1).to.eq(
-          true
-        )
-      }
+      await runErrorCase(
+        tokenLocker.setNewCkbSpv(newSpvAddress, nonce, wrongSignatures),
+        'invalid v of signature(r, s, v)'
+      )
 
       // expect error of `length of signatures must greater than threshold`
       wrongSignatures = signatures.slice(0, signatures.length - 65 * 2)
-      try {
-        await tokenLocker.setNewCkbSpv(newSpvAddress, nonce, wrongSignatures)
-      } catch (e) {
-        const error = e.error.toString()
-        expect(
-          error.indexOf('length of signatures must greater than threshold') > -1
-        ).to.eq(true)
-      }
+      await runErrorCase(
+        tokenLocker.setNewCkbSpv(newSpvAddress, nonce, wrongSignatures),
+        'length of signatures must greater than threshold'
+      )
 
       // expect error of `signatures not verified`
       wrongSignatures = signatures.slice(0, signatures.length - 65 * 2)
       wrongSignatures = wrongSignatures + wrongSignatures.slice(2)
-      try {
-        await tokenLocker.setNewCkbSpv(newSpvAddress, nonce, wrongSignatures)
-      } catch (e) {
-        const error = e.error.toString()
-        expect(error.indexOf('signatures not verified') > -1).to.eq(true)
-      }
+      await runErrorCase(
+        tokenLocker.setNewCkbSpv(newSpvAddress, nonce, wrongSignatures),
+        'signatures not verified'
+      )
 
       // expect error of `invalid setNewCkbSpv nonce`
       const wrongNonce = nonce + 1
-      try {
-        await tokenLocker.setNewCkbSpv(
-          newSpvAddress,
-          wrongNonce,
-          wrongSignatures
-        )
-      } catch (e) {
-        const error = e.error.toString()
-        expect(error.indexOf('invalid setNewCkbSpv nonce') > -1).to.eq(true)
-      }
+      await runErrorCase(
+        tokenLocker.setNewCkbSpv(newSpvAddress, wrongNonce, wrongSignatures),
+        'invalid setNewCkbSpv nonce'
+      )
     })
   })
 })
