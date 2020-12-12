@@ -8,10 +8,11 @@ use crate::util::eth_util::{
     Web3Client,
 };
 use anyhow::{anyhow, Result};
-use ckb_hash::blake2b_256;
+use ckb_hash::{blake2b_256, new_blake2b};
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
-use ckb_types::core::{BlockView, TransactionView};
-use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
+use ckb_types::bytes::Bytes;
+use ckb_types::core::{BlockView, ScriptHashType, TransactionView};
+use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script, ScriptOpt};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use cmd_lib::run_fun;
 use ethabi::{Function, Param, ParamType, Token};
@@ -20,6 +21,7 @@ use force_eth_types::generated::basic::ETHAddress;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 use force_sdk::cell_collector::collect_bridge_cells;
+use force_sdk::constants::TYPE_ID;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{ensure_indexer_sync, send_tx_sync, send_tx_sync_with_response};
@@ -585,25 +587,62 @@ pub fn deploy(
     let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
     let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
     let lockscript = Script::from(&from_address_payload);
+    let dummy_args = vec![Byte32::default().raw_data(); data.len()];
     let mut tx_helper = TxHelper::default();
-    for data in data.into_iter() {
-        let output = CellOutput::new_builder()
-            .lock((&from_address_payload).into())
-            .build();
-        tx_helper.add_output_with_auto_capacity(output, data.into());
-    }
 
+    fn add_outputs(
+        tx_helper: &mut TxHelper,
+        data: &Vec<Vec<u8>>,
+        type_args: Vec<Bytes>,
+        from_address_payload: &AddressPayload,
+    ) {
+        let type_id = hex::decode(TYPE_ID).expect("type_id should be correct");
+        for (i, data) in data.iter().enumerate() {
+            let typescript = Script::new_builder()
+                .code_hash(
+                    Byte32::from_slice(type_id.as_slice()).expect("type_id should be byte32"),
+                )
+                .hash_type(ScriptHashType::Type.into())
+                .args(type_args[i].pack())
+                .build();
+            let typescript_ = ScriptOpt::new_builder().set(Some(typescript)).build();
+            let output = CellOutput::new_builder()
+                .type_(typescript_)
+                .lock(from_address_payload.into())
+                .build();
+            tx_helper.add_output_with_auto_capacity(output, data.clone().into());
+        }
+    }
+    ;
+
+    add_outputs(&mut tx_helper, &data, dummy_args, &from_address_payload);
     let genesis_block: BlockView = rpc_client
         .get_block_by_number(0)?
         .expect("Can not get genesis block?")
         .into();
     let genesis_info = GenesisInfo::from_block(&genesis_block)?;
-    let tx = tx_helper.supply_capacity(
+    tx_helper.supply_capacity(
         rpc_client,
         indexer_client,
         lockscript,
         &genesis_info,
         99_999_999,
     )?;
-    sign(tx, rpc_client, privkey)
+    tx_helper.clear_outputs();
+    let mut type_args: Vec<Bytes> = vec![];
+    let first_input = tx_helper
+        .transaction
+        .inputs()
+        .get(0)
+        .expect("at least one input");
+    for i in 0..data.len() {
+        let mut args = [0u8; 32];
+        let mut blake2b = new_blake2b();
+        blake2b.update(first_input.as_slice());
+        blake2b.update((i as u64).to_le_bytes().as_ref());
+        blake2b.finalize(&mut args);
+        type_args.push(args.to_vec().into())
+    }
+    add_outputs(&mut tx_helper, &data, type_args, &from_address_payload);
+    sign(tx_helper.transaction, rpc_client, privkey)
 }
