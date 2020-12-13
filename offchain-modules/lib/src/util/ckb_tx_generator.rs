@@ -451,9 +451,9 @@ impl Generator {
         let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
             .expect("invalid bridge data")
             .owner_lock_script();
-        if owner_lock_script.raw_data() != from_lockscript.as_bytes() {
-            bail!("only support use bridge cell we created as lock outpoint");
-        }
+        // if owner_lock_script.raw_data() != from_lockscript.as_bytes() {
+        //     bail!("only support use bridge cell we created as lock outpoint");
+        // }
         // 1 xt cells
         {
             let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript).unwrap();

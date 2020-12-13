@@ -7,14 +7,15 @@ use force_sdk::util::ensure_indexer_sync;
 use secp256k1::SecretKey;
 use shellexpand::tilde;
 use sqlx::SqlitePool;
+use crossbeam_channel::{bounded, Sender, Receiver};
+
 
 #[derive(Clone)]
 pub struct DappState {
     pub config_path: String,
     pub network: Option<String>,
-    pub ckb_private_key_path: String,
-    pub eth_private_key_path: String,
-    pub from_privkey: SecretKey,
+    pub ckb_key_channel: (Sender<String>, Receiver<String>),
+    pub eth_key_channel: (Sender<String>, Receiver<String>),
     pub deployed_contracts: DeployedContracts,
     pub indexer_url: String,
     pub ckb_rpc_url: String,
@@ -35,17 +36,33 @@ impl DappState {
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
-        let from_privkey =
-            parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
+
+        let ckb_key_start_index = ckb_private_key_path.as_str().parse::<usize>()?;
+        let ckb_key_len = force_config.get_ckb_private_keys(&network)?.len();
+        assert!(ckb_key_len > ckb_key_start_index, "invalid args: ckb_private_key_path");
+        let (ckb_key_sender, ckb_key_receiver) = bounded(ckb_key_len - ckb_key_start_index);
+        for i in ckb_key_start_index..ckb_key_len {
+            ckb_key_sender.send(i.to_string()).expect("init ckb private key pool succeed");
+        }
+
+        let eth_key_start_index = eth_private_key_path.as_str().parse::<usize>()?;
+        let eth_key_len = force_config.get_ethereum_private_keys(&network)?.len();
+        assert!(eth_key_len > eth_key_start_index, "invalid args: eth_private_key_path");
+        let (eth_key_sender, eth_key_receiver) = bounded(eth_key_len - eth_key_start_index);
+        for i in eth_key_start_index..eth_key_len {
+            eth_key_sender.send(i.to_string()).expect("init eth private key pool succeed");
+        }
+
+        // let from_privkey =
+        //     parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
         let db_path = tilde(db_path.as_str()).into_owned();
         Ok(Self {
-            ckb_private_key_path,
-            eth_private_key_path,
+            ckb_key_channel: (ckb_key_sender, ckb_key_receiver),
+            eth_key_channel: (eth_key_sender, eth_key_receiver),
             config_path,
             indexer_url,
             ckb_rpc_url,
             eth_rpc_url,
-            from_privkey,
             deployed_contracts: force_config
                 .deployed_contracts
                 .expect("contracts should be deployed"),

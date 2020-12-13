@@ -1840,6 +1840,7 @@ dependencies = [
  "ckb-types",
  "cmd_lib",
  "config",
+ "crossbeam-channel 0.4.4",
  "derive_more",
  "eth-spv-lib 0.1.0 (git+https://github.com/LeonLi000/eth-spv-lib.git)",
  "ethabi",

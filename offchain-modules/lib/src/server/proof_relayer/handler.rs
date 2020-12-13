@@ -10,6 +10,7 @@ use ckb_types::core::TransactionView;
 use molecule::prelude::Entity;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
+use crate::util::ckb_util::parse_privkey_path;
 
 pub async fn relay_ckb_to_eth_proof(
     config_path: String,

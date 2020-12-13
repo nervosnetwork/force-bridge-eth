@@ -20,7 +20,7 @@ LOCK_ETH_PATH="${DATA_DIR}"/lock_eth.log
 export FORCE_CONFIG_PATH=~/.force-bridge/config.toml
 TOKEN_ADDRESS=$(tail -1 ${FORTH_ETH_CONFIG_PATH} | jq -r .daiContractAddr)
 ETH_ADDRESS="0x0000000000000000000000000000000000000000"
-RECIPIENT_ADDR="ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4"
+RECIPIENT_ADDR="ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk"
 bridge_fee=8
 
 cd "$PROJECT_DIR"/offchain-modules
