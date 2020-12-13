@@ -1,7 +1,9 @@
 use super::error::RpcError;
 use super::state::DappState;
 use super::types::*;
-use crate::server::proof_relayer::db::{update_eth_to_ckb_status, CkbToEthRecord, EthToCkbRecord};
+use crate::server::proof_relayer::db::{
+    update_eth_to_ckb_status, CkbToEthRecord, CrosschainHistory, EthToCkbRecord,
+};
 use crate::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb;
 use crate::util::ckb_util::{
@@ -20,7 +22,7 @@ use ckb_sdk::{Address, HumanCapacity};
 use ckb_types::packed::{Script, ScriptReader};
 use ethabi::Token;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
-use molecule::prelude::{Entity, Reader};
+use molecule::prelude::{Entity, Reader, ToOwned};
 use serde_json::{json, Value};
 use std::str::FromStr;
 use web3::types::{CallRequest, U256};
@@ -100,7 +102,7 @@ pub async fn get_crosschain_history(
         crosschain_history.ckb_to_eth =
             db::get_ckb_to_eth_crosschain_history(&data.db, &eth_recipient_addr).await?;
     }
-    Ok(HttpResponse::Ok().json(crosschain_history))
+    Ok(HttpResponse::Ok().json(format_crosschain_history_res(&crosschain_history)))
 }
 
 #[post("/relay_eth_to_ckb_proof")]
@@ -465,4 +467,37 @@ pub async fn index() -> impl Responder {
 #[get("/settings")]
 pub async fn settings(data: web::Data<DappState>) -> impl Responder {
     HttpResponse::Ok().json(&data.deployed_contracts)
+}
+
+pub fn pad_0x_prefix(s: &str) -> String {
+    if !s.starts_with("0x") && !s.starts_with("0X") {
+        let mut res = "0x".to_owned();
+        res.push_str(s);
+        res
+    } else {
+        s.to_owned()
+    }
+}
+
+pub fn format_crosschain_history(c: &CrosschainHistory) -> CrosschainHistory {
+    let mut res = c.to_owned();
+    res.eth_tx_hash = c.eth_tx_hash.as_ref().map(|h| pad_0x_prefix(&h));
+    res.ckb_tx_hash = c.ckb_tx_hash.as_ref().map(|h| pad_0x_prefix(&h));
+    res.token_addr = pad_0x_prefix(&c.token_addr);
+    res
+}
+
+pub fn format_crosschain_history_res(res: &GetCrosschainHistoryRes) -> GetCrosschainHistoryRes {
+    GetCrosschainHistoryRes {
+        eth_to_ckb: res
+            .eth_to_ckb
+            .iter()
+            .map(format_crosschain_history)
+            .collect(),
+        ckb_to_eth: res
+            .ckb_to_eth
+            .iter()
+            .map(format_crosschain_history)
+            .collect(),
+    }
 }
