@@ -100,9 +100,7 @@ pub async fn get_crosschain_history(
         crosschain_history.ckb_to_eth =
             db::get_ckb_to_eth_crosschain_history(&data.db, &eth_recipient_addr).await?;
     }
-    Ok(HttpResponse::Ok().json(json!({
-        "crosschain_history": crosschain_history,
-    })))
+    Ok(HttpResponse::Ok().json(crosschain_history))
 }
 
 #[post("/relay_eth_to_ckb_proof")]
