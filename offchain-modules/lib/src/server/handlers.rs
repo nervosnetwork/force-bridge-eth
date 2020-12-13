@@ -73,47 +73,36 @@ pub async fn get_crosschain_history(
     let args: GetCrosschainHistoryArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     log::debug!("get_crosschain_history args: {:?}", args);
-    let hist_sort = args.sort.unwrap_or_else(|| "eth_to_ckb".to_owned());
-    match hist_sort.as_str() {
-        "eth_to_ckb" => {
-            let ckb_recipient_lockscript = match args.ckb_recipient_lockscript {
-                Some(lockscript_raw) => lockscript_raw,
-                None => {
-                    let from_lockscript =
-                        Script::from(
-                            Address::from_str(&args.ckb_recipient_lockscript_addr.ok_or_else(
-                                || anyhow!("arg ckb_recipient_lockscript not provided"),
-                            )?)
-                            .map_err(|err| format!("ckb_address to script fail: {}", err))?
-                            .payload(),
-                        );
-                    hex::encode(from_lockscript.as_slice())
-                }
-            };
-            log::debug!(
-                "ckb_recipient_lockscript args: {:?}",
-                ckb_recipient_lockscript
-            );
-            let crosschain_history =
-                db::get_eth_to_ckb_crosschain_history(&data.db, &ckb_recipient_lockscript).await?;
-            Ok(HttpResponse::Ok().json(json!({
-                "crosschain_history": crosschain_history,
-            })))
-        }
-        "ckb_to_eth" => {
-            let crosschain_history = db::get_ckb_to_eth_crosschain_history(
-                &data.db,
-                &args
-                    .eth_recipient_addr
-                    .ok_or_else(|| anyhow!("eth_recipient_addr not provided"))?,
-            )
-            .await?;
-            Ok(HttpResponse::Ok().json(json!({
-                "crosschain_history": crosschain_history,
-            })))
-        }
-        _ => Err("wrong sort, should be 'eth_to_ckb' or 'ckb_to_eth'".into()),
+    let mut crosschain_history = GetCrosschainHistoryRes::default();
+    // eth to ckb history
+    let mut ckb_recipient_lockscript = None;
+    if let Some(lockscript_raw) = args.ckb_recipient_lockscript {
+        ckb_recipient_lockscript = Some(lockscript_raw);
     }
+    if let Some(addr) = args.ckb_recipient_lockscript_addr {
+        let from_lockscript = Script::from(
+            Address::from_str(&addr)
+                .map_err(|err| format!("ckb_address to script fail: {}", err))?
+                .payload(),
+        );
+        ckb_recipient_lockscript = Some(hex::encode(from_lockscript.as_slice()))
+    }
+    log::debug!(
+        "ckb_recipient_lockscript args: {:?}",
+        ckb_recipient_lockscript
+    );
+    if let Some(lockscript) = ckb_recipient_lockscript {
+        crosschain_history.eth_to_ckb =
+            db::get_eth_to_ckb_crosschain_history(&data.db, &lockscript).await?;
+    }
+    // ckb to eth
+    if let Some(eth_recipient_addr) = args.eth_recipient_addr {
+        crosschain_history.ckb_to_eth =
+            db::get_ckb_to_eth_crosschain_history(&data.db, &eth_recipient_addr).await?;
+    }
+    Ok(HttpResponse::Ok().json(json!({
+        "crosschain_history": crosschain_history,
+    })))
 }
 
 #[post("/relay_eth_to_ckb_proof")]
@@ -273,6 +262,7 @@ pub async fn burn(
             }
         }
         record.err_msg = Some(err_msg.clone());
+        record.status = "error".to_string();
         db::update_ckb_to_eth_status(&data.db, &record).await?;
         data.eth_key_channel
             .0
