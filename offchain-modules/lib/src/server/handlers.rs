@@ -232,7 +232,7 @@ pub async fn burn(
             .map_err(|e| anyhow!("crossbeam channel recv ckb key path error: {:?}", e))?;
         let mut record = CkbToEthRecord {
             id: row_id,
-            ckb_burn_tx_hash: ckb_tx_hash.clone(),
+            ckb_burn_tx_hash: format!("0x{}", &ckb_tx_hash),
             status: "pending".to_string(),
             recipient_addr: Some(args.recipient_address.clone()),
             token_addr: Some(args.token_address.clone()),

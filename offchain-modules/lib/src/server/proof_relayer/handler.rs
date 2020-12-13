@@ -52,7 +52,7 @@ pub async fn relay_ckb_to_eth_proof(
         true,
     )
     .await?;
-    record.eth_tx_hash = Some(result.clone());
+    record.eth_tx_hash = Some(format!("0x{}", &result));
     record.status = "success".into();
     db::update_ckb_to_eth_status(db, &record).await?;
     log::info!("unlock result: {:?}", &result);
@@ -135,7 +135,7 @@ pub async fn relay_eth_to_ckb_proof(
     log::info!("relay tx {} successfully", tx_hash);
     // save result to db
     record.status = "success".to_owned();
-    record.ckb_tx_hash = Some(tx_hash.to_string());
+    record.ckb_tx_hash = Some(format!("0x{}", tx_hash));
     update_eth_to_ckb_status(db, &record).await?;
     Ok(())
 }
