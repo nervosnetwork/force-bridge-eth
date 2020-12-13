@@ -99,7 +99,7 @@ pub async fn get_ckb_to_eth_crosschain_history(
     Ok(sqlx::query_as::<_, CrosschainHistory>(
         r#"
 SELECT id, eth_tx_hash, ckb_burn_tx_hash as ckb_tx_hash, status, 'ckb_to_eth' as sort, token_amount as amount
-FROM eth_to_ckb
+FROM ckb_to_eth
 where recipient_addr = ?1
         "#,
     )
@@ -115,7 +115,7 @@ pub async fn get_eth_to_ckb_crosschain_history(
     Ok(sqlx::query_as::<_, CrosschainHistory>(
         r#"
 SELECT id, eth_lock_tx_hash as eth_tx_hash, ckb_tx_hash, status, 'eth_to_ckb' as sort, locked_amount as amount
-FROM ckb_to_eth
+FROM eth_to_ckb
 where ckb_recipient_lockscript = ?1
         "#,
     )
