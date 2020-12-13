@@ -24,6 +24,8 @@ pub struct GetEthToCkbStatusArgs {
 pub struct GetCrosschainHistoryArgs {
     pub ckb_recipient_lockscript_addr: Option<String>,
     pub ckb_recipient_lockscript: Option<String>,
+    pub eth_recipient_addr: Option<String>,
+    pub sort: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
