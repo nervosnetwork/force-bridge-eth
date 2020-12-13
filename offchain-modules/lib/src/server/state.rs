@@ -1,14 +1,11 @@
 use crate::util::ckb_tx_generator::Generator;
-use crate::util::ckb_util::parse_privkey_path;
 use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
+use crossbeam_channel::{bounded, Receiver, Sender};
 use force_sdk::util::ensure_indexer_sync;
-use secp256k1::SecretKey;
 use shellexpand::tilde;
 use sqlx::SqlitePool;
-use crossbeam_channel::{bounded, Sender, Receiver};
-
 
 #[derive(Clone)]
 pub struct DappState {
@@ -39,18 +36,28 @@ impl DappState {
 
         let ckb_key_start_index = ckb_private_key_path.as_str().parse::<usize>()?;
         let ckb_key_len = force_config.get_ckb_private_keys(&network)?.len();
-        assert!(ckb_key_len > ckb_key_start_index, "invalid args: ckb_private_key_path");
+        assert!(
+            ckb_key_len > ckb_key_start_index,
+            "invalid args: ckb_private_key_path"
+        );
         let (ckb_key_sender, ckb_key_receiver) = bounded(ckb_key_len - ckb_key_start_index);
         for i in ckb_key_start_index..ckb_key_len {
-            ckb_key_sender.send(i.to_string()).expect("init ckb private key pool succeed");
+            ckb_key_sender
+                .send(i.to_string())
+                .expect("init ckb private key pool succeed");
         }
 
         let eth_key_start_index = eth_private_key_path.as_str().parse::<usize>()?;
         let eth_key_len = force_config.get_ethereum_private_keys(&network)?.len();
-        assert!(eth_key_len > eth_key_start_index, "invalid args: eth_private_key_path");
+        assert!(
+            eth_key_len > eth_key_start_index,
+            "invalid args: eth_private_key_path"
+        );
         let (eth_key_sender, eth_key_receiver) = bounded(eth_key_len - eth_key_start_index);
         for i in eth_key_start_index..eth_key_len {
-            eth_key_sender.send(i.to_string()).expect("init eth private key pool succeed");
+            eth_key_sender
+                .send(i.to_string())
+                .expect("init eth private key pool succeed");
         }
 
         // let from_privkey =

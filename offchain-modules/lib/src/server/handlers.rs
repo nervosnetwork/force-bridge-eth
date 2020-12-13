@@ -4,7 +4,11 @@ use super::types::*;
 use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
 use crate::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb;
-use crate::util::ckb_util::{build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers, parse_privkey_path};
+use crate::util::ckb_util::{
+    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
+    parse_privkey_path,
+};
+use crate::util::config::ForceConfig;
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, convert_hex_to_h256,
     make_transaction, rlp_transaction, Web3Client,
@@ -20,7 +24,6 @@ use molecule::prelude::{Entity, Reader};
 use serde_json::{json, Value};
 use std::str::FromStr;
 use web3::types::{CallRequest, U256};
-use crate::util::config::ForceConfig;
 
 #[post("/get_or_create_bridge_cell")]
 pub async fn get_or_create_bridge_cell(
@@ -122,10 +125,17 @@ pub async fn relay_eth_to_ckb_proof(
             status: "pending".to_string(),
             ..Default::default()
         };
-        let private_key_path = data.ckb_key_channel.1.clone().recv().map_err(|e| format!("crossbeam channel recv ckb key path error: {:?}", e))?;
-        let force_config = ForceConfig::new(data.config_path.as_str()).expect("get force config succeed");
+        let private_key_path = data
+            .ckb_key_channel
+            .1
+            .clone()
+            .recv()
+            .map_err(|e| format!("crossbeam channel recv ckb key path error: {:?}", e))?;
+        let force_config =
+            ForceConfig::new(data.config_path.as_str()).expect("get force config succeed");
         let from_privkey =
-            parse_privkey_path(private_key_path.as_str(), &force_config, &data.network).expect("get ckb key succeed");
+            parse_privkey_path(private_key_path.as_str(), &force_config, &data.network)
+                .expect("get ckb key succeed");
         let res = handler::relay_eth_to_ckb_proof(
             record.clone(),
             data.eth_rpc_url.clone(),
@@ -158,7 +168,11 @@ pub async fn relay_eth_to_ckb_proof(
                 }
             }
         }
-        data.ckb_key_channel.0.clone().send(private_key_path).map_err(|e| format!("crossbeam channel send ckb key path error: {:?}", e))
+        data.ckb_key_channel
+            .0
+            .clone()
+            .send(private_key_path)
+            .map_err(|e| format!("crossbeam channel send ckb key path error: {:?}", e))
     });
     Ok(HttpResponse::Ok().json(json!({
         "message": "tx proof relay submitted"
@@ -204,7 +218,12 @@ pub async fn burn(
         serde_json::to_string_pretty(&rpc_tx).unwrap()
     );
     tokio::spawn(async move {
-        let eth_privkey_path = data.eth_key_channel.1.clone().recv().map_err(|e| format!("crossbeam channel recv ckb key path error: {:?}", e))?;
+        let eth_privkey_path = data
+            .eth_key_channel
+            .1
+            .clone()
+            .recv()
+            .map_err(|e| format!("crossbeam channel recv ckb key path error: {:?}", e))?;
         for i in 0u8..10 {
             let res = handler::relay_ckb_to_eth_proof(
                 data.config_path.clone(),
@@ -221,7 +240,11 @@ pub async fn burn(
                 }
             }
         }
-        data.eth_key_channel.0.clone().send(eth_privkey_path).map_err(|e| format!("crossbeam channel send ckb key path error: {:?}", e))
+        data.eth_key_channel
+            .0
+            .clone()
+            .send(eth_privkey_path)
+            .map_err(|e| format!("crossbeam channel send ckb key path error: {:?}", e))
     });
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }

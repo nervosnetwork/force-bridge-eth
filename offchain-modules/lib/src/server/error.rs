@@ -1,8 +1,8 @@
 use actix_web::dev::HttpResponseBuilder;
 use actix_web::http::{header, StatusCode};
 use actix_web::{error, HttpResponse};
+use crossbeam_channel::{RecvError, SendError};
 use derive_more::Display;
-use crossbeam_channel::{SendError, RecvError};
 
 // TODO: split user params error and server error
 #[derive(Debug, Display)]
