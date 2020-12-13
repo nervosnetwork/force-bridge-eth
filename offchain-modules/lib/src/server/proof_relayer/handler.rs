@@ -8,6 +8,7 @@ use crate::util::ckb_tx_generator::Generator;
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
+use ckb_jsonrpc_types::Uint128;
 use ckb_types::core::TransactionView;
 use molecule::prelude::Entity;
 use secp256k1::SecretKey;
@@ -111,7 +112,7 @@ pub async fn relay_eth_to_ckb_proof(
         send_eth_spv_proof_tx(&mut generator, config_path, &eth_proof, from_privkey).await?;
     record.token_addr = Some(hex::encode(eth_proof.token.as_bytes()));
     record.ckb_recipient_lockscript = Some(hex::encode(eth_proof.recipient_lockscript));
-    record.locked_amount = Some(hex::encode(eth_proof.lock_amount.to_be_bytes()));
+    record.locked_amount = Some(Uint128::from(eth_proof.lock_amount).to_string());
     update_eth_to_ckb_status(db, &record).await?;
     for i in 0u8..100 {
         let status = generator
