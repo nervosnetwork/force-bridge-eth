@@ -1,15 +1,11 @@
 use crate::util::ckb_tx_generator::{Generator, CONFIRM};
-use crate::util::ckb_util::{clear_0x, parse_cell, parse_main_chain_headers, parse_privkey_path};
+use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path};
 use crate::util::config::ForceConfig;
-use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
-use ckb_sdk::constants::MULTISIG_TYPE_HASH;
 use ckb_sdk::{Address, AddressPayload, SECP256K1};
-use ckb_types::core::{ScriptHashType, TransactionView};
+use ckb_types::core::TransactionView;
 use ckb_types::packed::Script;
-use ckb_types::prelude::{Builder, Entity, Pack};
-use cmd_lib::run_cmd;
 use ethereum_types::H256;
 use force_sdk::cell_collector::get_live_cell_by_lockscript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
@@ -39,7 +35,7 @@ impl ETHRelayer {
         priv_key_path: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
-        let mut force_config = ForceConfig::new(config_path.as_str())?;
+        let force_config = ForceConfig::new(config_path.as_str())?;
         let deployed_contracts = force_config
             .deployed_contracts
             .as_ref()
@@ -48,9 +44,8 @@ impl ETHRelayer {
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
 
-        let mut generator =
-            Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
-                .map_err(|e| anyhow::anyhow!(e))?;
+        let generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
+            .map_err(|e| anyhow::anyhow!(e))?;
         let eth_client = Web3Client::new(eth_rpc_url);
         let mut addresses = vec![];
         for item in deployed_contracts.multisig_address.addresses.clone() {

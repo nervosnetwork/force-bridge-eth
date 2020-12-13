@@ -2,8 +2,8 @@ use anyhow::{anyhow, bail, Result};
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
 use force_eth_lib::transfer::to_ckb::{
-    self, approve, create_multi_sign_address, generate_eth_spv_proof_json,
-    get_or_create_bridge_cell, lock_eth, lock_token, send_eth_spv_proof_tx,
+    self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
+    lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,

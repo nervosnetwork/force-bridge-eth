@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use config::{Config, ConfigError, Environment, File};
-use force_sdk::tx_helper::MultisigConfig;
 use serde_derive::{Deserialize, Serialize};
 use shellexpand::tilde;
 use std::path::PathBuf;

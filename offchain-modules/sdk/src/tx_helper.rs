@@ -18,9 +18,8 @@ use crate::util::{get_live_cell_with_cache, get_privkey_signer};
 use ckb_sdk::constants::{
     MIN_SECP_CELL_CAPACITY, MULTISIG_TYPE_HASH, ONE_CKB, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH,
 };
-use ckb_sdk::{Address, HttpRpcClient};
+use ckb_sdk::HttpRpcClient;
 use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since};
-use failure::_core::str::FromStr;
 use secp256k1::SecretKey;
 
 pub const CKB_UNITS: u64 = 100_000_000;
