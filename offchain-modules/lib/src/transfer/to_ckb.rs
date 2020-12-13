@@ -254,6 +254,7 @@ pub async fn send_eth_spv_proof_tx(
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
 
+    let mut error_msg = String::new();
     for retry_times in 0..MAX_RETRY_TIMES {
         let unsigned_tx = generator.generate_eth_spv_tx(
             config_path.clone(),
@@ -267,7 +268,7 @@ pub async fn send_eth_spv_proof_tx(
             serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
                 .map_err(|err| anyhow!(err))?
         );
-        let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 120).await;
+        let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 600).await;
         match result {
             Ok((tx_hash, true)) => {
                 let cell_typescript = tx
@@ -287,23 +288,26 @@ pub async fn send_eth_spv_proof_tx(
                 return Ok(tx_hash);
             }
             Ok((tx_hash, false)) => {
-                log::info!(
-                    "tx {:?} is not commit, retry times: {:?}",
-                    tx_hash,
-                    retry_times
+                error_msg = format!(
+                    "tx {} is not commit after timeout, retry times: {:?}",
+                    tx_hash, retry_times
                 );
+                log::info!("{}", error_msg);
             }
             Err(e) => {
-                log::info!(
+                error_msg = format!(
                     "Failed to send tx, retry times: {:?},  Err: {:?}",
-                    retry_times,
-                    e
+                    retry_times, e
                 );
+                log::info!("{}", error_msg);
             }
         }
         tokio::time::delay_for(std::time::Duration::from_secs(retry_times * 3 + 1)).await;
     }
-    anyhow::bail!("tx is not committed, reach max retry times")
+    anyhow::bail!(
+        "tx is not committed, reach max retry times. latest error_msg: {}",
+        error_msg
+    )
 }
 
 #[allow(clippy::too_many_arguments)]

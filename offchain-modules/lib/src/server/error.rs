@@ -1,6 +1,7 @@
 use actix_web::dev::HttpResponseBuilder;
 use actix_web::http::{header, StatusCode};
 use actix_web::{error, HttpResponse};
+use crossbeam_channel::{RecvError, SendError};
 use derive_more::Display;
 
 // TODO: split user params error and server error
@@ -12,6 +13,18 @@ pub enum RpcError {
 
 impl From<anyhow::Error> for RpcError {
     fn from(e: anyhow::Error) -> Self {
+        Self::BadRequest(e.to_string())
+    }
+}
+
+impl From<SendError<String>> for RpcError {
+    fn from(e: SendError<String>) -> Self {
+        Self::BadRequest(e.to_string())
+    }
+}
+
+impl From<RecvError> for RpcError {
+    fn from(e: RecvError) -> Self {
         Self::BadRequest(e.to_string())
     }
 }
