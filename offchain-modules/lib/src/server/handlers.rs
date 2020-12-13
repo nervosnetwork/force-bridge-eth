@@ -11,7 +11,7 @@ use crate::util::ckb_util::{
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, convert_hex_to_h256,
-    make_transaction, rlp_transaction, strip_hex_prefix, Web3Client,
+    make_transaction, rlp_transaction, Web3Client,
 };
 use actix_web::{get, post, web, HttpResponse, Responder};
 use anyhow::anyhow;
@@ -125,7 +125,7 @@ pub async fn relay_eth_to_ckb_proof(
     tokio::spawn(async move {
         let mut record = EthToCkbRecord {
             id: row_id,
-            eth_lock_tx_hash: strip_hex_prefix(&eth_lock_tx_hash)?,
+            eth_lock_tx_hash: eth_lock_tx_hash.clone(),
             status: "pending".to_string(),
             ..Default::default()
         };
