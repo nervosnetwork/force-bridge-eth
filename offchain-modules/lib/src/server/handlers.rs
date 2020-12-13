@@ -241,7 +241,7 @@ pub async fn burn(
             ..Default::default()
         };
         let mut err_msg = String::new();
-        for i in 0u8..10 {
+        for i in 0u8..30 {
             let res = handler::relay_ckb_to_eth_proof(
                 record.clone(),
                 &data.db,
@@ -253,6 +253,7 @@ pub async fn burn(
             .await;
             match res {
                 Ok(_) => {
+                    log::info!("ckb to eth relay successfully for tx {}", &ckb_tx_hash);
                     err_msg = String::new();
                     break;
                 }
