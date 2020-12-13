@@ -75,27 +75,12 @@ impl Generator {
         cell: &Cell,
         _witness: &[Witness],
         un_confirmed_headers: &[BlockHeader],
-        // from_lockscript: Script,
+        from_lockscript: Script,
     ) -> Result<TransactionView> {
         info!("generate eth light client tx.");
-        // let tx_fee: u64 = 500_000;
         let mut rng = rand::thread_rng();
         let tx_fee = rng.gen_range(ONE_CKB / 2000, ONE_CKB / 1000);
         let mut helper = TxHelper::default();
-
-        // let outpoints = vec![
-        //     self.deployed_contracts.dag_merkle_roots.clone(),
-        //     self.deployed_contracts
-        //         .light_client_lockscript
-        //         .outpoint
-        //         .clone(),
-        //     self.deployed_contracts
-        //         .light_client_typescript
-        //         .outpoint
-        //         .clone(),
-        // ];
-        // self.add_cell_deps(&mut helper, outpoints)
-        //     .map_err(|err| anyhow!(err))?;
 
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
@@ -119,8 +104,7 @@ impl Generator {
         // add output
         {
             let cell_output = CellOutput::from(cell.clone().output);
-            let cap = cell.output.capacity.value() - tx_fee;
-            info!("the rest cap: {:?}", cap);
+            let cap = 1_000_000 * ONE_CKB;
             let output = CellOutput::new_builder()
                 .capacity(Capacity::shannons(cap).pack())
                 .lock(cell_output.lock())
@@ -146,6 +130,7 @@ impl Generator {
                     .build()
                     .as_bytes();
                 helper.add_output(output, output_data);
+            // helper.add_output_with_auto_capacity(output, output_data);
             } else {
                 let tip = &un_confirmed_headers[un_confirmed_headers.len() - 1];
                 let input_cell_data = packed::Bytes::from(cell.clone().output_data).raw_data();
@@ -253,48 +238,20 @@ impl Generator {
                     // .merkle_proofs(MerkleProofVec::new_builder().set(proofs).build())
                     .build()
                     .as_bytes();
-                // helper.add_output_with_auto_capacity(output, output_data);
                 helper.add_output(output, output_data);
             }
         }
 
-        // helper.build_tx(get_live_cell_fn, false);
-
-        // {
-        //     // add witness
-        //     let mut headers_raw = vec![];
-        //     for item in headers {
-        //         let header_rlp = convert_to_header_rlp(item)?;
-        //         headers_raw.push(basic::Bytes::from(
-        //             hex::decode(header_rlp).map_err(|err| anyhow!(err))?,
-        //         ))
-        //     }
-        //     let witness_data = ETHLightClientWitness::new_builder()
-        //         .headers(BytesVec::new_builder().set(headers_raw).build())
-        //         .cell_dep_index_list(vec![0].into())
-        //         .build();
-        //
-        //     let witness_args = WitnessArgs::new_builder()
-        //         .input_type(Some(witness_data.as_bytes()).pack())
-        //         .build();
-        //     helper.transaction = helper
-        //         .transaction
-        //         .as_advanced_builder()
-        //         .set_witnesses(vec![witness_args.as_bytes().pack()])
-        //         .build();
-        // }
-        // build tx
-        // let tx = helper
-        //     .supply_capacity(
-        //         &mut self.rpc_client,
-        //         &mut self.indexer_client,
-        //         from_lockscript,
-        //         &self.genesis_info,
-        //         tx_fee,
-        //     )
-        //     .map_err(|err| anyhow!(err))?;
-
-        Ok(helper.transaction)
+        let tx = helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self.genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
+        Ok(tx)
     }
 
     #[allow(clippy::mutable_key_type)]

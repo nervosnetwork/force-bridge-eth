@@ -2,8 +2,8 @@ use anyhow::{anyhow, bail, Result};
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
 use force_eth_lib::transfer::to_ckb::{
-    self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, lock_eth, lock_token,
-    send_eth_spv_proof_tx,
+    self, approve, create_multi_sign_address, generate_eth_spv_proof_json,
+    get_or_create_bridge_cell, lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
@@ -26,7 +26,8 @@ pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         SubCommand::Server(args) => server::server_handler(args).await,
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
-        SubCommand::Init(args) => init_config(args).await,
+        SubCommand::InitConfig(args) => init_config(args).await,
+        SubCommand::InitMultiSignAddress(args) => init_multisig_address_handler(args).await,
         SubCommand::DeployCKB(args) => deploy_ckb(args).await,
         SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args).await,
         // transfer erc20 to ckb
@@ -70,7 +71,7 @@ pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> 
     Ok(())
 }
 
-pub async fn init_config(args: InitArgs) -> Result<()> {
+pub async fn init_config(args: InitConfigArgs) -> Result<()> {
     config::init_config(
         args.force,
         args.project_path,
@@ -81,6 +82,23 @@ pub async fn init_config(args: InitArgs) -> Result<()> {
         args.ethereum_rpc_url,
     )
     .await
+}
+
+pub async fn init_multisig_address_handler(args: InitMultiSignAddressArgs) -> Result<()> {
+    let multi_sign_address = init_multi_sign_address(
+        args.multi_address,
+        args.require_first_n,
+        args.threshold,
+        args.config_path,
+        args.private_key_path,
+        args.network,
+    )
+    .await?;
+    info!(
+        "create multi sign address successfully. address: {:?}",
+        multi_sign_address
+    );
+    Ok(())
 }
 
 pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
@@ -345,12 +363,7 @@ pub async fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> 
 pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     debug!("eth_relay_handler args: {:?}", &args);
     let config_path = tilde(args.config_path.as_str()).into_owned();
-    let mut eth_relayer = ETHRelayer::new(
-        config_path,
-        args.network,
-        args.proof_data_path,
-        args.multisig_args,
-    )?;
+    let mut eth_relayer = ETHRelayer::new(config_path, args.network, args.private_key_path)?;
     loop {
         let res = eth_relayer.start().await;
         if let Err(err) = res {

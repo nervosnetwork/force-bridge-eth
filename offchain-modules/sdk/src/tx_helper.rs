@@ -77,6 +77,7 @@ pub fn sign_with_multi_key(
     tx: TransactionView,
     rpc_client: &mut HttpRpcClient,
     privkeys: Vec<&SecretKey>,
+    multisig_config: MultisigConfig,
 ) -> Result<TransactionView, String> {
     let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> = Default::default();
     let get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
@@ -84,15 +85,7 @@ pub fn sign_with_multi_key(
             .map(|(output, _)| output)
     };
     let mut tx_helper = TxHelper::new(tx);
-    let address_a = Address::from_str("ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk").unwrap();
-    let address_b = Address::from_str("ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37").unwrap();
-    let addresses = vec![address_a, address_b];
-    let sighash_addresses = addresses
-        .into_iter()
-        .map(|address| address.payload().clone())
-        .collect::<Vec<_>>();
-    let cfg = MultisigConfig::new_with(sighash_addresses, 0, 2)?;
-    tx_helper.add_multisig_config(cfg);
+    tx_helper.add_multisig_config(multisig_config);
     tx_helper.sign_with_multi_key(get_live_cell_fn, privkeys)
 }
 
@@ -538,6 +531,7 @@ impl TxHelper {
         };
 
         let rest_capacity = from_capacity - to_capacity - tx_fee;
+        dbg!(rest_capacity);
         if rest_capacity < MIN_SECP_CELL_CAPACITY && tx_fee + rest_capacity > ONE_CKB {
             // return Err("Transaction fee can not be more than 1.0 CKB, please change to-capacity value to adjust".to_string());
             log::warn!("Transaction fee can not be more than 1.0 CKB, please change to-capacity value to adjust. rest_capacity: {}, tx_fee: {}", rest_capacity, tx_fee);
