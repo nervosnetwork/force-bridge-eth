@@ -223,7 +223,6 @@ pub async fn burn(
     );
     let ckb_tx_hash = hex::encode(tx.hash().as_slice());
     let row_id = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await?;
-    let mut err_msg = String::new();
     tokio::spawn(async move {
         let eth_privkey_path = data
             .eth_key_channel
@@ -241,6 +240,7 @@ pub async fn burn(
             fee: Some(args.unlock_fee.to_string()),
             ..Default::default()
         };
+        let mut err_msg = String::new();
         for i in 0u8..10 {
             let res = handler::relay_ckb_to_eth_proof(
                 record.clone(),
@@ -252,16 +252,21 @@ pub async fn burn(
             )
             .await;
             match res {
-                Ok(_) => break,
+                Ok(_) => {
+                    err_msg = String::new();
+                    break;
+                }
                 Err(e) => {
                     err_msg = format!("unlock failed. index: {}, err: {}", i, e);
                     tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
                 }
             }
         }
-        record.err_msg = Some(err_msg.clone());
-        record.status = "error".to_string();
-        db::update_ckb_to_eth_status(&data.db, &record).await?;
+        if !err_msg.is_empty() {
+            record.err_msg = Some(err_msg);
+            record.status = "error".to_string();
+            db::update_ckb_to_eth_status(&data.db, &record).await?;
+        }
         data.eth_key_channel
             .0
             .clone()

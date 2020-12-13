@@ -53,6 +53,7 @@ pub async fn relay_ckb_to_eth_proof(
     )
     .await?;
     record.eth_tx_hash = Some(result.clone());
+    record.status = "success".into();
     db::update_ckb_to_eth_status(db, &record).await?;
     log::info!("unlock result: {:?}", &result);
     Ok(())
