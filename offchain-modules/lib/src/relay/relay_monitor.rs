@@ -29,21 +29,6 @@ pub async fn relay_monitor(
         .get_tip_block_number()
         .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
 
-    if ckb_light_client_height + ckb_alarm_number < ckb_current_height {
-        let mut msg = format!(
-            "the ckb light client height is below ckb chain too much. ckb light client height : {:?}   ckb current height : {:?}",
-            ckb_light_client_height, ckb_current_height,
-        );
-        for conservator in ckb_conservator.iter() {
-            msg = format!("{} @{} ", msg, conservator,);
-        }
-        let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
-            .await?
-            .text()
-            .await?;
-        log::info!("{:?}", res);
-    }
-
     let eth_current_height = web3_client.client().eth().block_number().await?;
 
     let typescript = parse_cell(&cell).map_err(|e| anyhow!("get typescript fail {:?}", e))?;
@@ -62,22 +47,20 @@ pub async fn relay_monitor(
         .number
         .ok_or_else(|| anyhow!("header number is none"))?;
 
+    let mut msg = format!("ckb light client height : {:?}   ckb current height : {:?}   eth light client height : {:?}   eth current height : {:?}  ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height);
+
+    if ckb_light_client_height + ckb_alarm_number < ckb_current_height {
+        for conservator in ckb_conservator.iter() {
+            msg = format!("{} @{} ", msg, conservator,);
+        }
+    }
+
     if eth_light_client_height.as_u64() + eth_alarm_number < eth_current_height.as_u64() {
-        let mut msg = format!(
-            "the eth light client height is below eth chain too much. eth light client height : {:?}   eth current height : {:?} ",
-            eth_light_client_height, eth_current_height
-        );
         for conservator in eth_conservator.iter() {
             msg = format!("{} @{} ", msg, conservator,);
         }
-        let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
-            .await?
-            .text()
-            .await?;
-        log::info!("{:?}", res);
     }
 
-    let msg = format!("ckb light client height : {:?}   ckb current height : {:?}   eth light client height : {:?}   eth current height : {:?}  ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height);
     let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
         .await?
         .text()
