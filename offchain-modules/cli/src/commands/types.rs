@@ -307,6 +307,8 @@ pub struct EthRelayArgs {
     pub network: Option<String>,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
+    #[clap(long)]
+    pub multisig_privkeys: Vec<String>,
 }
 
 #[derive(Clap, Clone, Debug)]

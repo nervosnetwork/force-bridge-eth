@@ -530,7 +530,6 @@ impl TxHelper {
         };
 
         let rest_capacity = from_capacity - to_capacity - tx_fee;
-        dbg!(rest_capacity);
         if rest_capacity < MIN_SECP_CELL_CAPACITY && tx_fee + rest_capacity > ONE_CKB {
             // return Err("Transaction fee can not be more than 1.0 CKB, please change to-capacity value to adjust".to_string());
             log::warn!("Transaction fee can not be more than 1.0 CKB, please change to-capacity value to adjust. rest_capacity: {}, tx_fee: {}", rest_capacity, tx_fee);

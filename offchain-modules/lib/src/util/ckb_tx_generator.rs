@@ -33,6 +33,7 @@ use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
 use log::info;
 use rand::Rng;
 use secp256k1::SecretKey;
+use serde::export::Clone;
 use shellexpand::tilde;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -66,6 +67,76 @@ impl Generator {
             genesis_info,
             deployed_contracts: settings,
         })
+    }
+
+    #[allow(clippy::mutable_key_type)]
+    pub fn generate_eth_light_client_tx_naive(
+        &mut self,
+        from_lockscript: Script,
+        cell: Cell,
+        headers: &[Block<ethereum_types::H256>],
+    ) -> Result<TransactionView> {
+        let mut rng = rand::thread_rng();
+        let tx_fee = rng.gen_range(ONE_CKB / 2000, ONE_CKB / 1000);
+        let mut helper = TxHelper::default();
+
+        let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
+            Default::default();
+        let rpc_client = &mut self.rpc_client;
+        let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+            get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+                .map(|(output, _)| output)
+        };
+
+        // add input
+        helper
+            .add_input(
+                OutPoint::from(cell.clone().out_point),
+                None,
+                &mut get_live_cell_fn,
+                &self.genesis_info,
+                true,
+            )
+            .map_err(|err| anyhow!(err))?;
+
+        // add output
+        let cell_output = CellOutput::from(cell.output);
+        let output = CellOutput::new_builder().lock(cell_output.lock()).build();
+        let mut main_chain_data: Vec<basic::Bytes> = vec![];
+        for (i, header) in headers.iter().enumerate() {
+            let data = if i + CONFIRM < headers.len() {
+                header.hash.unwrap().as_bytes().to_vec().into()
+            } else {
+                let header_rlp = convert_to_header_rlp(header)?;
+                let header_info = ETHHeaderInfo::new_builder()
+                    .header(hex::decode(header_rlp)?.into())
+                    .total_difficulty(header.total_difficulty.unwrap().as_u64().into())
+                    .hash(basic::Byte32::from_slice(header.hash.unwrap().as_bytes()).unwrap())
+                    .build();
+                header_info.as_slice().to_vec().into()
+            };
+            main_chain_data.push(data);
+        }
+        let output_data = ETHHeaderCellData::new_builder()
+            .headers(
+                ETHChain::new_builder()
+                    .main(BytesVec::new_builder().set(main_chain_data).build())
+                    .build(),
+            )
+            .build()
+            .as_bytes();
+        helper.add_output_with_auto_capacity(output, output_data);
+        // make tx
+        let tx = helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self.genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
+        Ok(tx)
     }
 
     #[allow(clippy::mutable_key_type)]

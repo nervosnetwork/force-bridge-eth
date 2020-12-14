@@ -1,4 +1,4 @@
-use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_tx_generator::{Generator, CONFIRM, MAIN_HEADER_CACHE_LIMIT};
 use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::Web3Client;
@@ -10,9 +10,11 @@ use ethereum_types::H256;
 use force_sdk::cell_collector::get_live_cell_by_lockscript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign_with_multi_key, MultisigConfig};
+use force_sdk::util::send_tx_sync_with_response;
 use log::{debug, info};
 use secp256k1::SecretKey;
 use shellexpand::tilde;
+use std::collections::HashMap;
 use std::ops::Add;
 use std::str::FromStr;
 use web3::types::{Block, BlockHeader, U64};
@@ -25,7 +27,9 @@ pub struct ETHRelayer {
     pub config_path: String,
     pub config: ForceConfig,
     pub multisig_config: MultisigConfig,
+    pub multisig_privkeys: Vec<SecretKey>,
     pub secret_key: SecretKey,
+    pub cached_blocks: HashMap<u64, Block<H256>>,
 }
 
 impl ETHRelayer {
@@ -33,6 +37,7 @@ impl ETHRelayer {
         config_path: String,
         network: Option<String>,
         priv_key_path: String,
+        multisig_privkeys: Vec<String>,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -71,7 +76,12 @@ impl ETHRelayer {
             config_path,
             multisig_config,
             secret_key,
+            multisig_privkeys: multisig_privkeys
+                .into_iter()
+                .map(|k| parse_privkey_path(&k, &force_config, &network))
+                .collect::<Result<Vec<SecretKey>>>()?,
             config: force_config,
+            cached_blocks: HashMap::new(),
         })
     }
 
@@ -94,10 +104,11 @@ impl ETHRelayer {
                 .cell_script
                 .as_str(),
         )?;
-        let cell = get_live_cell_by_lockscript(&mut self.generator.indexer_client, cell_script)
-            .map_err(|err| anyhow::anyhow!(err))?
-            .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
-        self.do_relay_loop(cell).await?;
+        self.do_naive_relay_loop(cell_script).await?;
+        // let cell = get_live_cell_by_lockscript(&mut self.generator.indexer_client, cell_script)
+        //     .map_err(|err| anyhow::anyhow!(err))?
+        //     .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
+        // self.do_relay_loop(cell).await?;
         Ok(())
     }
 
@@ -147,6 +158,95 @@ impl ETHRelayer {
             index -= 1;
         }
         anyhow::bail!("system error! can not find the common ancestor with main chain.")
+    }
+
+    // naive relay method. ignore the context, get the latest 500 headers on chain and replace the
+    // light client cell
+    pub async fn do_naive_relay_loop(&mut self, cell_script: Script) -> Result<()> {
+        let from_privkey = self.secret_key;
+        let from_lockscript = self.generate_from_lockscript(from_privkey)?;
+        let mut latest_submit_header_number = 0;
+        loop {
+            // get tip header number
+            let tip_header_number: u64 = self
+                .eth_client
+                .client()
+                .eth()
+                .block_number()
+                .await?
+                .as_u64();
+            if latest_submit_header_number >= tip_header_number {
+                info!("waiting for new eth header. tip_header_number: {}, latest_submit_header_number: {}", tip_header_number, latest_submit_header_number);
+                continue;
+            }
+            // sync cached blocks
+            let start = if tip_header_number > MAIN_HEADER_CACHE_LIMIT as u64 {
+                tip_header_number - MAIN_HEADER_CACHE_LIMIT as u64
+            } else {
+                1
+            };
+            for number in (start..=tip_header_number).rev() {
+                let block_number = U64([number]);
+                let cached_block = self.cached_blocks.get(&number);
+                let chain_block = self.eth_client.get_block(block_number.into()).await?;
+                if cached_block.is_some() && cached_block.unwrap() == &chain_block {
+                    break;
+                } else {
+                    self.cached_blocks.insert(number, chain_block);
+                }
+            }
+            // remove outdated cache
+            let mut del_index = start - 1;
+            loop {
+                if self.cached_blocks.contains_key(&del_index) {
+                    self.cached_blocks.remove(&del_index);
+                } else {
+                    break;
+                }
+                del_index -= 1;
+            }
+            let headers = (start..=tip_header_number)
+                .map(|n| self.cached_blocks.get(&n).cloned().unwrap())
+                .collect::<Vec<_>>();
+            // make tx
+            let cell = get_live_cell_by_lockscript(
+                &mut self.generator.indexer_client,
+                cell_script.clone(),
+            )
+            .map_err(|err| anyhow::anyhow!(err))?
+            .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
+            let unsigned_tx = self.generator.generate_eth_light_client_tx_naive(
+                from_lockscript.clone(),
+                cell.clone(),
+                &headers,
+            )?;
+            let mut privkeys = vec![&self.secret_key];
+            privkeys.extend(self.multisig_privkeys.iter());
+            let tx = sign_with_multi_key(
+                unsigned_tx,
+                &mut self.generator.rpc_client,
+                privkeys,
+                self.multisig_config.clone(),
+            )
+            .map_err(|err| anyhow::anyhow!(err))?;
+            let send_tx_res =
+                send_tx_sync_with_response(&mut self.generator.rpc_client, &tx, 600).await;
+            if let Err(e) = send_tx_res {
+                log::error!(
+                    "relay eth header from {} to {} failed! err: {}",
+                    start,
+                    tip_header_number,
+                    e
+                );
+            } else {
+                info!(
+                    "Successfully relayed the headers from {} to {}",
+                    start, tip_header_number
+                );
+                latest_submit_header_number = tip_header_number;
+            }
+            tokio::time::delay_for(std::time::Duration::from_secs(30)).await;
+        }
     }
 
     pub async fn do_relay_loop(&mut self, mut cell: Cell) -> Result<()> {

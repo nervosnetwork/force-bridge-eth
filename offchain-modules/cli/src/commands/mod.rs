@@ -363,7 +363,12 @@ pub async fn query_sudt_balance_handler(args: SudtGetBalanceArgs) -> Result<()> 
 pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
     debug!("eth_relay_handler args: {:?}", &args);
     let config_path = tilde(args.config_path.as_str()).into_owned();
-    let mut eth_relayer = ETHRelayer::new(config_path, args.network, args.private_key_path)?;
+    let mut eth_relayer = ETHRelayer::new(
+        config_path,
+        args.network,
+        args.private_key_path,
+        args.multisig_privkeys,
+    )?;
     loop {
         let res = eth_relayer.start().await;
         if let Err(err) = res {
