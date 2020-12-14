@@ -186,6 +186,7 @@ impl ETHRelayer {
                 1
             };
             for number in (start..=tip_header_number).rev() {
+                log::debug!("sync eth block {} to cache", number);
                 let block_number = U64([number]);
                 let cached_block = self.cached_blocks.get(&number);
                 let chain_block = self.eth_client.get_block(block_number.into()).await?;
@@ -230,7 +231,7 @@ impl ETHRelayer {
             )
             .map_err(|err| anyhow::anyhow!(err))?;
             let send_tx_res =
-                send_tx_sync_with_response(&mut self.generator.rpc_client, &tx, 600).await;
+                send_tx_sync_with_response(&mut self.generator.rpc_client, &tx, 180).await;
             if let Err(e) = send_tx_res {
                 log::error!(
                     "relay eth header from {} to {} failed! err: {}",
