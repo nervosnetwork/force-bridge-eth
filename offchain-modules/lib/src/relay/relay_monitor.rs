@@ -14,8 +14,8 @@ pub async fn relay_monitor(
     ckb_alarm_number: u64,
     eth_alarm_number: u64,
     alarm_url: String,
-    ckb_conservator: String,
-    eth_conservator: String,
+    ckb_conservator: Vec<String>,
+    eth_conservator: Vec<String>,
 ) -> Result<()> {
     let contract_addr = convert_eth_address(&eth_ckb_chain_addr)?;
     let mut web3_client = Web3Client::new(eth_rpc_url);
@@ -30,16 +30,18 @@ pub async fn relay_monitor(
         .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
 
     if ckb_light_client_height + ckb_alarm_number < ckb_current_height {
-        let msg = format!(
-            "the ckb light client height is below ckb chain too much. ckb_light_client_height : {:?}   ckb_current_height : {:?} @{} ",
-            ckb_light_client_height, ckb_current_height, ckb_conservator
+        let mut msg = format!(
+            "the ckb light client height is below ckb chain too much. ckb light client height : {:?}   ckb current height : {:?}",
+            ckb_light_client_height, ckb_current_height,
         );
+        for conservator in ckb_conservator.iter() {
+            msg = format!("{} @{} ", msg, conservator,);
+        }
         let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
             .await?
             .text()
             .await?;
         log::info!("{:?}", res);
-        return Ok(());
     }
 
     let eth_current_height = web3_client.client().eth().block_number().await?;
@@ -61,19 +63,21 @@ pub async fn relay_monitor(
         .ok_or_else(|| anyhow!("header number is none"))?;
 
     if eth_light_client_height.as_u64() + eth_alarm_number < eth_current_height.as_u64() {
-        let msg = format!(
-            "the eth light client height is below eth chain too much. eth_light_client_height : {:?}   eth_current_height : {:?} @{} ",
-            eth_light_client_height, eth_current_height,eth_conservator
+        let mut msg = format!(
+            "the eth light client height is below eth chain too much. eth light client height : {:?}   eth current height : {:?} ",
+            eth_light_client_height, eth_current_height
         );
+        for conservator in eth_conservator.iter() {
+            msg = format!("{} @{} ", msg, conservator,);
+        }
         let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
             .await?
             .text()
             .await?;
         log::info!("{:?}", res);
-        return Ok(());
     }
 
-    let msg = format!("ckb_light_client_height : {:?}   ckb_current_height : {:?}   eth_light_client_height : {:?}   eth_current_height : {:?}  ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height);
+    let msg = format!("ckb light client height : {:?}   ckb current height : {:?}   eth light client height : {:?}   eth current height : {:?}  ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height);
     let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
         .await?
         .text()
