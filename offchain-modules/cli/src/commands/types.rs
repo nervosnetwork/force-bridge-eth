@@ -29,6 +29,7 @@ pub enum SubCommand {
     QuerySudtBlance(SudtGetBalanceArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
+    RelayerMonitor(RelayerMonitorArgs),
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -354,4 +355,23 @@ pub struct SudtGetBalanceArgs {
     pub addr: String,
     #[clap(long)]
     pub token_addr: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct RelayerMonitorArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(long)]
+    pub ckb_alarm_number: u64,
+    #[clap(long)]
+    pub eth_alarm_number: u64,
+    #[clap(
+        long,
+        default_value = "https://api.telegram.org/bot1449859422:AAG3UQvRnEsr3wv7_UeQUehFkkZpdwP_x-Y/sendMessage?chat_id=-416140042&text="
+    )]
+    pub alarm_url: String,
+    #[clap(long, default_value = "5")]
+    pub minute_interval: u64,
 }
