@@ -33,7 +33,7 @@ remove-docker-network:
 	cd docker && docker-compose down
 
 init-config:
-	${FORCE_CLI} init --project-path ${shell pwd}
+	${FORCE_CLI} init-config --project-path ${shell pwd}
 
 deploy-ckb:
 	${FORCE_CLI} deploy-ckb -k 0
@@ -93,6 +93,12 @@ setup-dev-env: build-all start-docker-network deploy-ckb-sudt deploy-eth deploy-
 close-dev-env: stop-demo-services remove-docker-network
 
 integration-ci: setup-dev-env demo-crosschain
+
+local-ci:
+	make close-dev-env
+	test -f ~/.force-bridge/config.toml && mv ~/.force-bridge/config.toml ~/.force-bridge/config_bak_`date "+%Y%m%d-%H%M%S"`.toml || echo 'config not exist'
+	make init-config
+	make integration-ci
 
 demo-crosschain:
 	bash demo/crosschain.sh

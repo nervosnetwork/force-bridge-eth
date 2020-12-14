@@ -1,34 +1,35 @@
-use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_tx_generator::{Generator, CONFIRM, MAIN_HEADER_CACHE_LIMIT};
 use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path};
 use crate::util::config::ForceConfig;
-use crate::util::eth_proof_helper::{read_block, Witness};
 use crate::util::eth_util::Web3Client;
 use anyhow::{anyhow, Result};
-use ckb_sdk::{AddressPayload, SECP256K1};
+use ckb_sdk::{Address, AddressPayload, SECP256K1};
 use ckb_types::core::TransactionView;
-use ckb_types::packed::{Byte32, Script};
-use ckb_types::prelude::{Builder, Entity};
-use cmd_lib::run_cmd;
+use ckb_types::packed::Script;
 use ethereum_types::H256;
-use force_sdk::cell_collector::get_live_cell_by_typescript;
+use force_sdk::cell_collector::get_live_cell_by_lockscript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
-use force_sdk::tx_helper::sign;
-use force_sdk::util::send_tx_sync;
+use force_sdk::tx_helper::{sign_with_multi_key, MultisigConfig};
+use force_sdk::util::send_tx_sync_with_response;
 use log::{debug, info};
 use secp256k1::SecretKey;
+use shellexpand::tilde;
+use std::collections::HashMap;
 use std::ops::Add;
-use web3::types::{Block, BlockHeader};
+use std::str::FromStr;
+use web3::types::{Block, BlockHeader, U64};
 
 pub const HEADER_LIMIT_IN_TX: usize = 14;
 
 pub struct ETHRelayer {
     pub eth_client: Web3Client,
     pub generator: Generator,
-    pub secret_key: SecretKey,
-    pub proof_data_path: String,
-    pub cell_typescript: Option<Script>,
     pub config_path: String,
     pub config: ForceConfig,
+    pub multisig_config: MultisigConfig,
+    pub multisig_privkeys: Vec<SecretKey>,
+    pub secret_key: SecretKey,
+    pub cached_blocks: HashMap<u64, Block<H256>>,
 }
 
 impl ETHRelayer {
@@ -36,8 +37,9 @@ impl ETHRelayer {
         config_path: String,
         network: Option<String>,
         priv_key_path: String,
-        proof_data_path: String,
+        multisig_privkeys: Vec<String>,
     ) -> Result<Self> {
+        let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
         let deployed_contracts = force_config
             .deployed_contracts
@@ -50,22 +52,36 @@ impl ETHRelayer {
         let generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
             .map_err(|e| anyhow::anyhow!(e))?;
         let eth_client = Web3Client::new(eth_rpc_url);
-        let cell = &deployed_contracts.light_client_cell_script.cell_script;
-        let temp_typescript = parse_cell(&cell);
-        let cell_typescript;
-        match temp_typescript {
-            Err(_) => cell_typescript = None,
-            Ok(temp_typescript) => cell_typescript = Some(temp_typescript),
+        let mut addresses = vec![];
+        for item in deployed_contracts.multisig_address.addresses.clone() {
+            let address = Address::from_str(&item).unwrap();
+            addresses.push(address);
         }
+        let sighash_addresses = addresses
+            .into_iter()
+            .map(|address| address.payload().clone())
+            .collect::<Vec<_>>();
+
+        let multisig_config = MultisigConfig::new_with(
+            sighash_addresses,
+            deployed_contracts.multisig_address.require_first_n,
+            deployed_contracts.multisig_address.threshold,
+        )
+        .map_err(|err| anyhow!(err))?;
+
         let secret_key = parse_privkey_path(&priv_key_path, &force_config, &network)?;
         Ok(ETHRelayer {
             eth_client,
             generator,
-            secret_key,
-            proof_data_path,
-            cell_typescript,
             config_path,
+            multisig_config,
+            secret_key,
+            multisig_privkeys: multisig_privkeys
+                .into_iter()
+                .map(|k| parse_privkey_path(&k, &force_config, &network))
+                .collect::<Result<Vec<SecretKey>>>()?,
             config: force_config,
+            cached_blocks: HashMap::new(),
         })
     }
 
@@ -76,144 +92,38 @@ impl ETHRelayer {
     // current_height = common_ancestor_height + 1
     // 5. If reorg does not occur, directly use header as tip to build output
     pub async fn start(&mut self) -> Result<()> {
-        let typescript;
-        // The first relay will generate a unique typescript, and subsequent relays will always use this typescript.
-        match &self.cell_typescript {
-            None => {
-                let cell_script = self.do_first_relay().await?;
-                typescript = Script::new_builder()
-                    .code_hash(cell_script.code_hash())
-                    .hash_type(cell_script.hash_type())
-                    .args(cell_script.args())
-                    .build();
-                self.generator
-                    .deployed_contracts
-                    .light_client_cell_script
-                    .cell_script = hex::encode(typescript.clone().as_slice());
-                self.config.deployed_contracts = Some(self.generator.deployed_contracts.clone());
-                self.config.write(&self.config_path)?;
-                self.cell_typescript = Some(cell_script);
-            }
-            Some(cell_script) => {
-                typescript = Script::new_builder()
-                    .code_hash(cell_script.code_hash())
-                    .hash_type(cell_script.hash_type())
-                    .args(cell_script.args())
-                    .build();
-            }
-        }
-        println!(
-            "start cell typescript: \n{}",
-            serde_json::to_string_pretty(&ckb_jsonrpc_types::Script::from(typescript.clone()))
-                .map_err(|err| anyhow!(err))?
-        );
-        tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
         // get the latest output cell
-        let cell = get_live_cell_by_typescript(&mut self.generator.indexer_client, typescript)
-            .map_err(|err| anyhow::anyhow!(err))?
+        let deployed_contracts = self
+            .config
+            .deployed_contracts
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
-
-        self.do_relay_loop(cell).await?;
+        let cell_script = parse_cell(
+            deployed_contracts
+                .light_client_cell_script
+                .cell_script
+                .as_str(),
+        )?;
+        self.do_naive_relay_loop(cell_script).await?;
+        // let cell = get_live_cell_by_lockscript(&mut self.generator.indexer_client, cell_script)
+        //     .map_err(|err| anyhow::anyhow!(err))?
+        //     .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
+        // self.do_relay_loop(cell).await?;
         Ok(())
     }
 
-    //The first time the relay uses the outpoint of the first input when it is created,
-    // to ensure that the typescript is unique across the network
-    pub async fn do_first_relay(&mut self) -> Result<Script> {
-        let typescript = Script::new_builder()
-            .code_hash(
-                Byte32::from_slice(
-                    hex::decode(
-                        &self
-                            .generator
-                            .deployed_contracts
-                            .light_client_typescript
-                            .code_hash,
-                    )?
-                    .as_slice(),
-                )
-                .map_err(|err| anyhow::anyhow!(err))?,
-            )
-            .hash_type(
-                self.generator
-                    .deployed_contracts
-                    .light_client_typescript
-                    .hash_type
-                    .into(),
-            )
-            .build();
-
-        let lockscript = Script::new_builder()
-            .code_hash(
-                Byte32::from_slice(
-                    hex::decode(
-                        &self
-                            .generator
-                            .deployed_contracts
-                            .light_client_lockscript
-                            .code_hash,
-                    )?
-                    .as_slice(),
-                )
-                .map_err(|err| anyhow::anyhow!(err))?,
-            )
-            .hash_type(
-                self.generator
-                    .deployed_contracts
-                    .light_client_lockscript
-                    .hash_type
-                    .into(),
-            )
-            .build();
-        let current_number = self.eth_client.client().eth().block_number().await?;
-        let block = self.eth_client.get_block(current_number.into()).await?;
-        // let witness = self.generate_witness(block.number.unwrap().as_u64())?;
-        let witness = Witness {
-            cell_dep_index_list: vec![],
-            header: vec![],
-            merkle_proof: vec![],
-        };
-        let from_privkey = self.secret_key;
-        let from_lockscript = self.generate_from_lockscript(from_privkey)?;
-        let unsigned_tx = self.generator.init_light_client_tx(
-            &block,
-            &witness,
-            from_lockscript,
-            typescript,
-            lockscript,
-        )?;
-        let tx = sign(unsigned_tx, &mut self.generator.rpc_client, &from_privkey)
-            .map_err(|err| anyhow::anyhow!(err))?;
-        send_tx_sync(&mut self.generator.rpc_client, &tx, 120)
-            .await
-            .map_err(|err| anyhow::anyhow!(err))?;
-
-        let cell_typescript = tx
-            .output(0)
-            .ok_or_else(|| anyhow!("no out_put found"))?
-            .type_()
-            .to_opt()
-            .ok_or_else(|| anyhow!("cell_typescript is not found."))?;
-        println!(
-            "first relay cell typescript: \n{}",
-            serde_json::to_string_pretty(&ckb_jsonrpc_types::Script::from(cell_typescript.clone()))
-                .map_err(|err| anyhow!(err))?
-        );
-        Ok(cell_typescript)
-    }
-
-    pub fn generate_witness(&mut self, number: u64) -> Result<Witness> {
-        let proof_data_path = self.proof_data_path.clone();
-        run_cmd!(vendor/relayer ${number} > data/proof_data_temp.json)?;
-        run_cmd!(tail -1 data/proof_data_temp.json > ${proof_data_path})?;
-        let block_with_proofs = read_block(proof_data_path);
-        let witness = Witness {
-            cell_dep_index_list: vec![0],
-            header: block_with_proofs.header_rlp.0.clone(),
-            merkle_proof: block_with_proofs.to_double_node_with_merkle_proof_vec(),
-        };
-        Ok(witness)
-    }
+    // pub fn generate_witness(&mut self, number: u64) -> Result<Witness> {
+    //     let proof_data_path = self.proof_data_path.clone();
+    //     run_cmd!(vendor/relayer ${number} > data/proof_data_temp.json)?;
+    //     run_cmd!(tail -1 data/proof_data_temp.json > ${proof_data_path})?;
+    //     let block_with_proofs = read_block(proof_data_path);
+    //     let witness = Witness {
+    //         cell_dep_index_list: vec![0],
+    //         header: block_with_proofs.header_rlp.0.clone(),
+    //         merkle_proof: block_with_proofs.to_double_node_with_merkle_proof_vec(),
+    //     };
+    //     Ok(witness)
+    // }
 
     pub fn generate_from_lockscript(&mut self, from_privkey: SecretKey) -> Result<Script> {
         let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
@@ -250,19 +160,122 @@ impl ETHRelayer {
         anyhow::bail!("system error! can not find the common ancestor with main chain.")
     }
 
+    // naive relay method. ignore the context, get the latest 500 headers on chain and replace the
+    // light client cell
+    pub async fn do_naive_relay_loop(&mut self, cell_script: Script) -> Result<()> {
+        let from_privkey = self.secret_key;
+        let from_lockscript = self.generate_from_lockscript(from_privkey)?;
+        let mut latest_submit_header_number = 0;
+        loop {
+            // get tip header number
+            let tip_header_number: u64 = self
+                .eth_client
+                .client()
+                .eth()
+                .block_number()
+                .await?
+                .as_u64();
+            if latest_submit_header_number >= tip_header_number {
+                info!("waiting for new eth header. tip_header_number: {}, latest_submit_header_number: {}", tip_header_number, latest_submit_header_number);
+                continue;
+            }
+            // sync cached blocks
+            let start = if tip_header_number > MAIN_HEADER_CACHE_LIMIT as u64 {
+                tip_header_number - MAIN_HEADER_CACHE_LIMIT as u64
+            } else {
+                1
+            };
+            for number in (start..=tip_header_number).rev() {
+                let block_number = U64([number]);
+                let cached_block = self.cached_blocks.get(&number);
+                let chain_block = self.eth_client.get_block(block_number.into()).await?;
+                if cached_block.is_some() && cached_block.unwrap() == &chain_block {
+                    break;
+                } else {
+                    self.cached_blocks.insert(number, chain_block);
+                }
+            }
+            // remove outdated cache
+            let mut del_index = start - 1;
+            loop {
+                if self.cached_blocks.contains_key(&del_index) {
+                    self.cached_blocks.remove(&del_index);
+                } else {
+                    break;
+                }
+                del_index -= 1;
+            }
+            let headers = (start..=tip_header_number)
+                .map(|n| self.cached_blocks.get(&n).cloned().unwrap())
+                .collect::<Vec<_>>();
+            // make tx
+            let cell = get_live_cell_by_lockscript(
+                &mut self.generator.indexer_client,
+                cell_script.clone(),
+            )
+            .map_err(|err| anyhow::anyhow!(err))?
+            .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
+            let unsigned_tx = self.generator.generate_eth_light_client_tx_naive(
+                from_lockscript.clone(),
+                cell.clone(),
+                &headers,
+            )?;
+            let mut privkeys = vec![&self.secret_key];
+            privkeys.extend(self.multisig_privkeys.iter());
+            let tx = sign_with_multi_key(
+                unsigned_tx,
+                &mut self.generator.rpc_client,
+                privkeys,
+                self.multisig_config.clone(),
+            )
+            .map_err(|err| anyhow::anyhow!(err))?;
+            let send_tx_res =
+                send_tx_sync_with_response(&mut self.generator.rpc_client, &tx, 600).await;
+            if let Err(e) = send_tx_res {
+                log::error!(
+                    "relay eth header from {} to {} failed! err: {}",
+                    start,
+                    tip_header_number,
+                    e
+                );
+            } else {
+                info!(
+                    "Successfully relayed the headers from {} to {}",
+                    start, tip_header_number
+                );
+                latest_submit_header_number = tip_header_number;
+            }
+            tokio::time::delay_for(std::time::Duration::from_secs(30)).await;
+        }
+    }
+
     pub async fn do_relay_loop(&mut self, mut cell: Cell) -> Result<()> {
         let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
-        let (mut un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
-        let index: isize = (un_confirmed_headers.len() - 1) as isize;
-        // Determine whether the latest_header is on the Ethereum main chain
-        // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
-        // If it is not in the main chain, it means that reorg has occurred, and you need to trace back from latest_height until the back traced header is on the main chain
-        let mut current_block = self
-            .lookup_common_ancestor(&un_confirmed_headers, index)
-            .await?;
-        let mut number = current_block
-            .number
-            .ok_or_else(|| anyhow!("the block number is not exist."))?;
+        let mut un_confirmed_headers = vec![];
+        let mut index: isize = 0;
+        if !ckb_cell_data.is_empty() {
+            let (headers, _) = parse_main_chain_headers(ckb_cell_data)?;
+            un_confirmed_headers = headers;
+            index = (un_confirmed_headers.len() - 1) as isize;
+        }
+        let mut number: U64;
+        let mut current_block: Block<H256>;
+        if index == 0 {
+            // first relay
+            number = self.eth_client.client().eth().block_number().await?;
+            current_block = self.eth_client.get_block(number.into()).await?;
+        } else {
+            // Determine whether the latest_header is on the Ethereum main chain
+            // If it is in the main chain, the new header currently needs to be added current_height = latest_height + 1
+            // If it is not in the main chain, it means that reorg has occurred, and you need to trace back from latest_height until the back traced header is on the main chain
+            current_block = self
+                .lookup_common_ancestor(&un_confirmed_headers, index)
+                .await?;
+            number = current_block
+                .number
+                .ok_or_else(|| anyhow!("the block number is not exist."))?;
+        }
+
         loop {
             let witnesses = vec![];
             let start = number.add(1 as u64);
@@ -313,7 +326,9 @@ impl ETHRelayer {
                 continue;
             }
 
-            let from_lockscript = self.generate_from_lockscript(self.secret_key)?;
+            let from_privkey = self.secret_key;
+            let from_lockscript = self.generate_from_lockscript(from_privkey)?;
+
             let unsigned_tx = self.generator.generate_eth_light_client_tx(
                 &headers,
                 &cell,
@@ -321,10 +336,14 @@ impl ETHRelayer {
                 &un_confirmed_headers,
                 from_lockscript,
             )?;
-            let tx = sign(
+            // FIXME: waiting for sign server.
+            let secret_key_a = parse_privkey_path("0", &self.config, &Option::None)?;
+            let secret_key_b = parse_privkey_path("1", &self.config, &Option::None)?;
+            let tx = sign_with_multi_key(
                 unsigned_tx,
                 &mut self.generator.rpc_client,
-                &self.secret_key,
+                vec![&self.secret_key, &secret_key_a, &secret_key_b],
+                self.multisig_config.clone(),
             )
             .map_err(|err| anyhow::anyhow!(err))?;
             self.generator
@@ -355,14 +374,12 @@ pub async fn update_cell_sync(
     timeout: u64,
     cell: &mut Cell,
 ) -> Result<()> {
-    let cell_typescript = tx
+    let cell_lockscript = tx
         .output(0)
         .ok_or_else(|| anyhow!("no out_put found"))?
-        .type_()
-        .to_opt()
-        .ok_or_else(|| anyhow!("cell_typescript is not found."))?;
+        .lock();
     for i in 0..timeout {
-        let temp_cell = get_live_cell_by_typescript(index_client, cell_typescript.clone())
+        let temp_cell = get_live_cell_by_lockscript(index_client, cell_lockscript.clone())
             .map_err(|e| anyhow!("failed to get temp_cell: {}", e))?;
         if let Some(c) = temp_cell {
             if c.block_number.value() > cell.block_number.value() {
@@ -410,7 +427,7 @@ pub async fn wait_header_sync_success(
     i = 0;
     loop {
         let cell_res =
-            get_live_cell_by_typescript(&mut generator.indexer_client, cell_script.clone());
+            get_live_cell_by_lockscript(&mut generator.indexer_client, cell_script.clone());
         let cell;
         match cell_res {
             Ok(cell_op) => {
