@@ -1,5 +1,5 @@
 const { expect } = require('chai')
-const vectors = require('./data/testVectors.json')
+const vectors = require('../data/testVectors.json')
 
 const { calculateEaglesong } = vectors
 

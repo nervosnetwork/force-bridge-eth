@@ -1,5 +1,5 @@
 const chai = require('chai')
-const vectors = require('./data/testVectors.json')
+const vectors = require('../data/testVectors.json')
 
 const { keccak256, defaultAbiCoder, toUtf8Bytes, solidityPack } = ethers.utils
 
@@ -9,7 +9,7 @@ const {
   generateSignatures,
   generateWallets,
   runErrorCase,
-} = require('./utils')
+} = require('../utils')
 
 chai.use(solidity)
 const { expect } = chai

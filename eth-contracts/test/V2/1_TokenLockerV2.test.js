@@ -7,8 +7,8 @@ const {
   generateWallets,
   generateSignatures,
   runErrorCase,
-} = require('./utils')
-const testJson = require('./data/testTokenLocker.json')
+} = require('../utils')
+const testJson = require('../data/testTokenLocker.json')
 
 const recipientCellTypescript = testJson.recipientCellTypescript
 const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash
