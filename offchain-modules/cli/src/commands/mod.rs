@@ -420,6 +420,8 @@ pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
             args.ckb_alarm_number,
             args.eth_alarm_number,
             args.alarm_url.clone(),
+            args.ckb_conservator.clone(),
+            args.eth_conservator.clone(),
         )
         .await;
         if let Err(err) = res {

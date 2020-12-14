@@ -14,6 +14,8 @@ pub async fn relay_monitor(
     ckb_alarm_number: u64,
     eth_alarm_number: u64,
     alarm_url: String,
+    ckb_conservator: String,
+    eth_conservator: String,
 ) -> Result<()> {
     let contract_addr = convert_eth_address(&eth_ckb_chain_addr)?;
     let mut web3_client = Web3Client::new(eth_rpc_url);
@@ -29,11 +31,13 @@ pub async fn relay_monitor(
 
     if ckb_light_client_height + ckb_alarm_number < ckb_current_height {
         let msg = format!(
-            "the ckb light client height is below ckb chain too much. ckb_light_client_height : {:?}   ckb_current_height : {:?}  ",
-            ckb_light_client_height, ckb_current_height
+            "the ckb light client height is below ckb chain too much. ckb_light_client_height : {:?}   ckb_current_height : {:?} @{} ",
+            ckb_light_client_height, ckb_current_height, ckb_conservator
         );
-        let url = format!("{}{:?}", alarm_url, msg);
-        let res = reqwest::get(&url).await?.text().await?;
+        let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
+            .await?
+            .text()
+            .await?;
         log::info!("{:?}", res);
         return Ok(());
     }
@@ -58,19 +62,22 @@ pub async fn relay_monitor(
 
     if eth_light_client_height.as_u64() + eth_alarm_number < eth_current_height.as_u64() {
         let msg = format!(
-            "the eth light client height is below eth chain too much. eth_light_client_height : {:?}   eth_current_height : {:?}  ",
-            eth_light_client_height, eth_current_height
+            "the eth light client height is below eth chain too much. eth_light_client_height : {:?}   eth_current_height : {:?} @{} ",
+            eth_light_client_height, eth_current_height,eth_conservator
         );
-        let url = format!("{}{:?}", alarm_url, msg);
-        let res = reqwest::get(&url).await?.text().await?;
+        let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
+            .await?
+            .text()
+            .await?;
         log::info!("{:?}", res);
         return Ok(());
     }
 
     let msg = format!("ckb_light_client_height : {:?}   ckb_current_height : {:?}   eth_light_client_height : {:?}   eth_current_height : {:?}  ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height);
-    log::info!("{:?}", msg);
-    let url = format!("{}{:?}", alarm_url, msg);
-    let res = reqwest::get(&url).await?.text().await?;
+    let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
+        .await?
+        .text()
+        .await?;
     log::info!("{:?}", res);
     Ok(())
 }

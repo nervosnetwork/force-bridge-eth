@@ -363,13 +363,17 @@ pub struct RelayerMonitorArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
-    #[clap(long)]
+    #[clap(long, default_value = "30")]
     pub ckb_alarm_number: u64,
-    #[clap(long)]
+    #[clap(long, default_value = "30")]
     pub eth_alarm_number: u64,
+    #[clap(long, default_value = "ckb_conservator")]
+    pub ckb_conservator: String,
+    #[clap(long, default_value = "eth_conservator")]
+    pub eth_conservator: String,
     #[clap(
         long,
-        default_value = "https://api.telegram.org/bot1449859422:AAG3UQvRnEsr3wv7_UeQUehFkkZpdwP_x-Y/sendMessage?chat_id=-416140042&text="
+        default_value = "https://api.telegram.org/bot1449859422:AAG3UQvRnEsr3wv7_UeQUehFkkZpdwP_x-Y/sendMessage?chat_id=-1001451474483&text="
     )]
     pub alarm_url: String,
     #[clap(long, default_value = "5")]
