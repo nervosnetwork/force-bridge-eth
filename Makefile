@@ -4,7 +4,7 @@ FORCE_CLI := ./offchain-modules/target/debug/force-eth-cli
 
 FORCE_CONFIG_PATH=${HOME}/.force-bridge/config.toml
 RUST_BACKTRACE=1
-RUST_LOG=info,force=debug
+RUST_LOG=warn,force=debug
 
 ci: modules-ci integration-ci
 
@@ -76,7 +76,7 @@ start-force-server:
 restart-force-server:
 	pm2 restart force-server
 
-start-services: start-relay start-force-services
+start-services: start-relay start-force-server
 
 restart-services: restart-relay restart-force-server
 

@@ -205,7 +205,8 @@ pub async fn send_tx_sync_with_response(
         .send_transaction(tx.data())
         .map_err(|err| anyhow!(err))?;
     assert_eq!(tx.hash(), tx_hash.pack());
-    for i in 0..timeout {
+    let mut i = 0;
+    loop {
         let status = rpc_client
             .get_transaction(tx_hash.clone())
             .map_err(|err| anyhow!(err))?
@@ -216,13 +217,24 @@ pub async fn send_tx_sync_with_response(
             i,
             status
         );
-        if status == Some(ckb_jsonrpc_types::Status::Committed) {
-            return Ok((tx_hash, true));
+        match status {
+            Some(ckb_jsonrpc_types::Status::Committed) => {
+                return Ok((tx_hash, true));
+            }
+            // keep waiting if the status become proposed
+            Some(ckb_jsonrpc_types::Status::Proposed) => {}
+            None => {
+                return Err(anyhow!("tx pool error, tx {} status become none", &tx_hash));
+            }
+            _ => {
+                if i > timeout {
+                    return Ok((tx_hash, false));
+                }
+            }
         }
+        i += 1;
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
     }
-    // Err(format!("tx {} not commited", &tx_hash))
-    Ok((tx_hash, false))
 }
 
 pub async fn send_tx_sync(

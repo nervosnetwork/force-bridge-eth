@@ -5,7 +5,7 @@ use crate::util::ckb_util::{
 use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::Witness;
 use crate::util::eth_util::convert_to_header_rlp;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
@@ -448,12 +448,14 @@ impl Generator {
         let (bridge_cell, bridge_cell_data) =
             get_live_cell_with_cache(&mut live_cell_cache, &mut self.rpc_client, outpoint, true)
                 .expect("outpoint not exists");
-        let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
-            .expect("invalid bridge data")
-            .owner_lock_script();
-        if owner_lock_script.raw_data() != from_lockscript.as_bytes() {
-            bail!("only support use bridge cell we created as lock outpoint");
-        }
+        // FIXME add owner lockscript verify
+        // let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
+        //     .expect("invalid bridge data")
+        //     .owner_lock_script();
+        // if owner_lock_script.raw_data() != from_lockscript.as_bytes() {
+        //     bail!("only support use bridge cell we created as lock outpoint");
+        // }
+
         // 1 xt cells
         {
             let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript).unwrap();

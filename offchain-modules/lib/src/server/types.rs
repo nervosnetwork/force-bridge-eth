@@ -1,3 +1,4 @@
+use crate::server::proof_relayer::db::CrosschainHistory;
 use ckb_jsonrpc_types::TransactionView;
 use ckb_jsonrpc_types::Uint128;
 use serde::{Deserialize, Serialize};
@@ -24,11 +25,13 @@ pub struct GetEthToCkbStatusArgs {
 pub struct GetCrosschainHistoryArgs {
     pub ckb_recipient_lockscript_addr: Option<String>,
     pub ckb_recipient_lockscript: Option<String>,
+    pub eth_recipient_addr: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct GetCrosschainHistoryRes {
-    pub ckb_recipient_lockscript: String,
+    pub eth_to_ckb: Vec<CrosschainHistory>,
+    pub ckb_to_eth: Vec<CrosschainHistory>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
