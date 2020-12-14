@@ -259,7 +259,7 @@ pub async fn send_tx_sync(
         if status == Some(ckb_jsonrpc_types::Status::Committed) {
             return Ok(tx_hash);
         }
-        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
     }
     Err(format!("tx {} not commited", &tx_hash))
 }

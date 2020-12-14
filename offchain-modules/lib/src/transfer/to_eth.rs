@@ -187,11 +187,11 @@ pub async fn wait_block_submit(
             .get_locker_contract_confirm("numConfirmations_", lock_contract_addr)
             .await?;
         info!(
-            "tx hash: {:?}, client_block_number : {:?},ckb_height :{:?}, confirm :{:?}",
+            "burn tx hash: {:?}, client_block_number : {:?},ckb_height :{:?}, confirm :{:?}",
             &tx_hash, client_block_number, ckb_height, confirm
         );
         if client_block_number < ckb_height + confirm {
-            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
             continue;
         }
         return Ok(());

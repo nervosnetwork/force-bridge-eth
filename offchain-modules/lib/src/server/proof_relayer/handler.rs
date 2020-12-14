@@ -40,7 +40,7 @@ pub async fn relay_ckb_to_eth_proof(
         ckb_tx_hash.clone(),
         lock_contract_addr,
     )
-        .await?;
+    .await?;
     let result = unlock(
         config_path,
         network,
@@ -75,12 +75,12 @@ pub async fn relay_eth_to_ckb_proof(
         let receipt_res = web3.get_receipt(eth_lock_tx_hash).await;
         match receipt_res {
             Ok(Some(receipt)) => {
-                log::info!("get tx {} receipt: {:?}", eth_lock_tx_hash, receipt);
+                log::info!("get lock tx {} receipt: {:?}", eth_lock_tx_hash, receipt);
                 break;
             }
             _ => {
                 log::error!(
-                    "tx {} not committed on eth yet, retry_index: {}",
+                    "lock tx {} not committed on eth yet, retry_index: {}",
                     eth_lock_tx_hash,
                     i
                 );
@@ -109,8 +109,14 @@ pub async fn relay_eth_to_ckb_proof(
         eth_proof.header_data.clone(),
     )
     .await?;
-    let tx_hash =
-        send_eth_spv_proof_tx(&mut generator, config_path, &eth_proof, from_privkey).await?;
+    let tx_hash = send_eth_spv_proof_tx(
+        &mut generator,
+        config_path,
+        record.eth_lock_tx_hash.clone(),
+        &eth_proof,
+        from_privkey,
+    )
+    .await?;
     record.token_addr = Some(hex::encode(eth_proof.token.as_bytes()));
     record.ckb_recipient_lockscript = Some(hex::encode(eth_proof.recipient_lockscript));
     record.locked_amount = Some(Uint128::from(eth_proof.lock_amount).to_string());
@@ -122,7 +128,7 @@ pub async fn relay_eth_to_ckb_proof(
             .map_err(|e| anyhow!("get tx err: {}", e))?
             .map(|t| t.tx_status.status);
         log::debug!(
-            "mint for lock tx hash {}, waiting for tx {} to be committed, loop index: {}, status: {:?}",
+            "lock tx hash {}, waiting for mint tx {} to be committed, loop index: {}, status: {:?}",
             &eth_lock_tx_hash,
             &tx_hash,
             i,
@@ -133,7 +139,11 @@ pub async fn relay_eth_to_ckb_proof(
         }
         tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
     }
-    log::info!("relay lock tx {} successfully, mint tx {}", eth_lock_tx_hash, tx_hash);
+    log::info!(
+        "relay lock tx {} successfully, mint tx {}",
+        eth_lock_tx_hash,
+        tx_hash
+    );
     // save result to db
     record.status = "success".to_owned();
     record.ckb_tx_hash = Some(format!("0x{}", tx_hash));

@@ -34,7 +34,7 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
-pub const MAX_RETRY_TIMES: u64 = 5;
+pub const MAX_RETRY_TIMES: u64 = 10;
 
 pub async fn approve(
     config_path: String,
@@ -206,7 +206,8 @@ pub async fn generate_eth_spv_proof_json(
             }
         }
         Err(anyhow!(
-            "Failed to generate eth proof after retry {} times",
+            "Failed to generate eth proof for lock tx:{}, after retry {} times",
+            hash.as_str(),
             max_retry_times
         ))
     };
@@ -246,6 +247,7 @@ pub async fn generate_eth_spv_proof_json(
 pub async fn send_eth_spv_proof_tx(
     generator: &mut Generator,
     config_path: String,
+    eth_lock_tx: String,
     eth_proof: &ETHSPVProofJson,
     from_privkey: SecretKey,
 ) -> Result<ckb_types::H256> {
@@ -263,7 +265,8 @@ pub async fn send_eth_spv_proof_tx(
         let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
             .map_err(|err| anyhow!(err))?;
         log::info!(
-            "tx: \n{}",
+            "lock tx {} to mint tx: \n{}",
+            &eth_lock_tx,
             serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
                 .map_err(|err| anyhow!(err))?
         );
@@ -304,7 +307,8 @@ pub async fn send_eth_spv_proof_tx(
         tokio::time::delay_for(std::time::Duration::from_secs(retry_times * 3 + 1)).await;
     }
     anyhow::bail!(
-        "tx is not committed, reach max retry times. latest error_msg: {}",
+        "lock tx {} related mint tx is not committed, reach max retry times. latest error_msg: {}",
+        eth_lock_tx,
         error_msg
     )
 }
@@ -581,7 +585,7 @@ pub fn deploy(
 
     fn add_outputs(
         tx_helper: &mut TxHelper,
-        data: &Vec<Vec<u8>>,
+        data: &[Vec<u8>],
         type_args: Vec<Bytes>,
         from_address_payload: &AddressPayload,
     ) -> Vec<String> {
@@ -605,8 +609,7 @@ pub fn deploy(
             tx_helper.add_output_with_auto_capacity(output, data.clone().into());
         }
         typescript_hashes
-    }
-    ;
+    };
 
     add_outputs(&mut tx_helper, &data, dummy_args, &from_address_payload);
     let genesis_block: BlockView = rpc_client

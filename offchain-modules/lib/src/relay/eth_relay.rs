@@ -403,7 +403,7 @@ pub async fn wait_header_sync_success(
             Err(_) => {
                 info!("waiting for cell script init, loop index: {}", i);
                 i += 1;
-                tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
+                tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
             }
         }
     }
@@ -416,7 +416,7 @@ pub async fn wait_header_sync_success(
             Ok(cell_op) => {
                 if cell_op.is_none() {
                     info!("waiting for finding cell deps, loop index: {}", i);
-                    tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+                    tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
                     i += 1;
                     continue;
                 }
@@ -424,7 +424,7 @@ pub async fn wait_header_sync_success(
             }
             Err(_) => {
                 debug!("waiting for finding cell deps, loop index: {}", i);
-                tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+                tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
                 i += 1;
                 continue;
             }

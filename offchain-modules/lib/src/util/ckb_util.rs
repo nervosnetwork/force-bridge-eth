@@ -4,7 +4,7 @@ use crate::util::eth_proof_helper::{DoubleNodeWithMerkleProofJson, Witness};
 use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::{Address, AddressPayload, SECP256K1};
-use ckb_types::packed::{ScriptReader, WitnessArgs, Byte};
+use ckb_types::packed::{Byte, ScriptReader, WitnessArgs};
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
     bytes::Bytes,
