@@ -37,10 +37,10 @@ pub async fn relay_ckb_to_eth_proof(
         ethereum_rpc_url.clone(),
         ckb_rpc_url,
         light_client,
-        ckb_tx_hash,
+        ckb_tx_hash.clone(),
         lock_contract_addr,
     )
-    .await?;
+        .await?;
     let result = unlock(
         config_path,
         network,
@@ -55,7 +55,7 @@ pub async fn relay_ckb_to_eth_proof(
     record.eth_tx_hash = Some(format!("0x{}", &result));
     record.status = "success".into();
     db::update_ckb_to_eth_status(db, &record).await?;
-    log::info!("unlock result: {:?}", &result);
+    log::info!("burn tx: {:?}, unlock succeed: {:?}", &ckb_tx_hash, &result);
     Ok(())
 }
 
@@ -122,7 +122,8 @@ pub async fn relay_eth_to_ckb_proof(
             .map_err(|e| anyhow!("get tx err: {}", e))?
             .map(|t| t.tx_status.status);
         log::debug!(
-            "waiting for tx {} to be committed, loop index: {}, status: {:?}",
+            "mint for lock tx hash {}, waiting for tx {} to be committed, loop index: {}, status: {:?}",
+            &eth_lock_tx_hash,
             &tx_hash,
             i,
             status
@@ -132,7 +133,7 @@ pub async fn relay_eth_to_ckb_proof(
         }
         tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
     }
-    log::info!("relay tx {} successfully", tx_hash);
+    log::info!("relay lock tx {} successfully, mint tx {}", eth_lock_tx_hash, tx_hash);
     // save result to db
     record.status = "success".to_owned();
     record.ckb_tx_hash = Some(format!("0x{}", tx_hash));

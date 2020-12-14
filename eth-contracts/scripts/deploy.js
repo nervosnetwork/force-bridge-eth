@@ -45,7 +45,7 @@ async function main() {
     CKBChainAddr,
     1,
     "0x" + recipient_typescript_code_hash,
-    0,
+    1,
     "0x" + bridge_lockscript_code_hash
   );
   await locker.deployed();

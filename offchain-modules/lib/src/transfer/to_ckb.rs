@@ -8,7 +8,7 @@ use crate::util::eth_util::{
     Web3Client,
 };
 use anyhow::{anyhow, Result};
-use ckb_hash::{blake2b_256, new_blake2b};
+use ckb_hash::new_blake2b;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
 use ckb_types::bytes::Bytes;
 use ckb_types::core::{BlockView, ScriptHashType, TransactionView};
@@ -212,7 +212,7 @@ pub async fn generate_eth_spv_proof_json(
     };
     let eth_spv_proof = eth_spv_proof_retry(3)?;
     let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
-    info!("eth_spv_proof: {:?}", eth_spv_proof);
+    info!("tx: {:?}, eth_spv_proof: {:?}", hash, eth_spv_proof);
     let hash_str = hash.clone();
     let log_index = eth_spv_proof.log_index;
     let eth_rpc_url = ethereum_rpc_url.clone();
@@ -220,7 +220,7 @@ pub async fn generate_eth_spv_proof_json(
     node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --url ${eth_rpc_url}}
     .unwrap();
     let proof_json: Value = serde_json::from_str(&proof_hex).unwrap();
-    info!("generate proof json: {:?}", proof_json);
+    info!("tx: {:?}, generate proof json: {:?}", hash, proof_json);
     // TODO: refactor to parse with static struct instead of dynamic parsing
     let mut proof_vec = vec![];
     for item in proof_json["proof"].as_array().unwrap() {
@@ -336,17 +336,6 @@ pub async fn deploy_ckb(
     let light_client_lockscript_bin = std::fs::read(light_client_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
 
-    let bridge_typescript_code_hash = blake2b_256(&bridge_typescript_bin);
-    let bridge_typescript_code_hash_hex = hex::encode(&bridge_typescript_code_hash);
-    let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
-    let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
-    let light_client_lockscript_code_hash = blake2b_256(&light_client_lockscript_bin);
-    let light_client_lockscript_code_hash_hex = hex::encode(&light_client_lockscript_code_hash);
-    let bridge_lockscript_code_hash = blake2b_256(&bridge_lockscript_bin);
-    let bridge_lockscript_code_hash_hex = hex::encode(&bridge_lockscript_code_hash);
-    let recipient_typescript_code_hash = blake2b_256(&recipient_typescript_bin);
-    let recipient_typescript_code_hash_hex = hex::encode(&recipient_typescript_code_hash);
-
     let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
@@ -354,17 +343,13 @@ pub async fn deploy_ckb(
         light_client_lockscript_bin,
         recipient_typescript_bin,
     ];
-    let sudt_code_hash_hex = if deploy_sudt {
+    if deploy_sudt {
         let sudt_path = force_config.get_sudt_typescript_bin_path()?;
         let sudt_bin = std::fs::read(sudt_path)?;
-        let sudt_code_hash = blake2b_256(&sudt_bin);
         data.push(sudt_bin);
-        Some(hex::encode(&sudt_code_hash))
-    } else {
-        None
     };
 
-    let tx = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
+    let (tx, typescript_hashes) = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
         .map_err(|err| anyhow!(err))?;
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 120)
         .await
@@ -375,8 +360,8 @@ pub async fn deploy_ckb(
     let pw_locks = original_config.pw_locks;
     let sudt_conf = if deploy_sudt {
         ScriptConf {
-            code_hash: sudt_code_hash_hex.expect("should have value"),
-            hash_type: 0,
+            code_hash: typescript_hashes[5].clone(),
+            hash_type: 1,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 5,
@@ -388,8 +373,8 @@ pub async fn deploy_ckb(
     };
     let deployed_contracts = DeployedContracts {
         bridge_lockscript: ScriptConf {
-            code_hash: bridge_lockscript_code_hash_hex,
-            hash_type: 0,
+            code_hash: typescript_hashes[0].clone(),
+            hash_type: 1,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
@@ -397,8 +382,8 @@ pub async fn deploy_ckb(
             },
         },
         bridge_typescript: ScriptConf {
-            code_hash: bridge_typescript_code_hash_hex,
-            hash_type: 0,
+            code_hash: typescript_hashes[1].clone(),
+            hash_type: 1,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
@@ -406,8 +391,8 @@ pub async fn deploy_ckb(
             },
         },
         light_client_typescript: ScriptConf {
-            code_hash: light_client_typescript_code_hash_hex,
-            hash_type: 0,
+            code_hash: typescript_hashes[2].clone(),
+            hash_type: 1,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 2,
@@ -415,8 +400,8 @@ pub async fn deploy_ckb(
             },
         },
         light_client_lockscript: ScriptConf {
-            code_hash: light_client_lockscript_code_hash_hex,
-            hash_type: 0,
+            code_hash: typescript_hashes[3].clone(),
+            hash_type: 1,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 3,
@@ -424,8 +409,8 @@ pub async fn deploy_ckb(
             },
         },
         recipient_typescript: ScriptConf {
-            code_hash: recipient_typescript_code_hash_hex,
-            hash_type: 0,
+            code_hash: typescript_hashes[4].clone(),
+            hash_type: 1,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex,
                 index: 4,
@@ -535,7 +520,7 @@ pub async fn get_or_create_bridge_cell(
             bridge_fee,
             cell_num,
         )
-        .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
+        .map_err(|e| anyhow!("failed to build create bridge cell tx : {}", e))?;
     let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
         .map_err(|e| anyhow!("sign error {}", e))?;
     log::info!(
@@ -587,7 +572,7 @@ pub fn deploy(
     indexer_client: &mut IndexerRpcClient,
     privkey: &SecretKey,
     data: Vec<Vec<u8>>,
-) -> Result<TransactionView, String> {
+) -> Result<(TransactionView, Vec<String>), String> {
     let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
     let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
     let lockscript = Script::from(&from_address_payload);
@@ -599,7 +584,8 @@ pub fn deploy(
         data: &Vec<Vec<u8>>,
         type_args: Vec<Bytes>,
         from_address_payload: &AddressPayload,
-    ) {
+    ) -> Vec<String> {
+        let mut typescript_hashes = vec![];
         let type_id = hex::decode(TYPE_ID).expect("type_id should be correct");
         for (i, data) in data.iter().enumerate() {
             let typescript = Script::new_builder()
@@ -609,6 +595,8 @@ pub fn deploy(
                 .hash_type(ScriptHashType::Type.into())
                 .args(type_args[i].pack())
                 .build();
+            let typescript_hash = typescript.as_reader().calc_script_hash();
+            typescript_hashes.push(format!("{:x}", typescript_hash));
             let typescript_ = ScriptOpt::new_builder().set(Some(typescript)).build();
             let output = CellOutput::new_builder()
                 .type_(typescript_)
@@ -616,6 +604,7 @@ pub fn deploy(
                 .build();
             tx_helper.add_output_with_auto_capacity(output, data.clone().into());
         }
+        typescript_hashes
     }
     ;
 
@@ -625,13 +614,14 @@ pub fn deploy(
         .expect("Can not get genesis block?")
         .into();
     let genesis_info = GenesisInfo::from_block(&genesis_block)?;
-    tx_helper.supply_capacity(
+    let tx = tx_helper.supply_capacity(
         rpc_client,
         indexer_client,
         lockscript,
         &genesis_info,
         99_999_999,
     )?;
+    let change_cell_output = tx.output(data.len());
     tx_helper.clear_outputs();
     let mut type_args: Vec<Bytes> = vec![];
     let first_input = tx_helper
@@ -647,6 +637,10 @@ pub fn deploy(
         blake2b.finalize(&mut args);
         type_args.push(args.to_vec().into())
     }
-    add_outputs(&mut tx_helper, &data, type_args, &from_address_payload);
-    sign(tx_helper.transaction, rpc_client, privkey)
+    let typescript_hashes = add_outputs(&mut tx_helper, &data, type_args, &from_address_payload);
+    if let Some(change_cell_output) = change_cell_output {
+        tx_helper.add_output(change_cell_output, Default::default());
+    };
+    let tx_view = sign(tx_helper.transaction, rpc_client, privkey)?;
+    Ok((tx_view, typescript_hashes))
 }

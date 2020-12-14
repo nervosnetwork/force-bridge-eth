@@ -65,7 +65,7 @@ fn calc_eth_bridge_lock_hash(
         .code_hash(
             Byte32::from_slice(eth_bridge_lock_hash).expect("eth bridge lockscript hash invalid"),
         )
-        .hash_type(Byte::new(0))
+        .hash_type(Byte::new(1))
         .args(Bytes::new_builder().set(bytes_vec).build())
         .build();
 

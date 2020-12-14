@@ -187,8 +187,8 @@ pub async fn wait_block_submit(
             .get_locker_contract_confirm("numConfirmations_", lock_contract_addr)
             .await?;
         info!(
-            "client_block_number : {:?},ckb_height :{:?}, confirm :{:?}",
-            client_block_number, ckb_height, confirm
+            "tx hash: {:?}, client_block_number : {:?},ckb_height :{:?}, confirm :{:?}",
+            &tx_hash, client_block_number, ckb_height, confirm
         );
         if client_block_number < ckb_height + confirm {
             tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
@@ -298,12 +298,12 @@ pub fn get_ckb_proof_info(tx_hash_str: &str, rpc_url: String) -> Result<(String,
         .into();
 
     let mol_hex_tx = hex::encode(tx.raw().as_slice());
-    info!("mol hex raw tx : {:?} ", mol_hex_tx);
+    debug!("mol hex raw tx : {:?} ", mol_hex_tx);
 
     let ckb_tx_proof = parse_ckb_proof(tx_hash_str, rpc_url)?;
     let mol_tx_proof: ckb_tx_proof::CkbTxProof = ckb_tx_proof.into();
     let mol_hex_header = hex::encode(mol_tx_proof.as_bytes().as_ref());
-    info!("mol hex header: {:?} ", mol_hex_header);
+    debug!("mol hex header: {:?} ", mol_hex_header);
     Ok((mol_hex_header, mol_hex_tx))
 }
 

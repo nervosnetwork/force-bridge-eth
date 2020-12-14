@@ -662,6 +662,7 @@ impl Generator {
 
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
+            self.deployed_contracts.bridge_lockscript.hash_type,
             &self.deployed_contracts.sudt.code_hash,
             self.deployed_contracts.sudt.hash_type,
             token_addr,
@@ -766,6 +767,7 @@ impl Generator {
 
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
+            self.deployed_contracts.bridge_lockscript.hash_type,
             &self.deployed_contracts.sudt.code_hash,
             self.deployed_contracts.sudt.hash_type,
             token_addr,
@@ -812,6 +814,7 @@ impl Generator {
     ) -> Result<u128> {
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
+            self.deployed_contracts.bridge_lockscript.hash_type,
             &self.deployed_contracts.sudt.code_hash,
             self.deployed_contracts.sudt.hash_type,
             token_addr,
