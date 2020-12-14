@@ -371,10 +371,7 @@ pub struct RelayerMonitorArgs {
     pub ckb_conservator: String,
     #[clap(long, default_value = "eth_conservator")]
     pub eth_conservator: String,
-    #[clap(
-        long,
-        default_value = "https://api.telegram.org/bot1449859422:AAG3UQvRnEsr3wv7_UeQUehFkkZpdwP_x-Y/sendMessage?chat_id=-1001451474483&text="
-    )]
+    #[clap(long)]
     pub alarm_url: String,
     #[clap(long, default_value = "5")]
     pub minute_interval: u64,
