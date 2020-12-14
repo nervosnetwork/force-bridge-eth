@@ -9,3 +9,4 @@ cache
 package-lock.json
 scripts/geth/address.json
 coverage.json
+coverage
