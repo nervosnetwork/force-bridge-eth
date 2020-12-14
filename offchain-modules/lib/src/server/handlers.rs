@@ -1,7 +1,9 @@
 use super::error::RpcError;
 use super::state::DappState;
 use super::types::*;
-use crate::server::proof_relayer::db::{update_eth_to_ckb_status, EthToCkbRecord};
+use crate::server::proof_relayer::db::{
+    update_eth_to_ckb_status, CkbToEthRecord, CrosschainHistory, EthToCkbRecord,
+};
 use crate::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb;
 use crate::util::ckb_util::{
@@ -20,7 +22,7 @@ use ckb_sdk::{Address, HumanCapacity};
 use ckb_types::packed::{Script, ScriptReader};
 use ethabi::Token;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
-use molecule::prelude::{Entity, Reader};
+use molecule::prelude::{Entity, Reader, ToOwned};
 use serde_json::{json, Value};
 use std::str::FromStr;
 use std::time::Duration;
@@ -78,30 +80,34 @@ pub async fn get_crosschain_history(
     let args: GetCrosschainHistoryArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     log::debug!("get_crosschain_history args: {:?}", args);
-    let ckb_recipient_lockscript = match args.ckb_recipient_lockscript {
-        Some(lockscript_raw) => lockscript_raw,
-        None => {
-            let from_lockscript = Script::from(
-                Address::from_str(
-                    &args
-                        .ckb_recipient_lockscript_addr
-                        .ok_or_else(|| anyhow!("arg ckb_recipient_lockscript not provided"))?,
-                )
+    let mut crosschain_history = GetCrosschainHistoryRes::default();
+    // eth to ckb history
+    let mut ckb_recipient_lockscript = None;
+    if let Some(lockscript_raw) = args.ckb_recipient_lockscript {
+        ckb_recipient_lockscript = Some(lockscript_raw);
+    }
+    if let Some(addr) = args.ckb_recipient_lockscript_addr {
+        let from_lockscript = Script::from(
+            Address::from_str(&addr)
                 .map_err(|err| format!("ckb_address to script fail: {}", err))?
                 .payload(),
-            );
-            hex::encode(from_lockscript.as_slice())
-        }
-    };
+        );
+        ckb_recipient_lockscript = Some(hex::encode(from_lockscript.as_slice()))
+    }
     log::debug!(
         "ckb_recipient_lockscript args: {:?}",
         ckb_recipient_lockscript
     );
-    let crosschain_history =
-        db::get_crosschain_history(&data.db, &ckb_recipient_lockscript).await?;
-    Ok(HttpResponse::Ok().json(json!({
-        "crosschain_history": crosschain_history,
-    })))
+    if let Some(lockscript) = ckb_recipient_lockscript {
+        crosschain_history.eth_to_ckb =
+            db::get_eth_to_ckb_crosschain_history(&data.db, &lockscript).await?;
+    }
+    // ckb to eth
+    if let Some(eth_recipient_addr) = args.eth_recipient_addr {
+        crosschain_history.ckb_to_eth =
+            db::get_ckb_to_eth_crosschain_history(&data.db, &eth_recipient_addr).await?;
+    }
+    Ok(HttpResponse::Ok().json(format_crosschain_history_res(&crosschain_history)))
 }
 
 #[post("/relay_eth_to_ckb_proof")]
@@ -135,7 +141,7 @@ pub async fn relay_eth_to_ckb_proof(
             .1
             .clone()
             .recv_timeout(Duration::from_secs(600))
-            .map_err(|e| format!("crossbeam channel recv ckb key path error: {:?}", e))?;
+            .map_err(|e| anyhow!("crossbeam channel recv ckb key path error: {:?}", e))?;
         let force_config =
             ForceConfig::new(data.config_path.as_str()).expect("get force config succeed");
         let from_privkey =
@@ -177,7 +183,7 @@ pub async fn relay_eth_to_ckb_proof(
             .0
             .clone()
             .send(private_key_path)
-            .map_err(|e| format!("crossbeam channel send ckb key path error: {:?}", e))
+            .map_err(|e| anyhow!("crossbeam channel send ckb key path error: {:?}", e))
     });
     Ok(HttpResponse::Ok().json(json!({
         "message": "tx proof relay submitted"
@@ -222,15 +228,30 @@ pub async fn burn(
         serde_json::to_string_pretty(&args).unwrap(),
         serde_json::to_string_pretty(&rpc_tx).unwrap()
     );
+    let ckb_tx_hash = hex::encode(tx.hash().as_slice());
+    let row_id = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await?;
     tokio::spawn(async move {
         let eth_privkey_path = data
             .eth_key_channel
             .1
             .clone()
             .recv_timeout(Duration::from_secs(600))
-            .map_err(|e| format!("crossbeam channel recv ckb key path error: {:?}", e))?;
+            .map_err(|e| anyhow!("crossbeam channel recv ckb key path error: {:?}", e))?;
+        let mut record = CkbToEthRecord {
+            id: row_id,
+            ckb_burn_tx_hash: format!("0x{}", &ckb_tx_hash),
+            status: "pending".to_string(),
+            recipient_addr: Some(args.recipient_address.clone()),
+            token_addr: Some(args.token_address.clone()),
+            token_amount: Some(args.amount.to_string()),
+            fee: Some(args.unlock_fee.to_string()),
+            ..Default::default()
+        };
+        let mut err_msg = String::new();
         for i in 0u8..10 {
             let res = handler::relay_ckb_to_eth_proof(
+                record.clone(),
+                &data.db,
                 data.config_path.clone(),
                 eth_privkey_path.clone(),
                 data.network.clone(),
@@ -238,18 +259,27 @@ pub async fn burn(
             )
             .await;
             match res {
-                Ok(_) => break,
+                Ok(_) => {
+                    log::info!("ckb to eth relay successfully for tx {}", &ckb_tx_hash);
+                    err_msg = String::new();
+                    break;
+                }
                 Err(e) => {
-                    log::error!("unlock failed. index: {}, err: {}", i, e);
+                    err_msg = format!("unlock failed. index: {}, err: {}", i, e);
                     tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
                 }
             }
+        }
+        if !err_msg.is_empty() {
+            record.err_msg = Some(err_msg);
+            record.status = "error".to_string();
+            db::update_ckb_to_eth_status(&data.db, &record).await?;
         }
         data.eth_key_channel
             .0
             .clone()
             .send(eth_privkey_path)
-            .map_err(|e| format!("crossbeam channel send ckb key path error: {:?}", e))
+            .map_err(|e| anyhow!("crossbeam channel send ckb key path error: {:?}", e))
     });
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
@@ -442,4 +472,37 @@ pub async fn index() -> impl Responder {
 #[get("/settings")]
 pub async fn settings(data: web::Data<DappState>) -> impl Responder {
     HttpResponse::Ok().json(&data.deployed_contracts)
+}
+
+pub fn pad_0x_prefix(s: &str) -> String {
+    if !s.starts_with("0x") && !s.starts_with("0X") {
+        let mut res = "0x".to_owned();
+        res.push_str(s);
+        res
+    } else {
+        s.to_owned()
+    }
+}
+
+pub fn format_crosschain_history(c: &CrosschainHistory) -> CrosschainHistory {
+    let mut res = c.to_owned();
+    res.eth_tx_hash = c.eth_tx_hash.as_ref().map(|h| pad_0x_prefix(&h));
+    res.ckb_tx_hash = c.ckb_tx_hash.as_ref().map(|h| pad_0x_prefix(&h));
+    res.token_addr = pad_0x_prefix(&c.token_addr);
+    res
+}
+
+pub fn format_crosschain_history_res(res: &GetCrosschainHistoryRes) -> GetCrosschainHistoryRes {
+    GetCrosschainHistoryRes {
+        eth_to_ckb: res
+            .eth_to_ckb
+            .iter()
+            .map(format_crosschain_history)
+            .collect(),
+        ckb_to_eth: res
+            .ckb_to_eth
+            .iter()
+            .map(format_crosschain_history)
+            .collect(),
+    }
 }
