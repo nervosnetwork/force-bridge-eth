@@ -5,6 +5,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "start-geth": "docker run -d --rm -it --name geth-node --mount type=bind,source=\"$(pwd)/../docker/geth\",target=/config --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23 && ./wait-for-it.sh -t 0 127.0.0.1:8545 -- echo \"node is up\" && node scripts/waitForMiner.js",
+    "restart-geth": "npm run stop-geth && npm run start-geth",
     "stop-geth": "docker rm -f geth-node",
     "pretest": "npm run start-geth",
     "test": "hardhat test --network geth || (npm run stop-geth && false)",
