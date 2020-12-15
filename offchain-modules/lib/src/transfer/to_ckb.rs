@@ -270,7 +270,7 @@ pub async fn send_eth_spv_proof_tx(
         );
         let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 600).await;
         match result {
-            Ok((tx_hash, true)) => {
+            Ok(tx_hash) => {
                 let cell_typescript = tx
                     .output(0)
                     .ok_or_else(|| anyhow!("no out_put found"))?
@@ -284,15 +284,8 @@ pub async fn send_eth_spv_proof_tx(
                     "tx_hash": hex::encode(tx.hash().as_slice()),
                     "cell_typescript": cell_script,
                 });
-                println!("{}", serde_json::to_string_pretty(&print_res)?);
+                log::debug!("{}", serde_json::to_string_pretty(&print_res)?);
                 return Ok(tx_hash);
-            }
-            Ok((tx_hash, false)) => {
-                error_msg = format!(
-                    "tx {} is not commit after timeout, retry times: {:?}",
-                    tx_hash, retry_times
-                );
-                log::info!("{}", error_msg);
             }
             Err(e) => {
                 error_msg = format!(
