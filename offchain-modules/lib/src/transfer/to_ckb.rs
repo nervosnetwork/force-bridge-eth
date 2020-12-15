@@ -2,15 +2,18 @@ use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
     build_lockscript_from_address, parse_privkey, parse_privkey_path, ETHSPVProofJson,
 };
-use crate::util::config::{CellScript, DeployedContracts, ForceConfig, OutpointConf, ScriptConf};
+use crate::util::config::{
+    CellScript, DeployedContracts, ForceConfig, MultisigConf, OutpointConf, ScriptConf,
+};
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, parse_private_key,
     Web3Client,
 };
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
+use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
-use ckb_types::core::{BlockView, TransactionView};
+use ckb_types::core::{BlockView, Capacity, TransactionView};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use cmd_lib::run_fun;
@@ -21,7 +24,7 @@ use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
 use force_sdk::cell_collector::collect_bridge_cells;
 use force_sdk::indexer::IndexerRpcClient;
-use force_sdk::tx_helper::{sign, TxHelper};
+use force_sdk::tx_helper::{sign, MultisigConfig, TxHelper};
 use force_sdk::util::{ensure_indexer_sync, send_tx_sync, send_tx_sync_with_response};
 use log::info;
 use rusty_receipt_proof_maker::generate_eth_proof;
@@ -324,22 +327,25 @@ pub async fn deploy_ckb(
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
     let bridge_typescript_path = force_config.get_bridge_typescript_bin_path()?;
     let bridge_lockscript_path = force_config.get_bridge_lockscript_bin_path()?;
-    let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
-    let light_client_lockscript_path = force_config.get_light_client_lockscript_bin_path()?;
+    // let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
+    // let light_client_lockscript_path = force_config.get_light_client_lockscript_bin_path()?;
     let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
 
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
-    let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
-    let light_client_lockscript_bin = std::fs::read(light_client_lockscript_path)?;
+    // let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
+    // let light_client_lockscript_bin = std::fs::read(light_client_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
 
     let bridge_typescript_code_hash = blake2b_256(&bridge_typescript_bin);
     let bridge_typescript_code_hash_hex = hex::encode(&bridge_typescript_code_hash);
-    let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
-    let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
-    let light_client_lockscript_code_hash = blake2b_256(&light_client_lockscript_bin);
-    let light_client_lockscript_code_hash_hex = hex::encode(&light_client_lockscript_code_hash);
+
+    // let light_client_typescript_code_hash = blake2b_256(&light_client_typescript_bin);
+    // let light_client_typescript_code_hash_hex = hex::encode(&light_client_typescript_code_hash);
+
+    // let light_client_lockscript_code_hash = blake2b_256(&light_client_lockscript_bin);
+    // let light_client_lockscript_code_hash_hex = hex::encode(&light_client_lockscript_code_hash);
+
     let bridge_lockscript_code_hash = blake2b_256(&bridge_lockscript_bin);
     let bridge_lockscript_code_hash_hex = hex::encode(&bridge_lockscript_code_hash);
     let recipient_typescript_code_hash = blake2b_256(&recipient_typescript_bin);
@@ -348,8 +354,8 @@ pub async fn deploy_ckb(
     let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
-        light_client_typescript_bin,
-        light_client_lockscript_bin,
+        // light_client_typescript_bin,
+        // light_client_lockscript_bin,
         recipient_typescript_bin,
     ];
     let sudt_code_hash_hex = if deploy_sudt {
@@ -377,7 +383,7 @@ pub async fn deploy_ckb(
             hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
-                index: 5,
+                index: 3,
                 dep_type: 0,
             },
         }
@@ -403,30 +409,12 @@ pub async fn deploy_ckb(
                 dep_type: 0,
             },
         },
-        light_client_typescript: ScriptConf {
-            code_hash: light_client_typescript_code_hash_hex,
-            hash_type: 0,
-            outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
-                index: 2,
-                dep_type: 0,
-            },
-        },
-        light_client_lockscript: ScriptConf {
-            code_hash: light_client_lockscript_code_hash_hex,
-            hash_type: 0,
-            outpoint: OutpointConf {
-                tx_hash: tx_hash_hex.clone(),
-                index: 3,
-                dep_type: 0,
-            },
-        },
         recipient_typescript: ScriptConf {
             code_hash: recipient_typescript_code_hash_hex,
             hash_type: 0,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex,
-                index: 4,
+                index: 2,
                 dep_type: 0,
             },
         },
@@ -441,6 +429,76 @@ pub async fn deploy_ckb(
     force_config.deployed_contracts = Some(deployed_contracts);
     force_config.write(&config_path)?;
     println!("force-bridge config written to {}", &config_path);
+    Ok(())
+}
+
+pub async fn init_multi_sign_address(
+    multisig_address: Vec<String>,
+    require_first_n: u8,
+    threshold: u8,
+    config_path: String,
+    priv_key_path: String,
+    network: Option<String>,
+) -> Result<()> {
+    let mut addresses = vec![];
+    for item in multisig_address.clone() {
+        let address = Address::from_str(&item).unwrap();
+        addresses.push(address);
+    }
+    let sighash_addresses = addresses
+        .into_iter()
+        .map(|address| address.payload().clone())
+        .collect::<Vec<_>>();
+    let cfg = MultisigConfig::new_with(sighash_addresses, require_first_n, threshold)
+        .map_err(|err| anyhow!(err))?;
+    let address_payload = cfg.to_address_payload(Option::None);
+    let multisig_script = Script::from(&address_payload);
+
+    let mut force_config = ForceConfig::new(config_path.as_str())?;
+    let mut deployed_contracts = force_config
+        .deployed_contracts
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    deployed_contracts.light_client_cell_script.cell_script =
+        hex::encode(multisig_script.as_slice());
+    deployed_contracts.multisig_address = MultisigConf {
+        addresses: multisig_address,
+        require_first_n,
+        threshold,
+    };
+    force_config.deployed_contracts = Some(deployed_contracts);
+    let config_path = tilde(config_path.as_str()).into_owned();
+    force_config.write(&config_path)?;
+
+    let mut helper = TxHelper::default();
+    let cap = 10_000 * ONE_CKB;
+    let output = CellOutput::new_builder()
+        .capacity(Capacity::shannons(cap).pack())
+        .lock(multisig_script)
+        .build();
+    helper.add_output(output, Default::default());
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let indexer_url = force_config.get_ckb_indexer_url(&network)?;
+    let mut ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
+        .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+
+    let secret_key = parse_privkey_path(&priv_key_path, &force_config, &network)?;
+    let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &secret_key);
+    let address_payload = AddressPayload::from_pubkey(&from_public_key);
+    let from_lockscript = Script::from(&address_payload);
+    let unsigned_tx = helper
+        .supply_capacity(
+            &mut ckb_client.rpc_client,
+            &mut ckb_client.indexer_client,
+            from_lockscript,
+            &ckb_client.genesis_info,
+            99_999,
+        )
+        .map_err(|err| anyhow!(err))?;
+    let tx =
+        sign(unsigned_tx, &mut ckb_client.rpc_client, &secret_key).map_err(|err| anyhow!(err))?;
+    send_tx_sync(&mut ckb_client.rpc_client, &tx, 120)
+        .await
+        .map_err(|err| anyhow!(err))?;
     Ok(())
 }
 

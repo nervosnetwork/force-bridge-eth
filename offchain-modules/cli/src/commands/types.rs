@@ -11,7 +11,8 @@ pub struct Opts {
 pub enum SubCommand {
     Server(ServerArgs),
     InitCkbLightContract(InitCkbLightContractArgs),
-    Init(InitArgs),
+    InitConfig(InitConfigArgs),
+    InitMultiSignAddress(InitMultiSignAddressArgs),
     DeployCKB(DeployCKBArgs),
     CreateBridgeCell(CreateBridgeCellArgs),
     TransferToCkb(TransferToCkbArgs),
@@ -89,7 +90,7 @@ pub struct InitCkbLightContractArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct InitArgs {
+pub struct InitConfigArgs {
     #[clap(short = 'f', long)]
     pub force: bool,
     #[clap(short = 'p', long)]
@@ -104,6 +105,22 @@ pub struct InitArgs {
     pub ckb_indexer_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub ethereum_rpc_url: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct InitMultiSignAddressArgs {
+    #[clap(long)]
+    pub multi_address: Vec<String>,
+    #[clap(long, default_value = "2")]
+    pub threshold: u8,
+    #[clap(long, default_value = "0")]
+    pub require_first_n: u8,
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -291,8 +308,8 @@ pub struct EthRelayArgs {
     pub network: Option<String>,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
-    #[clap(long, default_value = "data/proof_data.json")]
-    pub proof_data_path: String,
+    #[clap(long)]
+    pub multisig_privkeys: Vec<String>,
 }
 
 #[derive(Clap, Clone, Debug)]
