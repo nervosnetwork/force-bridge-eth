@@ -2,7 +2,7 @@ use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use anyhow::{anyhow, Result};
-use force_sdk::cell_collector::get_live_cell_by_typescript;
+use force_sdk::cell_collector::get_live_cell_by_lockscript;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn relay_monitor(
@@ -31,9 +31,9 @@ pub async fn relay_monitor(
 
     let eth_current_height = web3_client.client().eth().block_number().await?;
 
-    let typescript = parse_cell(&cell).map_err(|e| anyhow!("get typescript fail {:?}", e))?;
+    let script = parse_cell(&cell).map_err(|e| anyhow!("get typescript fail {:?}", e))?;
 
-    let cell = get_live_cell_by_typescript(&mut generator.indexer_client, typescript)
+    let cell = get_live_cell_by_lockscript(&mut generator.indexer_client, script)
         .map_err(|e| anyhow!("get live cell fail: {}", e))?
         .ok_or_else(|| anyhow!("eth header cell not exist"))?;
 
@@ -47,21 +47,23 @@ pub async fn relay_monitor(
         .number
         .ok_or_else(|| anyhow!("header number is none"))?;
 
-    let mut msg = format!("ckb light client height : {:?}   ckb current height : {:?}   eth light client height : {:?}   eth current height : {:?}  ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height);
+    let mut msg = format!("ckb light client height : {:?}  %0A ckb current height : {:?}  %0A eth light client height : {:?}  %0A eth current height : {:?} %0A ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height);
 
     if ckb_light_client_height + ckb_alarm_number < ckb_current_height {
         for conservator in ckb_conservator.iter() {
             msg = format!("{} @{} ", msg, conservator,);
         }
+        msg = format!("{} %0A ", msg);
     }
 
     if eth_light_client_height.as_u64() + eth_alarm_number < eth_current_height.as_u64() {
         for conservator in eth_conservator.iter() {
             msg = format!("{} @{} ", msg, conservator,);
         }
+        msg = format!("{} %0A ", msg);
     }
 
-    let res = reqwest::get(format!("{}{:?}", alarm_url, msg).as_str())
+    let res = reqwest::get(format!("{}{}", alarm_url, msg).as_str())
         .await?
         .text()
         .await?;
