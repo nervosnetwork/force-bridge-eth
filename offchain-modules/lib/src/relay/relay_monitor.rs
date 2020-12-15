@@ -3,6 +3,7 @@ use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use anyhow::{anyhow, Result};
 use force_sdk::cell_collector::get_live_cell_by_lockscript;
+use std::ops::Sub;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn relay_monitor(
@@ -47,16 +48,19 @@ pub async fn relay_monitor(
         .number
         .ok_or_else(|| anyhow!("header number is none"))?;
 
-    let mut msg = format!("ckb light client height : {:?}  %0A ckb current height : {:?}  %0A eth light client height : {:?}  %0A eth current height : {:?} %0A ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height);
+    let ckb_diff = ckb_current_height - ckb_light_client_height;
+    let eth_diff = eth_current_height.sub(eth_light_client_height).as_u64();
 
-    if ckb_light_client_height + ckb_alarm_number < ckb_current_height {
+    let mut msg = format!("ckb light client height : {:?}  %0A ckb current height : {:?}  %0A eth light client height : {:?}  %0A eth current height : {:?} %0A ckb height difference is {:?}, eth height difference is {:?} %0A ",ckb_light_client_height,ckb_current_height,eth_light_client_height,eth_current_height,ckb_diff,eth_diff);
+
+    if ckb_alarm_number < ckb_diff {
         for conservator in ckb_conservator.iter() {
             msg = format!("{} @{} ", msg, conservator,);
         }
         msg = format!("{} %0A ", msg);
     }
 
-    if eth_light_client_height.as_u64() + eth_alarm_number < eth_current_height.as_u64() {
+    if eth_alarm_number < eth_diff {
         for conservator in eth_conservator.iter() {
             msg = format!("{} @{} ", msg, conservator,);
         }
