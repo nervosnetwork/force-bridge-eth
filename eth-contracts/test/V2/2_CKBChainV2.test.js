@@ -1,7 +1,7 @@
 const chai = require('chai')
 const vectors = require('../data/testVectors.json')
 
-const { keccak256, defaultAbiCoder, toUtf8Bytes, solidityPack } = ethers.utils
+const { keccak256, defaultAbiCoder, toUtf8Bytes } = ethers.utils
 
 const { solidity } = require('ethereum-waffle')
 const {
@@ -9,6 +9,7 @@ const {
   generateSignatures,
   generateWallets,
   runErrorCase,
+  getMsgHashForAddHeaders,
 } = require('../utils')
 
 chai.use(solidity)
@@ -20,22 +21,6 @@ const {
   extractEpoch,
   indexHeaderVec,
 } = vectors
-
-const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
-  return keccak256(
-    solidityPack(
-      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
-      [
-        '0x19',
-        '0x01',
-        DOMAIN_SEPARATOR,
-        keccak256(
-          defaultAbiCoder.encode(['bytes32', 'bytes'], [typeHash, headersData])
-        ),
-      ]
-    )
-  )
-}
 
 contract('CKBChainV2', () => {
   let ckbChain, provider, initHeaderIndex, endHeaderIndex, factory

@@ -7,6 +7,7 @@ const {
   generateWallets,
   generateSignatures,
   runErrorCase,
+  getMsgHashForSetNewCkbSpv,
 } = require('../utils')
 const testJson = require('../data/testTokenLocker.json')
 
@@ -15,30 +16,6 @@ const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash
 
 chai.use(solidity)
 const { expect } = chai
-
-const getMsgHashForSetNewCkbSpv = (
-  DOMAIN_SEPARATOR,
-  typeHash,
-  newSpvAddress,
-  nonce
-) => {
-  return keccak256(
-    solidityPack(
-      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
-      [
-        '0x19',
-        '0x01',
-        DOMAIN_SEPARATOR,
-        keccak256(
-          defaultAbiCoder.encode(
-            ['bytes32', 'address', 'uint256'],
-            [typeHash, newSpvAddress, nonce]
-          )
-        ),
-      ]
-    )
-  )
-}
 
 contract('TokenLocker in TokenLockerV2', () => {
   let tokenLocker, provider, user

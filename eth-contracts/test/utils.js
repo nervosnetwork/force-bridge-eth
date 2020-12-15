@@ -1,4 +1,5 @@
 const { ecsign, toRpcSig } = require('ethereumjs-util')
+const { keccak256, defaultAbiCoder, solidityPack } = ethers.utils
 
 async function sleep(seconds) {
   // console.log(`waiting for block confirmations, about ${seconds}s`)
@@ -64,6 +65,46 @@ const runErrorCase = async (txPromise, expectErrorMsg) => {
   }
 }
 
+const getMsgHashForSetNewCkbSpv = (
+  DOMAIN_SEPARATOR,
+  typeHash,
+  newSpvAddress,
+  nonce
+) => {
+  return keccak256(
+    solidityPack(
+      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
+      [
+        '0x19',
+        '0x01',
+        DOMAIN_SEPARATOR,
+        keccak256(
+          defaultAbiCoder.encode(
+            ['bytes32', 'address', 'uint256'],
+            [typeHash, newSpvAddress, nonce]
+          )
+        ),
+      ]
+    )
+  )
+}
+
+const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
+  return keccak256(
+    solidityPack(
+      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
+      [
+        '0x19',
+        '0x01',
+        DOMAIN_SEPARATOR,
+        keccak256(
+          defaultAbiCoder.encode(['bytes32', 'bytes'], [typeHash, headersData])
+        ),
+      ]
+    )
+  )
+}
+
 const { log } = console
 
 module.exports = {
@@ -74,4 +115,6 @@ module.exports = {
   generateWallets,
   generateSignatures,
   runErrorCase,
+  getMsgHashForSetNewCkbSpv,
+  getMsgHashForAddHeaders,
 }

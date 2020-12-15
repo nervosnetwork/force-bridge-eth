@@ -1,32 +1,17 @@
 const chai = require('chai')
 const _ = require('lodash');
 const {getHeaderAndHash, getHeadersVecAndHashes} = require("../../scripts/benchmark/generateData");
-const { keccak256, defaultAbiCoder, toUtf8Bytes, solidityPack } = ethers.utils
+const { keccak256, defaultAbiCoder, toUtf8Bytes } = ethers.utils
 const { solidity } = require('ethereum-waffle')
 const {
   log,
   generateSignatures,
   generateWallets,
+  getMsgHashForAddHeaders,
 } = require('../utils')
 
 chai.use(solidity)
 const { expect } = chai
-
-const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
-  return keccak256(
-    solidityPack(
-      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
-      [
-        '0x19',
-        '0x01',
-        DOMAIN_SEPARATOR,
-        keccak256(
-          defaultAbiCoder.encode(['bytes32', 'bytes'], [typeHash, headersData])
-        ),
-      ]
-    )
-  )
-}
 
 contract('CKBChainV2 With Gc', () => {
   let ckbChain, factory
@@ -116,7 +101,7 @@ contract('CKBChainV2 With Gc', () => {
             headers
         )
 
-        // 2. generate signatures for msgHash
+        // 2. generate random signatures for msgHash
         const shuffledWallets = _.shuffle(wallets)
         const randomSize = _.random(multisigThreshold, shuffledWallets.length)
         const signatures = generateSignatures(

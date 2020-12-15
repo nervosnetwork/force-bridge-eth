@@ -28,7 +28,7 @@ const deployAndInitWithGc = async (factoryPath) => {
   startIndex += size
   res = await contract.addHeaders(headers)
   const receipt = await waitingForReceipt(provider, res)
-  console.log(
+  log(
     `Init for Gc test, add ${size} Headers gas: ${
       receipt.gasUsed
     }, gas cost per header: ${receipt.gasUsed / size}`
@@ -47,11 +47,11 @@ const benchmarkWithGc = async (factoryPath) => {
   // 2. benchmark
   let reportSize = [1, 2, 3, 4, 5, 10, 20, 30, 40]
   for (let size of reportSize) {
-    const [headers, _hashes] = getHeadersVecAndHashes(startIndex, size)
+    const [headers, _] = getHeadersVecAndHashes(startIndex, size)
     startIndex += size
     let res = await contract.addHeaders(headers)
     const receipt = await res.wait(1)
-    console.log(
+    log(
       `add ${size} Headers gas: ${receipt.gasUsed}, gas cost per header: ${
         receipt.gasUsed / size
       }`
@@ -65,13 +65,11 @@ const benchmarkWithGc = async (factoryPath) => {
 
 const main = async () => {
   // addHeaders with Blake2b calc blockHash
-  console.log(`---------------addHeaders with Blake2b calc blockHash`)
+  log(`---------------addHeaders with Blake2b calc blockHash`)
   await benchmarkWithGc('contracts/CKBChain.sol:CKBChain')
-  console.log(`---------------end\r\n\r\n`)
+  log(`---------------end\r\n\r\n`)
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
 main()
   .then(() => process.exit(0))
   .catch((error) => {
