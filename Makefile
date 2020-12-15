@@ -4,7 +4,7 @@ FORCE_CLI := ./offchain-modules/target/debug/force-eth-cli
 
 FORCE_CONFIG_PATH=${HOME}/.force-bridge/config.toml
 RUST_BACKTRACE=1
-RUST_LOG=warn,force=debug
+RUST_LOG=warn,force=info
 
 ci: modules-ci integration-ci
 
