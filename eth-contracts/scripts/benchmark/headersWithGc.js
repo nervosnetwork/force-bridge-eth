@@ -68,11 +68,6 @@ const main = async () => {
   console.log(`---------------addHeaders with Blake2b calc blockHash`)
   await benchmarkWithGc('contracts/CKBChain.sol:CKBChain')
   console.log(`---------------end\r\n\r\n`)
-
-  // addHeaders without Blake2b
-  // console.log(`---------------addHeaders without Blake2b`);
-  // await benchmark("contracts/CKBChainV3.sol:CKBChainV3")
-  // console.log(`---------------end\r\n\r\n`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

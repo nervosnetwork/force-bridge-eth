@@ -1,6 +1,5 @@
 const chai = require('chai')
 const _ = require('lodash');
-const vectors = require('../data/testVectors.json')
 const {getHeaderAndHash, getHeadersVecAndHashes} = require("../../scripts/benchmark/generateData");
 const { keccak256, defaultAbiCoder, toUtf8Bytes, solidityPack } = ethers.utils
 const { solidity } = require('ethereum-waffle')
@@ -30,7 +29,7 @@ const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
 }
 
 contract('CKBChainV2 With Gc', () => {
-  let ckbChain, provider, initHeaderIndex, endHeaderIndex, factory
+  let ckbChain, factory
   let wallets, validators
   let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHeadersTypeHash
 
@@ -51,7 +50,6 @@ contract('CKBChainV2 With Gc', () => {
     ckbChain = await factory.deploy(validators, multisigThreshold, chainId)
     await ckbChain.deployed()
     log('ckbChain deployed to:', ckbChain.address)
-    provider = ckbChain.provider
   })
 
   describe('addHeaders enhanced by multisig(4 of 10)', async function () {
@@ -126,6 +124,7 @@ contract('CKBChainV2 With Gc', () => {
             shuffledWallets.slice(0, randomSize)
         )
 
+        // 3. addHeaders with gc
         const tx = await ckbChain.addHeaders(headers, signatures)
         const receipt = await tx.wait(1)
         expect(receipt.status).to.eq(1)
