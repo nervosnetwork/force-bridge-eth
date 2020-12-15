@@ -30,6 +30,7 @@ pub enum SubCommand {
     QuerySudtBlance(SudtGetBalanceArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
+    RelayerMonitor(RelayerMonitorArgs),
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -371,4 +372,24 @@ pub struct SudtGetBalanceArgs {
     pub addr: String,
     #[clap(long)]
     pub token_addr: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct RelayerMonitorArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(long, default_value = "30")]
+    pub ckb_alarm_number: u64,
+    #[clap(long, default_value = "30")]
+    pub eth_alarm_number: u64,
+    #[clap(long, default_value = "[ckb_conservator]")]
+    pub ckb_conservator: Vec<String>,
+    #[clap(long, default_value = "[eth_conservator]")]
+    pub eth_conservator: Vec<String>,
+    #[clap(long)]
+    pub alarm_url: String,
+    #[clap(long, default_value = "5")]
+    pub minute_interval: u64,
 }
