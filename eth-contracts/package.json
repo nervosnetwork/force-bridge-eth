@@ -27,6 +27,7 @@
     "ethereumjs-util": "^7.0.7",
     "ethers": "^5.0.18",
     "hardhat": "^2.0.2",
+    "lodash": "^4.17.20",
     "prettier": "^2.1.2",
     "solc": "^0.5.16",
     "solidity-coverage": "^0.7.13",
