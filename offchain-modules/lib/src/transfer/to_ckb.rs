@@ -10,11 +10,11 @@ use crate::util::eth_util::{
     Web3Client,
 };
 use anyhow::{anyhow, Result};
-use ckb_hash::{blake2b_256, new_blake2b};
+use ckb_hash::new_blake2b;
 use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
 use ckb_types::bytes::Bytes;
-use ckb_types::core::{BlockView, ScriptHashType, Capacity, TransactionView};
+use ckb_types::core::{BlockView, Capacity, ScriptHashType, TransactionView};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script, ScriptOpt};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use cmd_lib::run_fun;
