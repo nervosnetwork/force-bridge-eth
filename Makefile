@@ -36,7 +36,7 @@ init-config:
 	${FORCE_CLI} init-config --project-path ${shell pwd}
 
 deploy-ckb:
-	${FORCE_CLI} deploy-ckb -k 0
+	${FORCE_CLI} deploy-ckb --type-id -k 0
 
 deploy-ckb-sudt:
 	${FORCE_CLI} deploy-ckb --sudt -k 0
@@ -58,7 +58,7 @@ ckb2eth-relay:
 	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 1 --per-amount 5"
 
 eth2ckb-relay:
-	pm2 start --name eth2ckb-relay "${FORCE_CLI} eth-relay -k 1"
+	pm2 start --name eth2ckb-relay "${FORCE_CLI} eth-relay -k 1 --multisig-privkeys 0 1"
 
 start-relay: ckb2eth-relay eth2ckb-relay
 
@@ -71,7 +71,8 @@ restart-eth2ckb-relay:
 restart-relay: restart-ckb2eth-relay restart-eth2ckb-relay
 
 start-force-server:
-	pm2 start --name force-server "${FORCE_CLI} server  --ckb-private-key-path 2 --eth-private-key-path 2 --listen-url 0.0.0.0:3003"
+	cd offchain-modules \
+	&& pm2 start --name force-server "./target/debug/force-eth-cli server  --ckb-private-key-path 2 --eth-private-key-path 2 --listen-url 0.0.0.0:3003"
 
 restart-force-server:
 	pm2 restart force-server

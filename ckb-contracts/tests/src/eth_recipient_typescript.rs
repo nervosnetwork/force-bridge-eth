@@ -1,5 +1,4 @@
-// TODO capsule test do not support hash_type Byte(0x01) yet, so remove recipient tests temporally
-use crate::utils::case_builder::*;
+use crate::utils::{case_builder::*, case_runner};
 use crate::Loader;
 use ckb_tool::ckb_types::packed::CellOutput;
 use force_eth_types::config::CKB_UNITS;
@@ -7,8 +6,8 @@ use molecule::prelude::Entity;
 
 #[test]
 fn test_correct_tx() {
-    let _case = get_correct_case();
-    // case_runner::run_test(case);
+    let case = get_correct_case();
+    case_runner::run_test(case);
 }
 
 #[test]
@@ -16,7 +15,7 @@ fn test_tx_when_burned_amount_not_match_data_amount() {
     let mut case = get_correct_case();
     case.sudt_cells.inputs[0].amount = 300;
     case.expect_return_error_info = "burned token amount not match data amount".to_string();
-    // case_runner::run_test(case);
+    case_runner::run_test(case);
 }
 
 #[test]
@@ -25,7 +24,7 @@ fn test_tx_when_fee_bigger_than_burned_amount() {
     if let CustomCell::ETHRecipientCustomCell(script) = &mut case.script_cells.outputs[0] {
         script.data.fee = 100;
         case.expect_return_error_info = "fee is too much".to_string();
-        // case_runner::run_test(case);
+        case_runner::run_test(case);
     };
 }
 

@@ -132,6 +132,8 @@ pub struct DeployCKBArgs {
     #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(long)]
+    pub type_id: bool,
+    #[clap(long)]
     pub sudt: bool,
 }
 

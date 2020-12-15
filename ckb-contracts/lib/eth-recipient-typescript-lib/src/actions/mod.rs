@@ -5,6 +5,7 @@ use ckb_std::ckb_constants::Source;
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::ckb_types::packed::{Byte32, Bytes, Script};
 use force_eth_types::{
+    config::BRIDGE_LOCK_HASH_TYPE,
     eth_recipient_cell::{ETHAddress, ETHRecipientDataView},
     generated::eth_bridge_lock_cell::ETHBridgeLockArgs,
 };
@@ -65,7 +66,7 @@ fn calc_eth_bridge_lock_hash(
         .code_hash(
             Byte32::from_slice(eth_bridge_lock_hash).expect("eth bridge lockscript hash invalid"),
         )
-        .hash_type(Byte::new(1))
+        .hash_type(Byte::new(BRIDGE_LOCK_HASH_TYPE))
         .args(Bytes::new_builder().set(bytes_vec).build())
         .build();
 

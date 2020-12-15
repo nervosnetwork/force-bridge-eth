@@ -10,7 +10,7 @@ use crate::util::eth_util::{
     Web3Client,
 };
 use anyhow::{anyhow, Result};
-use ckb_hash::new_blake2b;
+use ckb_hash::{blake2b_256, new_blake2b};
 use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
 use ckb_types::bytes::Bytes;
@@ -314,6 +314,7 @@ pub async fn deploy_ckb(
     config_path: String,
     network: Option<String>,
     private_key_path: String,
+    use_type_id: bool,
     deploy_sudt: bool,
 ) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
@@ -321,26 +322,19 @@ pub async fn deploy_ckb(
     let rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let private_key = parse_privkey_path(private_key_path.as_str(), &force_config, &network)?;
-
     let mut rpc_client = HttpRpcClient::new(rpc_url);
     let mut indexer_client = IndexerRpcClient::new(indexer_url);
+
     let bridge_typescript_path = force_config.get_bridge_typescript_bin_path()?;
     let bridge_lockscript_path = force_config.get_bridge_lockscript_bin_path()?;
-    // let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
-    // let light_client_lockscript_path = force_config.get_light_client_lockscript_bin_path()?;
     let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
-
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
-    // let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
-    // let light_client_lockscript_bin = std::fs::read(light_client_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
 
     let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
-        // light_client_typescript_bin,
-        // light_client_lockscript_bin,
         recipient_typescript_bin,
     ];
     if deploy_sudt {
@@ -349,8 +343,17 @@ pub async fn deploy_ckb(
         data.push(sudt_bin);
     };
 
-    let (tx, typescript_hashes) = deploy(&mut rpc_client, &mut indexer_client, &private_key, data)
-        .map_err(|err| anyhow!(err))?;
+    let (tx, type_code_hashes, hash_type) = if use_type_id {
+        let (tx, type_code_hashes) =
+            deploy_with_typeid(&mut rpc_client, &mut indexer_client, &private_key, data)
+                .map_err(|err| anyhow!(err))?;
+        (tx, type_code_hashes, 1)
+    } else {
+        let (tx, type_code_hashes) =
+            deploy_without_typeid(&mut rpc_client, &mut indexer_client, &private_key, data)
+                .map_err(|err| anyhow!(err))?;
+        (tx, type_code_hashes, 0)
+    };
     let tx_hash = send_tx_sync(&mut rpc_client, &tx, 120)
         .await
         .map_err(|err| anyhow!(err))?;
@@ -360,8 +363,8 @@ pub async fn deploy_ckb(
     let pw_locks = original_config.pw_locks;
     let sudt_conf = if deploy_sudt {
         ScriptConf {
-            code_hash: typescript_hashes[3].clone(),
-            hash_type: 1,
+            code_hash: type_code_hashes[3].clone(),
+            hash_type,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 3,
@@ -373,8 +376,8 @@ pub async fn deploy_ckb(
     };
     let deployed_contracts = DeployedContracts {
         bridge_lockscript: ScriptConf {
-            code_hash: typescript_hashes[0].clone(),
-            hash_type: 1,
+            code_hash: type_code_hashes[0].clone(),
+            hash_type,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 0,
@@ -382,8 +385,8 @@ pub async fn deploy_ckb(
             },
         },
         bridge_typescript: ScriptConf {
-            code_hash: typescript_hashes[1].clone(),
-            hash_type: 1,
+            code_hash: type_code_hashes[1].clone(),
+            hash_type,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
                 index: 1,
@@ -391,8 +394,8 @@ pub async fn deploy_ckb(
             },
         },
         recipient_typescript: ScriptConf {
-            code_hash: typescript_hashes[2].clone(),
-            hash_type: 1,
+            code_hash: type_code_hashes[2].clone(),
+            hash_type,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex,
                 index: 2,
@@ -619,7 +622,7 @@ pub fn build_eth_bridge_lock_args(
 //     Ok(script)
 // }
 
-pub fn deploy(
+pub fn deploy_with_typeid(
     rpc_client: &mut HttpRpcClient,
     indexer_client: &mut IndexerRpcClient,
     privkey: &SecretKey,
@@ -694,4 +697,40 @@ pub fn deploy(
     };
     let tx_view = sign(tx_helper.transaction, rpc_client, privkey)?;
     Ok((tx_view, typescript_hashes))
+}
+
+fn deploy_without_typeid(
+    rpc_client: &mut HttpRpcClient,
+    indexer_client: &mut IndexerRpcClient,
+    privkey: &SecretKey,
+    data: Vec<Vec<u8>>,
+) -> Result<(TransactionView, Vec<String>), String> {
+    let from_pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
+    let from_address_payload = AddressPayload::from_pubkey(&from_pubkey);
+    let lockscript = Script::from(&from_address_payload);
+    let mut tx_helper = TxHelper::default();
+    let mut type_code_hashes = vec![];
+    for data in data.into_iter() {
+        let type_code_hash = hex::encode(blake2b_256(&data));
+        type_code_hashes.push(type_code_hash);
+        let output = CellOutput::new_builder()
+            .lock((&from_address_payload).into())
+            .build();
+        tx_helper.add_output_with_auto_capacity(output, data.into());
+    }
+
+    let genesis_block: BlockView = rpc_client
+        .get_block_by_number(0)?
+        .expect("Can not get genesis block?")
+        .into();
+    let genesis_info = GenesisInfo::from_block(&genesis_block)?;
+    let tx = tx_helper.supply_capacity(
+        rpc_client,
+        indexer_client,
+        lockscript,
+        &genesis_info,
+        99_999_999,
+    )?;
+    let tx = sign(tx, rpc_client, privkey)?;
+    Ok((tx, type_code_hashes))
 }

@@ -22,6 +22,8 @@ async function main() {
     deployedContracts.bridge_lockscript.code_hash;
   const recipient_typescript_code_hash =
     deployedContracts.recipient_typescript.code_hash;
+  let recipientCellTypescriptHashType =
+    deployedContracts.recipient_typescript.hash_type;
   const wallet = new ethers.Wallet(
     "0x" + network_config.ethereum_private_keys[0],
     provider
@@ -45,7 +47,7 @@ async function main() {
     CKBChainAddr,
     1,
     "0x" + recipient_typescript_code_hash,
-    1,
+    recipientCellTypescriptHashType,
     "0x" + bridge_lockscript_code_hash
   );
   await locker.deployed();

@@ -6,17 +6,21 @@ cfg_if::cfg_if! {
             0, 88, 8, 105, 74, 230, 221, 69, 238, 164, 207, 213,
         ];
         pub const SUDT_HASH_TYPE: u8 = 1;
+        pub const BRIDGE_LOCK_HASH_TYPE: u8 = 1;
     } else if #[cfg(feature = "aggron")] {
         pub const SUDT_CODE_HASH: [u8; 32] = [
             197, 229, 220, 242, 21, 146, 95, 126, 244, 223, 175, 95, 75, 79, 16, 91, 195, 33, 192,
             39, 118, 214, 231, 213, 42, 29, 179, 252, 217, 208, 17, 164,
         ];
         pub const SUDT_HASH_TYPE: u8 = 1;
+        pub const BRIDGE_LOCK_HASH_TYPE: u8 = 1;
     } else if #[cfg(feature = "devnet")] {
         pub const SUDT_CODE_HASH: [u8; 32] = [
-            19, 19, 160, 234, 165, 113, 169, 22, 142, 68, 206, 186, 26, 13, 10, 50, 136, 64, 217, 222, 67, 170, 178, 56, 138, 247, 200, 96, 181, 124, 154, 12,
+            225, 227, 84, 214, 214, 67, 173, 66, 114, 77, 64, 150, 126, 51, 73, 132, 83, 78, 3, 103,
+            64, 92, 90, 228, 42, 157, 125, 99, 215, 125, 244, 25,
         ];
-        pub const SUDT_HASH_TYPE: u8 = 1;
+        pub const SUDT_HASH_TYPE: u8 = 0;
+        pub const BRIDGE_LOCK_HASH_TYPE: u8 = 0;
     }
 }
 

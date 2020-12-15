@@ -108,6 +108,7 @@ pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
         args.config_path,
         args.network,
         args.private_key_path,
+        args.type_id,
         args.sudt,
     )
     .await
