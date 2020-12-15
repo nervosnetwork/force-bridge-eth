@@ -200,7 +200,7 @@ pub async fn send_tx_sync_with_response(
     rpc_client: &mut HttpRpcClient,
     tx: &TransactionView,
     timeout: u64,
-) -> Result<(H256, bool)> {
+) -> Result<H256> {
     let tx_hash = rpc_client
         .send_transaction(tx.data())
         .map_err(|err| anyhow!(err))?;
@@ -219,7 +219,7 @@ pub async fn send_tx_sync_with_response(
         );
         match status {
             Some(ckb_jsonrpc_types::Status::Committed) => {
-                return Ok((tx_hash, true));
+                return Ok(tx_hash);
             }
             // keep waiting if the status become proposed
             Some(ckb_jsonrpc_types::Status::Proposed) => {}
@@ -228,7 +228,11 @@ pub async fn send_tx_sync_with_response(
             }
             _ => {
                 if i > timeout {
-                    return Ok((tx_hash, false));
+                    return Err(anyhow!(
+                        "tx {} pending for {} seconds, fail for timeout",
+                        &tx_hash,
+                        timeout,
+                    ));
                 }
             }
         }
