@@ -177,6 +177,7 @@ impl ETHRelayer {
                 .as_u64();
             if latest_submit_header_number >= tip_header_number {
                 info!("waiting for new eth header. tip_header_number: {}, latest_submit_header_number: {}", tip_header_number, latest_submit_header_number);
+                tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
                 continue;
             }
             // sync cached blocks
