@@ -230,8 +230,8 @@ pub async fn send_tx_sync_with_response(
                 if i > timeout {
                     return Err(anyhow!(
                         "tx {} pending for {} seconds, fail for timeout",
+                        &tx_hash,
                         timeout,
-                        &tx_hash
                     ));
                 }
             }
