@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.5.10;
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 library EaglesongLib {
     uint constant DELIMITER = 0x06;
@@ -201,7 +202,7 @@ library EaglesongLib {
         for (uint i=0; i<num_output_bytes/(rate/8); i++) {
             for (uint j=0; j<rate/32; j++) {
                 for (uint k=0; k<4; k++) {
-                    output_bytes[i*rate/8 + j*4 + k] = byte(uint8((state[j] >> (8*k)) & 0xff));
+                    output_bytes[i*rate/8 + j*4 + k] = bytes1(uint8((state[j] >> (8*k)) & 0xff));
                 }
             }
             // this condition is not in the python implementation.

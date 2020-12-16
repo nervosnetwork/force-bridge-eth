@@ -12,7 +12,11 @@
     "posttest": "npm run stop-geth",
     "test:coverage": "hardhat coverage",
     "lint": "solium -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --check",
-    "lint:fix": "solium --fix -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write"
+    "lint:fix": "solium --fix -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write",
+    "l": "npx hardhat test test/V2/upgradeable/1_TokenLockerV2.test.upgradeable.js",
+    "m": "npx hardhat test test/V2/upgradeable/2_CKBChainV2.test.upgradeable.js",
+    "k": "npx hardhat test test/V2/2_CKBChainV2.test.js"
+
   },
   "author": "cosinlink",
   "devDependencies": {
