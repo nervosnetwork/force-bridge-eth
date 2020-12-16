@@ -274,10 +274,10 @@ impl Generator {
                             let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
                             let hash = header_info_reader.hash().raw_data();
                             confirmed.push(hash);
-                            if confirmed.len() > MAIN_HEADER_CACHE_LIMIT {
+                            unconfirmed.remove(0);
+                            if confirmed.len().add(unconfirmed.len()) > MAIN_HEADER_CACHE_LIMIT {
                                 confirmed.remove(0);
                             }
-                            unconfirmed.remove(0);
                         }
                     }
                 }
