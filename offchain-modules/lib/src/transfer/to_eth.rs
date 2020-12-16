@@ -16,8 +16,10 @@ use ethabi::{Function, Param, ParamType, Token};
 use ethereum_types::U256;
 use force_sdk::util::ensure_indexer_sync;
 use log::{debug, info};
+use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::export::Clone;
 use std::str::FromStr;
+use web3::signing::keccak256;
 use web3::types::H160;
 
 #[allow(clippy::too_many_arguments)]
@@ -460,4 +462,92 @@ pub async fn get_balance(
         .get_sudt_balance(addr_lockscript, token_addr, lock_contract_addr)
         .map_err(|e| anyhow!("failed to get balance of {:?}  : {}", address, e))?;
     Ok(balance)
+}
+
+pub fn get_msg_hash(
+    chain_id: U256,
+    contract_addr: String,
+    headers_data: Vec<u8>,
+) -> Result<[u8; 32]> {
+    let contract_addr = convert_eth_address(&contract_addr)?;
+    let ckb_light_client_name = "Force Bridge CKBChain";
+    let vesion = "1";
+    let add_headers_func_name = "AddHeaders(bytes data)";
+    let pack_number = 1901;
+
+    let domain_data = ethabi::encode(&[
+        Token::FixedBytes(Vec::from(keccak256(
+            "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                .as_bytes(),
+        ))),
+        Token::FixedBytes(Vec::from(keccak256(ckb_light_client_name.as_bytes()))),
+        Token::FixedBytes(Vec::from(keccak256(vesion.as_bytes()))),
+        Token::Uint(chain_id),
+        Token::Address(contract_addr),
+    ]);
+
+    let domain_separator = keccak256(domain_data.as_slice());
+    info!("domain_separator {:?}  \n", hex::encode(domain_separator));
+
+    let add_headers_type_hash = keccak256(add_headers_func_name.as_bytes());
+    let msg = ethabi::encode(&[
+        Token::FixedBytes(Vec::from(add_headers_type_hash)),
+        Token::Bytes(headers_data),
+    ]);
+
+    let msg_data_hash = keccak256(&msg);
+
+    info!("msg_data_hash {:?}  \n", hex::encode(msg_data_hash));
+    let data = format!(
+        "{}{}{}",
+        pack_number,
+        hex::encode(domain_separator),
+        hex::encode(msg_data_hash)
+    );
+
+    let msg_hash = keccak256(hex::decode(&data).map_err(|e| anyhow!(e))?.as_slice());
+    Ok(msg_hash)
+}
+
+fn get_msg_signature(msg_hash: &[u8], privkey: String) -> Result<String> {
+    let secp = Secp256k1::signing_only();
+    let eth_private_key = ethereum_types::H256::from_slice(hex::decode(&privkey)?.as_slice());
+    let eth_key = SecretKey::from_slice(&eth_private_key.0)?;
+    let message = Message::from_slice(msg_hash)?;
+
+    let (recovery, sig_bytes) = secp
+        .sign_recoverable(&message, &eth_key)
+        .serialize_compact();
+
+    let sig_v = recovery.to_i32() as u64 + 27;
+
+    Ok(format!("{}{:x}", hex::encode(sig_bytes), sig_v))
+}
+
+#[test]
+fn test_keccak256() {
+    let header_data = "020000000000000085b9111a4578447c6e010000d50700000000000001000006010807003b8fe5eb625d9601e04746816283ffb36fc4d515c6d01c219d6002ca8185ce189a77192707e69a7d4c5fba5299fa9eaa542d6c20d5b21f76708b55ff27d61f6f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008b232fe21326a22ef0b5752623872300a628d08760360000001896a64f46ff06a00300007b0200000000000000052c230000000085b9111ab99e447c6e010000d6070000000000000100000701080700e55e4bdda9e07a6a5df1f6a844de7904252fedba6462dbd00b4249830020f4dbf0d5fa2678bda7e71eadd60d5630205336fba49341f865f9a178c7884790210a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa15f0a03426a22e67f0812c23872300260c13476736000000b52c125146ff0642705be1000000000000001f696e8062".to_string();
+    let contract_addr = "0xC1c2a82Cc916ae15619028d5FCD55739e7bb362A".to_string();
+    let chain_id: u64 = 1;
+    let msg_hash = get_msg_hash(
+        U256::from(chain_id),
+        contract_addr,
+        hex::decode(header_data).unwrap(),
+    )
+    .unwrap();
+
+    println!("msg_hash {:?}  \n", hex::encode(msg_hash));
+    let privkeys = [
+        "fe0a12a9f587feaab76f575dd3401305c8ed35a052a9419ee942ef32a563ce5f".to_string(),
+        "8360c72399dbc228e7142ebb26bc4061511454d516f14834a18290a510a2be51".to_string(),
+        "ffba9c10116e56f54ca48ca07f1b11de6bec4a5bff5b0762471ac88d01b018d0".to_string(),
+        "8c93612d1ad6727d5f57c487b783673cd290f787207a0ec53d936ebfd6e20b13".to_string(),
+        "4f332241f7cfbcec722eaab1d95d11d42e135e3c1a442509fed20c3f3b38a370".to_string(),
+    ];
+    let mut signatures = "".to_string();
+    for privkey in privkeys.iter() {
+        let signature = get_msg_signature(&msg_hash, privkey.to_string()).unwrap();
+        signatures = format!("{}{}", signatures, signature)
+    }
+    println!("{}", signatures);
 }
