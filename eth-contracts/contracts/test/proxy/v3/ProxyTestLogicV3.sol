@@ -24,6 +24,10 @@ contract ProxyTestLogicV3 is Delegate, ProxyTestLayoutV3, ProxyTestInterfaceV3 {
     //setSlot2()
     //getSlot2()
 
+    function getSlot1() external returns(uint256){
+        return slot1_uint256;
+    }
+
     function pushSlot4(uint256 input) public{
         slot4_dynamic_array.push(input);
     }
