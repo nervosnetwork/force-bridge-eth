@@ -1,6 +1,6 @@
-const { expect } = require("chai");
-const { log, waitingForReceipt } = require("./utils");
-const vectors = require("./data/testSpv.json");
+const { expect } = require('chai');
+const { log, waitingForReceipt } = require('./utils');
+const vectors = require('./data/testSpv.json');
 
 const {
   extractBlockNumber,
@@ -8,7 +8,7 @@ const {
   expectedTransactionsRoot,
 } = vectors;
 
-contract("CKBSpv", () => {
+contract('CKBSpv', () => {
   let ckbChain;
   let provider;
 
@@ -16,17 +16,17 @@ contract("CKBSpv", () => {
     // disable timeout
     this.timeout(0);
     const factory = await ethers.getContractFactory(
-      "contracts/CKBChain.sol:CKBChain"
+      'contracts/CKBChain.sol:CKBChain'
     );
     ckbChain = await factory.deploy();
     await ckbChain.deployed();
     provider = ckbChain.provider;
   });
 
-  describe("proveTxExist correct case", async function () {
+  describe('proveTxExist correct case', async function () {
     // disable timeout
     this.timeout(0);
-    it("Should proveTxExist verified", async () => {
+    it('Should proveTxExist verified', async () => {
       for (let i = 0; i < expectedTransactionsRoot.length; i++) {
         const transactionsRoot = expectedTransactionsRoot[i].output;
         const blockHash = extractBlockHash[i].output;

@@ -1,11 +1,11 @@
-const fs = require("fs");
-const TOML = require("@iarna/toml");
+const fs = require('fs');
+const TOML = require('@iarna/toml');
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   const network = process.env.FORCE_NETWORK;
   if (!forceConfigPath) {
-    throw "FORCE_CONFIG_PATH not set";
+    throw 'FORCE_CONFIG_PATH not set';
   }
   const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
   let network_config;
@@ -25,52 +25,52 @@ async function main() {
   let recipientCellTypescriptHashType =
     deployedContracts.recipient_typescript.hash_type;
   const wallet = new ethers.Wallet(
-    "0x" + network_config.ethereum_private_keys[0],
+    '0x' + network_config.ethereum_private_keys[0],
     provider
   );
 
   let CKBChainFactory = await ethers.getContractFactory(
-    "contracts/CKBChain.sol:CKBChain",
+    'contracts/CKBChain.sol:CKBChain',
     wallet
   );
   const CKBChain = await CKBChainFactory.deploy();
   await CKBChain.deployed();
   const CKBChainAddr = CKBChain.address;
-  console.error("CKBChain address: ", CKBChainAddr);
+  console.error('CKBChain address: ', CKBChainAddr);
 
   // deploy TokenLocker
   let TokenLocker = await ethers.getContractFactory(
-    "contracts/TokenLocker.sol:TokenLocker",
+    'contracts/TokenLocker.sol:TokenLocker',
     wallet
   );
   const locker = await TokenLocker.deploy(
     CKBChainAddr,
     1,
-    "0x" + recipient_typescript_code_hash,
+    '0x' + recipient_typescript_code_hash,
     recipientCellTypescriptHashType,
-    "0x" + bridge_lockscript_code_hash
+    '0x' + bridge_lockscript_code_hash
   );
   await locker.deployed();
   const lockerAddr = locker.address;
-  console.error("tokenLocker address: ", lockerAddr);
+  console.error('tokenLocker address: ', lockerAddr);
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
   deployedContracts.eth_ckb_chain_addr = CKBChainAddr;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
-  console.error("write eth addr into config successfully");
+  console.error('write eth addr into config successfully');
 
-  const tokenLockerJson = require("../artifacts/contracts/TokenLocker.sol/TokenLocker.json");
+  const tokenLockerJson = require('../artifacts/contracts/TokenLocker.sol/TokenLocker.json');
   const lockerABI = tokenLockerJson.abi;
-  const ckbChainJSON = require("../artifacts/contracts/CKBChain.sol/CKBChain.json");
+  const ckbChainJSON = require('../artifacts/contracts/CKBChain.sol/CKBChain.json');
   const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
-    "../offchain-modules/lib/src/util/token_locker_abi.json",
+    '../offchain-modules/lib/src/util/token_locker_abi.json',
     JSON.stringify(lockerABI, null, 2)
   );
   fs.writeFileSync(
-    "../offchain-modules/lib/src/util/ckb_chain_abi.json",
+    '../offchain-modules/lib/src/util/ckb_chain_abi.json',
     JSON.stringify(ckbChainABI, null, 2)
   );
 }
