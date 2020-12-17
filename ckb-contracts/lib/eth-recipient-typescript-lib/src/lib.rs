@@ -1,22 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+extern crate no_std_compat as std;
+
 pub mod actions;
 pub mod adapter;
-pub mod debug;
 
 pub use adapter::Adapter;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "std")] {
-    } else {
-        extern crate alloc;
-    }
-}
-
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
-    let chain = adapter::chain::ChainAdapter {};
-    _verify(chain)
+    let chain = contracts_helper::chain::Chain {};
+    let adapter = adapter::ChainAdapter { chain };
+    _verify(adapter);
+    0
 }
 
 // eth-recipient-typescript has two situations based on whether outputs have eth-recipient-typescript data:

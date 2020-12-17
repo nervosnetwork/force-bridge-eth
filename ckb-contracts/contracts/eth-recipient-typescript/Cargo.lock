@@ -150,10 +150,11 @@ name = "eth-recipient-typescript-lib"
 version = "0.1.0"
 dependencies = [
  "blake2b-ref",
- "cfg-if",
  "ckb-std",
+ "contracts-helper",
  "force-eth-types",
  "molecule",
+ "no-std-compat",
 ]
 
 [[package]]

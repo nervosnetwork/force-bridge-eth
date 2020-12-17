@@ -1,23 +1,39 @@
-use super::Adapter;
+#[cfg(feature = "std")]
+use mockall::predicate::*;
+#[cfg(feature = "std")]
+use mockall::*;
+
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::Script;
 use ckb_std::error::SysError;
-use ckb_std::high_level::{load_cell_data, load_cell_type, QueryIter};
-
+use ckb_std::high_level::QueryIter;
+use contracts_helper::data_loader::DataLoader;
 use force_eth_types::{
     config::{SUDT_CODE_HASH, SUDT_HASH_TYPE, UDT_LEN},
     eth_recipient_cell::ETHRecipientDataView,
 };
+use std::prelude::v1::*;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
+#[cfg_attr(feature = "std", automock)]
+pub trait Adapter {
+    fn load_output_data(&self) -> Option<ETHRecipientDataView>;
 
-pub struct ChainAdapter {}
+    fn get_sudt_amount_from_source(&self, source: Source, lock_hash: &[u8]) -> u128;
+}
+pub struct ChainAdapter<T: DataLoader> {
+    pub chain: T,
+}
 
-impl Adapter for ChainAdapter {
+impl<T> Adapter for ChainAdapter<T>
+where
+    T: DataLoader,
+{
     fn load_output_data(&self) -> Option<ETHRecipientDataView> {
-        let data_list =
-            QueryIter::new(load_cell_data, Source::GroupOutput).collect::<Vec<Vec<u8>>>();
+        let data_list = QueryIter::new(
+            |index, source| self.chain.load_cell_data(index, source),
+            Source::GroupOutput,
+        )
+        .collect::<Vec<Vec<u8>>>();
         match data_list.len() {
             0 => None,
             1 => Some(
@@ -46,7 +62,7 @@ impl Adapter for ChainAdapter {
         let mut index = 0;
         let mut sudt_sum = 0;
         loop {
-            let cell_type = load_cell_type(index, source);
+            let cell_type = self.chain.load_cell_type(index, source);
             match cell_type {
                 Err(SysError::IndexOutOfBound) => break,
                 Err(_err) => panic!("iter input return an error"),
@@ -56,7 +72,10 @@ impl Adapter for ChainAdapter {
                         continue;
                     }
 
-                    let data = load_cell_data(index, source).expect("laod cell data fail");
+                    let data = self
+                        .chain
+                        .load_cell_data(index, source)
+                        .expect("laod cell data fail");
                     let mut buf = [0u8; UDT_LEN];
                     if data.len() >= UDT_LEN {
                         buf.copy_from_slice(&data[0..UDT_LEN]);

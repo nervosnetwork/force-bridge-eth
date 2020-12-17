@@ -69,7 +69,6 @@ pub struct CustomCells {
 
 pub enum CustomCell {
     ETHRecipientCustomCell(ETHRecipientCell),
-    ETHLightClientLockCustomCell(ETHLightClientLockCell),
     ETHLightClientTypeCustomCell(ETHLightClientTypeCell),
 }
 
