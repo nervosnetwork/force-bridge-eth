@@ -135,6 +135,7 @@ name = "eth-bridge-lockscript"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
+ "contracts-helper",
  "eth-bridge-lockscript-lib",
 ]
 

@@ -88,6 +88,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "contracts-helper"
+version = "0.1.0"
+dependencies = [
+ "ckb-std",
+ "no-std-compat",
+]
+
+[[package]]
 name = "crunchy"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -127,6 +135,7 @@ name = "eth-light-client-typescript"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
+ "contracts-helper",
  "eth-light-client-typescript-lib",
 ]
 
