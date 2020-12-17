@@ -30,7 +30,7 @@ contract Delegate is Base {
         returnAsm(false, notFoundMark);
     }
 
-    function() payable external {
+    function() external payable {
         //target function doesn't hit normal functions
         defaultFallback();
     }

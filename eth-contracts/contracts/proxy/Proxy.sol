@@ -14,10 +14,11 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
         //sysSetDelegateFallback(address(0));
     }
 
+    // solium-disable-next-line
     bytes32 constant adminSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("adminSlot"))))));
-
+    // solium-disable-next-line
     bytes32 constant revertMessageSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("revertMessageSlot"))))));
-
+    // solium-disable-next-line
     bytes32 constant outOfServiceSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("outOfServiceSlot"))))));
 
     //address <===>  index EnhancedUniqueIndexMap
@@ -28,6 +29,7 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
     //0xba67a9e2b7b43c3c9db634d1c7bcdd060aa7869f4601d292a20f2eedaf0c2b1c
     bytes32 constant userAbiSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("userAbiSlot"))))));
 
+    // solium-disable-next-line
     bytes32 constant userAbiSearchSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("userAbiSearchSlot"))))));
 
     //0xe2bb2e16cbb16a10fab839b4a5c3820d63a910f4ea675e7821846c4b2d3041dc
@@ -229,7 +231,7 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
 
     //since low-level address.delegateCall is available in solidity,
     //we don't need to write assembly
-    function() payable external outOfService {
+    function() external payable outOfService {
 
         /*
         the default transfer will set data to empty,
