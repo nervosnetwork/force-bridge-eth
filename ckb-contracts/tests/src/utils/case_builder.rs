@@ -5,7 +5,6 @@ pub use ckb_tool::ckb_types::bytes::Bytes;
 use ckb_tool::ckb_types::{packed::*, prelude::*};
 use core::convert::TryInto;
 use force_eth_types::{
-    config::CONFIRM,
     eth_recipient_cell::ETHAddress,
     generated::{
         basic, eth_bridge_lock_cell::ETHBridgeLockArgs, eth_recipient_cell::ETHRecipientCellData,
@@ -19,10 +18,10 @@ use crate::eth_light_client_typescript::types as light_client_types;
 use crate::eth_light_client_typescript::utils as light_client_utils;
 
 pub const ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY: &str = "eth_bridge_lockcript_outpoint_key";
-pub const ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY: &str =
-    "eth_light_client_lockcript_outpoint_key";
-pub const ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY: &str =
-    "eth_light_client_typecript_outpoint_key";
+// pub const ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY: &str =
+//     "eth_light_client_lockcript_outpoint_key";
+// pub const ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY: &str =
+//     "eth_light_client_typecript_outpoint_key";
 pub const ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY: &str = "eth_recipient_typescript_outpoint_key";
 pub const SUDT_TYPESCRIPT_OUTPOINT_KEY: &str = "sudt_typescript_key";
 pub const ALWAYS_SUCCESS_OUTPOINT_KEY: &str = "always_success_outpoint_key";
