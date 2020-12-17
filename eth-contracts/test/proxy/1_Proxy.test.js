@@ -1,5 +1,5 @@
 const { expect } = require('chai');
-const { log, deployContract } = require('./utils');
+const { log, deployContract } = require('../utils');
 
 contract('Proxy', () => {
   let storageContract, storageContractAddress;
