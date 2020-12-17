@@ -1,6 +1,6 @@
-const { expect } = require("chai");
-const { log, waitingForReceipt } = require("./utils");
-const testJson = require("./data/testTokenLocker.json");
+const { expect } = require('chai');
+const { log, waitingForReceipt } = require('./utils');
+const testJson = require('./data/testTokenLocker.json');
 
 const recipientCellTypescript = testJson.recipientCellTypescript;
 const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash;
@@ -10,19 +10,19 @@ const lockTokenTestCases = testJson.lockTokenTestCases;
 
 let tokenLocker, provider, user;
 
-contract("TokenLocker", () => {
+contract('TokenLocker', () => {
   before(async function () {
     // disable timeout
     this.timeout(0);
 
     let factory = await ethers.getContractFactory(
-      "contracts/test/MockCKBSpv.sol:MockCKBSpv"
+      'contracts/test/MockCKBSpv.sol:MockCKBSpv'
     );
     const mockSpv = await factory.deploy();
     await mockSpv.deployed();
 
     factory = await ethers.getContractFactory(
-      "contracts/TokenLocker.sol:TokenLocker"
+      'contracts/TokenLocker.sol:TokenLocker'
     );
     tokenLocker = await factory.deploy(
       mockSpv.address,
@@ -32,36 +32,36 @@ contract("TokenLocker", () => {
       bridgeCellLockscriptCodeHash
     );
     await tokenLocker.deployed();
-    log("tokenLocker deployed to:", tokenLocker.address);
+    log('tokenLocker deployed to:', tokenLocker.address);
 
     user = tokenLocker.signer;
     provider = tokenLocker.provider;
   });
 
-  describe("lockETH", async function () {
+  describe('lockETH', async function () {
     // disable timeout
     this.timeout(0);
-    it("Should lockETH verified", async () => {
+    it('Should lockETH verified', async () => {
       for (testcase of lockETHTestCases) {
         await testLockETH(testcase);
       }
     });
   });
 
-  describe("lockToken", async function () {
+  describe('lockToken', async function () {
     // disable timeout
     this.timeout(0);
-    it("Should lock erc20 token verified", async () => {
+    it('Should lock erc20 token verified', async () => {
       for (testcase of lockTokenTestCases) {
         await testLockToken(testcase);
       }
     });
   });
 
-  describe("unlock token", async function () {
+  describe('unlock token', async function () {
     // disable timeout
     this.timeout(0);
-    it("should decode burn tx verified", async () => {
+    it('should decode burn tx verified', async () => {
       for (const testcase of decodeBurnTxTestCases) {
         let [
           bridgeAmount,
@@ -108,7 +108,7 @@ async function testLockETH(testcase) {
   } = parseLockedEvent(receipt.logs[0]);
 
   expect(tokenAddressTopic).to.equal(
-    "0x0000000000000000000000000000000000000000"
+    '0x0000000000000000000000000000000000000000'
   );
   expect(lockerAddressTopic).to.equal(user.address);
   expect(lockedAmount).to.equal(amount);
@@ -126,11 +126,11 @@ async function testLockETH(testcase) {
 
 async function testLockToken(testcase) {
   const factory = await ethers.getContractFactory(
-    "contracts/test/ERC20.sol:ERC20"
+    'contracts/test/ERC20.sol:ERC20'
   );
   const erc20 = await factory.deploy();
   await erc20.deployed();
-  log("erc20 deployed to:", erc20.address);
+  log('erc20 deployed to:', erc20.address);
 
   const contractBalance = await erc20.callStatic.balanceOf(tokenLocker.address);
   log(`tokenLocker contract erc20 balance: ${contractBalance.toString()}`);
@@ -141,7 +141,7 @@ async function testLockToken(testcase) {
 
   // user should approve erc20 token to tokenLocker contract
   const approveAmount =
-    "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+    '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF';
   let res = await erc20.approve(tokenLocker.address, approveAmount);
   let receipt = await waitingForReceipt(provider, res);
   log(`approve gasUsed: ${receipt.gasUsed.toString()}`);
@@ -190,15 +190,15 @@ async function testLockToken(testcase) {
 
 function parseLockedEvent(eventLog) {
   const tokenAddressTopic = ethers.utils.defaultAbiCoder.decode(
-    ["address"],
+    ['address'],
     eventLog.topics[1]
   )[0];
   const lockerAddressTopic = ethers.utils.defaultAbiCoder.decode(
-    ["address"],
+    ['address'],
     eventLog.topics[2]
   )[0];
   const eventData = ethers.utils.defaultAbiCoder.decode(
-    ["uint256", "uint256", "bytes", "bytes", "bytes"],
+    ['uint256', 'uint256', 'bytes', 'bytes', 'bytes'],
     eventLog.data
   );
   return {

@@ -1,5 +1,5 @@
-const { log, waitingForReceipt, deployContract } = require("../../test/utils");
-const { getHeaderAndHash, getHeadersVecAndHashes } = require("./generateData");
+const { log, waitingForReceipt, deployContract } = require('../../test/utils');
+const { getHeaderAndHash, getHeadersVecAndHashes } = require('./generateData');
 
 const deployAndInit = async (factoryPath) => {
   // 1. deploy CKBChain
@@ -48,7 +48,7 @@ const benchmark = async (factoryPath) => {
 const main = async () => {
   // addHeaders with Blake2b calc blockHash
   console.log(`---------------addHeaders with Blake2b calc blockHash`);
-  await benchmark("contracts/CKBChain.sol:CKBChain");
+  await benchmark('contracts/CKBChain.sol:CKBChain');
   console.log(`---------------end\r\n\r\n`);
 
   // addHeaders without Blake2b

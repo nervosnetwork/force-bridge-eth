@@ -1,6 +1,6 @@
-const { log, waitingForReceipt, deployContract } = require("../../test/utils");
-const { getHeaderAndHash, getHeadersVecAndHashes } = require("./generateData");
-const { ecsign } = require("ethereumjs-util");
+const { log, waitingForReceipt, deployContract } = require('../../test/utils');
+const { getHeaderAndHash, getHeadersVecAndHashes } = require('./generateData');
+const { ecsign } = require('ethereumjs-util');
 
 const { hexlify } = ethers.utils;
 
@@ -36,10 +36,10 @@ const benchmark = async (factoryPath) => {
 
   // 2. benchmark checkSig
   const digest =
-    "0x0000000000000000000000000000000000000000000000000000000000001234";
+    '0x0000000000000000000000000000000000000000000000000000000000001234';
   const { v, r, s } = ecsign(
-    Buffer.from(digest.slice(2), "hex"),
-    Buffer.from(wallet.privateKey.slice(2), "hex")
+    Buffer.from(digest.slice(2), 'hex'),
+    Buffer.from(wallet.privateKey.slice(2), 'hex')
   );
   let reportSize = [1, 2, 3, 4, 5, 10, 20, 30, 40];
   for (let size of reportSize) {
@@ -61,7 +61,7 @@ const benchmark = async (factoryPath) => {
 const main = async () => {
   // addHeaders with Blake2b calc blockHash
   log(`---------------checkSig`);
-  await benchmark("contracts/CKBChainV2.sol:CKBChainV2");
+  await benchmark('contracts/CKBChainV2.sol:CKBChainV2');
   log(`---------------end\r\n\r\n`);
 
   // addHeaders without Blake2b

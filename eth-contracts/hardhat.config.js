@@ -1,7 +1,7 @@
 require("@nomiclabs/hardhat-truffle5");
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-gas-reporter");
-
+require("solidity-coverage");
 require('dotenv').config()
 
 // This is a sample Buidler task. To learn how to create your own go to
