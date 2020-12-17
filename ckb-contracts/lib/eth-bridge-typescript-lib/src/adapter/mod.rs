@@ -61,10 +61,6 @@ where
         self.chain.load_script_hash().unwrap()
     }
 
-    fn load_cell_data(&self, index: usize, source: Source) -> Result<Vec<u8>, SysError> {
-        self.chain.load_cell_data(index, source)
-    }
-
     fn load_input_witness_args(&self) -> Result<Bytes, SysError> {
         let witness_args = self
             .chain
@@ -81,6 +77,19 @@ where
         ETHBridgeTypeArgs::new_unchecked(args)
     }
 
+    fn load_data(&self) -> Option<ETHBridgeTypeData> {
+        let data_list = QueryIter::new(
+            |index, source| self.chain.load_cell_data(index, source),
+            Source::GroupInput,
+        )
+        .collect::<Vec<_>>();
+        match data_list.len() {
+            0 => return None,
+            1 => Some(ETHBridgeTypeData::from_slice(&data_list[0]).expect("invalid data")),
+            _ => panic!("can not have more than one cell with this typescript"),
+        }
+    }
+
     fn load_cell_type(&self, index: usize, source: Source) -> Result<Option<Script>, SysError> {
         self.chain.load_cell_type(index, source)
     }
@@ -91,6 +100,18 @@ where
         source: Source,
     ) -> Result<Option<[u8; 32]>, SysError> {
         self.chain.load_cell_type_hash(index, source)
+    }
+
+    fn load_cell_lock_hash(&self, index: usize, source: Source) -> Result<[u8; 32], SysError> {
+        self.chain.load_cell_lock_hash(index, source)
+    }
+
+    fn load_cell_lock_script(&self, index: usize, source: Source) -> Result<Script, SysError> {
+        self.chain.load_cell_lock_script(index, source)
+    }
+
+    fn load_cell_data(&self, index: usize, source: Source) -> Result<Vec<u8>, SysError> {
+        self.chain.load_cell_data(index, source)
     }
 
     fn lock_script_exists_in_inputs(&self, data: &[u8]) -> bool {
@@ -107,26 +128,5 @@ where
             .hash_type(SUDT_HASH_TYPE.into())
             .args(Bytes::from(bridge_lock_hash.to_vec()).pack())
             .build()
-    }
-
-    fn load_data(&self) -> Option<ETHBridgeTypeData> {
-        let data_list = QueryIter::new(
-            |index, source| self.chain.load_cell_data(index, source),
-            Source::GroupInput,
-        )
-        .collect::<Vec<_>>();
-        match data_list.len() {
-            0 => return None,
-            1 => Some(ETHBridgeTypeData::from_slice(&data_list[0]).expect("invalid data")),
-            _ => panic!("can not have more than one cell with this typescript"),
-        }
-    }
-
-    fn load_cell_lock_hash(&self, index: usize, source: Source) -> Result<[u8; 32], SysError> {
-        self.chain.load_cell_lock_hash(index, source)
-    }
-
-    fn load_cell_lock_script(&self, index: usize, source: Source) -> Result<Script, SysError> {
-        self.chain.load_cell_lock_script(index, source)
     }
 }
