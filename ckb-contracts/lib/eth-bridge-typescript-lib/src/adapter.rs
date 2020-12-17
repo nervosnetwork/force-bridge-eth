@@ -84,7 +84,7 @@ where
         )
         .collect::<Vec<_>>();
         match data_list.len() {
-            0 => return None,
+            0 => None,
             1 => Some(ETHBridgeTypeData::from_slice(&data_list[0]).expect("invalid data")),
             _ => panic!("can not have more than one cell with this typescript"),
         }

@@ -56,7 +56,7 @@ where
             {
                 return true;
             }
-            return false;
+            false
         }
 
         let mut index = 0;
