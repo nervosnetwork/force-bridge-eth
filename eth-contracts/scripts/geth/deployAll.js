@@ -1,11 +1,11 @@
-const fs = require("fs");
-const TOML = require("@iarna/toml");
-const { deployContract, sleep } = require("../../test/utils");
+const fs = require('fs');
+const TOML = require('@iarna/toml');
+const { deployContract, sleep } = require('../../test/utils');
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   if (!forceConfigPath) {
-    throw "FORCE_CONFIG_PATH not set";
+    throw 'FORCE_CONFIG_PATH not set';
   }
   const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
   const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
@@ -14,10 +14,10 @@ async function main() {
 
   // deploy erc20 tokens, CKBChain
   const factoryPaths = [
-    "contracts/test/ERC20.sol:DAI",
-    "contracts/test/ERC20.sol:USDT",
-    "contracts/test/ERC20.sol:USDC",
-    "contracts/CKBChain.sol:CKBChain",
+    'contracts/test/ERC20.sol:DAI',
+    'contracts/test/ERC20.sol:USDT',
+    'contracts/test/ERC20.sol:USDC',
+    'contracts/CKBChain.sol:CKBChain',
   ];
 
   const contracts = [];
@@ -39,12 +39,12 @@ async function main() {
 
   // deploy TokenLocker
   const locker = await deployContract(
-    "contracts/TokenLocker.sol:TokenLocker",
+    'contracts/TokenLocker.sol:TokenLocker',
     CKBChinDeployAddr,
     1,
-    "0x" + recipient_typescript_code_hash,
+    '0x' + recipient_typescript_code_hash,
     0,
-    "0x" + bridge_lockscript_code_hash
+    '0x' + bridge_lockscript_code_hash
   );
   const lockerAddr = locker.address;
 
@@ -71,18 +71,18 @@ async function main() {
   forceConfig.eth_ckb_chain_addr = CKBChinDeployAddr;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
-  console.error("write eth addr into settings successfully");
+  console.error('write eth addr into settings successfully');
 
-  const tokenLockerJson = require("../../artifacts/contracts/TokenLocker.sol/TokenLocker.json");
+  const tokenLockerJson = require('../../artifacts/contracts/TokenLocker.sol/TokenLocker.json');
   const lockerABI = tokenLockerJson.abi;
-  const ckbChainJSON = require("../../artifacts/contracts/CKBChain.sol/CKBChain.json");
+  const ckbChainJSON = require('../../artifacts/contracts/CKBChain.sol/CKBChain.json');
   const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
-    "../offchain-modules/lib/src/util/token_locker_abi.json",
+    '../offchain-modules/lib/src/util/token_locker_abi.json',
     JSON.stringify(lockerABI, null, 2)
   );
   fs.writeFileSync(
-    "../offchain-modules/lib/src/util/ckb_chain_abi.json",
+    '../offchain-modules/lib/src/util/ckb_chain_abi.json',
     JSON.stringify(ckbChainABI, null, 2)
   );
 }

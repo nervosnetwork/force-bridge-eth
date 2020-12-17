@@ -1,6 +1,6 @@
-const { expect } = require("chai");
-const { log, waitingForReceipt, sleep } = require("./utils");
-const vectors = require("./data/testVectors.json");
+const { expect } = require('chai');
+const { log, waitingForReceipt, sleep } = require('./utils');
+const vectors = require('./data/testVectors.json');
 
 const {
   extractBlockNumber,
@@ -10,14 +10,14 @@ const {
   indexHeaderVec,
 } = vectors;
 
-contract("CKBChain", () => {
+contract('CKBChain', () => {
   let ckbChain, provider, initHeaderIndex;
 
   before(async function () {
     // disable timeout
     this.timeout(0);
     const factory = await ethers.getContractFactory(
-      "contracts/CKBChain.sol:CKBChain"
+      'contracts/CKBChain.sol:CKBChain'
     );
     ckbChain = await factory.deploy();
     await ckbChain.deployed();
@@ -25,10 +25,10 @@ contract("CKBChain", () => {
     initHeaderIndex = extractBlockNumber.length - 3; // it will add 2 headers
   });
 
-  describe("initWithHeader correct case", async function () {
+  describe('initWithHeader correct case', async function () {
     // disable timeout
     this.timeout(0);
-    it("Should initWithHeader success", async () => {
+    it('Should initWithHeader success', async () => {
       const finalizedGcThreshold = 500;
       const canonicalGcThreshold = 40000;
 
@@ -66,7 +66,7 @@ contract("CKBChain", () => {
       expect(actualTransactionsRoot).to.equal(expectTransactionsRoot);
     });
 
-    it("Should addHeaders success", async () => {
+    it('Should addHeaders success', async () => {
       const startIndex = initHeaderIndex + 1; // add headers that follow initHeader
 
       // addHeaders

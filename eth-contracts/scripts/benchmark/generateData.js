@@ -1,6 +1,6 @@
-const origin = require("./data/testHeaderHashes.json");
+const origin = require('./data/testHeaderHashes.json');
 const { log } = console;
-const BN = require("bn.js");
+const BN = require('bn.js');
 const headers = [];
 const blockHashes = [];
 
@@ -14,12 +14,12 @@ init();
 
 function fixedLength(str, targetLen = 8) {
   const len = str.length;
-  return "0".repeat(targetLen - len) + str;
+  return '0'.repeat(targetLen - len) + str;
 }
 
 function fixedLengthLe(str, targetLen = 8) {
   const len = str.length;
-  return str + "0".repeat(targetLen - len);
+  return str + '0'.repeat(targetLen - len);
 }
 
 /*
@@ -38,7 +38,7 @@ function getHeaderAndHash(index) {
 function getHeadersVecAndHashes(startIndex, size) {
   const sizeBn = new BN(size);
   const buf = sizeBn.toBuffer();
-  const leHexSize = buf.reverse().toString("hex");
+  const leHexSize = buf.reverse().toString('hex');
   let headerHex = fixedLengthLe(leHexSize, 8);
   headers.slice(startIndex, startIndex + size).map((headerStr) => {
     headerHex += headerStr.slice(2);
@@ -50,7 +50,7 @@ function getHeadersVecAndHashes(startIndex, size) {
   //         hashHex += item.slice(2)
   //     }
   // )
-  return ["0x" + headerHex, blockHashes.slice(startIndex, startIndex + size)];
+  return ['0x' + headerHex, blockHashes.slice(startIndex, startIndex + size)];
 }
 
 module.exports = {
