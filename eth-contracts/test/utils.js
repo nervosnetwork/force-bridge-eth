@@ -33,6 +33,22 @@ const deployContract = async (factoryPath, ...args) => {
   return contract;
 };
 
+const deployAll = async (contractPaths) => {
+  const contracts = [];
+  const promises = [];
+  for (const path of contractPaths) {
+    const factory = await ethers.getContractFactory(path);
+    const contract = await factory.deploy();
+    contracts.push(contract);
+    promises.push(contract.deployTransaction.wait(1));
+    // because nonce should increase in sequence
+    await sleep(1);
+  }
+
+  await Promise.all(promises);
+  return contracts;
+};
+
 const generateWallets = (size) => {
   const wallets = [];
   for (let i = 0; i < size; i++) {
@@ -112,6 +128,7 @@ module.exports = {
   log,
   waitingForReceipt,
   deployContract,
+  deployAll,
   generateWallets,
   generateSignatures,
   runErrorCase,
