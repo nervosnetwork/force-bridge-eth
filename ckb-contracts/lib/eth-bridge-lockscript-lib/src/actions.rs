@@ -1,9 +1,8 @@
 use crate::adapter::Adapter;
-use crate::debug;
 use ckb_std::ckb_constants::Source;
 use ckb_std::high_level::QueryIter;
+use contracts_helper::debug;
 use eth_spv_lib::eth_types::*;
-// use eth_spv_lib::ethspv;
 use eth_spv_lib::ethspv;
 use force_eth_types::config::CONFIRM;
 use force_eth_types::eth_lock_event::ETHLockEvent;
