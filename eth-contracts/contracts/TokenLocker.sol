@@ -34,7 +34,8 @@ contract TokenLocker {
         uint256 bridgeFee,
         bytes recipientLockscript,
         bytes replayResistOutpoint,
-        bytes sudtExtraData
+        bytes sudtExtraData,
+        bytes bridgeLockscript
     );
 
     event Unlocked(
@@ -63,7 +64,8 @@ contract TokenLocker {
         uint256 bridgeFee,
         bytes memory recipientLockscript,
         bytes memory replayResistOutpoint,
-        bytes memory sudtExtraData
+        bytes memory sudtExtraData,
+        bytes memory bridgeLockscript
     ) public payable {
         require(msg.value > bridgeFee, "fee should not exceed bridge amount");
         emit Locked(
@@ -73,7 +75,8 @@ contract TokenLocker {
             bridgeFee,
             recipientLockscript,
             replayResistOutpoint,
-            sudtExtraData
+            sudtExtraData,
+            bridgeLockscript
         );
     }
 
@@ -84,7 +87,8 @@ contract TokenLocker {
         uint256 bridgeFee,
         bytes memory recipientLockscript,
         bytes memory replayResistOutpoint,
-        bytes memory sudtExtraData
+        bytes memory sudtExtraData,
+        bytes memory bridgeLockscript
     ) public {
         require(amount > bridgeFee, "fee should not exceed bridge amount");
         // TODO modify `transferFrom` to `safeTransferFrom`
@@ -96,7 +100,8 @@ contract TokenLocker {
             bridgeFee,
             recipientLockscript,
             replayResistOutpoint,
-            sudtExtraData
+            sudtExtraData,
+            bridgeLockscript
         );
     }
 

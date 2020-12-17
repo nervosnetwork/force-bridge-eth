@@ -1,5 +1,5 @@
 use crate::util::ckb_tx_generator::CONFIRM;
-use crate::util::config::{ForceConfig, OutpointConf};
+use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::{DoubleNodeWithMerkleProofJson, Witness};
 use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use anyhow::{anyhow, bail, Result};
@@ -241,6 +241,32 @@ pub fn parse_main_chain_headers(data: Vec<u8>) -> Result<(Vec<BlockHeader>, Vec<
     }
     un_confirmed.reverse();
     Ok((un_confirmed, confirmed))
+}
+
+pub fn create_bridge_lockscript(
+    deployed_contracts: &DeployedContracts,
+    // eth_proof: &ETHSPVProofJson,
+    token: &H160,
+    eth_address: &H160,
+    cell_script: Script,
+) -> Result<Script> {
+    let lockscript_code_hash = hex::decode(&deployed_contracts.bridge_lockscript.code_hash)?;
+    use force_eth_types::generated::basic::ETHAddress;
+    let args = ETHBridgeLockArgs::new_builder()
+        .eth_token_address(ETHAddress::from_slice(&token.as_bytes()).map_err(|err| anyhow!(err))?)
+        .eth_contract_address(
+            ETHAddress::from_slice(&eth_address.as_bytes()).map_err(|err| anyhow!(err))?,
+        )
+        .typescript_hash(force_eth_types::generated::basic::Byte32::from_slice(
+            cell_script.calc_script_hash().raw_data().as_ref(),
+        )?)
+        .build();
+    let lockscript = Script::new_builder()
+        .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
+        .hash_type(deployed_contracts.bridge_lockscript.hash_type.into())
+        .args(args.as_bytes().pack())
+        .build();
+    Ok(lockscript)
 }
 
 pub fn handle_unconfirmed_headers(

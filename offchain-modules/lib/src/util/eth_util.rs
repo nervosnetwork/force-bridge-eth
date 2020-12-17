@@ -484,6 +484,10 @@ pub fn build_lock_token_payload(data: &[Token]) -> Result<ethabi::Bytes> {
                 name: "sudtExtraData".to_owned(),
                 kind: ParamType::Bytes,
             },
+            Param {
+                name: "bridgeLockscript".to_owned(),
+                kind: ParamType::Bytes,
+            },
         ],
         outputs: vec![],
         constant: false,
@@ -509,6 +513,10 @@ pub fn build_lock_eth_payload(data: &[Token]) -> Result<ethabi::Bytes> {
             },
             Param {
                 name: "sudtExtraData".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "bridgeLockscript".to_owned(),
                 kind: ParamType::Bytes,
             },
         ],

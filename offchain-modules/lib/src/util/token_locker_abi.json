@@ -1,5 +1,63 @@
 [
   {
+    "constant": true,
+    "inputs": [],
+    "name": "recipientCellTypescriptHashType_",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "bridgeFee",
+        "type": "uint256"
+      },
+      {
+        "name": "recipientLockscript",
+        "type": "bytes"
+      },
+      {
+        "name": "replayResistOutpoint",
+        "type": "bytes"
+      },
+      {
+        "name": "sudtExtraData",
+        "type": "bytes"
+      },
+      {
+        "name": "bridgeLockscript",
+        "type": "bytes"
+      }
+    ],
+    "name": "lockETH",
+    "outputs": [],
+    "payable": true,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "numConfirmations_",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "constant": false,
     "inputs": [
       {
@@ -25,66 +83,16 @@
       {
         "name": "sudtExtraData",
         "type": "bytes"
+      },
+      {
+        "name": "bridgeLockscript",
+        "type": "bytes"
       }
     ],
     "name": "lockToken",
     "outputs": [],
     "payable": false,
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "bridgeFee",
-        "type": "uint256"
-      },
-      {
-        "name": "recipientLockscript",
-        "type": "bytes"
-      },
-      {
-        "name": "replayResistOutpoint",
-        "type": "bytes"
-      },
-      {
-        "name": "sudtExtraData",
-        "type": "bytes"
-      }
-    ],
-    "name": "lockETH",
-    "outputs": [],
-    "payable": true,
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "recipientCellTypescriptHashType_",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "numConfirmations_",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -260,6 +268,11 @@
       {
         "indexed": false,
         "name": "sudtExtraData",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "name": "bridgeLockscript",
         "type": "bytes"
       }
     ],
