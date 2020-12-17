@@ -177,6 +177,7 @@ impl ETHRelayer {
                 .as_u64();
             if latest_submit_header_number >= tip_header_number {
                 info!("waiting for new eth header. tip_header_number: {}, latest_submit_header_number: {}", tip_header_number, latest_submit_header_number);
+                tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
                 continue;
             }
             // sync cached blocks
@@ -186,6 +187,7 @@ impl ETHRelayer {
                 1
             };
             for number in (start..=tip_header_number).rev() {
+                log::debug!("sync eth block {} to cache", number);
                 let block_number = U64([number]);
                 let cached_block = self.cached_blocks.get(&number);
                 let chain_block = self.eth_client.get_block(block_number.into()).await?;
@@ -230,7 +232,7 @@ impl ETHRelayer {
             )
             .map_err(|err| anyhow::anyhow!(err))?;
             let send_tx_res =
-                send_tx_sync_with_response(&mut self.generator.rpc_client, &tx, 600).await;
+                send_tx_sync_with_response(&mut self.generator.rpc_client, &tx, 180).await;
             if let Err(e) = send_tx_res {
                 log::error!(
                     "relay eth header from {} to {} failed! err: {}",
@@ -420,7 +422,7 @@ pub async fn wait_header_sync_success(
             Err(_) => {
                 info!("waiting for cell script init, loop index: {}", i);
                 i += 1;
-                tokio::time::delay_for(std::time::Duration::from_secs(2)).await;
+                tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
             }
         }
     }
@@ -433,7 +435,7 @@ pub async fn wait_header_sync_success(
             Ok(cell_op) => {
                 if cell_op.is_none() {
                     info!("waiting for finding cell deps, loop index: {}", i);
-                    tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+                    tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
                     i += 1;
                     continue;
                 }
@@ -441,7 +443,7 @@ pub async fn wait_header_sync_success(
             }
             Err(_) => {
                 debug!("waiting for finding cell deps, loop index: {}", i);
-                tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+                tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
                 i += 1;
                 continue;
             }

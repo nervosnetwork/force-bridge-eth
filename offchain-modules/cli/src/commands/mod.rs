@@ -1,6 +1,7 @@
 use anyhow::{anyhow, bail, Result};
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
+use force_eth_lib::relay::relay_monitor::relay_monitor;
 use force_eth_lib::transfer::to_ckb::{
     self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
     lock_eth, lock_token, send_eth_spv_proof_tx,
@@ -52,6 +53,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args).await,
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
+        SubCommand::RelayerMonitor(args) => relayer_monitor(args).await,
     }
 }
 
@@ -106,6 +108,7 @@ pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
         args.config_path,
         args.network,
         args.private_key_path,
+        args.type_id,
         args.sudt,
     )
     .await
@@ -219,8 +222,14 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     let from_privkey =
         parse_privkey_path(args.private_key_path.as_str(), &force_config, &args.network)?;
     let config_path = tilde(args.config_path.as_str()).into_owned();
-    let tx_hash =
-        send_eth_spv_proof_tx(&mut generator, config_path, &eth_proof, from_privkey).await?;
+    let tx_hash = send_eth_spv_proof_tx(
+        &mut generator,
+        config_path,
+        args.hash,
+        &eth_proof,
+        from_privkey,
+    )
+    .await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);
     Ok(())
 }
@@ -411,4 +420,38 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
     }
     bail!("5 consecutive failures when relay headers")
+}
+
+pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+
+    loop {
+        let res = relay_monitor(
+            ckb_rpc_url.clone(),
+            ckb_indexer_url.clone(),
+            eth_rpc_url.clone(),
+            deployed_contracts.eth_ckb_chain_addr.clone(),
+            deployed_contracts
+                .light_client_cell_script
+                .cell_script
+                .clone(),
+            args.ckb_alarm_number,
+            args.eth_alarm_number,
+            args.alarm_url.clone(),
+            args.ckb_conservator.clone(),
+            args.eth_conservator.clone(),
+        )
+        .await;
+        if let Err(err) = res {
+            error!("An error occurred during the relay monitor. Err: {:?}", err)
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(args.minute_interval * 60)).await;
+    }
 }

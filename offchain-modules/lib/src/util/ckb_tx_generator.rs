@@ -274,10 +274,10 @@ impl Generator {
                             let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
                             let hash = header_info_reader.hash().raw_data();
                             confirmed.push(hash);
-                            if confirmed.len() > MAIN_HEADER_CACHE_LIMIT {
+                            unconfirmed.remove(0);
+                            if confirmed.len().add(unconfirmed.len()) > MAIN_HEADER_CACHE_LIMIT {
                                 confirmed.remove(0);
                             }
-                            unconfirmed.remove(0);
                         }
                     }
                 }
@@ -626,6 +626,7 @@ impl Generator {
 
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
+            self.deployed_contracts.bridge_lockscript.hash_type,
             &self.deployed_contracts.sudt.code_hash,
             self.deployed_contracts.sudt.hash_type,
             token_addr,
@@ -730,6 +731,7 @@ impl Generator {
 
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
+            self.deployed_contracts.bridge_lockscript.hash_type,
             &self.deployed_contracts.sudt.code_hash,
             self.deployed_contracts.sudt.hash_type,
             token_addr,
@@ -776,6 +778,7 @@ impl Generator {
     ) -> Result<u128> {
         let sudt_typescript = get_sudt_type_script(
             &self.deployed_contracts.bridge_lockscript.code_hash,
+            self.deployed_contracts.bridge_lockscript.hash_type,
             &self.deployed_contracts.sudt.code_hash,
             self.deployed_contracts.sudt.hash_type,
             token_addr,
