@@ -90,6 +90,7 @@ impl CellBuilder for CustomCell {
     }
 }
 
+#[allow(dead_code)]
 pub enum CellDepView {
     ETHLightClientTypeCellDep(ETHLightClientTypeDep),
 }
