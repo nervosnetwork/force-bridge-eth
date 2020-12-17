@@ -39,7 +39,7 @@ pub trait Adapter {
 
     fn load_cell_lock_hash(&self, index: usize, source: Source) -> Result<[u8; 32], SysError>;
 
-    fn load_cell_lock_script(&self, index: usize, source: Source) -> Result<Script, SysError>;
+    fn load_cell_lock(&self, index: usize, source: Source) -> Result<Script, SysError>;
 
     fn load_cell_data(&self, index: usize, source: Source) -> Result<Vec<u8>, SysError>;
 
@@ -106,8 +106,8 @@ where
         self.chain.load_cell_lock_hash(index, source)
     }
 
-    fn load_cell_lock_script(&self, index: usize, source: Source) -> Result<Script, SysError> {
-        self.chain.load_cell_lock_script(index, source)
+    fn load_cell_lock(&self, index: usize, source: Source) -> Result<Script, SysError> {
+        self.chain.load_cell_lock(index, source)
     }
 
     fn load_cell_data(&self, index: usize, source: Source) -> Result<Vec<u8>, SysError> {

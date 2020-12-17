@@ -14,8 +14,9 @@ use molecule::prelude::{Entity, Reader};
 
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
-    let chain = adapter::chain::ChainAdapter {};
-    _verify(chain);
+    let chain = contracts_helper::chain::Chain {};
+    let adapter = adapter::ChainAdapter { chain };
+    _verify(adapter);
     0
 }
 

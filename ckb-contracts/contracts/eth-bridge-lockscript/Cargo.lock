@@ -143,7 +143,6 @@ dependencies = [
 name = "eth-bridge-lockscript-lib"
 version = "0.1.0"
 dependencies = [
- "cfg-if",
  "ckb-std",
  "contracts-helper",
  "eth-spv-lib",

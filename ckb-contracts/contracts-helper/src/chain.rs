@@ -54,8 +54,4 @@ impl DataLoader for Chain {
     ) -> Result<Option<[u8; 32]>, SysError> {
         load_cell_type_hash(index, source)
     }
-
-    fn load_cell_lock_script(&self, index: usize, source: Source) -> Result<Script, SysError> {
-        load_cell_lock_script(index, source)
-    }
 }
