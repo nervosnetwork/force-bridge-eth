@@ -125,13 +125,13 @@ fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContex
     let eth_bridge_lockscript_bin: Bytes = Loader::default().load_binary("eth-bridge-lockscript");
     let eth_bridge_lockscript_point = context.deploy_cell(eth_bridge_lockscript_bin);
 
-    let eth_light_client_lockscript_bin: Bytes =
-        Loader::default().load_binary("eth-light-client-lockscript");
-    let eth_light_client_lockscript_point = context.deploy_cell(eth_light_client_lockscript_bin);
-
-    let eth_light_client_typescript_bin: Bytes =
-        Loader::default().load_binary("eth-light-client-typescript");
-    let eth_light_client_typescript_point = context.deploy_cell(eth_light_client_typescript_bin);
+    // let eth_light_client_lockscript_bin: Bytes =
+    //     Loader::default().load_binary("eth-light-client-lockscript");
+    // let eth_light_client_lockscript_point = context.deploy_cell(eth_light_client_lockscript_bin);
+    //
+    // let eth_light_client_typescript_bin: Bytes =
+    //     Loader::default().load_binary("eth-light-client-typescript");
+    // let eth_light_client_typescript_point = context.deploy_cell(eth_light_client_typescript_bin);
 
     let eth_recipient_typescript_bin: Bytes =
         Loader::default().load_binary("eth-recipient-typescript");
@@ -146,14 +146,14 @@ fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContex
         ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY,
         eth_bridge_lockscript_point.clone(),
     );
-    outpoints_context.insert(
-        ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY,
-        eth_light_client_lockscript_point.clone(),
-    );
-    outpoints_context.insert(
-        ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY,
-        eth_light_client_typescript_point.clone(),
-    );
+    // outpoints_context.insert(
+    //     ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY,
+    //     eth_light_client_lockscript_point.clone(),
+    // );
+    // outpoints_context.insert(
+    //     ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY,
+    //     eth_light_client_typescript_point.clone(),
+    // );
     outpoints_context.insert(
         ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY,
         eth_recipient_typescript_point.clone(),
