@@ -22,4 +22,15 @@ pub trait DataLoader {
     fn load_cell(&self, index: usize, source: Source) -> Result<CellOutput, SysError>;
 
     fn load_cell_type(&self, index: usize, source: Source) -> Result<Option<Script>, SysError>;
+    fn load_cell_lock(&self, index: usize, source: Source) -> Result<Script, SysError>;
+
+    fn load_cell_type_hash(
+        &self,
+        index: usize,
+        source: Source,
+    ) -> Result<Option<[u8; 32]>, SysError>;
+
+    fn load_cell_lock_script(&self, index: usize, source: Source) -> Result<Script, SysError>;
+
+    fn load_script(&self) -> Result<Script, SysError>;
 }

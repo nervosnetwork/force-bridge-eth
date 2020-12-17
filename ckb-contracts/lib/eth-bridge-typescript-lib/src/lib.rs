@@ -6,9 +6,9 @@ extern crate no_std_compat as std;
 
 pub mod actions;
 pub mod adapter;
-pub mod debug;
 
 use adapter::Adapter;
+use contracts_helper::debug;
 use force_eth_types::generated::witness::MintTokenWitnessReader;
 use molecule::prelude::{Entity, Reader};
 

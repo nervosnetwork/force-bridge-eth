@@ -144,13 +144,12 @@ name = "eth-bridge-typescript-lib"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
+ "contracts-helper",
  "eth-spv-lib",
  "ethereum-types",
  "force-eth-types",
- "hex",
  "molecule",
  "no-std-compat",
- "rlp",
 ]
 
 [[package]]
@@ -236,12 +235,6 @@ dependencies = [
  "typenum",
  "version_check",
 ]
-
-[[package]]
-name = "hex"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "impl-rlp"

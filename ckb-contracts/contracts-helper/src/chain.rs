@@ -3,8 +3,8 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::packed::{CellOutput, OutPoint, Script, WitnessArgs};
 use ckb_std::error::SysError;
 use ckb_std::high_level::{
-    load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_input_out_point,
-    load_script_hash, load_witness_args,
+    load_cell, load_cell_data, load_cell_lock, load_cell_lock_hash, load_cell_type,
+    load_cell_type_hash, load_input_out_point, load_script, load_script_hash, load_witness_args,
 };
 use std::prelude::v1::*;
 
@@ -37,5 +37,25 @@ impl DataLoader for Chain {
 
     fn load_cell_type(&self, index: usize, source: Source) -> Result<Option<Script>, SysError> {
         load_cell_type(index, source)
+    }
+
+    fn load_cell_lock(&self, index: usize, source: Source) -> Result<Script, SysError> {
+        load_cell_lock(index, source)
+    }
+
+    fn load_script(&self) -> Result<Script, SysError> {
+        load_script()
+    }
+
+    fn load_cell_type_hash(
+        &self,
+        index: usize,
+        source: Source,
+    ) -> Result<Option<[u8; 32]>, SysError> {
+        load_cell_type_hash(index, source)
+    }
+
+    fn load_cell_lock_script(&self, index: usize, source: Source) -> Result<Script, SysError> {
+        load_cell_lock_script(index, source)
     }
 }

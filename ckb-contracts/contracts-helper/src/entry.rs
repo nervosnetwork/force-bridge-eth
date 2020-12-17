@@ -1,13 +1,3 @@
-/// Define entry point
-///
-///
-/// # Example
-///
-/// ```
-/// // define contract entry point
-/// entry!(main)
-/// ```
-///
 /// original source: <https://github.com/nervosnetwork/ckb-std/blob/master/src/entry.rs>
 #[macro_export]
 macro_rules! entry {
