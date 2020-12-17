@@ -1,16 +1,16 @@
-const fs = require('fs')
-const TOML = require('@iarna/toml')
-const { deployContract, sleep } = require('../../test/utils')
+const fs = require('fs');
+const TOML = require('@iarna/toml');
+const { deployContract, sleep } = require('../../test/utils');
 
 async function main() {
-  const forceConfigPath = process.env.FORCE_CONFIG_PATH
+  const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   if (!forceConfigPath) {
-    throw 'FORCE_CONFIG_PATH not set'
+    throw 'FORCE_CONFIG_PATH not set';
   }
-  const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath))
-  const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash
+  const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
+  const bridge_lockscript_code_hash = forceConfig.bridge_lockscript.code_hash;
   const recipient_typescript_code_hash =
-    forceConfig.recipient_typescript.code_hash
+    forceConfig.recipient_typescript.code_hash;
 
   // deploy erc20 tokens, CKBChain
   const factoryPaths = [
@@ -18,24 +18,24 @@ async function main() {
     'contracts/test/ERC20.sol:USDT',
     'contracts/test/ERC20.sol:USDC',
     'contracts/CKBChain.sol:CKBChain',
-  ]
+  ];
 
-  const contracts = []
-  const promises = []
+  const contracts = [];
+  const promises = [];
   for (const path of factoryPaths) {
-    const factory = await ethers.getContractFactory(path)
-    const contract = await factory.deploy()
-    contracts.push(contract)
-    promises.push(contract.deployTransaction.wait(1))
+    const factory = await ethers.getContractFactory(path);
+    const contract = await factory.deploy();
+    contracts.push(contract);
+    promises.push(contract.deployTransaction.wait(1));
     // because nonce should increase in sequence
-    await sleep(1)
+    await sleep(1);
   }
 
   // waiting for all contracts deployed at least 1 confirmation
-  await Promise.all(promises)
+  await Promise.all(promises);
   const [DAIAddr, USDTAddr, USDCAddr, CKBChinDeployAddr] = contracts.map(
     (contract) => contract.address
-  )
+  );
 
   // deploy TokenLocker
   const locker = await deployContract(
@@ -45,15 +45,15 @@ async function main() {
     '0x' + recipient_typescript_code_hash,
     0,
     '0x' + bridge_lockscript_code_hash
-  )
-  const lockerAddr = locker.address
+  );
+  const lockerAddr = locker.address;
 
   console.error(`
   DAIAddr: ${DAIAddr}, USDTAddr: ${USDTAddr}, USDCAddr: ${USDCAddr}
   ERC20Addr: ${DAIAddr}
   CKBChin deploy to: ${CKBChinDeployAddr}
   locker deploy to: ${lockerAddr}
-  `)
+  `);
 
   const address = {
     erc20: DAIAddr,
@@ -62,29 +62,29 @@ async function main() {
     usdc: USDCAddr,
     ckbChain: CKBChinDeployAddr,
     tokenLocker: lockerAddr,
-  }
-  const data = JSON.stringify(address)
-  console.log(data)
+  };
+  const data = JSON.stringify(address);
+  console.log(data);
 
   // write eth address to settings
-  forceConfig.eth_token_locker_addr = lockerAddr
-  forceConfig.eth_ckb_chain_addr = CKBChinDeployAddr
-  const new_config = TOML.stringify(forceConfig)
-  fs.writeFileSync(forceConfigPath, new_config)
-  console.error('write eth addr into settings successfully')
+  forceConfig.eth_token_locker_addr = lockerAddr;
+  forceConfig.eth_ckb_chain_addr = CKBChinDeployAddr;
+  const new_config = TOML.stringify(forceConfig);
+  fs.writeFileSync(forceConfigPath, new_config);
+  console.error('write eth addr into settings successfully');
 
-  const tokenLockerJson = require('../../artifacts/contracts/TokenLocker.sol/TokenLocker.json')
-  const lockerABI = tokenLockerJson.abi
-  const ckbChainJSON = require('../../artifacts/contracts/CKBChain.sol/CKBChain.json')
-  const ckbChainABI = ckbChainJSON.abi
+  const tokenLockerJson = require('../../artifacts/contracts/TokenLocker.sol/TokenLocker.json');
+  const lockerABI = tokenLockerJson.abi;
+  const ckbChainJSON = require('../../artifacts/contracts/CKBChain.sol/CKBChain.json');
+  const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
     '../offchain-modules/lib/src/util/token_locker_abi.json',
     JSON.stringify(lockerABI, null, 2)
-  )
+  );
   fs.writeFileSync(
     '../offchain-modules/lib/src/util/ckb_chain_abi.json',
     JSON.stringify(ckbChainABI, null, 2)
-  )
+  );
 }
 
 // We recommend this pattern to be able to use async/await everywhere
@@ -92,6 +92,6 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error(error)
-    process.exit(1)
-  })
+    console.error(error);
+    process.exit(1);
+  });
