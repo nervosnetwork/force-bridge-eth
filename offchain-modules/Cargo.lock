@@ -461,7 +461,7 @@ dependencies = [
  "memchr",
  "num_cpus",
  "once_cell",
- "pin-project-lite",
+ "pin-project-lite 0.1.11",
  "pin-utils",
  "slab",
  "wasm-bindgen-futures",
@@ -1068,7 +1068,7 @@ dependencies = [
  "fnv",
  "log",
  "rand 0.6.5",
- "reqwest",
+ "reqwest 0.9.24",
  "scrypt",
  "secp256k1",
  "serde 1.0.117",
@@ -1854,6 +1854,7 @@ dependencies = [
  "log",
  "molecule",
  "rand 0.7.3",
+ "reqwest 0.10.10",
  "rlp",
  "rusty-receipt-proof-maker 0.1.0 (git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=3470810)",
  "secp256k1",
@@ -1897,7 +1898,7 @@ dependencies = [
  "jsonrpc-core",
  "log",
  "molecule",
- "reqwest",
+ "reqwest 0.9.24",
  "secp256k1",
  "serde 1.0.117",
  "serde_derive",
@@ -2034,7 +2035,7 @@ dependencies = [
  "futures-io",
  "memchr",
  "parking",
- "pin-project-lite",
+ "pin-project-lite 0.1.11",
  "waker-fn",
 ]
 
@@ -2550,8 +2551,14 @@ dependencies = [
  "socket2",
  "widestring",
  "winapi 0.3.9",
- "winreg",
+ "winreg 0.6.2",
 ]
+
+[[package]]
+name = "ipnet"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 
 [[package]]
 name = "itoa"
@@ -3251,6 +3258,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c917123afa01924fc84bb20c4c03f004d9c38e5127e3c039bbf7f4b9c76a2f6b"
 
 [[package]]
+name = "pin-project-lite"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b063f57ec186e6140e2b8b6921e5f1bd89c7356dda5b33acc5401203ca6131c"
+
+[[package]]
 name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3662,7 +3675,43 @@ dependencies = [
  "tokio-timer",
  "url 1.7.2",
  "uuid",
- "winreg",
+ "winreg 0.6.2",
+]
+
+[[package]]
+name = "reqwest"
+version = "0.10.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0718f81a8e14c4dbb3b34cf23dc6aaf9ab8a0dfec160c534b3dbca1aaa21f47c"
+dependencies = [
+ "base64 0.13.0",
+ "bytes 0.5.6",
+ "encoding_rs",
+ "futures-core",
+ "futures-util",
+ "http 0.2.1",
+ "http-body 0.3.1",
+ "hyper 0.13.9",
+ "hyper-tls 0.4.3",
+ "ipnet",
+ "js-sys",
+ "lazy_static",
+ "log",
+ "mime",
+ "mime_guess",
+ "native-tls",
+ "percent-encoding 2.1.0",
+ "pin-project-lite 0.2.0",
+ "serde 1.0.117",
+ "serde_json",
+ "serde_urlencoded 0.7.0",
+ "tokio 0.2.23",
+ "tokio-tls",
+ "url 2.2.0",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "winreg 0.7.0",
 ]
 
 [[package]]
@@ -3746,7 +3795,7 @@ dependencies = [
  "ethereum-types",
  "hex 0.3.2",
  "log",
- "reqwest",
+ "reqwest 0.9.24",
  "rlp",
  "serde 1.0.117",
  "serde_derive",
@@ -3769,7 +3818,7 @@ dependencies = [
  "ethereum-types",
  "hex 0.3.2",
  "log",
- "reqwest",
+ "reqwest 0.9.24",
  "rlp",
  "serde 1.0.117",
  "serde_derive",
@@ -4617,7 +4666,7 @@ dependencies = [
  "mio-named-pipes",
  "mio-uds",
  "num_cpus",
- "pin-project-lite",
+ "pin-project-lite 0.1.11",
  "signal-hook-registry",
  "slab",
  "tokio-macros",
@@ -4779,7 +4828,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "log",
- "pin-project-lite",
+ "pin-project-lite 0.1.11",
  "tokio 0.2.23",
 ]
 
@@ -4806,7 +4855,7 @@ checksum = "b0987850db3733619253fe60e17cb59b82d37c7e6c0236bb81e4d6b87c879f27"
 dependencies = [
  "cfg-if 0.1.10",
  "log",
- "pin-project-lite",
+ "pin-project-lite 0.1.11",
  "tracing-core",
 ]
 
@@ -5078,6 +5127,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ac64ead5ea5f05873d7c12b545865ca2b8d28adfc50a49b84770a3a97265d42"
 dependencies = [
  "cfg-if 0.1.10",
+ "serde 1.0.117",
+ "serde_json",
  "wasm-bindgen-macro",
 ]
 
@@ -5247,6 +5298,15 @@ name = "winreg"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2986deb581c4fe11b621998a5e53361efe6b48a151178d0cd9eeffa4dc6acc9"
+dependencies = [
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "winreg"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
 dependencies = [
  "winapi 0.3.9",
 ]

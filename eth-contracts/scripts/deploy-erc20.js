@@ -1,12 +1,12 @@
-const fs = require("fs");
-const TOML = require("@iarna/toml");
-const { sleep } = require("../test/utils");
+const fs = require('fs');
+const TOML = require('@iarna/toml');
+const { sleep } = require('../test/utils');
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   const network = process.env.FORCE_NETWORK;
   if (!forceConfigPath) {
-    throw "FORCE_CONFIG_PATH not set";
+    throw 'FORCE_CONFIG_PATH not set';
   }
   const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
   let network_config;
@@ -19,14 +19,14 @@ async function main() {
     network_config.ethereum_rpc_url
   );
   const wallet = new ethers.Wallet(
-    "0x" + network_config.ethereum_private_keys[0],
+    '0x' + network_config.ethereum_private_keys[0],
     provider
   );
 
   const contractPaths = [
-    "contracts/test/ERC20.sol:DAI",
-    "contracts/test/ERC20.sol:USDT",
-    "contracts/test/ERC20.sol:USDC",
+    'contracts/test/ERC20.sol:DAI',
+    'contracts/test/ERC20.sol:USDT',
+    'contracts/test/ERC20.sol:USDC',
   ];
   const contracts = [];
   const promises = [];

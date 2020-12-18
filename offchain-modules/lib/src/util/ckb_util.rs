@@ -4,8 +4,7 @@ use crate::util::eth_proof_helper::{DoubleNodeWithMerkleProofJson, Witness};
 use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::{Address, AddressPayload, SECP256K1};
-use ckb_types::core::ScriptHashType;
-use ckb_types::packed::{ScriptReader, WitnessArgs};
+use ckb_types::packed::{Byte, ScriptReader, WitnessArgs};
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
     bytes::Bytes,
@@ -101,6 +100,7 @@ pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256> {
 
 pub fn get_sudt_type_script(
     bridge_lock_code_hash: &str,
+    bridge_lock_hash_type: u8,
     sudt_code_hash: &str,
     sudt_hash_type: u8,
     token_addr: H160,
@@ -110,6 +110,7 @@ pub fn get_sudt_type_script(
         hex::decode(bridge_lock_code_hash).map_err(|err| anyhow!(err))?;
     let bridge_lockscript = get_eth_bridge_lock_script(
         bridge_lockscript_code_hash.as_slice(),
+        bridge_lock_hash_type,
         token_addr,
         lock_contract_addr,
     )?;
@@ -128,6 +129,7 @@ pub fn get_sudt_type_script(
 
 pub fn get_eth_bridge_lock_script(
     bridge_lock_code_hash: &[u8],
+    bridge_lockscript_hash_type: u8,
     token_addr: H160,
     lock_contract_addr: H160,
 ) -> Result<Script> {
@@ -148,7 +150,7 @@ pub fn get_eth_bridge_lock_script(
 
     Ok(Script::new_builder()
         .code_hash(Byte32::from_slice(bridge_lock_code_hash).map_err(|err| anyhow!(err))?)
-        .hash_type(ScriptHashType::Data.into())
+        .hash_type(Byte::new(bridge_lockscript_hash_type))
         .args(args.as_bytes().pack())
         .build())
 }
