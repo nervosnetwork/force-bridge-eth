@@ -689,19 +689,17 @@ impl Generator {
                 .map_err(|err| anyhow!(err))?;
         }
 
-        let bridge_lockscript = create_bridge_lockscript(
-            &self.deployed_contracts,
-            &lock_contract_addr,
-            &lock_contract_addr,
+        let sudt_typescript =
+            get_sudt_type_script(&self.deployed_contracts, token_addr, lock_contract_addr)?;
+        let cell_script = parse_cell(
+            self.deployed_contracts
+                .light_client_cell_script
+                .cell_script
+                .as_str(),
         )?;
-        let sudt_typescript_code_hash =
-            hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash)
-                .map_err(|err| anyhow!(err))?;
-        let sudt_typescript = Script::new_builder()
-            .code_hash(Byte32::from_slice(&sudt_typescript_code_hash).map_err(|err| anyhow!(err))?)
-            .hash_type(self.deployed_contracts.bridge_lockscript.hash_type.into())
-            .args(bridge_lockscript.calc_script_hash().as_bytes().pack())
-            .build();
+        let mut light_client_typescript_hash = [0u8; 32];
+        light_client_typescript_hash
+            .copy_from_slice(cell_script.calc_script_hash().raw_data().as_ref());
 
         // gen output of eth_recipient cell
         {
@@ -722,6 +720,7 @@ impl Generator {
                 eth_bridge_lock_hash,
                 token_amount: burn_sudt_amount,
                 fee: unlock_fee,
+                light_client_typescript_hash,
             };
 
             log::info!(
@@ -799,14 +798,8 @@ impl Generator {
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
 
-        let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            self.deployed_contracts.bridge_lockscript.hash_type,
-            &self.deployed_contracts.sudt.code_hash,
-            self.deployed_contracts.sudt.hash_type,
-            token_addr,
-            lock_contract_addr,
-        )?;
+        let sudt_typescript =
+            get_sudt_type_script(&self.deployed_contracts, token_addr, lock_contract_addr)?;
 
         let sudt_output = CellOutput::new_builder()
             .capacity(Capacity::shannons(ckb_amount).pack())
@@ -846,14 +839,8 @@ impl Generator {
         token_addr: H160,
         lock_contract_addr: H160,
     ) -> Result<u128> {
-        let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            self.deployed_contracts.bridge_lockscript.hash_type,
-            &self.deployed_contracts.sudt.code_hash,
-            self.deployed_contracts.sudt.hash_type,
-            token_addr,
-            lock_contract_addr,
-        )?;
+        let sudt_typescript =
+            get_sudt_type_script(&self.deployed_contracts, token_addr, lock_contract_addr)?;
         collect_sudt_amount(&mut self.indexer_client, addr_lockscript, sudt_typescript)
             .map_err(|err| anyhow!(err))
     }

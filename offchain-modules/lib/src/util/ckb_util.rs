@@ -99,30 +99,30 @@ pub fn covert_to_h256(mut tx_hash: &str) -> Result<H256> {
 }
 
 pub fn get_sudt_type_script(
-    bridge_lock_code_hash: &str,
-    bridge_lock_hash_type: u8,
-    sudt_code_hash: &str,
-    sudt_hash_type: u8,
+    deployed_contracts: &DeployedContracts,
     token_addr: H160,
     lock_contract_addr: H160,
 ) -> Result<Script> {
-    let bridge_lockscript_code_hash =
-        hex::decode(bridge_lock_code_hash).map_err(|err| anyhow!(err))?;
-    let bridge_lockscript = get_eth_bridge_lock_script(
-        bridge_lockscript_code_hash.as_slice(),
-        bridge_lock_hash_type,
-        token_addr,
-        lock_contract_addr,
-    )?;
+    let bridge_lockscript =
+        create_bridge_lockscript(&deployed_contracts, &token_addr, &lock_contract_addr)?;
+    // let lockscript_code_hash = hex::decode(&deployed_contracts.bridge_lockscript.code_hash)?;
+    // let bridge_lockscript_code_hash =
+    //     hex::decode(bridge_lock_code_hash).map_err(|err| anyhow!(err))?;
+    // let bridge_lockscript = get_eth_bridge_lock_script(
+    //     bridge_lockscript_code_hash.as_slice(),
+    //     bridge_lock_hash_type,
+    //     token_addr,
+    //     lock_contract_addr,
+    // )?;
     log::info!(
         "bridge lockscript: {}",
         serde_json::to_string(&ckb_jsonrpc_types::Script::from(bridge_lockscript.clone())).unwrap()
     );
 
-    let sudt_typescript_code_hash = hex::decode(sudt_code_hash).map_err(|err| anyhow!(err))?;
+    let sudt_typescript_code_hash = hex::decode(&deployed_contracts.sudt.code_hash)?;
     Ok(Script::new_builder()
         .code_hash(Byte32::from_slice(&sudt_typescript_code_hash).map_err(|err| anyhow!(err))?)
-        .hash_type(sudt_hash_type.into())
+        .hash_type(deployed_contracts.sudt.hash_type.into())
         .args(bridge_lockscript.calc_script_hash().as_bytes().pack())
         .build())
 }

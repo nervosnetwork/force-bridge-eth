@@ -21,6 +21,7 @@ pub fn verify_burn_token<T: Adapter>(data_loader: T, data: ETHRecipientDataView)
         data.eth_lock_contract_address,
         data.eth_token_address,
         &data.eth_bridge_lock_hash,
+        &data.light_client_typescript_hash,
     );
     let input_sudt_num =
         data_loader.get_sudt_amount_from_source(Source::Input, &eth_bridge_lock_hash);
@@ -51,10 +52,15 @@ fn calc_eth_bridge_lock_hash(
     eth_contract_address: ETHAddress,
     eth_token_address: ETHAddress,
     eth_bridge_lock_hash: &[u8; 32],
+    light_client_typescript_hash: &[u8; 32],
 ) -> [u8; 32] {
     let args = ETHBridgeLockArgs::new_builder()
         .eth_contract_address(eth_contract_address.get_address().into())
         .eth_token_address(eth_token_address.get_address().into())
+        .light_client_typescript_hash(
+            force_eth_types::generated::basic::Byte32::from_slice(light_client_typescript_hash)
+                .expect("light client typescript hash hash invalid"),
+        )
         .build();
 
     let mut bytes_vec = vec![];
