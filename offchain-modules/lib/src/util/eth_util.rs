@@ -1,6 +1,5 @@
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, bail, Result};
-use eth_spv_lib::eth_types::my_keccak256;
 use ethabi::{FixedBytes, Function, Param, ParamType, Token, Uint};
 use ethereum_tx_sign::RawTransaction;
 use log::{debug, error, info};
@@ -419,7 +418,7 @@ pub fn decode_block_header(serialized: &Rlp) -> Result<BlockHeader, DecoderError
         extra_data: Bytes::from(serialized.as_raw()),
         mix_hash: Some(serialized.val_at(13)?),
         nonce: Some(serialized.val_at(14)?),
-        hash: Some(my_keccak256(serialized.as_raw()).into()),
+        hash: Some(keccak256(serialized.as_raw()).into()),
     };
 
     Ok(block_header)
@@ -513,10 +512,6 @@ pub fn build_lock_eth_payload(data: &[Token]) -> Result<ethabi::Bytes> {
             },
             Param {
                 name: "sudtExtraData".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "bridgeLockscript".to_owned(),
                 kind: ParamType::Bytes,
             },
         ],

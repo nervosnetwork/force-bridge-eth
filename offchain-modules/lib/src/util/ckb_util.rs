@@ -245,11 +245,15 @@ pub fn parse_main_chain_headers(data: Vec<u8>) -> Result<(Vec<BlockHeader>, Vec<
 
 pub fn create_bridge_lockscript(
     deployed_contracts: &DeployedContracts,
-    // eth_proof: &ETHSPVProofJson,
     token: &H160,
     eth_address: &H160,
-    cell_script: Script,
 ) -> Result<Script> {
+    let cell_script = parse_cell(
+        deployed_contracts
+            .light_client_cell_script
+            .cell_script
+            .as_str(),
+    )?;
     let lockscript_code_hash = hex::decode(&deployed_contracts.bridge_lockscript.code_hash)?;
     use force_eth_types::generated::basic::ETHAddress;
     let args = ETHBridgeLockArgs::new_builder()

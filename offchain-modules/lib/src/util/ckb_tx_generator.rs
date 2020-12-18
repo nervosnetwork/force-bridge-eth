@@ -181,17 +181,9 @@ impl Generator {
             .build();
         let output = CellOutput::new_builder()
             .capacity(Capacity::shannons(cap).pack())
-            // .lock(multisig_script)
-            // .type_(Some(typescript.clone()).pack())
             .build();
         helper.add_output(output.clone(), Default::default());
-        // let mut ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
-        //     .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
 
-        // let secret_key = parse_privkey_path(&priv_key_path, &force_config, &network)?;
-        // let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &secret_key);
-        // let address_payload = AddressPayload::from_pubkey(&from_public_key);
-        // let from_lockscript = Script::from(&address_payload);
         let unsigned_tx = helper
             .supply_capacity(
                 &mut self.rpc_client,
@@ -458,7 +450,7 @@ impl Generator {
             &self.deployed_contracts,
             &eth_proof.token,
             &eth_proof.eth_address,
-            cell_script,
+            // cell_script,
         )?;
 
         // input bridge cells
@@ -497,8 +489,9 @@ impl Generator {
             let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript).unwrap();
 
             let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash)?;
+            let code_hash = Byte32::from_slice(&sudt_typescript_code_hash)?;
             let sudt_typescript = Script::new_builder()
-                .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
+                .code_hash(code_hash)
                 .hash_type(self.deployed_contracts.sudt.hash_type.into())
                 .args(lockscript.calc_script_hash().as_bytes().pack())
                 .build();
@@ -696,14 +689,19 @@ impl Generator {
                 .map_err(|err| anyhow!(err))?;
         }
 
-        let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            self.deployed_contracts.bridge_lockscript.hash_type,
-            &self.deployed_contracts.sudt.code_hash,
-            self.deployed_contracts.sudt.hash_type,
-            token_addr,
-            lock_contract_addr,
+        let bridge_lockscript = create_bridge_lockscript(
+            &self.deployed_contracts,
+            &lock_contract_addr,
+            &lock_contract_addr,
         )?;
+        let sudt_typescript_code_hash =
+            hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash)
+                .map_err(|err| anyhow!(err))?;
+        let sudt_typescript = Script::new_builder()
+            .code_hash(Byte32::from_slice(&sudt_typescript_code_hash).map_err(|err| anyhow!(err))?)
+            .hash_type(self.deployed_contracts.bridge_lockscript.hash_type.into())
+            .args(bridge_lockscript.calc_script_hash().as_bytes().pack())
+            .build();
 
         // gen output of eth_recipient cell
         {
