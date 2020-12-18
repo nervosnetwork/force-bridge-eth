@@ -426,7 +426,7 @@ impl Generator {
                 .cell_script
                 .as_str(),
         )?;
-        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script.clone())
+        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
             .map_err(|err| anyhow!(err))?
             .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
         let mut builder = helper.transaction.as_advanced_builder();

@@ -3,5 +3,5 @@ import basic;
 struct ETHBridgeLockArgs {
     eth_contract_address: ETHAddress,
     eth_token_address: ETHAddress,
-    typescript_hash: Byte32,
+    light_client_typescript_hash: Byte32,
 }

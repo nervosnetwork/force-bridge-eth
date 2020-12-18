@@ -261,7 +261,7 @@ pub fn create_bridge_lockscript(
         .eth_contract_address(
             ETHAddress::from_slice(&eth_address.as_bytes()).map_err(|err| anyhow!(err))?,
         )
-        .typescript_hash(force_eth_types::generated::basic::Byte32::from_slice(
+        .light_client_typescript_hash(force_eth_types::generated::basic::Byte32::from_slice(
             cell_script.calc_script_hash().raw_data().as_ref(),
         )?)
         .build();
