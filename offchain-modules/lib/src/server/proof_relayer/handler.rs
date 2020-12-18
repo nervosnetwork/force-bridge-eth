@@ -117,34 +117,15 @@ pub async fn relay_eth_to_ckb_proof(
         from_privkey,
     )
     .await?;
-    record.token_addr = Some(hex::encode(eth_proof.token.as_bytes()));
-    record.ckb_recipient_lockscript = Some(hex::encode(eth_proof.recipient_lockscript));
-    record.locked_amount = Some(Uint128::from(eth_proof.lock_amount).to_string());
-    update_eth_to_ckb_status(db, &record).await?;
-    for i in 0u8..100 {
-        let status = generator
-            .rpc_client
-            .get_transaction(tx_hash.clone())
-            .map_err(|e| anyhow!("get tx err: {}", e))?
-            .map(|t| t.tx_status.status);
-        log::debug!(
-            "lock tx hash {}, waiting for mint tx {} to be committed, loop index: {}, status: {:?}",
-            &eth_lock_tx_hash,
-            &tx_hash,
-            i,
-            status
-        );
-        if status == Some(ckb_jsonrpc_types::Status::Committed) {
-            break;
-        }
-        tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
-    }
     log::info!(
         "relay lock tx {} successfully, mint tx {}",
         eth_lock_tx_hash,
         tx_hash
     );
     // save result to db
+    record.token_addr = Some(hex::encode(eth_proof.token.as_bytes()));
+    record.ckb_recipient_lockscript = Some(hex::encode(eth_proof.recipient_lockscript));
+    record.locked_amount = Some(Uint128::from(eth_proof.lock_amount).to_string());
     record.status = "success".to_owned();
     record.ckb_tx_hash = Some(format!("0x{}", tx_hash));
     update_eth_to_ckb_status(db, &record).await?;
