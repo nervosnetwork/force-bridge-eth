@@ -1,4 +1,4 @@
-use crate::transfer::to_eth::get_add_ckb_headers_func;
+use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash, get_msg_signature};
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::eth_util::{convert_eth_address, relay_header_transaction, Web3Client};
 use anyhow::{anyhow, Result};
@@ -17,6 +17,14 @@ pub struct CKBRelayer {
     pub web3_client: Web3Client,
     pub gas_price: U256,
 }
+
+const MULTI_SIGN_PRIVKEYS: [&str; 5] = [
+    "69bafc931c7d9adf05438dd809cdf872b225c9f3ec22ac2ac39a79ceb9f835e3",
+    "9a38a7479585405d90f40c7c4fa3659511097e3f412597325b825ff7622817c2",
+    "f30b8db0353241214a63cc7a177b7dd50d168ac59fe0b37fa0ddc73aed75909f",
+    "19250ff28a17b6656f08adfedf5edaf1a40b039d1c55dac88271ed49aea64f3c",
+    "c90abd3690a074cbc94918741d1c57d51276c1447728706f0e247b1fb0f482aa",
+];
 
 impl CKBRelayer {
     pub fn new(
@@ -40,7 +48,13 @@ impl CKBRelayer {
             gas_price,
         })
     }
-    pub async fn start(&mut self, eth_url: String, per_amount: u64) -> Result<()> {
+
+    pub async fn start(
+        &mut self,
+        eth_url: String,
+        per_amount: u64,
+        max_tx_amount: u64,
+    ) -> Result<()> {
         let mut client_block_number = self
             .web3_client
             .get_contract_height("latestBlockNumber", self.contract_addr)
@@ -88,7 +102,13 @@ impl CKBRelayer {
         let mut sequence: u64 = 0;
 
         let mut futures = vec![];
-        while block_height + per_amount < ckb_current_height {
+
+        let mut target_height = block_height + per_amount * max_tx_amount;
+        if target_height > ckb_current_height {
+            target_height = ckb_current_height;
+        }
+
+        while block_height + per_amount <= target_height {
             let height_range = block_height..block_height + per_amount;
             block_height += per_amount;
 
@@ -115,7 +135,20 @@ impl CKBRelayer {
         );
 
         let add_headers_func = get_add_ckb_headers_func();
-        let add_headers_abi = add_headers_func.encode_input(&[Token::Bytes(headers)])?;
+        let chain_id = self.web3_client.client().eth().chain_id().await?;
+        let headers_msg_hash = get_msg_hash(chain_id, self.contract_addr, &headers)?;
+
+        let mut signatures: Vec<u8> = vec![];
+        for &privkey in MULTI_SIGN_PRIVKEYS.iter() {
+            let eth_private_key =
+                ethereum_types::H256::from_slice(hex::decode(privkey)?.as_slice());
+            let mut signature = get_msg_signature(&headers_msg_hash, eth_private_key)?;
+            signatures.append(&mut signature);
+        }
+        info!("msg signatures {}", hex::encode(&signatures));
+
+        let add_headers_abi =
+            add_headers_func.encode_input(&[Token::Bytes(headers), Token::Bytes(signatures)])?;
         let increased_gas_price =
             self.web3_client.client().eth().gas_price().await?.as_u128() * 3 / 2;
         let signed_tx = self
