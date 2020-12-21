@@ -41,3 +41,5 @@ derive_more = "0.99"
 actix-cors = "0.5"
 sqlx = { version = "0.4.0", features = [ "sqlite", "runtime-actix-native-tls" ] }
 rand = "0.7.3"
+crossbeam-channel = "0.4.4"
+reqwest = { version = "0.10", features = ["blocking", "json"] }

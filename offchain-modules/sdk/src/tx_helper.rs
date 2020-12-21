@@ -71,6 +71,23 @@ pub fn sign(
     tx_helper.sign(get_live_cell_fn, privkey)
 }
 
+#[allow(clippy::mutable_key_type)]
+pub fn sign_with_multi_key(
+    tx: TransactionView,
+    rpc_client: &mut HttpRpcClient,
+    privkeys: Vec<&SecretKey>,
+    multisig_config: MultisigConfig,
+) -> Result<TransactionView, String> {
+    let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> = Default::default();
+    let get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+        get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+            .map(|(output, _)| output)
+    };
+    let mut tx_helper = TxHelper::new(tx);
+    tx_helper.add_multisig_config(multisig_config);
+    tx_helper.sign_with_multi_key(get_live_cell_fn, privkeys)
+}
+
 /// A transaction helper handle input/output with secp256k1(sighash/multisg) lock
 ///  1. Sign transaction
 ///  2. Inspect transaction information
@@ -544,6 +561,20 @@ impl TxHelper {
         let signer = get_privkey_signer(*privkey);
         for (lock_arg, signature) in self.sign_inputs(signer, &mut get_live_cell_fn, true)? {
             self.add_signature(lock_arg, signature)?;
+        }
+        self.build_tx(&mut get_live_cell_fn, true)
+    }
+
+    pub fn sign_with_multi_key<F: FnMut(OutPoint, bool) -> Result<CellOutput, String>>(
+        &mut self,
+        mut get_live_cell_fn: F,
+        privkeys: Vec<&SecretKey>,
+    ) -> Result<TransactionView, String> {
+        for key in privkeys {
+            let signer = get_privkey_signer(*key);
+            for (lock_arg, signature) in self.sign_inputs(signer, &mut get_live_cell_fn, true)? {
+                self.add_signature(lock_arg, signature)?;
+            }
         }
         self.build_tx(&mut get_live_cell_fn, true)
     }

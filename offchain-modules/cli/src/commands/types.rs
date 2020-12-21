@@ -11,7 +11,8 @@ pub struct Opts {
 pub enum SubCommand {
     Server(ServerArgs),
     InitCkbLightContract(InitCkbLightContractArgs),
-    Init(InitArgs),
+    InitConfig(InitConfigArgs),
+    InitMultiSignAddress(InitMultiSignAddressArgs),
     DeployCKB(DeployCKBArgs),
     CreateBridgeCell(CreateBridgeCellArgs),
     TransferToCkb(TransferToCkbArgs),
@@ -29,6 +30,7 @@ pub enum SubCommand {
     QuerySudtBlance(SudtGetBalanceArgs),
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
+    RelayerMonitor(RelayerMonitorArgs),
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -88,7 +90,7 @@ pub struct InitCkbLightContractArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct InitArgs {
+pub struct InitConfigArgs {
     #[clap(short = 'f', long)]
     pub force: bool,
     #[clap(short = 'p', long)]
@@ -106,6 +108,22 @@ pub struct InitArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
+pub struct InitMultiSignAddressArgs {
+    #[clap(long)]
+    pub multi_address: Vec<String>,
+    #[clap(long, default_value = "2")]
+    pub threshold: u8,
+    #[clap(long, default_value = "0")]
+    pub require_first_n: u8,
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+}
+
+#[derive(Clap, Clone, Debug)]
 pub struct DeployCKBArgs {
     #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
@@ -113,6 +131,8 @@ pub struct DeployCKBArgs {
     pub network: Option<String>,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
+    #[clap(long)]
+    pub type_id: bool,
     #[clap(long)]
     pub sudt: bool,
 }
@@ -290,8 +310,8 @@ pub struct EthRelayArgs {
     pub network: Option<String>,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
-    #[clap(long, default_value = "data/proof_data.json")]
-    pub proof_data_path: String,
+    #[clap(long)]
+    pub multisig_privkeys: Vec<String>,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -354,4 +374,24 @@ pub struct SudtGetBalanceArgs {
     pub addr: String,
     #[clap(long)]
     pub token_addr: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct RelayerMonitorArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(long, default_value = "30")]
+    pub ckb_alarm_number: u64,
+    #[clap(long, default_value = "30")]
+    pub eth_alarm_number: u64,
+    #[clap(long, default_value = "[ckb_conservator]")]
+    pub ckb_conservator: Vec<String>,
+    #[clap(long, default_value = "[eth_conservator]")]
+    pub eth_conservator: Vec<String>,
+    #[clap(long)]
+    pub alarm_url: String,
+    #[clap(long, default_value = "5")]
+    pub minute_interval: u64,
 }
