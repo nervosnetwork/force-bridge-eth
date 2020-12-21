@@ -350,3 +350,18 @@ impl ForceConfig {
             .map_err(|e| anyhow!("fail to write scripts config. err: {}", e))
     }
 }
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct CKBRelayMultiSignConf {
+    pub privkeys: Vec<String>,
+    pub threshold: usize,
+}
+impl CKBRelayMultiSignConf {
+    pub fn new(config_path: &str) -> Result<Self, ConfigError> {
+        let config_path = tilde(config_path).into_owned();
+        let mut s = Config::new();
+        s.merge(File::with_name(config_path.as_str()))?;
+        s.merge(Environment::with_prefix("app"))?;
+        s.try_into()
+    }
+}

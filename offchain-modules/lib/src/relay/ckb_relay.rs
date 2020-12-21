@@ -1,5 +1,6 @@
 use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash, get_msg_signature};
 use crate::util::ckb_tx_generator::Generator;
+use crate::util::config::CKBRelayMultiSignConf;
 use crate::util::eth_util::{convert_eth_address, relay_header_transaction, Web3Client};
 use anyhow::{anyhow, Result};
 use ethabi::Token;
@@ -16,15 +17,8 @@ pub struct CKBRelayer {
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
     pub gas_price: U256,
+    pub mutlisig_conf: CKBRelayMultiSignConf,
 }
-
-const MULTI_SIGN_PRIVKEYS: [&str; 5] = [
-    "69bafc931c7d9adf05438dd809cdf872b225c9f3ec22ac2ac39a79ceb9f835e3",
-    "9a38a7479585405d90f40c7c4fa3659511097e3f412597325b825ff7622817c2",
-    "f30b8db0353241214a63cc7a177b7dd50d168ac59fe0b37fa0ddc73aed75909f",
-    "19250ff28a17b6656f08adfedf5edaf1a40b039d1c55dac88271ed49aea64f3c",
-    "c90abd3690a074cbc94918741d1c57d51276c1447728706f0e247b1fb0f482aa",
-];
 
 impl CKBRelayer {
     pub fn new(
@@ -34,6 +28,7 @@ impl CKBRelayer {
         priv_key: H256,
         eth_ckb_chain_addr: String,
         gas_price: u64,
+        mutlisig_conf: CKBRelayMultiSignConf,
     ) -> Result<CKBRelayer> {
         let contract_addr = convert_eth_address(&eth_ckb_chain_addr)?;
         let ckb_client = Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
@@ -46,6 +41,7 @@ impl CKBRelayer {
             ckb_client,
             web3_client,
             gas_price,
+            mutlisig_conf,
         })
     }
 
@@ -139,10 +135,10 @@ impl CKBRelayer {
         let headers_msg_hash = get_msg_hash(chain_id, self.contract_addr, &headers)?;
 
         let mut signatures: Vec<u8> = vec![];
-        for &privkey in MULTI_SIGN_PRIVKEYS.iter() {
-            let eth_private_key =
-                ethereum_types::H256::from_slice(hex::decode(privkey)?.as_slice());
-            let mut signature = get_msg_signature(&headers_msg_hash, eth_private_key)?;
+        for i in 0..self.mutlisig_conf.threshold {
+            let privkey =
+                H256::from_slice(hex::decode(self.mutlisig_conf.privkeys[i].clone())?.as_slice());
+            let mut signature = get_msg_signature(&headers_msg_hash, privkey)?;
             signatures.append(&mut signature);
         }
         info!("msg signatures {}", hex::encode(&signatures));

@@ -324,10 +324,12 @@ pub struct CkbRelayArgs {
     pub private_key_path: String,
     #[clap(short, long)]
     pub per_amount: u64,
-    #[clap(short, long, default_value = "50")]
+    #[clap(long, default_value = "50")]
     pub max_tx_count: u64,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
+    #[clap(short, long, default_value = "~/.force-bridge/ckb_multisig_conf.toml")]
+    pub multisig_conf_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
