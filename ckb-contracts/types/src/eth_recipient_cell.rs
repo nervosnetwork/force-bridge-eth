@@ -146,6 +146,7 @@ mod tests {
             eth_bridge_lock_hash: [1u8; 32],
             token_amount: 100,
             fee: 100,
+            light_client_typescript_hash: [1u8; 32],
         };
 
         let mol_data = eth_recipient_data.as_molecule_data().unwrap();

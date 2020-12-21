@@ -45,6 +45,7 @@ mod tests {
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_bridge_lock_hash: [1u8; 32],
+            light_client_typescript_hash: [1u8; 32],
             token_amount: 100,
             fee: 1,
         };
@@ -63,6 +64,7 @@ mod tests {
     #[should_panic]
     fn mock_return_err_when_input_less_than_output() {
         let data = ETHRecipientDataView {
+            light_client_typescript_hash: [1u8; 32],
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
@@ -85,6 +87,7 @@ mod tests {
     #[should_panic]
     fn mock_return_err_when_burned_amount_not_equal_data_amount() {
         let data = ETHRecipientDataView {
+            light_client_typescript_hash: [1u8; 32],
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
@@ -107,6 +110,7 @@ mod tests {
     #[should_panic]
     fn mock_return_err_when_fee_is_too_much() {
         let data = ETHRecipientDataView {
+            light_client_typescript_hash: [1u8; 32],
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
