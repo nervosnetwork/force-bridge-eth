@@ -3,8 +3,8 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::{bytes::Bytes, packed::Script};
 use ckb_std::error::SysError;
 use ckb_std::high_level::{
-    load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_input_out_point,
-    load_script_hash, load_witness_args, QueryIter,
+    load_cell, load_cell_data, load_cell_lock_hash, load_cell_type, load_cell_type_hash,
+    load_input_out_point, load_script, load_script_hash, load_witness_args, QueryIter,
 };
 use molecule::prelude::Entity;
 use std::prelude::v1::*;
@@ -56,6 +56,14 @@ impl Adapter for ChainAdapter {
         let cell = load_cell(index, source)?;
         let data = load_cell_data(index, source)?;
         Ok((cell.type_().to_opt(), cell.lock(), data))
+    }
+
+    fn load_script_args(&self) -> Result<Bytes, SysError> {
+        Ok(load_script()?.args().raw_data())
+    }
+
+    fn load_dep_cell_typescript_hash(&self) -> Result<Option<[u8; 32]>, SysError> {
+        load_cell_type_hash(0, Source::CellDep)
     }
 }
 

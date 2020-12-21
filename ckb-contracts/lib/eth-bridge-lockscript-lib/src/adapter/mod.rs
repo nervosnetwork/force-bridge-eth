@@ -40,6 +40,10 @@ pub trait Adapter {
         source: Source,
     ) -> Result<(Option<Script>, Script, Vec<u8>), SysError>;
 
+    fn load_script_args(&self) -> Result<Bytes, SysError>;
+
+    fn load_dep_cell_typescript_hash(&self) -> Result<Option<[u8; 32]>, SysError>;
+
     fn get_associated_udt_script(&self) -> Script {
         let script_hash = self.load_script_hash();
         Script::new_builder()

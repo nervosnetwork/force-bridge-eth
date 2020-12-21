@@ -18,6 +18,7 @@ use std::prelude::v1::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ETHLockEvent {
+    pub contract_address: [u8; 20],
     pub token: [u8; 20],
     pub sender: [u8; 20],
     pub locked_amount: U256,
@@ -71,7 +72,10 @@ impl ETHLockEvent {
         let sudt_extra_data = data
             [(sudt_extra_data_offset + 32)..(sudt_extra_data_offset + 32 + sudt_extra_data_len)]
             .to_vec();
+
+        let contract_address = (log.address.0).0;
         Self {
+            contract_address,
             token,
             sender,
             locked_amount,

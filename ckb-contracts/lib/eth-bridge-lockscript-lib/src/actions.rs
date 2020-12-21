@@ -7,6 +7,7 @@ use eth_spv_lib::eth_types::*;
 use eth_spv_lib::ethspv;
 use force_eth_types::config::CONFIRM;
 use force_eth_types::eth_lock_event::ETHLockEvent;
+use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_header_cell::{ETHHeaderCellDataReader, ETHHeaderInfoReader};
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
 use molecule::prelude::*;
@@ -23,13 +24,8 @@ pub fn verify_manage_mode<T: Adapter>(data_loader: &T) {
 }
 
 pub fn verify_mint_token<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader) {
-    verify_eth_light_client();
     let eth_receipt_info = verify_witness(data_loader, witness);
     verify_eth_receipt_info(data_loader, eth_receipt_info);
-}
-
-fn verify_eth_light_client() {
-    // todo!()
 }
 
 /// Verify eth witness data.
@@ -178,9 +174,11 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
 }
 
 /// Verify eth receipt info.
-/// 1. Verify ckb_recipient_address get a number of token_amount cToken.
-/// 2. Verify token_address equals to args.token_address.
-/// 3. Verify replay_resist_cell_id exists in inputs.
+/// 1. Verify replay_resist_cell_id exists in inputs.
+/// 2. verify contract_address equals to args.contract_address.
+/// 3. Verify token_address equals to args.token_address.
+/// 4. Verify dep cell typescript hash equals to args.eth_light_client_typescript_hash.
+/// 4. Verify ckb_recipient_address get a number of token_amount cToken.
 fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLockEvent) {
     debug!(
         "replay_resist_outpoint: {:?}",
@@ -189,6 +187,29 @@ fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLoc
     if !data_loader.outpoint_exists_in_inputs(eth_receipt_info.replay_resist_outpoint.as_ref()) {
         panic!("replay_resist_cell_id not exists in inputs");
     }
+
+    let script_args = data_loader.load_script_args().unwrap();
+    let bridge_args = ETHBridgeLockArgs::new_unchecked(script_args);
+
+    assert_eq!(
+        bridge_args.eth_contract_address().as_slice(),
+        &eth_receipt_info.contract_address
+    );
+    assert_eq!(
+        bridge_args.eth_token_address().as_slice(),
+        &eth_receipt_info.token
+    );
+
+    let light_client_typescript_hash = data_loader
+        .load_dep_cell_typescript_hash()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        bridge_args.eth_light_client_typescript_hash().as_slice(),
+        &light_client_typescript_hash
+    );
+
     let udt_typescript = data_loader.get_associated_udt_script();
     let udt_script_slice = udt_typescript.as_slice();
     let expected_mint_amount: u128 = eth_receipt_info

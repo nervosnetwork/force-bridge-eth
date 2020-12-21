@@ -51,8 +51,8 @@ pub fn verify_add_headers<T: Adapter>(data_loader: T) {
         Some(data) => verify_push_header(&data, &output_data, &new_headers, &new_headers_rlp),
         None => {
             assert_eq!(
-                data_loader.load_first_outpoint(),
-                data_loader.load_script_args(),
+                data_loader.load_first_outpoint().to_vec(),
+                data_loader.load_script_args().to_vec(),
                 "invalid first cell id"
             );
             verify_init_header(&output_data, &new_headers, &new_headers_rlp)
