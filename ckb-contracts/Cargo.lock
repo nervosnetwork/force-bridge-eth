@@ -846,6 +846,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c478836e029dcef17fb47c89023448c64f781a046e0300e257ad8225ae59afab"
 
 [[package]]
+name = "contracts-helper"
+version = "0.1.0"
+dependencies = [
+ "ckb-std",
+ "mockall",
+ "no-std-compat",
+]
+
+[[package]]
 name = "cookie"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1134,8 +1143,8 @@ dependencies = [
 name = "eth-bridge-lockscript-lib"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
  "ckb-std",
+ "contracts-helper",
  "eth-spv-lib 0.1.0",
  "ethereum-types",
  "force-eth-types",
@@ -1151,6 +1160,7 @@ name = "eth-bridge-typescript-lib"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
+ "contracts-helper",
  "eth-spv-lib 0.1.0",
  "ethereum-types",
  "force-eth-types",
@@ -1162,28 +1172,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "eth-light-client-lockscript-lib"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10",
- "ckb-std",
- "mockall",
- "molecule",
-]
-
-[[package]]
 name = "eth-light-client-typescript-lib"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
  "ckb-std",
- "eth-spv-lib 0.1.0",
+ "contracts-helper",
  "force-eth-types",
- "hex",
  "mockall",
  "molecule",
- "primitive-types",
- "rlp",
+ "no-std-compat",
 ]
 
 [[package]]
@@ -1191,11 +1188,12 @@ name = "eth-recipient-typescript-lib"
 version = "0.1.0"
 dependencies = [
  "blake2b-ref",
- "cfg-if 0.1.10",
  "ckb-std",
+ "contracts-helper",
  "force-eth-types",
  "mockall",
  "molecule",
+ "no-std-compat",
 ]
 
 [[package]]
