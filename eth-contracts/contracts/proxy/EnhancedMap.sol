@@ -1,4 +1,6 @@
-pragma solidity ^0.5.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "./SlotData.sol";
 
@@ -20,7 +22,7 @@ slot
 */
 contract EnhancedMap is SlotData {
 
-    constructor()public{}
+    constructor(){}
 
     //set value to 0x00 to delete
     function sysEnhancedMapSet(bytes32 slot, bytes32 key, bytes32 value) internal {

@@ -1,8 +1,10 @@
-pragma solidity ^0.5.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 contract SlotData {
 
-    constructor()public{}
+    constructor(){}
 
     // for map,  key could be 0x00, but value can't be 0x00;
     // if value == 0x00, it mean the key doesn't has any value

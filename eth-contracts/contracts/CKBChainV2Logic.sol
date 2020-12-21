@@ -13,75 +13,20 @@ import {EaglesongLib} from "./libraries/EaglesongLib.sol";
 import {ICKBChainV2} from "./interfaces/ICKBChainV2.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
+import "./CKBChainV2Layout.sol";
+import "./CKBChainV2ABI.sol";
+import "./CKBChainV2Library.sol";
+import "./proxy/Delegate.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
-contract CKBChainV2 is ICKBChainV2, ICKBSpv {
+contract CKBChainV2Logic is Delegate, CKBChainV2Layout, CKBChainV2ABI {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
 
-    // CHAIN_VERSION means chain_id on CKB CHAIN
-    uint32 public constant CHAIN_VERSION = 0;
-
-    // We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
-    // Events that happen past this threshold cannot be verified by the client.
-    // It is desirable that this number is larger than 7 days worth of headers, which is roughly
-    // 40k ckb blocks. So this number should be 40k in production.
-    uint64 public CanonicalGcThreshold;
-    // We store full information about the headers for the past `FinalizedGcThreshold` blocks.
-    // This is required to be able to adjust the canonical chain when the fork switch happens.
-    // The commonly used number is 500 blocks, so this number should be 500 in production.
-    uint64 public FinalizedGcThreshold;
-
-    // Minimal information about the submitted block.
-    struct BlockHeader {
-        uint64 number;
-        uint64 epoch;
-        uint256 difficulty;
-        uint256 totalDifficulty;
-        bytes32 parentHash;
-    }
-
-    // Whether the contract was initialized.
-    bool public initialized;
-    uint64 public latestBlockNumber;
-    uint64 public initBlockNumber;
-    BlockHeader latestHeader;
-
-    // Todo will remove the governance when optimistic phase
-    address public governance;
-    uint256 MOCK_DIFFICULTY = 1;
-
-    // Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
-    // entries.
-    // header number -> header hash
-    mapping(uint64 => bytes32) canonicalHeaderHashes;
-
-    // TransactionRoots of the canonical chain mapped to their headerHash. Stores up to `canonical_gc_threshold`
-    // entries.
-    // header hash -> transactionRoots from the header
-    mapping(bytes32 => bytes32) canonicalTransactionsRoots;
-
-    // All known header hashes. Stores up to `finalized_gc_threshold`.
-    // header number -> hashes of all headers with this number.
-    mapping(uint64 => bytes32[]) allHeaderHashes;
-
-    // Known headers. Stores up to `finalized_gc_threshold`.
-    mapping(bytes32 => BlockHeader) blockHeaders;
-
-    // refer to https://github.com/ethereum/EIPs/blob/master/EIPS/eip-712.md
-    uint public constant SIGNATURE_SIZE = 65;
-    uint public constant VALIDATORS_SIZE_LIMIT = 20;
-    string public constant name = "Force Bridge CKBChain";
-    // ADD_HEADERS_TYPEHASH = keccak256("AddHeaders(bytes data)");
-    bytes32 public constant ADD_HEADERS_TYPEHASH = 0xfa98e6fcbad03c89f421602d77ef593b53ee59d7442ea61663cb69d2a29a764d;
-    bytes32 public DOMAIN_SEPARATOR;
-    // if the number of verified signatures has reached `multisigThreshold_`, validators approve the tx
-    uint public multisigThreshold_;
-    address[] validators_;
 
     // @notice             requires `memView` to be of a specified type
     // @param memView      a 29-byte view with a 5-byte type
@@ -161,33 +106,8 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
         require(verifiedNum >= threshold, "signatures not verified");
     }
 
-    constructor(
-        address[] memory validators,
-        uint multisigThreshold,
-        uint chainId
-    ) {
-        governance = msg.sender;
-
-        // set DOMAIN_SEPARATOR
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes(name)),
-                keccak256(bytes("1")),
-                chainId,
-                address(this)
-            )
-        );
-
-        // set validators
-        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
-        validators_ = validators;
-        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
-        multisigThreshold_ = multisigThreshold;
-    }
-
     // query
-    function getLatestBlockNumber() view public returns (uint64) {
+    function getLatestBlockNumber() public view returns (uint64) {
         return latestBlockNumber;
     }
 
@@ -246,7 +166,7 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
         uint256 difficulty = CKBPow.targetToDifficulty(target);
         uint64 blockNumber = rawHeaderView.blockNumber();
         initBlockNumber = blockNumber;
-        BlockHeader memory header = BlockHeader(
+        CKBChainV2Library.BlockHeader memory header = CKBChainV2Library.BlockHeader(
             blockNumber,
             rawHeaderView.epoch(),
             difficulty,
@@ -315,7 +235,7 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
         );
         bytes32 parentHash = rawHeaderView.parentHash();
 
-        BlockHeader memory parentHeader = blockHeaders[parentHash];
+        CKBChainV2Library.BlockHeader memory parentHeader = blockHeaders[parentHash];
         require(
             parentHeader.totalDifficulty > 0 &&
                 parentHeader.number + 1 == blockNumber,
@@ -328,7 +248,7 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
 
         // ## insert header to storage
         // 1. insert to blockHeaders
-        BlockHeader memory header = BlockHeader(
+        CKBChainV2Library.BlockHeader memory header = CKBChainV2Library.BlockHeader(
             blockNumber,
             rawHeaderView.epoch(),
             difficulty,
@@ -356,7 +276,7 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
     function _verifyPow(
         bytes29 headerView,
         bytes29 rawHeaderView,
-        BlockHeader memory parentHeader
+        CKBChainV2Library.BlockHeader memory parentHeader
     ) internal view returns (uint256) {
         bytes32 rawHeaderHash = CKBCrypto.digest(rawHeaderView.clone(), 192);
 
@@ -403,7 +323,7 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
     }
 
     function _refreshCanonicalChain(
-        BlockHeader memory header,
+        CKBChainV2Library.BlockHeader memory header,
         bytes32 blockHash
     ) internal {
         // remove lower difficulty canonical branch

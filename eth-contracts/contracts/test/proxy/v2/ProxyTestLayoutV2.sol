@@ -1,4 +1,6 @@
-pragma solidity ^0.5.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "../ProxyTestLibrary.sol";
 import "../v1/ProxyTestLayoutV1.sol";

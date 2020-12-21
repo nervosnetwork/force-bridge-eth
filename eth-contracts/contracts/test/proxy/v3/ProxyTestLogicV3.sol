@@ -1,5 +1,6 @@
-pragma solidity ^0.5.7;
-pragma experimental ABIEncoderV2;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "../../../proxy/Delegate.sol";
 import "../ProxyTestLibrary.sol";
@@ -24,7 +25,7 @@ contract ProxyTestLogicV3 is Delegate, ProxyTestLayoutV3, ProxyTestInterfaceV3 {
     //setSlot2()
     //getSlot2()
 
-    function getSlot1() external returns(uint256){
+    function getSlot1() external view returns(uint256){
         return slot1_uint256;
     }
 
@@ -32,7 +33,7 @@ contract ProxyTestLogicV3 is Delegate, ProxyTestLayoutV3, ProxyTestInterfaceV3 {
         slot4_dynamic_array.push(input);
     }
 
-    function getSlot4(uint256 input) public returns(uint256){
+    function getSlot4(uint256 input) public view returns(uint256){
         return slot4_dynamic_array[input];
     }
 
@@ -41,7 +42,7 @@ contract ProxyTestLogicV3 is Delegate, ProxyTestLayoutV3, ProxyTestInterfaceV3 {
         slot5_and_6_static_array[1] = right;
     }
 
-    function getSlot5() public returns(uint256 left, uint256 right){
+    function getSlot5() public view returns(uint256 left, uint256 right){
         left = slot5_and_6_static_array[0];
         right = slot5_and_6_static_array[1];
     }

@@ -1,13 +1,15 @@
-pragma solidity ^0.5.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "./Base.sol";
 import "./EnhancedMap.sol";
 import "./EnhancedUniqueIndexMap.sol";
 
-contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
-    constructor (address admin) public {
+abstract contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
+    constructor (address admin) {
         require(admin != address(0));
-        sysSaveSlotData(adminSlot, bytes32(uint256(admin)));
+        sysSaveSlotData(adminSlot, bytes32(uint256(uint160(admin))));
         sysSaveSlotData(userSigZeroSlot, bytes32(uint256(0)));
         sysSaveSlotData(outOfServiceSlot, bytes32(uint256(0)));
         sysSaveSlotData(revertMessageSlot, bytes32(uint256(1)));
@@ -44,11 +46,11 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
     }
 
     function sysGetDelegateAddress(uint256 index) public view returns (address){
-        return address(uint256(sysUniqueIndexMapGetValue(delegatesSlot, index)));
+        return address(uint160(uint256(sysUniqueIndexMapGetValue(delegatesSlot, index))));
     }
 
     function sysGetDelegateIndex(address addr) public view returns (uint256) {
-        return uint256(sysUniqueIndexMapGetIndex(delegatesSlot, bytes32(uint256(addr))));
+        return uint256(sysUniqueIndexMapGetIndex(delegatesSlot, bytes32(uint256(uint160(addr)))));
     }
 
     function sysGetDelegateAddresses() public view returns (address[] memory){
@@ -63,7 +65,7 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
     //add delegates on current version
     function sysAddDelegates(address[] memory _inputs) public onlyAdmin {
         for (uint256 i = 0; i < _inputs.length; i ++) {
-            sysUniqueIndexMapAdd(delegatesSlot, bytes32(uint256(_inputs[i])));
+            sysUniqueIndexMapAdd(delegatesSlot, bytes32(uint256(uint160(_inputs[i]))));
             emit DelegateSet(_inputs[i], true);
         }
     }
@@ -97,7 +99,7 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
                 sysSetSigZero(address(0x00));
             }
 
-            sysUniqueIndexMapDelArrange(delegatesSlot, bytes32(uint256(_inputs[i])));
+            sysUniqueIndexMapDelArrange(delegatesSlot, bytes32(uint256(uint160(_inputs[i]))));
             emit DelegateSet(_inputs[i], false);
         }
     }
@@ -106,7 +108,7 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
     function sysReplaceDelegates(address[] memory _delegatesToDel, address[] memory _delegatesToAdd) public onlyAdmin {
         require(_delegatesToDel.length == _delegatesToAdd.length, "sysReplaceDelegates, length does not match");
         for (uint256 i = 0; i < _delegatesToDel.length; i ++) {
-            sysUniqueIndexMapReplace(delegatesSlot, bytes32(uint256(_delegatesToDel[i])), bytes32(uint256(_delegatesToAdd[i])));
+            sysUniqueIndexMapReplace(delegatesSlot, bytes32(uint256(uint160(_delegatesToDel[i]))), bytes32(uint256(uint160(_delegatesToAdd[i]))));
             emit DelegateSet(_delegatesToDel[i], false);
             emit DelegateSet(_delegatesToAdd[i], true);
         }
@@ -115,19 +117,19 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
     //=============================================
 
     function sysGetSigZero() public view returns (address){
-        return address(uint256(sysLoadSlotData(userSigZeroSlot)));
+        return address(uint160(uint256(sysLoadSlotData(userSigZeroSlot))));
     }
 
     function sysSetSigZero(address _input) public onlyAdmin {
-        sysSaveSlotData(userSigZeroSlot, bytes32(uint256(_input)));
+        sysSaveSlotData(userSigZeroSlot, bytes32(uint256(uint160(_input))));
     }
 
     function sysGetAdmin() public view returns (address){
-        return address(uint256(sysLoadSlotData(adminSlot)));
+        return address(uint160(uint256(sysLoadSlotData(adminSlot))));
     }
 
     function sysSetAdmin(address _input) external onlyAdmin {
-        sysSaveSlotData(adminSlot, bytes32(uint256(_input)));
+        sysSaveSlotData(adminSlot, bytes32(uint256(uint160(_input))));
     }
 
     function sysGetRevertMessage() public view returns (uint256){
@@ -161,7 +163,7 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
 
         require(selector != bytes4(0x00), "sysSetSelectorAndDelegate, selector should not be selector");
         //require(delegates[i] != address(0x00));
-        address oldDelegate = address(uint256(sysEnhancedMapGet(userAbiSlot, bytes32(selector))));
+        address oldDelegate = address(uint160(uint256(sysEnhancedMapGet(userAbiSlot, bytes32(selector)))));
         if (oldDelegate == delegate) {
             //if oldDelegate == 0 & delegate == 0
             //if oldDelegate == delegate != 0
@@ -170,7 +172,7 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
         if (oldDelegate == address(0x00)) {
             //delegate != 0
             //adding new value
-            sysEnhancedMapAdd(userAbiSlot, bytes32(selector), bytes32(uint256(delegate)));
+            sysEnhancedMapAdd(userAbiSlot, bytes32(selector), bytes32(uint256(uint160(delegate))));
             sysUniqueIndexMapAdd(userAbiSearchSlot, bytes32(selector));
         }
         if (delegate == address(0x00)) {
@@ -182,14 +184,14 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
         } else {
             //oldDelegate != delegate & oldDelegate != 0 & delegate !=0
             //updating
-            sysEnhancedMapReplace(userAbiSlot, bytes32(selector), bytes32(uint256(delegate)));
+            sysEnhancedMapReplace(userAbiSlot, bytes32(selector), bytes32(uint256(uint160(delegate))));
         }
 
 
     }
 
     function sysGetDelegateBySelector(bytes4 selector) public view returns (address){
-        return address(uint256(sysEnhancedMapGet(userAbiSlot, bytes32(selector))));
+        return address(uint160(uint256(sysEnhancedMapGet(userAbiSlot, bytes32(selector)))));
     }
 
     function sysCountSelectors() public view returns (uint256){
@@ -231,7 +233,7 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
 
     //since low-level address.delegateCall is available in solidity,
     //we don't need to write assembly
-    function() external payable outOfService {
+    fallback(bytes calldata) external payable outOfService returns (bytes memory){
 
         /*
         the default transfer will set data to empty,
@@ -316,8 +318,8 @@ contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
             uint256 b = uint256(tt);
             uint256 high = b / 0x10;
             uint256 low = b % 0x10;
-            byte highAscii = alphabet[high];
-            byte lowAscii = alphabet[low];
+            bytes1 highAscii = alphabet[high];
+            bytes1 lowAscii = alphabet[low];
             ret[2 * i] = highAscii;
             ret[2 * i + 1] = lowAscii;
         }

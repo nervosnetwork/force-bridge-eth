@@ -1,5 +1,6 @@
-pragma solidity ^0.5.7;
-pragma experimental ABIEncoderV2;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "../../../proxy/Delegate.sol";
 import "./ProxyTestLayoutV1.sol";
@@ -14,11 +15,11 @@ contract ProxyTestLogicV1 is Delegate, ProxyTestLayoutV1, ProxyTestInterfaceV1 {
         slot1_uint256 = input;
     }
 
-    function getSlot1() external returns(uint256){
+    function getSlot1() external view returns(uint256){
         return getSlot1_internal();
     }
 
-    function getSlot1_internal() internal returns(uint256){
+    function getSlot1_internal() internal view returns(uint256){
         return slot1_uint256;
     }
 
@@ -30,7 +31,7 @@ contract ProxyTestLogicV1 is Delegate, ProxyTestLayoutV1, ProxyTestInterfaceV1 {
         slot2_map[input_addr] = input_rec;
     }
 
-    function getSlot2(address input) public returns(ProxyTestLibrary.Record memory){
+    function getSlot2(address input) public view returns(ProxyTestLibrary.Record memory){
         return slot2_map[input];
     }
 }

@@ -2,7 +2,9 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-interface ICKBChain {
+import "./interfaces/ICKBSpv.sol";
+
+abstract contract CKBChainV2ABI is ICKBSpv{
     event BlockHashAdded(
         uint64 indexed blockNumber,
         bytes32 blockHash
@@ -13,5 +15,5 @@ interface ICKBChain {
         bytes32 blockHash
     );
 
-    function addHeaders(bytes calldata data) external;
+    function addHeaders(bytes calldata data, bytes calldata signatures) virtual external;
 }

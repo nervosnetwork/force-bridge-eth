@@ -1,7 +1,9 @@
-pragma solidity ^0.5.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
-contract Base {
-    constructor () public{
+abstract contract Base {
+    constructor () {
 
     }
 

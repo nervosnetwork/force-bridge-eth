@@ -1,10 +1,12 @@
-pragma solidity ^0.5.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 library  MultisigUtils {
-    /// @notice Extracts the r, s, and v parameters to `ecrecover(...)` from the signature at position `index` in a densely packed signatures bytes array.
-    /// @dev Based on [OpenZeppelin's ECRecovery](https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/ECRecovery.sol)
-    /// @param signatures   The signatures bytes array
-    /// @param index        The index of the signature in the bytes array (0 indexed)
+    // @notice Extracts the r, s, and v parameters to `ecrecover(...)` from the signature at position `index` in a densely packed signatures bytes array.
+    // @dev Based on [OpenZeppelin's ECRecovery](https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/ECRecovery.sol)
+    // @param signatures   The signatures bytes array
+    // @param index        The index of the signature in the bytes array (0 indexed)
     function parseSignature(
         bytes memory signatures,
         uint index

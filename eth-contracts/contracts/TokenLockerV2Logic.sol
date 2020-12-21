@@ -10,8 +10,13 @@ import {CKBTxView} from "./libraries/CKBTxView.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {Address} from "./libraries/Address.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
+import {MultisigUtils} from "./libraries/MultisigUtils.sol";
+import "./TokenLockerV2Layout.sol";
+import "./TokenLockerV2ABI.sol";
+import "./proxy/Delegate.sol";
 
-contract TokenLocker {
+contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
+
     using SafeMath for uint256;
     using Address for address;
     using TypedMemView for bytes;
@@ -19,45 +24,94 @@ contract TokenLocker {
     using CKBTxView for bytes29;
     using ViewSpv for bytes29;
 
-    uint64 public numConfirmations_;
-    ICKBSpv public ckbSpv_;
-    bytes32 public recipientCellTypescriptCodeHash_;
-    uint8 public recipientCellTypescriptHashType_;
-    bytes32 public bridgeCellLockscriptCodeHash_;
+    /**
+     * @notice  if addr is not one of validators_, return validators_.length
+     * @return  index of addr in validators_
+     */
+    function getIndexOfValidators(address user) override internal view returns (uint) {
+        for (uint i = 0; i < validators_.length; i++) {
+            if (validators_[i] == user) {
+                return i;
+            }
+        }
+        return validators_.length;
+    }
 
-    // txHash -> Used
-    mapping(bytes32 => bool) public usedTx_;
+    /**
+     * @notice             @dev signatures are a multiple of 65 bytes and are densely packed.
+     * @param msgHash      sth. which signers sign
+     * @param signatures   The signatures bytes array
+     * @param threshold    check number of verified signatures >= `threshold`, signatures are approved by validators
+     */
+    function validatorsApprove(bytes32 msgHash, bytes memory signatures, uint threshold) override public view {
+        require(signatures.length % SIGNATURE_SIZE == 0, "invalid signatures");
+        // 1. check length of signature
+        uint length = signatures.length / SIGNATURE_SIZE;
+        require(length >= threshold, "length of signatures must greater than threshold");
 
-    event Locked(
-        address indexed token,
-        address indexed sender,
-        uint256 lockedAmount,
-        uint256 bridgeFee,
-        bytes recipientLockscript,
-        bytes replayResistOutpoint,
-        bytes sudtExtraData
-    );
+        // 2. check number of verified signatures >= threshold
+        uint verifiedNum = 0;
+        uint i = 0;
 
-    event Unlocked(
-        address indexed token,
-        address indexed recipient,
-        address indexed sender,
-        uint256 receivedAmount,
-        uint256 bridgeFee
-    );
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        address recoveredAddress;
+        // set indexVisited[ index of recoveredAddress in validators_ ] = true
+        bool[] memory validatorIndexVisited = new bool[](validators_.length);
+        uint validatorIndex;
+        while (i < length) {
+            (v, r, s) = MultisigUtils.parseSignature(signatures, i);
+            i++;
 
-    constructor(
-        address ckbSpvAddress,
-        uint64 numConfirmations,
-        bytes32 recipientCellTypescriptCodeHash,
-        uint8 typescriptHashType,
-        bytes32 bridgeCellLockscriptCodeHash
-    ) {
-        ckbSpv_ = ICKBSpv(ckbSpvAddress);
-        numConfirmations_ = numConfirmations;
-        recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
-        recipientCellTypescriptHashType_ = typescriptHashType;
-        bridgeCellLockscriptCodeHash_ = bridgeCellLockscriptCodeHash;
+            recoveredAddress = ecrecover(msgHash, v, r, s);
+            require(recoveredAddress != address(0), "invalid signature");
+
+            // get index of recoveredAddress in validators_
+            validatorIndex = getIndexOfValidators(recoveredAddress);
+
+            // recoveredAddress is not validator or has been visited
+            if (validatorIndex >= validators_.length || validatorIndexVisited[validatorIndex]) {
+                continue;
+            }
+
+            // recoveredAddress verified
+            validatorIndexVisited[validatorIndex] = true;
+            verifiedNum++;
+            if (verifiedNum >= threshold) {
+                return;
+            }
+        }
+
+        require(verifiedNum >= threshold, "signatures not verified");
+    }
+
+    function setNewCkbSpv(
+        address newSpvAddress,
+        uint nonce,
+        bytes memory signatures
+    ) override public {
+        // 1. check newSpvAddress and setNewCkbSpv nonce
+        require(newSpvAddress != address(0), "invalid newSpvAddress");
+        require(nonce == currentSetNewCkbSpvNonce, "invalid setNewCkbSpv nonce");
+        currentSetNewCkbSpvNonce++;
+
+        // 2. calc msgHash
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(
+                '\x19\x01', // solium-disable-line
+                DOMAIN_SEPARATOR,
+                keccak256(abi.encode(SET_NEW_CKB_SPV_TYPEHASH, newSpvAddress, nonce))
+            )
+        );
+
+        // 3. check if validatorsApprove
+        validatorsApprove(msgHash, signatures, multisigThreshold_);
+
+        // 4. if validatorsApproved, set new ckbSpv_
+        ckbSpv_ = ICKBSpv(newSpvAddress);
+
+        emit NewCkbSpv(newSpvAddress, nonce);
     }
 
     function lockETH(
@@ -65,7 +119,7 @@ contract TokenLocker {
         bytes memory recipientLockscript,
         bytes memory replayResistOutpoint,
         bytes memory sudtExtraData
-    ) public payable {
+    ) override public payable {
         require(msg.value > bridgeFee, "fee should not exceed bridge amount");
         emit Locked(
             address(0),
@@ -86,7 +140,7 @@ contract TokenLocker {
         bytes memory recipientLockscript,
         bytes memory replayResistOutpoint,
         bytes memory sudtExtraData
-    ) public {
+    ) override public {
         require(amount > bridgeFee, "fee should not exceed bridge amount");
         // TODO modify `transferFrom` to `safeTransferFrom`
         IERC20(token).transferFrom(msg.sender, address(this), amount);
@@ -101,7 +155,7 @@ contract TokenLocker {
         );
     }
 
-    function unlockToken(bytes memory ckbTxProof, bytes memory ckbTx) public {
+    function unlockToken(bytes memory ckbTxProof, bytes memory ckbTx) override public {
         require(ckbSpv_.proveTxExist(ckbTxProof, numConfirmations_), "tx from proofData should exist");
 
         bytes29 proof = ckbTxProof.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
@@ -129,7 +183,7 @@ contract TokenLocker {
 
     // TODO refund function
 
-    function decodeBurnResult(bytes memory ckbTx) public view returns (
+    function decodeBurnResult(bytes memory ckbTx) override public view returns (
         uint256 bridgeAmount,
         uint256 bridgeFee,
         address token,
@@ -146,10 +200,10 @@ contract TokenLocker {
         require((recipientCellData.contractAddress() == address(this)), "invalid contract address in recipient cell");
         require((recipientCellData.bridgeLockscriptCodeHash() == bridgeCellLockscriptCodeHash_), "invalid contract address in recipient cell");
         return (
-        recipientCellData.bridgeAmount(),
-        recipientCellData.bridgeFee(),
-        recipientCellData.tokenAddress(),
-        recipientCellData.recipientAddress()
+            recipientCellData.bridgeAmount(),
+            recipientCellData.bridgeFee(),
+            recipientCellData.tokenAddress(),
+            recipientCellData.recipientAddress()
         );
     }
 }

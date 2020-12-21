@@ -1,5 +1,6 @@
-pragma solidity ^0.5.7;
-pragma experimental ABIEncoderV2;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 library  ProxyTestLibrary {
     struct Record{

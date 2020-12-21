@@ -1,5 +1,6 @@
-pragma solidity ^0.5.10;
-pragma experimental ABIEncoderV2;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "./interfaces/IERC20.sol";
 import {CKBCrypto} from "./libraries/CKBCrypto.sol";
@@ -72,7 +73,7 @@ contract TokenLocker {
         address[] memory validators,
         uint multisigThreshold,
         uint chainId
-    ) public {
+    ) {
         ckbSpv_ = ICKBSpv(ckbSpvAddress);
         numConfirmations_ = numConfirmations;
         recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
@@ -245,7 +246,7 @@ contract TokenLocker {
         // if token == ETH
         if (tokenAddress == address(0)) {
             recipientAddress.toPayable().transfer(receivedAmount);
-            msg.sender.transfer(bridgeFee);
+            payable(msg.sender).transfer(bridgeFee);
         } else {
             IERC20(tokenAddress).transfer(recipientAddress, receivedAmount);
             IERC20(tokenAddress).transfer(msg.sender, bridgeFee);

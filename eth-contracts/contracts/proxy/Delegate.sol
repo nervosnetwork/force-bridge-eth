@@ -1,4 +1,6 @@
-pragma solidity ^0.5.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "./Base.sol";
 
@@ -10,8 +12,8 @@ For named-function(which means all function except the sysSaveSlotData function)
 
 However, if a proxy forward a
 */
-contract Delegate is Base {
-    constructor () public {
+abstract contract Delegate is Base {
+    constructor ()  {
 
     }
 
@@ -26,11 +28,11 @@ contract Delegate is Base {
     //or you can access msg.value by assembly by yourself too :)
     //because defaultFallback is only called by function(), which is fallback, so it is payable.
     //thus if you wan't reject receiving ETH, just add nonPayable
-    function defaultFallback() /*nonPayable*/ internal {
+    function defaultFallback() /*nonPayable*/ virtual internal {
         returnAsm(false, notFoundMark);
     }
 
-    function() external payable {
+    fallback(bytes calldata) external payable returns (bytes memory) {
         //target function doesn't hit normal functions
         defaultFallback();
     }

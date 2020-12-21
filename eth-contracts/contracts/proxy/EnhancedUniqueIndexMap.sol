@@ -1,4 +1,6 @@
-pragma solidity ^0.5.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "./SlotData.sol";
 
@@ -28,7 +30,7 @@ index --- value
 
 contract EnhancedUniqueIndexMap is SlotData {
 
-    constructor()public{}
+    constructor(){}
 
     // slot : value => index
     function sysUniqueIndexMapAdd(bytes32 slot, bytes32 value) internal {
