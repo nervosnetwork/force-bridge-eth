@@ -42,6 +42,12 @@ impl ::core::fmt::Display for ETHRecipientCellData {
         )?;
         write!(f, ", {}: {}", "token_amount", self.token_amount())?;
         write!(f, ", {}: {}", "fee", self.fee())?;
+        write!(
+            f,
+            ", {}: {}",
+            "light_client_typescript_hash",
+            self.light_client_typescript_hash()
+        )?;
         write!(f, " }}")
     }
 }
@@ -52,15 +58,16 @@ impl ::core::default::Default for ETHRecipientCellData {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
         ETHRecipientCellData::new_unchecked(v.into())
     }
 }
 impl ETHRecipientCellData {
-    pub const TOTAL_SIZE: usize = 124;
-    pub const FIELD_SIZES: [usize; 6] = [20, 20, 20, 32, 16, 16];
-    pub const FIELD_COUNT: usize = 6;
+    pub const TOTAL_SIZE: usize = 156;
+    pub const FIELD_SIZES: [usize; 7] = [20, 20, 20, 32, 16, 16, 32];
+    pub const FIELD_COUNT: usize = 7;
     pub fn eth_recipient_address(&self) -> ETHAddress {
         ETHAddress::new_unchecked(self.0.slice(0..20))
     }
@@ -78,6 +85,9 @@ impl ETHRecipientCellData {
     }
     pub fn fee(&self) -> Uint128 {
         Uint128::new_unchecked(self.0.slice(108..124))
+    }
+    pub fn light_client_typescript_hash(&self) -> Byte32 {
+        Byte32::new_unchecked(self.0.slice(124..156))
     }
     pub fn as_reader<'r>(&'r self) -> ETHRecipientCellDataReader<'r> {
         ETHRecipientCellDataReader::new_unchecked(self.as_slice())
@@ -112,6 +122,7 @@ impl molecule::prelude::Entity for ETHRecipientCellData {
             .eth_bridge_lock_hash(self.eth_bridge_lock_hash())
             .token_amount(self.token_amount())
             .fee(self.fee())
+            .light_client_typescript_hash(self.light_client_typescript_hash())
     }
 }
 #[derive(Clone, Copy)]
@@ -154,13 +165,19 @@ impl<'r> ::core::fmt::Display for ETHRecipientCellDataReader<'r> {
         )?;
         write!(f, ", {}: {}", "token_amount", self.token_amount())?;
         write!(f, ", {}: {}", "fee", self.fee())?;
+        write!(
+            f,
+            ", {}: {}",
+            "light_client_typescript_hash",
+            self.light_client_typescript_hash()
+        )?;
         write!(f, " }}")
     }
 }
 impl<'r> ETHRecipientCellDataReader<'r> {
-    pub const TOTAL_SIZE: usize = 124;
-    pub const FIELD_SIZES: [usize; 6] = [20, 20, 20, 32, 16, 16];
-    pub const FIELD_COUNT: usize = 6;
+    pub const TOTAL_SIZE: usize = 156;
+    pub const FIELD_SIZES: [usize; 7] = [20, 20, 20, 32, 16, 16, 32];
+    pub const FIELD_COUNT: usize = 7;
     pub fn eth_recipient_address(&self) -> ETHAddressReader<'r> {
         ETHAddressReader::new_unchecked(&self.as_slice()[0..20])
     }
@@ -178,6 +195,9 @@ impl<'r> ETHRecipientCellDataReader<'r> {
     }
     pub fn fee(&self) -> Uint128Reader<'r> {
         Uint128Reader::new_unchecked(&self.as_slice()[108..124])
+    }
+    pub fn light_client_typescript_hash(&self) -> Byte32Reader<'r> {
+        Byte32Reader::new_unchecked(&self.as_slice()[124..156])
     }
 }
 impl<'r> molecule::prelude::Reader<'r> for ETHRecipientCellDataReader<'r> {
@@ -209,11 +229,12 @@ pub struct ETHRecipientCellDataBuilder {
     pub(crate) eth_bridge_lock_hash: Byte32,
     pub(crate) token_amount: Uint128,
     pub(crate) fee: Uint128,
+    pub(crate) light_client_typescript_hash: Byte32,
 }
 impl ETHRecipientCellDataBuilder {
-    pub const TOTAL_SIZE: usize = 124;
-    pub const FIELD_SIZES: [usize; 6] = [20, 20, 20, 32, 16, 16];
-    pub const FIELD_COUNT: usize = 6;
+    pub const TOTAL_SIZE: usize = 156;
+    pub const FIELD_SIZES: [usize; 7] = [20, 20, 20, 32, 16, 16, 32];
+    pub const FIELD_COUNT: usize = 7;
     pub fn eth_recipient_address(mut self, v: ETHAddress) -> Self {
         self.eth_recipient_address = v;
         self
@@ -238,6 +259,10 @@ impl ETHRecipientCellDataBuilder {
         self.fee = v;
         self
     }
+    pub fn light_client_typescript_hash(mut self, v: Byte32) -> Self {
+        self.light_client_typescript_hash = v;
+        self
+    }
 }
 impl molecule::prelude::Builder for ETHRecipientCellDataBuilder {
     type Entity = ETHRecipientCellData;
@@ -252,6 +277,7 @@ impl molecule::prelude::Builder for ETHRecipientCellDataBuilder {
         writer.write_all(self.eth_bridge_lock_hash.as_slice())?;
         writer.write_all(self.token_amount.as_slice())?;
         writer.write_all(self.fee.as_slice())?;
+        writer.write_all(self.light_client_typescript_hash.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {
