@@ -328,8 +328,8 @@ pub struct CkbRelayArgs {
     pub max_tx_count: u64,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
-    #[clap(short, long, default_value = "~/.force-bridge/ckb_multisig_conf.toml")]
-    pub multisig_conf_path: String,
+    #[clap(long)]
+    pub mutlisig_privkeys: Vec<String>,
 }
 
 #[derive(Clap, Clone, Debug)]

@@ -513,12 +513,8 @@ pub fn get_msg_hash(chain_id: U256, contract_addr: H160, headers_data: &[u8]) ->
     Ok(msg_hash)
 }
 
-pub fn get_msg_signature(
-    msg_hash: &[u8],
-    eth_private_key: ethereum_types::H256,
-) -> Result<Vec<u8>> {
+pub fn get_msg_signature(msg_hash: &[u8], eth_key: SecretKey) -> Result<Vec<u8>> {
     let secp = Secp256k1::signing_only();
-    let eth_key = SecretKey::from_slice(&eth_private_key.0)?;
     let message = Message::from_slice(msg_hash)?;
 
     let (recovery, sig_bytes) = secp

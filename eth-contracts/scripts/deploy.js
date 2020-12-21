@@ -1,6 +1,6 @@
 const fs = require('fs');
 const TOML = require('@iarna/toml');
-const { generateWallets } = require('../test/utils');
+const EthUtil = require('ethereumjs-util');
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
@@ -55,8 +55,11 @@ async function main() {
   const lockerAddr = locker.address;
   console.error('tokenLocker address: ', lockerAddr);
 
-  wallets = generateWallets(7);
-  validators = wallets.map((wallet) => wallet.address);
+  const validators = network_config.ethereum_private_keys.map((privateKey) => {
+    let publicKey = EthUtil.privateToPublic(new Buffer(privateKey, 'hex'));
+    return '0x' + EthUtil.publicToAddress(publicKey).toString('hex');
+  });
+  console.error('validator validator: ', validators);
   multisigThreshold = 5;
   let eth_network = await provider.getNetwork();
   const chainId = eth_network.chainId;
@@ -74,20 +77,10 @@ async function main() {
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
   deployedContracts.eth_ckb_chain_addr = ckbChainV2Addr;
+  deployedContracts.ckb_relay_mutlisig_threshold = multisigThreshold;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
   console.error('write eth addr into config successfully');
-
-  const multisig_config_path =
-    process.env.HOME + '/.force-bridge/ckb_multisig_conf.toml';
-  const multisig_privkeys = wallets.map((wallet) => wallet.privateKey.slice(2));
-
-  const multisig_config = TOML.stringify({
-    privkeys: multisig_privkeys,
-    threshold: multisigThreshold,
-  });
-  fs.writeFileSync(multisig_config_path, multisig_config);
-  console.error('write privkeys into multisig config successfully');
 
   const tokenLockerJson = require('../artifacts/contracts/TokenLocker.sol/TokenLocker.json');
   const lockerABI = tokenLockerJson.abi;
