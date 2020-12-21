@@ -131,7 +131,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "eth-bridge-typescript"
+name = "eth-light-client-typescript"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
@@ -145,8 +145,6 @@ version = "0.1.0"
 dependencies = [
  "ckb-std",
  "contracts-helper",
- "eth-spv-lib",
- "ethereum-types",
  "force-eth-types",
  "molecule",
  "no-std-compat",
