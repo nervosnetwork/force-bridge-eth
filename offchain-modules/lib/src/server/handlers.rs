@@ -52,7 +52,7 @@ pub async fn get_or_create_bridge_cell(
         args.eth_token_address.clone(),
         args.recipient_address.clone(),
         args.bridge_fee.into(),
-        5,
+        args.cell_num.unwrap_or(5),
     )
     .await?;
     data.ckb_key_channel.0.clone().send(private_key_path)?;
