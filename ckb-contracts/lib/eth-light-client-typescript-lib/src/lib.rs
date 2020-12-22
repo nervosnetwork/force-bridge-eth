@@ -20,7 +20,7 @@ pub fn verify() -> i8 {
 }
 
 pub fn _verify<T: Adapter>(data_loader: T) -> i8 {
-    actions::verify_add_headers(data_loader);
+    actions::verify(data_loader);
     0
 }
 
