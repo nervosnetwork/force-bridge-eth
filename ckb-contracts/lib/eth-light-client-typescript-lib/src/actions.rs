@@ -8,8 +8,8 @@ pub fn verify<T: Adapter>(data_loader: T) {
     let input_data_len = data_loader.load_data_len_from_source(Source::GroupInput);
     if input_data_len == 0 {
         assert_eq!(
-            data_loader.load_first_outpoint().to_vec(),
-            data_loader.load_script_args().to_vec(),
+            data_loader.load_first_outpoint().as_ref(),
+            data_loader.load_script_args().as_ref(),
             "invalid first cell id"
         )
     }
