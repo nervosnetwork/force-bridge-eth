@@ -125,7 +125,9 @@ pub async fn relay_eth_to_ckb_proof(
         db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await;
     if let Err(e) = &create_db_res {
         if e.to_string().contains("UNIQUE constraint failed") {
-            let record = db::get_eth_to_ckb_status(&data.db, eth_lock_tx_hash.as_str()).await?.expect("EthToCkbRecord existed");
+            let record = db::get_eth_to_ckb_status(&data.db, eth_lock_tx_hash.as_str())
+                .await?
+                .expect("EthToCkbRecord existed");
             if record.status != "timeout" || !data.add_relaying_tx(eth_lock_tx_hash.clone()).await {
                 return Ok(HttpResponse::Ok().json(json!({
                     "message": "tx proof relay processing/processed"

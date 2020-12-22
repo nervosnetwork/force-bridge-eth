@@ -33,14 +33,22 @@ pub async fn relay_ckb_to_eth_proof(
     let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, ckb_rpc_url.clone())?;
     let light_client = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
     let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
-    wait_block_submit(
+
+    let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
+    let wait_header_future = wait_block_submit(
         ethereum_rpc_url.clone(),
         ckb_rpc_url,
         light_client,
         ckb_tx_hash.clone(),
         lock_contract_addr,
-    )
-    .await?;
+    );
+    tokio::select! {
+        v = wait_header_future => { v? }
+        _ = timeout_future => {
+            bail!("wait header sync timeout");
+        }
+    }
+
     let result = unlock(
         config_path,
         network,
