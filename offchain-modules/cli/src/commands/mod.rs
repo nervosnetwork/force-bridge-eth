@@ -396,10 +396,10 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
 
-    if args.mutlisig_privkeys.len() < deployed_contracts.ckb_relay_mutlisig_threshold {
+    if args.mutlisig_privkeys.len() < deployed_contracts.ckb_relay_mutlisig_threshold.threshold {
         bail!(
             "the mutlisig privkeys number is less. expect {}, actual {} ",
-            deployed_contracts.ckb_relay_mutlisig_threshold,
+            deployed_contracts.ckb_relay_mutlisig_threshold.threshold,
             args.mutlisig_privkeys.len()
         );
     }

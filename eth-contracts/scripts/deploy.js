@@ -56,7 +56,7 @@ async function main() {
   console.error('tokenLocker address: ', lockerAddr);
 
   const validators = network_config.ethereum_private_keys.map((privateKey) => {
-    let publicKey = EthUtil.privateToPublic(new Buffer(privateKey, 'hex'));
+    let publicKey = EthUtil.privateToPublic(Buffer.from(privateKey, 'hex'));
     return '0x' + EthUtil.publicToAddress(publicKey).toString('hex');
   });
   console.error('validator validator: ', validators);
@@ -77,7 +77,7 @@ async function main() {
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
   deployedContracts.eth_ckb_chain_addr = ckbChainV2Addr;
-  deployedContracts.ckb_relay_mutlisig_threshold = multisigThreshold;
+  deployedContracts.ckb_relay_mutlisig_threshold.threshold = multisigThreshold;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
   console.error('write eth addr into config successfully');
