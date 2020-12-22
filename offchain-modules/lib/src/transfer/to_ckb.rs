@@ -1,6 +1,7 @@
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
-    build_lockscript_from_address, parse_privkey, parse_privkey_path, ETHSPVProofJson,
+    build_lockscript_from_address, create_bridge_lockscript, parse_privkey, parse_privkey_path,
+    ETHSPVProofJson,
 };
 use crate::util::config::{
     CellScript, DeployedContracts, ForceConfig, MultisigConf, OutpointConf, ScriptConf,
@@ -11,10 +12,9 @@ use crate::util::eth_util::{
 };
 use anyhow::{anyhow, Result};
 use ckb_hash::{blake2b_256, new_blake2b};
-use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{Address, AddressPayload, GenesisInfo, HttpRpcClient, HumanCapacity, SECP256K1};
 use ckb_types::bytes::Bytes;
-use ckb_types::core::{BlockView, Capacity, ScriptHashType, TransactionView};
+use ckb_types::core::{BlockView, ScriptHashType, TransactionView};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script, ScriptOpt};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use cmd_lib::run_fun;
@@ -54,7 +54,7 @@ pub async fn approve(
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let url = force_config.get_ethereum_rpc_url(&network)?;
     let approve_recipient = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
-    let to = convert_eth_address(&erc20_addr)?;
+    let eth_address = convert_eth_address(&erc20_addr)?;
     let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
 
     let mut rpc_client = Web3Client::new(url);
@@ -83,7 +83,7 @@ pub async fn approve(
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
         .send_transaction(
-            to,
+            eth_address,
             eth_private_key,
             input_data,
             U256::from(gas_price),
@@ -114,7 +114,7 @@ pub async fn lock_token(
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    let to = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+    let eth_address = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let token_addr = convert_eth_address(&token)?;
     let recipient_lockscript = build_lockscript_from_address(ckb_recipient_address.as_str())?;
     let data = vec![
@@ -131,7 +131,7 @@ pub async fn lock_token(
 
     let res = rpc_client
         .send_transaction(
-            to,
+            eth_address,
             parse_private_key(key_path.as_str(), &force_config, &network)?,
             input_data,
             U256::from(gas_price),
@@ -161,9 +161,8 @@ pub async fn lock_eth(
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    let to = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+    let eth_address = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let recipient_lockscript = build_lockscript_from_address(ckb_recipient_address.as_str())?;
-
     let data = vec![
         Token::Uint(U256::from(bridge_fee)),
         Token::Bytes(recipient_lockscript.as_slice().to_vec()),
@@ -174,7 +173,7 @@ pub async fn lock_eth(
     let input_data = build_lock_eth_payload(data.as_slice())?;
     let res = rpc_client
         .send_transaction(
-            to,
+            eth_address,
             parse_private_key(key_path.as_str(), &force_config, &network)?,
             input_data,
             U256::from(gas_price),
@@ -328,14 +327,17 @@ pub async fn deploy_ckb(
     let bridge_typescript_path = force_config.get_bridge_typescript_bin_path()?;
     let bridge_lockscript_path = force_config.get_bridge_lockscript_bin_path()?;
     let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
+    let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
+    let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
 
     let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
         recipient_typescript_bin,
+        light_client_typescript_bin,
     ];
     if deploy_sudt {
         let sudt_path = force_config.get_sudt_typescript_bin_path()?;
@@ -363,11 +365,11 @@ pub async fn deploy_ckb(
     let pw_locks = original_config.pw_locks;
     let sudt_conf = if deploy_sudt {
         ScriptConf {
-            code_hash: type_code_hashes[3].clone(),
+            code_hash: type_code_hashes[4].clone(),
             hash_type,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
-                index: 3,
+                index: 4,
                 dep_type: 0,
             },
         }
@@ -397,8 +399,17 @@ pub async fn deploy_ckb(
             code_hash: type_code_hashes[2].clone(),
             hash_type,
             outpoint: OutpointConf {
-                tx_hash: tx_hash_hex,
+                tx_hash: tx_hash_hex.clone(),
                 index: 2,
+                dep_type: 0,
+            },
+        },
+        light_client_typescript: ScriptConf {
+            code_hash: type_code_hashes[3].clone(),
+            hash_type,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex,
+                index: 3,
                 dep_type: 0,
             },
         },
@@ -442,47 +453,44 @@ pub async fn init_multi_sign_address(
     let mut deployed_contracts = force_config
         .deployed_contracts
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    deployed_contracts.light_client_cell_script.cell_script =
-        hex::encode(multisig_script.as_slice());
     deployed_contracts.multisig_address = MultisigConf {
         addresses: multisig_address,
         require_first_n,
         threshold,
     };
-    force_config.deployed_contracts = Some(deployed_contracts);
-    let config_path = tilde(config_path.as_str()).into_owned();
-    force_config.write(&config_path)?;
+    force_config.deployed_contracts = Some(deployed_contracts.clone());
 
-    let mut helper = TxHelper::default();
-    let cap = 10_000 * ONE_CKB;
-    let output = CellOutput::new_builder()
-        .capacity(Capacity::shannons(cap).pack())
-        .lock(multisig_script)
-        .build();
-    helper.add_output(output, Default::default());
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
     let indexer_url = force_config.get_ckb_indexer_url(&network)?;
-    let mut ckb_client = Generator::new(ckb_rpc_url, indexer_url, Default::default())
+    let mut generator = Generator::new(ckb_rpc_url, indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
 
     let secret_key = parse_privkey_path(&priv_key_path, &force_config, &network)?;
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &secret_key);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
-    let unsigned_tx = helper
-        .supply_capacity(
-            &mut ckb_client.rpc_client,
-            &mut ckb_client.indexer_client,
-            from_lockscript,
-            &ckb_client.genesis_info,
-            99_999,
-        )
-        .map_err(|err| anyhow!(err))?;
+
+    let unsigned_tx = generator.init_eth_light_client_cell(multisig_script, from_lockscript)?;
     let tx =
-        sign(unsigned_tx, &mut ckb_client.rpc_client, &secret_key).map_err(|err| anyhow!(err))?;
-    send_tx_sync(&mut ckb_client.rpc_client, &tx, 120)
+        sign(unsigned_tx, &mut generator.rpc_client, &secret_key).map_err(|err| anyhow!(err))?;
+    send_tx_sync(&mut generator.rpc_client, &tx, 120)
         .await
         .map_err(|err| anyhow!(err))?;
+    let typescript = tx
+        .output(0)
+        .ok_or_else(|| anyhow!("outout index 0 is not found."))?
+        .type_()
+        .to_opt()
+        .ok_or_else(|| anyhow!("type script is not found."))?;
+    info!(
+        "Succeed to init eth light client cell. cell type_script: {:?}",
+        hex::encode(typescript.as_slice())
+    );
+
+    deployed_contracts.light_client_cell_script.cell_script = hex::encode(typescript.as_slice());
+    force_config.deployed_contracts = Some(deployed_contracts);
+    let config_path = tilde(config_path.as_str()).into_owned();
+    force_config.write(&config_path)?;
     Ok(())
 }
 
@@ -527,16 +535,11 @@ pub async fn get_or_create_bridge_cell(
             .map_err(|err| anyhow!("invalid recipient address: {}", err))?
             .payload(),
     );
-    // build scripts
-    let bridge_lockscript_args =
-        build_eth_bridge_lock_args(eth_token_address, eth_contract_address)?;
-    let bridge_lockscript = Script::new_builder()
-        .code_hash(Byte32::from_slice(&hex::decode(
-            &deployed_contracts.bridge_lockscript.code_hash,
-        )?)?)
-        .hash_type(deployed_contracts.bridge_lockscript.hash_type.into())
-        .args(bridge_lockscript_args.as_bytes().pack())
-        .build();
+    let bridge_lockscript = create_bridge_lockscript(
+        &deployed_contracts,
+        &eth_token_address,
+        &eth_contract_address,
+    )?;
     let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
         .bridge_lock_hash(
             basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap(),

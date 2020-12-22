@@ -108,7 +108,7 @@ pub struct DeployedContracts {
     pub eth_ckb_chain_addr: String,
     pub bridge_lockscript: ScriptConf,
     pub bridge_typescript: ScriptConf,
-    // pub light_client_typescript: ScriptConf,
+    pub light_client_typescript: ScriptConf,
     // pub light_client_lockscript: ScriptConf,
     pub recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
