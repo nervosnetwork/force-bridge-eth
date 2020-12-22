@@ -31,8 +31,8 @@ impl ::core::fmt::Display for ETHBridgeLockArgs {
         write!(
             f,
             ", {}: {}",
-            "eth_light_client_typescript_hash",
-            self.eth_light_client_typescript_hash()
+            "light_client_typescript_hash",
+            self.light_client_typescript_hash()
         )?;
         write!(f, " }}")
     }
@@ -57,7 +57,7 @@ impl ETHBridgeLockArgs {
     pub fn eth_token_address(&self) -> ETHAddress {
         ETHAddress::new_unchecked(self.0.slice(20..40))
     }
-    pub fn eth_light_client_typescript_hash(&self) -> Byte32 {
+    pub fn light_client_typescript_hash(&self) -> Byte32 {
         Byte32::new_unchecked(self.0.slice(40..72))
     }
     pub fn as_reader<'r>(&'r self) -> ETHBridgeLockArgsReader<'r> {
@@ -89,7 +89,7 @@ impl molecule::prelude::Entity for ETHBridgeLockArgs {
         Self::new_builder()
             .eth_contract_address(self.eth_contract_address())
             .eth_token_address(self.eth_token_address())
-            .eth_light_client_typescript_hash(self.eth_light_client_typescript_hash())
+            .light_client_typescript_hash(self.light_client_typescript_hash())
     }
 }
 #[derive(Clone, Copy)]
@@ -121,8 +121,8 @@ impl<'r> ::core::fmt::Display for ETHBridgeLockArgsReader<'r> {
         write!(
             f,
             ", {}: {}",
-            "eth_light_client_typescript_hash",
-            self.eth_light_client_typescript_hash()
+            "light_client_typescript_hash",
+            self.light_client_typescript_hash()
         )?;
         write!(f, " }}")
     }
@@ -137,7 +137,7 @@ impl<'r> ETHBridgeLockArgsReader<'r> {
     pub fn eth_token_address(&self) -> ETHAddressReader<'r> {
         ETHAddressReader::new_unchecked(&self.as_slice()[20..40])
     }
-    pub fn eth_light_client_typescript_hash(&self) -> Byte32Reader<'r> {
+    pub fn light_client_typescript_hash(&self) -> Byte32Reader<'r> {
         Byte32Reader::new_unchecked(&self.as_slice()[40..72])
     }
 }
@@ -166,7 +166,7 @@ impl<'r> molecule::prelude::Reader<'r> for ETHBridgeLockArgsReader<'r> {
 pub struct ETHBridgeLockArgsBuilder {
     pub(crate) eth_contract_address: ETHAddress,
     pub(crate) eth_token_address: ETHAddress,
-    pub(crate) eth_light_client_typescript_hash: Byte32,
+    pub(crate) light_client_typescript_hash: Byte32,
 }
 impl ETHBridgeLockArgsBuilder {
     pub const TOTAL_SIZE: usize = 72;
@@ -180,8 +180,8 @@ impl ETHBridgeLockArgsBuilder {
         self.eth_token_address = v;
         self
     }
-    pub fn eth_light_client_typescript_hash(mut self, v: Byte32) -> Self {
-        self.eth_light_client_typescript_hash = v;
+    pub fn light_client_typescript_hash(mut self, v: Byte32) -> Self {
+        self.light_client_typescript_hash = v;
         self
     }
 }
@@ -194,7 +194,7 @@ impl molecule::prelude::Builder for ETHBridgeLockArgsBuilder {
     fn write<W: ::molecule::io::Write>(&self, writer: &mut W) -> ::molecule::io::Result<()> {
         writer.write_all(self.eth_contract_address.as_slice())?;
         writer.write_all(self.eth_token_address.as_slice())?;
-        writer.write_all(self.eth_light_client_typescript_hash.as_slice())?;
+        writer.write_all(self.light_client_typescript_hash.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {

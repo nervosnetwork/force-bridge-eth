@@ -23,8 +23,8 @@ pub fn verify_manage_mode<T: Adapter>(data_loader: &T) {
 }
 
 pub fn verify_mint_token<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader) {
-    let eth_receipt_info = verify_witness(data_loader, witness);
-    verify_eth_receipt_info(data_loader, eth_receipt_info);
+    let (dep_index, eth_receipt_info) = verify_witness(data_loader, witness);
+    verify_eth_receipt_info(data_loader, dep_index, eth_receipt_info);
 }
 
 /// Verify eth witness data.
@@ -32,10 +32,14 @@ pub fn verify_mint_token<T: Adapter>(data_loader: &T, witness: &MintTokenWitness
 /// 2. Verify that the user's cross-chain transaction is legal and really exists (based spv proof).
 /// 3. Get ETHLockEvent from spv proof.
 ///
-fn verify_witness<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader) -> ETHLockEvent {
+fn verify_witness<T: Adapter>(
+    data_loader: &T,
+    witness: &MintTokenWitnessReader,
+) -> (u8, ETHLockEvent) {
     let proof = witness.spv_proof().raw_data();
     let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
-    verify_eth_spv_proof(data_loader, proof, cell_dep_index_list)
+    let lock_event = verify_eth_spv_proof(data_loader, proof, cell_dep_index_list);
+    (cell_dep_index_list[0], lock_event)
 }
 
 /// Verify eth witness data.
@@ -176,9 +180,13 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
 /// 1. Verify replay_resist_cell_id exists in inputs.
 /// 2. verify contract_address equals to args.contract_address.
 /// 3. Verify token_address equals to args.token_address.
-/// 4. Verify dep cell typescript hash equals to args.eth_light_client_typescript_hash.
+/// 4. Verify dep cell typescript hash equals to args.light_client_typescript_hash.
 /// 4. Verify ckb_recipient_address get a number of token_amount cToken.
-fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLockEvent) {
+fn verify_eth_receipt_info<T: Adapter>(
+    data_loader: &T,
+    dep_index: u8,
+    eth_receipt_info: ETHLockEvent,
+) {
     debug!(
         "replay_resist_outpoint: {:?}",
         hex::encode(eth_receipt_info.replay_resist_outpoint.as_slice())
@@ -200,12 +208,12 @@ fn verify_eth_receipt_info<T: Adapter>(data_loader: &T, eth_receipt_info: ETHLoc
     );
 
     let light_client_typescript_hash = data_loader
-        .load_dep_cell_typescript_hash()
+        .load_dep_cell_typescript_hash(dep_index as usize)
         .unwrap()
         .unwrap();
 
     assert_eq!(
-        bridge_args.eth_light_client_typescript_hash().as_slice(),
+        bridge_args.light_client_typescript_hash().as_slice(),
         &light_client_typescript_hash
     );
 

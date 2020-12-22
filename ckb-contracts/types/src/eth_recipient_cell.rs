@@ -46,11 +46,10 @@ pub struct ETHRecipientDataView {
     pub eth_recipient_address: ETHAddress,
     pub eth_token_address: ETHAddress,
     pub eth_lock_contract_address: ETHAddress,
-    pub eth_light_client_typescript_hash: [u8; 32],
+    pub light_client_typescript_hash: [u8; 32],
     pub eth_bridge_lock_hash: [u8; 32],
     pub token_amount: u128,
     pub fee: u128,
-    pub light_client_typescript_hash: [u8; 32],
 }
 
 impl ETHRecipientDataView {
@@ -83,9 +82,9 @@ impl ETHRecipientDataView {
         )
         .expect("wrong eth address length");
 
-        let mut eth_light_client_typescript_hash = [0u8; 32];
-        eth_light_client_typescript_hash
-            .copy_from_slice(data_reader.eth_light_client_typescript_hash().raw_data());
+        let mut light_client_typescript_hash = [0u8; 32];
+        light_client_typescript_hash
+            .copy_from_slice(data_reader.light_client_typescript_hash().raw_data());
 
         let mut eth_bridge_lock_hash = [0u8; 32];
         eth_bridge_lock_hash.copy_from_slice(data_reader.eth_bridge_lock_hash().raw_data());
@@ -98,19 +97,14 @@ impl ETHRecipientDataView {
         fee.copy_from_slice(data_reader.fee().raw_data());
         let fee: u128 = u128::from_le_bytes(fee);
 
-        let mut light_client_typescript_hash = [0u8; 32];
-        light_client_typescript_hash
-            .copy_from_slice(data_reader.light_client_typescript_hash().raw_data());
-
         Ok(ETHRecipientDataView {
             eth_recipient_address,
             eth_token_address,
             eth_lock_contract_address,
-            eth_light_client_typescript_hash,
+            light_client_typescript_hash,
             eth_bridge_lock_hash,
             token_amount,
             fee,
-            light_client_typescript_hash,
         })
     }
 
@@ -119,8 +113,8 @@ impl ETHRecipientDataView {
             .eth_recipient_address(self.eth_recipient_address.0.into())
             .eth_token_address(self.eth_token_address.0.into())
             .eth_lock_contract_address(self.eth_lock_contract_address.0.into())
-            .eth_light_client_typescript_hash(
-                self.eth_light_client_typescript_hash
+            .light_client_typescript_hash(
+                self.light_client_typescript_hash
                     .to_vec()
                     .try_into()
                     .expect("from vec to Byte32 fail"),
@@ -133,12 +127,6 @@ impl ETHRecipientDataView {
             )
             .token_amount(self.token_amount.into())
             .fee(self.fee.into())
-            .light_client_typescript_hash(
-                self.light_client_typescript_hash
-                    .to_vec()
-                    .try_into()
-                    .expect("from vec to Byte32 fail"),
-            )
             .build();
         Ok(mol_obj.as_bytes())
     }
@@ -155,11 +143,10 @@ mod tests {
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
-            eth_light_client_typescript_hash: [2u8; 32],
+            light_client_typescript_hash: [2u8; 32],
             eth_bridge_lock_hash: [1u8; 32],
             token_amount: 100,
             fee: 100,
-            light_client_typescript_hash: [1u8; 32],
         };
 
         let mol_data = eth_recipient_data.as_molecule_data().unwrap();
@@ -183,8 +170,8 @@ mod tests {
             new_eth_recipient_data.eth_lock_contract_address
         );
         assert_eq!(
-            eth_recipient_data.eth_light_client_typescript_hash,
-            new_eth_recipient_data.eth_light_client_typescript_hash
+            eth_recipient_data.light_client_typescript_hash,
+            new_eth_recipient_data.light_client_typescript_hash
         );
         assert_eq!(
             eth_recipient_data.eth_bridge_lock_hash,
