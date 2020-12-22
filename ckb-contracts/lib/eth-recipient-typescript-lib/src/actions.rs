@@ -1,18 +1,16 @@
 use crate::adapter::Adapter;
-use crate::debug;
 use ckb_std::ckb_constants::Source;
 
 use blake2b_ref::{Blake2b, Blake2bBuilder};
 use ckb_std::ckb_types::packed::{Byte32, Bytes, Script};
+use contracts_helper::debug;
 use force_eth_types::{
     config::BRIDGE_LOCK_HASH_TYPE,
     eth_recipient_cell::{ETHAddress, ETHRecipientDataView},
     generated::eth_bridge_lock_cell::ETHBridgeLockArgs,
 };
 use molecule::prelude::{Builder, Byte, Entity};
-
-#[cfg(not(feature = "std"))]
-use alloc::vec;
+use std::prelude::v1::*;
 
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
 

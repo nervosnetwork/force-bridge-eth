@@ -121,39 +121,6 @@ fn read_block_raw(filename: String) -> BlockWithProofsRaw {
     serde_json::from_reader(std::fs::File::open(std::path::Path::new(&filename)).unwrap()).unwrap()
 }
 
-impl BlockWithProofs {
-    fn combine_dag_h256_to_h512(elements: Vec<H256>) -> Vec<H512> {
-        elements
-            .iter()
-            .zip(elements.iter().skip(1))
-            .enumerate()
-            .filter(|(i, _)| i % 2 == 0)
-            .map(|(_, (a, b))| {
-                let mut buffer = [0u8; 64];
-                buffer[..32].copy_from_slice(&(a.0).0);
-                buffer[32..].copy_from_slice(&(b.0).0);
-                H512(buffer.into())
-            })
-            .collect()
-    }
-
-    pub fn to_double_node_with_merkle_proof_vec(&self) -> Vec<DoubleNodeWithMerkleProof> {
-        let h512s = Self::combine_dag_h256_to_h512(self.elements.clone());
-        h512s
-            .iter()
-            .zip(h512s.iter().skip(1))
-            .enumerate()
-            .filter(|(i, _)| i % 2 == 0)
-            .map(|(i, (a, b))| DoubleNodeWithMerkleProof {
-                dag_nodes: vec![*a, *b],
-                proof: self.merkle_proofs
-                    [i / 2 * self.proof_length as usize..(i / 2 + 1) * self.proof_length as usize]
-                    .to_vec(),
-            })
-            .collect()
-    }
-}
-
 #[derive(Debug)]
 pub struct DoubleNodeWithMerkleProof {
     pub dag_nodes: Vec<H512>, // [H512; 2]

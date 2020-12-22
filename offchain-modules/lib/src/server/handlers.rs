@@ -121,13 +121,23 @@ pub async fn relay_eth_to_ckb_proof(
     let _eth_lock_tx_hash = convert_hex_to_h256(&args.eth_lock_tx_hash)
         .map_err(|e| format!("invalid tx hash {}. err: {}", &args.eth_lock_tx_hash, e))?;
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
-    let status = db::get_eth_to_ckb_status(&data.db, &eth_lock_tx_hash).await?;
-    if status.is_some() {
-        return Ok(HttpResponse::Ok().json(json!({
-            "message": "tx proof relay processing/processed"
-        })));
+    let create_db_res =
+        db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await;
+    if let Err(e) = create_db_res {
+        return if e.to_string().contains("UNIQUE constraint failed") {
+            Ok(HttpResponse::Ok().json(json!({
+                "message": "tx proof relay processing/processed"
+            })))
+        } else {
+            Err(anyhow!(
+                "relay_eth_to_ckb_proof create db fail for {}, err: {}",
+                eth_lock_tx_hash,
+                e
+            )
+            .into())
+        };
     }
-    let row_id = db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await?;
+    let row_id = create_db_res.unwrap();
     let generator = data.get_generator().await?;
     tokio::spawn(async move {
         let mut record = EthToCkbRecord {
