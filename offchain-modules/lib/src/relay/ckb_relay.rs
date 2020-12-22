@@ -1,11 +1,14 @@
-use crate::transfer::to_eth::get_add_ckb_headers_func;
+use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash, get_msg_signature};
 use crate::util::ckb_tx_generator::Generator;
-use crate::util::eth_util::{convert_eth_address, relay_header_transaction, Web3Client};
+use crate::util::eth_util::{
+    convert_eth_address, parse_secret_key, relay_header_transaction, Web3Client,
+};
 use anyhow::{anyhow, Result};
 use ethabi::Token;
 use ethereum_types::U256;
 use futures::future::try_join_all;
 use log::info;
+use secp256k1::SecretKey;
 use std::ops::Add;
 use std::time::Instant;
 use web3::types::{H160, H256};
@@ -16,6 +19,7 @@ pub struct CKBRelayer {
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
     pub gas_price: U256,
+    pub multisig_privkeys: Vec<SecretKey>,
 }
 
 impl CKBRelayer {
@@ -26,21 +30,33 @@ impl CKBRelayer {
         priv_key: H256,
         eth_ckb_chain_addr: String,
         gas_price: u64,
+        multisig_privkeys: Vec<H256>,
     ) -> Result<CKBRelayer> {
         let contract_addr = convert_eth_address(&eth_ckb_chain_addr)?;
         let ckb_client = Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
             .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
         let web3_client = Web3Client::new(eth_rpc_url);
         let gas_price = U256::from(gas_price);
+
         Ok(CKBRelayer {
             contract_addr,
             priv_key,
             ckb_client,
             web3_client,
             gas_price,
+            multisig_privkeys: multisig_privkeys
+                .iter()
+                .map(|&privkey| parse_secret_key(privkey))
+                .collect::<Result<Vec<SecretKey>>>()?,
         })
     }
-    pub async fn start(&mut self, eth_url: String, per_amount: u64) -> Result<()> {
+
+    pub async fn start(
+        &mut self,
+        eth_url: String,
+        per_amount: u64,
+        max_tx_amount: u64,
+    ) -> Result<()> {
         let mut client_block_number = self
             .web3_client
             .get_contract_height("latestBlockNumber", self.contract_addr)
@@ -88,7 +104,13 @@ impl CKBRelayer {
         let mut sequence: u64 = 0;
 
         let mut futures = vec![];
-        while block_height + per_amount < ckb_current_height {
+
+        let mut target_height = block_height + per_amount * max_tx_amount;
+        if target_height > ckb_current_height {
+            target_height = ckb_current_height;
+        }
+
+        while block_height + per_amount <= target_height {
             let height_range = block_height..block_height + per_amount;
             block_height += per_amount;
 
@@ -115,7 +137,18 @@ impl CKBRelayer {
         );
 
         let add_headers_func = get_add_ckb_headers_func();
-        let add_headers_abi = add_headers_func.encode_input(&[Token::Bytes(headers)])?;
+        let chain_id = self.web3_client.client().eth().chain_id().await?;
+        let headers_msg_hash = get_msg_hash(chain_id, self.contract_addr, &headers)?;
+
+        let mut signatures: Vec<u8> = vec![];
+        for &privkey in self.multisig_privkeys.iter() {
+            let mut signature = get_msg_signature(&headers_msg_hash, privkey)?;
+            signatures.append(&mut signature);
+        }
+        info!("msg signatures {}", hex::encode(&signatures));
+
+        let add_headers_abi =
+            add_headers_func.encode_input(&[Token::Bytes(headers), Token::Bytes(signatures)])?;
         let increased_gas_price =
             self.web3_client.client().eth().gas_price().await?.as_u128() * 3 / 2;
         let signed_tx = self

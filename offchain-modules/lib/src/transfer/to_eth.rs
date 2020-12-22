@@ -16,8 +16,10 @@ use ethabi::{Function, Param, ParamType, Token};
 use ethereum_types::U256;
 use force_sdk::util::ensure_indexer_sync;
 use log::{debug, info};
+use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::export::Clone;
 use std::str::FromStr;
+use web3::signing::keccak256;
 use web3::types::H160;
 
 #[allow(clippy::too_many_arguments)]
@@ -73,6 +75,11 @@ pub async fn init_light_client(
         Token::Uint(U256::from(finalized_gc_threshold)),
         Token::Uint(U256::from(canonical_gc_threshold)),
     ])?;
+    info!(
+        "mol_header: {}  hash:  {}",
+        hex::encode(Vec::from(mol_header.raw().as_slice())),
+        hex::encode(Vec::from(header.hash.as_bytes()))
+    );
     let res = web3_client
         .send_transaction(
             eth_ckb_chain_addr,
@@ -251,10 +258,16 @@ pub async fn unlock(
 pub fn get_add_ckb_headers_func() -> Function {
     Function {
         name: "addHeaders".to_owned(),
-        inputs: vec![Param {
-            name: "data".to_owned(),
-            kind: ParamType::Bytes,
-        }],
+        inputs: vec![
+            Param {
+                name: "data".to_owned(),
+                kind: ParamType::Bytes,
+            },
+            Param {
+                name: "signatures".to_owned(),
+                kind: ParamType::Bytes,
+            },
+        ],
         outputs: vec![],
         constant: false,
     }
@@ -460,4 +473,56 @@ pub async fn get_balance(
         .get_sudt_balance(addr_lockscript, token_addr, lock_contract_addr)
         .map_err(|e| anyhow!("failed to get balance of {:?}  : {}", address, e))?;
     Ok(balance)
+}
+
+pub fn get_msg_hash(chain_id: U256, contract_addr: H160, headers_data: &[u8]) -> Result<[u8; 32]> {
+    let ckb_light_client_name = "Force Bridge CKBChain";
+    let vesion = "1";
+    let add_headers_func_name = "AddHeaders(bytes data)";
+    let pack_number = 1901;
+    let eip712_domain =
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
+
+    let domain_data = ethabi::encode(&[
+        Token::FixedBytes(Vec::from(keccak256(eip712_domain.as_bytes()))),
+        Token::FixedBytes(Vec::from(keccak256(ckb_light_client_name.as_bytes()))),
+        Token::FixedBytes(Vec::from(keccak256(vesion.as_bytes()))),
+        Token::Uint(chain_id),
+        Token::Address(contract_addr),
+    ]);
+
+    let domain_separator = keccak256(domain_data.as_slice());
+
+    let add_headers_type_hash = keccak256(add_headers_func_name.as_bytes());
+    let msg = ethabi::encode(&[
+        Token::FixedBytes(Vec::from(add_headers_type_hash)),
+        Token::Bytes(Vec::from(headers_data)),
+    ]);
+
+    let msg_data_hash = keccak256(&msg);
+
+    info!("msg_data_hash {:?}  \n", hex::encode(msg_data_hash));
+    let data = format!(
+        "{}{}{}",
+        pack_number,
+        hex::encode(domain_separator),
+        hex::encode(msg_data_hash)
+    );
+
+    let msg_hash = keccak256(hex::decode(&data).map_err(|e| anyhow!(e))?.as_slice());
+    Ok(msg_hash)
+}
+
+pub fn get_msg_signature(msg_hash: &[u8], eth_key: SecretKey) -> Result<Vec<u8>> {
+    let secp = Secp256k1::signing_only();
+    let message = Message::from_slice(msg_hash)?;
+
+    let (recovery, sig_bytes) = secp
+        .sign_recoverable(&message, &eth_key)
+        .serialize_compact();
+
+    let sig_v = recovery.to_i32() as u64 + 27;
+    let mut signature = sig_bytes.to_vec();
+    signature.push(sig_v as u8);
+    Ok(signature)
 }

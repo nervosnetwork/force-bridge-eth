@@ -477,8 +477,13 @@ pub async fn wait_header_sync_success(
                 continue;
             }
         }
-
         let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
+        if ckb_cell_data.is_empty() {
+            debug!("waiting for eth light client cell init, loop index: {}", i);
+            tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
+            i += 1;
+            continue;
+        }
         let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
 
         let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
