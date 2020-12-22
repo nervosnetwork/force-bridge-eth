@@ -16,5 +16,5 @@ pub fn verify<T: Adapter>(data_loader: T) {
 
     let output_data_len = data_loader.load_data_len_from_source(Source::GroupOutput);
 
-    assert_eq!(output_data_len, 1);
+    assert!(output_data_len <= 1);
 }

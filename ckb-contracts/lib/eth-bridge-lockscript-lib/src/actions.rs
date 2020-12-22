@@ -38,6 +38,8 @@ fn verify_witness<T: Adapter>(
 ) -> (u8, ETHLockEvent) {
     let proof = witness.spv_proof().raw_data();
     let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
+    assert_eq!(cell_dep_index_list.len(), 1);
+
     let lock_event = verify_eth_spv_proof(data_loader, proof, cell_dep_index_list);
     (cell_dep_index_list[0], lock_event)
 }
