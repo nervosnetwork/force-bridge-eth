@@ -7,6 +7,7 @@ use contracts_helper::debug;
 use force_eth_types::{
     config::BRIDGE_LOCK_HASH_TYPE,
     eth_recipient_cell::{ETHAddress, ETHRecipientDataView},
+    generated::basic,
     generated::eth_bridge_lock_cell::ETHBridgeLockArgs,
 };
 use molecule::prelude::{Builder, Byte, Entity};
@@ -56,8 +57,8 @@ fn calc_eth_bridge_lock_hash(
         .eth_contract_address(eth_contract_address.get_address().into())
         .eth_token_address(eth_token_address.get_address().into())
         .light_client_typescript_hash(
-            force_eth_types::generated::basic::Byte32::from_slice(light_client_typescript_hash)
-                .expect("light client typescript hash hash invalid"),
+            basic::Byte32::from_slice(light_client_typescript_hash)
+                .expect("convert light_client_typescript_hash to Bytes32"),
         )
         .build();
 
