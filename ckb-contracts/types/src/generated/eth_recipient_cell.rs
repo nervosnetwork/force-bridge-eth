@@ -65,15 +65,16 @@ impl ::core::default::Default for ETHRecipientCellData {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
         ETHRecipientCellData::new_unchecked(v.into())
     }
 }
 impl ETHRecipientCellData {
-    pub const TOTAL_SIZE: usize = 156;
-    pub const FIELD_SIZES: [usize; 7] = [20, 20, 20, 32, 32, 16, 16];
-    pub const FIELD_COUNT: usize = 7;
+    pub const TOTAL_SIZE: usize = 188;
+    pub const FIELD_SIZES: [usize; 8] = [20, 20, 20, 32, 32, 16, 16, 32];
+    pub const FIELD_COUNT: usize = 8;
     pub fn eth_recipient_address(&self) -> ETHAddress {
         ETHAddress::new_unchecked(self.0.slice(0..20))
     }
@@ -96,7 +97,7 @@ impl ETHRecipientCellData {
         Uint128::new_unchecked(self.0.slice(140..156))
     }
     pub fn light_client_typescript_hash(&self) -> Byte32 {
-        Byte32::new_unchecked(self.0.slice(124..156))
+        Byte32::new_unchecked(self.0.slice(156..188))
     }
     pub fn as_reader<'r>(&'r self) -> ETHRecipientCellDataReader<'r> {
         ETHRecipientCellDataReader::new_unchecked(self.as_slice())
@@ -191,9 +192,9 @@ impl<'r> ::core::fmt::Display for ETHRecipientCellDataReader<'r> {
     }
 }
 impl<'r> ETHRecipientCellDataReader<'r> {
-    pub const TOTAL_SIZE: usize = 156;
-    pub const FIELD_SIZES: [usize; 7] = [20, 20, 20, 32, 32, 16, 16];
-    pub const FIELD_COUNT: usize = 7;
+    pub const TOTAL_SIZE: usize = 188;
+    pub const FIELD_SIZES: [usize; 8] = [20, 20, 20, 32, 32, 16, 16, 32];
+    pub const FIELD_COUNT: usize = 8;
     pub fn eth_recipient_address(&self) -> ETHAddressReader<'r> {
         ETHAddressReader::new_unchecked(&self.as_slice()[0..20])
     }
@@ -216,7 +217,7 @@ impl<'r> ETHRecipientCellDataReader<'r> {
         Uint128Reader::new_unchecked(&self.as_slice()[140..156])
     }
     pub fn light_client_typescript_hash(&self) -> Byte32Reader<'r> {
-        Byte32Reader::new_unchecked(&self.as_slice()[124..156])
+        Byte32Reader::new_unchecked(&self.as_slice()[156..188])
     }
 }
 impl<'r> molecule::prelude::Reader<'r> for ETHRecipientCellDataReader<'r> {
@@ -252,9 +253,9 @@ pub struct ETHRecipientCellDataBuilder {
     pub(crate) light_client_typescript_hash: Byte32,
 }
 impl ETHRecipientCellDataBuilder {
-    pub const TOTAL_SIZE: usize = 156;
-    pub const FIELD_SIZES: [usize; 7] = [20, 20, 20, 32, 32, 16, 16];
-    pub const FIELD_COUNT: usize = 7;
+    pub const TOTAL_SIZE: usize = 188;
+    pub const FIELD_SIZES: [usize; 8] = [20, 20, 20, 32, 32, 16, 16, 32];
+    pub const FIELD_COUNT: usize = 8;
     pub fn eth_recipient_address(mut self, v: ETHAddress) -> Self {
         self.eth_recipient_address = v;
         self
