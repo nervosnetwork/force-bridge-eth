@@ -532,6 +532,10 @@ pub fn rlp_transaction(tx: &RawTransaction) -> String {
     hex::encode(s.out().as_slice())
 }
 
+pub fn parse_secret_key(privkey: H256) -> Result<SecretKey> {
+    Ok(SecretKey::from_slice(&privkey.0)?)
+}
+
 #[tokio::test]
 async fn test_get_block() {
     // use cmd_lib::run_fun;
