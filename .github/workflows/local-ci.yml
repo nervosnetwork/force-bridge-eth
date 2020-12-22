@@ -33,4 +33,5 @@ jobs:
           profile: minimal
           toolchain: nightly-2020-10-22
           override: true
+      - run: git submodule update
       - run: make github-ci
