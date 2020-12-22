@@ -139,7 +139,7 @@ pub async fn relay_eth_to_ckb_proof(
                 eth_lock_tx_hash,
                 e
             )
-                .into());
+            .into());
         };
     }
     let row_id = create_db_res.unwrap();

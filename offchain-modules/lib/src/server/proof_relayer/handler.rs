@@ -109,7 +109,7 @@ pub async fn relay_eth_to_ckb_proof(
         ethereum_rpc_url.clone(),
         eth_token_locker_addr.clone(),
     )
-        .await?;
+    .await?;
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
@@ -139,7 +139,7 @@ pub async fn relay_eth_to_ckb_proof(
         &eth_proof,
         from_privkey,
     )
-        .await?;
+    .await?;
     log::info!(
         "relay lock tx {} successfully, mint tx {}",
         eth_lock_tx_hash,

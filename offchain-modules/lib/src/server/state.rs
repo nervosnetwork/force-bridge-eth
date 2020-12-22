@@ -89,7 +89,7 @@ impl DappState {
             self.indexer_url.clone(),
             self.deployed_contracts.clone(),
         )
-            .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
+        .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
         ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
             .await
             .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
