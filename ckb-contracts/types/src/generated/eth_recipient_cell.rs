@@ -48,6 +48,12 @@ impl ::core::fmt::Display for ETHRecipientCellData {
         )?;
         write!(f, ", {}: {}", "token_amount", self.token_amount())?;
         write!(f, ", {}: {}", "fee", self.fee())?;
+        write!(
+            f,
+            ", {}: {}",
+            "light_client_typescript_hash",
+            self.light_client_typescript_hash()
+        )?;
         write!(f, " }}")
     }
 }
@@ -89,6 +95,9 @@ impl ETHRecipientCellData {
     pub fn fee(&self) -> Uint128 {
         Uint128::new_unchecked(self.0.slice(140..156))
     }
+    pub fn light_client_typescript_hash(&self) -> Byte32 {
+        Byte32::new_unchecked(self.0.slice(124..156))
+    }
     pub fn as_reader<'r>(&'r self) -> ETHRecipientCellDataReader<'r> {
         ETHRecipientCellDataReader::new_unchecked(self.as_slice())
     }
@@ -123,6 +132,7 @@ impl molecule::prelude::Entity for ETHRecipientCellData {
             .eth_bridge_lock_hash(self.eth_bridge_lock_hash())
             .token_amount(self.token_amount())
             .fee(self.fee())
+            .light_client_typescript_hash(self.light_client_typescript_hash())
     }
 }
 #[derive(Clone, Copy)]
@@ -171,6 +181,12 @@ impl<'r> ::core::fmt::Display for ETHRecipientCellDataReader<'r> {
         )?;
         write!(f, ", {}: {}", "token_amount", self.token_amount())?;
         write!(f, ", {}: {}", "fee", self.fee())?;
+        write!(
+            f,
+            ", {}: {}",
+            "light_client_typescript_hash",
+            self.light_client_typescript_hash()
+        )?;
         write!(f, " }}")
     }
 }
@@ -198,6 +214,9 @@ impl<'r> ETHRecipientCellDataReader<'r> {
     }
     pub fn fee(&self) -> Uint128Reader<'r> {
         Uint128Reader::new_unchecked(&self.as_slice()[140..156])
+    }
+    pub fn light_client_typescript_hash(&self) -> Byte32Reader<'r> {
+        Byte32Reader::new_unchecked(&self.as_slice()[124..156])
     }
 }
 impl<'r> molecule::prelude::Reader<'r> for ETHRecipientCellDataReader<'r> {
@@ -230,6 +249,7 @@ pub struct ETHRecipientCellDataBuilder {
     pub(crate) eth_bridge_lock_hash: Byte32,
     pub(crate) token_amount: Uint128,
     pub(crate) fee: Uint128,
+    pub(crate) light_client_typescript_hash: Byte32,
 }
 impl ETHRecipientCellDataBuilder {
     pub const TOTAL_SIZE: usize = 156;
@@ -263,6 +283,10 @@ impl ETHRecipientCellDataBuilder {
         self.fee = v;
         self
     }
+    pub fn light_client_typescript_hash(mut self, v: Byte32) -> Self {
+        self.light_client_typescript_hash = v;
+        self
+    }
 }
 impl molecule::prelude::Builder for ETHRecipientCellDataBuilder {
     type Entity = ETHRecipientCellData;
@@ -278,6 +302,7 @@ impl molecule::prelude::Builder for ETHRecipientCellDataBuilder {
         writer.write_all(self.eth_bridge_lock_hash.as_slice())?;
         writer.write_all(self.token_amount.as_slice())?;
         writer.write_all(self.fee.as_slice())?;
+        writer.write_all(self.light_client_typescript_hash.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {

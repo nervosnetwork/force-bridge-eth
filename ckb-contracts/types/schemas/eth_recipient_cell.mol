@@ -8,4 +8,5 @@ struct ETHRecipientCellData {
     eth_bridge_lock_hash: Byte32,
     token_amount: Uint128,
     fee: Uint128,
+    light_client_typescript_hash: Byte32,
 }

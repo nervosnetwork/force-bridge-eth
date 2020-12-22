@@ -63,7 +63,7 @@ pub struct CreateBridgeCellArgs {
     pub recipient_address: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
-    #[clap(long, default_value = "283")]
+    #[clap(long, default_value = "315")]
     pub capacity: String,
     #[clap(long, default_value = "0")]
     pub bridge_fee: u128,
