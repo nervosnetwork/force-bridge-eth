@@ -297,12 +297,15 @@ pub async fn send_eth_spv_proof_tx(
                     retry_times, e
                 );
                 log::info!("{}", error_msg);
+                if error_msg.contains("ValidationFailure(-1)") {
+                    anyhow::bail!(error_msg);
+                }
             }
         }
         tokio::time::delay_for(std::time::Duration::from_secs(retry_times * 3 + 1)).await;
     }
     anyhow::bail!(
-        "lock tx {} related mint tx is not committed, reach max retry times. latest error_msg: {}",
+        "lock tx {} related mint tx is not committed, reach max retry times timeout. latest error_msg: {}",
         eth_lock_tx,
         error_msg
     )

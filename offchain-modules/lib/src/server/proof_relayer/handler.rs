@@ -7,7 +7,7 @@ use crate::transfer::to_eth::{get_ckb_proof_info, unlock, wait_block_submit};
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, convert_hex_to_h256, Web3Client};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use ckb_jsonrpc_types::Uint128;
 use ckb_types::core::TransactionView;
 use molecule::prelude::Entity;
@@ -70,12 +70,15 @@ pub async fn relay_eth_to_ckb_proof(
 ) -> Result<()> {
     let mut web3 = Web3Client::new(ethereum_rpc_url.clone());
     let eth_lock_tx_hash = convert_hex_to_h256(&record.eth_lock_tx_hash)?;
+
     // ensure tx committed on eth
+    let mut is_committed = false;
     for i in 0u8..100 {
         let receipt_res = web3.get_receipt(eth_lock_tx_hash).await;
         match receipt_res {
             Ok(Some(receipt)) => {
                 log::info!("get lock tx {} receipt: {:?}", eth_lock_tx_hash, receipt);
+                is_committed = true;
                 break;
             }
             _ => {
@@ -88,27 +91,39 @@ pub async fn relay_eth_to_ckb_proof(
             }
         }
     }
+    if !is_committed {
+        bail!("wait lock tx committed on ethereum timeout");
+    }
+
     // generate proof and send tx
     let eth_proof = generate_eth_spv_proof_json(
         record.eth_lock_tx_hash.clone(),
         ethereum_rpc_url.clone(),
         eth_token_locker_addr.clone(),
     )
-    .await?;
+        .await?;
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    wait_header_sync_success(
+
+    let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
+    let wait_header_future = wait_header_sync_success(
         &mut generator,
         deployed_contracts
             .light_client_cell_script
             .cell_script
             .as_str(),
         eth_proof.header_data.clone(),
-    )
-    .await?;
+    );
+    tokio::select! {
+        v = wait_header_future => { v? }
+        _ = timeout_future => {
+            bail!("wait header sync timeout");
+        }
+    }
+
     let tx_hash = send_eth_spv_proof_tx(
         &mut generator,
         config_path,
@@ -116,7 +131,7 @@ pub async fn relay_eth_to_ckb_proof(
         &eth_proof,
         from_privkey,
     )
-    .await?;
+        .await?;
     log::info!(
         "relay lock tx {} successfully, mint tx {}",
         eth_lock_tx_hash,

@@ -123,18 +123,21 @@ pub async fn relay_eth_to_ckb_proof(
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
     let create_db_res =
         db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await;
-    if let Err(e) = create_db_res {
-        return if e.to_string().contains("UNIQUE constraint failed") {
-            Ok(HttpResponse::Ok().json(json!({
-                "message": "tx proof relay processing/processed"
-            })))
+    if let Err(e) = &create_db_res {
+        if e.to_string().contains("UNIQUE constraint failed") {
+            let record = db::get_eth_to_ckb_status(&data.db, eth_lock_tx_hash.as_str()).await?.expect("EthToCkbRecord existed");
+            if record.status != "timeout" || !data.add_relaying_tx(eth_lock_tx_hash.clone()).await {
+                return Ok(HttpResponse::Ok().json(json!({
+                    "message": "tx proof relay processing/processed"
+                })));
+            }
         } else {
-            Err(anyhow!(
+            return Err(anyhow!(
                 "relay_eth_to_ckb_proof create db fail for {}, err: {}",
                 eth_lock_tx_hash,
                 e
             )
-            .into())
+                .into());
         };
     }
     let row_id = create_db_res.unwrap();
@@ -178,7 +181,11 @@ pub async fn relay_eth_to_ckb_proof(
                     e
                 );
                 record.err_msg = Some(e.to_string());
-                record.status = "error".to_string();
+                record.status = if e.to_string().contains("timeout") {
+                    "timeout".to_string()
+                } else {
+                    "error".to_string()
+                };
                 let res = update_eth_to_ckb_status(&data.db, &record).await;
                 if res.is_err() {
                     log::error!(
@@ -189,6 +196,7 @@ pub async fn relay_eth_to_ckb_proof(
                 }
             }
         }
+        data.remove_relaying_tx(eth_lock_tx_hash).await;
         data.ckb_key_channel
             .0
             .clone()

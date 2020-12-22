@@ -6,6 +6,9 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 use force_sdk::util::ensure_indexer_sync;
 use shellexpand::tilde;
 use sqlx::SqlitePool;
+use std::collections::hash_set::HashSet;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct DappState {
@@ -18,6 +21,7 @@ pub struct DappState {
     pub ckb_rpc_url: String,
     pub eth_rpc_url: String,
     pub db: SqlitePool,
+    pub relaying_txs: Arc<Mutex<HashSet<String>>>,
 }
 
 impl DappState {
@@ -75,6 +79,7 @@ impl DappState {
                 .expect("contracts should be deployed"),
             network,
             db: SqlitePool::connect(&db_path).await?,
+            relaying_txs: Arc::new(Mutex::new(HashSet::default())),
         })
     }
 
@@ -84,7 +89,7 @@ impl DappState {
             self.indexer_url.clone(),
             self.deployed_contracts.clone(),
         )
-        .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
+            .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
         ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
             .await
             .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
@@ -93,5 +98,20 @@ impl DappState {
 
     pub fn get_web3_client(&self) -> Web3Client {
         Web3Client::new(self.eth_rpc_url.clone())
+    }
+
+    pub async fn add_relaying_tx(&self, tx_hash: String) -> bool {
+        let mut relaying_txs = self.relaying_txs.clone().lock_owned().await;
+        return if relaying_txs.contains(&tx_hash) {
+            false
+        } else {
+            relaying_txs.insert(tx_hash);
+            true
+        };
+    }
+
+    pub async fn remove_relaying_tx(&self, tx_hash: String) {
+        let mut relaying_txs = self.relaying_txs.clone().lock_owned().await;
+        relaying_txs.remove(&tx_hash);
     }
 }
