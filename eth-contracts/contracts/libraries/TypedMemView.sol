@@ -378,7 +378,7 @@ library TypedMemView {
         }
         require(_bytes <= 32, "TypedMemView/index - Attempted to index more than 32 bytes");
 
-        uint8 bitLength = _bytes * 8;
+        uint8 bitLength = uint8(uint256( _bytes )* 8);
         uint256 _loc = loc(memView);
         uint256 _mask = leftMask(bitLength);
         assembly {
