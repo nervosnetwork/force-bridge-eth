@@ -39,22 +39,6 @@ async function main() {
   const CKBChainAddr = CKBChain.address;
   console.error('CKBChain address: ', CKBChainAddr);
 
-  // deploy TokenLocker
-  let TokenLocker = await ethers.getContractFactory(
-    'contracts/TokenLocker.sol:TokenLocker',
-    wallet
-  );
-  const locker = await TokenLocker.deploy(
-    CKBChainAddr,
-    1,
-    '0x' + recipient_typescript_code_hash,
-    recipientCellTypescriptHashType,
-    '0x' + bridge_lockscript_code_hash
-  );
-  await locker.deployed();
-  const lockerAddr = locker.address;
-  console.error('tokenLocker address: ', lockerAddr);
-
   const validators = network_config.ethereum_private_keys.map((privateKey) => {
     let publicKey = EthUtil.privateToPublic(Buffer.from(privateKey, 'hex'));
     return '0x' + EthUtil.publicToAddress(publicKey).toString('hex');
@@ -73,6 +57,22 @@ async function main() {
   await ckbChainV2.deployed();
   const ckbChainV2Addr = ckbChainV2.address;
   console.error('ckbChainV2 address: ', ckbChainV2Addr);
+
+  // deploy TokenLocker
+  let TokenLocker = await ethers.getContractFactory(
+    'contracts/TokenLocker.sol:TokenLocker',
+    wallet
+  );
+  const locker = await TokenLocker.deploy(
+    ckbChainV2Addr,
+    1,
+    '0x' + recipient_typescript_code_hash,
+    recipientCellTypescriptHashType,
+    '0x' + bridge_lockscript_code_hash
+  );
+  await locker.deployed();
+  const lockerAddr = locker.address;
+  console.error('tokenLocker address: ', lockerAddr);
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
