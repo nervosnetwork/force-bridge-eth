@@ -97,6 +97,7 @@ integration-ci: setup-dev-env demo-crosschain
 
 local-ci:
 	make close-dev-env
+	make build-all
 	test -f ~/.force-bridge/config.toml && mv ~/.force-bridge/config.toml ~/.force-bridge/config_bak_`date "+%Y%m%d-%H%M%S"`.toml || echo 'config not exist'
 	make init-config
 	make integration-ci
