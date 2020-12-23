@@ -72,6 +72,19 @@ pub async fn get_eth_to_ckb_status(
     Ok(HttpResponse::Ok().json(status))
 }
 
+#[post("/get_ckb_to_eth_status")]
+pub async fn get_ckb_to_eth_status(
+    data: web::Data<DappState>,
+    args: web::Json<Value>,
+) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: CkbBurnTxHash =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    let status = db::get_ckb_to_eth_status(&data.db, &args.ckb_burn_tx_hash)
+        .await?
+        .ok_or(format!("ckb burn tx {} not found", &args.ckb_burn_tx_hash))?;
+    Ok(HttpResponse::Ok().json(status))
+}
+
 #[post("/get_crosschain_history")]
 pub async fn get_crosschain_history(
     data: web::Data<DappState>,
