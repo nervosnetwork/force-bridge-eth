@@ -1,4 +1,6 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "../interfaces/IERC20.sol";
 import "../libraries/SafeMath.sol";
@@ -35,7 +37,7 @@ contract ERC20 is IERC20 {
 
     uint256 private _totalSupply;
 
-    constructor() public {
+    constructor() {
         _totalSupply += 100000000;
         _balances[msg.sender] += 100000000;
     }
@@ -43,14 +45,14 @@ contract ERC20 is IERC20 {
     /**
      * @dev See `IERC20.totalSupply`.
      */
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() override public view returns (uint256) {
         return _totalSupply;
     }
 
     /**
      * @dev See `IERC20.balanceOf`.
      */
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address account) override public view returns (uint256) {
         return _balances[account];
     }
 
@@ -62,7 +64,7 @@ contract ERC20 is IERC20 {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public returns (bool) {
+    function transfer(address recipient, uint256 amount) override public returns (bool) {
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -70,7 +72,7 @@ contract ERC20 is IERC20 {
     /**
      * @dev See `IERC20.allowance`.
      */
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address owner, address spender) override public view returns (uint256) {
         return _allowances[owner][spender];
     }
 
@@ -81,7 +83,7 @@ contract ERC20 is IERC20 {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 value) public returns (bool) {
+    function approve(address spender, uint256 value) override public returns (bool) {
         _approve(msg.sender, spender, value);
         return true;
     }
@@ -98,7 +100,7 @@ contract ERC20 is IERC20 {
      * - the caller must have allowance for `sender`'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) override public returns (bool) {
         _transfer(sender, recipient, amount);
         _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
         return true;
@@ -244,7 +246,7 @@ contract DAI is ERC20 {
         _;
     }
 
-    constructor() public {
+    constructor() {
         governance = msg.sender;
         _mint(msg.sender, _supply);
     }
@@ -271,7 +273,7 @@ contract USDT is ERC20 {
         _;
     }
 
-    constructor() public {
+    constructor() {
         governance = msg.sender;
         _mint(msg.sender, _supply);
     }
@@ -297,7 +299,7 @@ contract USDC is ERC20 {
         _;
     }
 
-    constructor() public {
+    constructor() {
         governance = msg.sender;
         _mint(msg.sender, _supply);
     }

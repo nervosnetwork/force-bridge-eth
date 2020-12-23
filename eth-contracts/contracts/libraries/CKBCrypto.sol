@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.5.10;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 library CKBCrypto {
     struct Instance {
@@ -22,7 +22,7 @@ library CKBCrypto {
     }
 
     // Initialise the state with a given `key` and required `out_len` hash length.
-    function init() internal view returns (Instance memory instance) {
+    function init() internal pure returns (Instance memory instance) {
         // Safety check that the precompile exists.
         // TODO: remove this?
         //         assembly {

@@ -1,4 +1,6 @@
-pragma solidity ^0.5.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import {TypedMemView} from "./libraries/TypedMemView.sol";
 import {CKBCrypto} from "./libraries/CKBCrypto.sol";
@@ -20,17 +22,17 @@ contract CKBChain is ICKBChain, ICKBSpv {
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
 
-    /// CHAIN_VERSION means chain_id on CKB CHAIN
+    // CHAIN_VERSION means chain_id on CKB CHAIN
     uint32 public constant CHAIN_VERSION = 0;
 
-    /// We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
-    /// Events that happen past this threshold cannot be verified by the client.
-    /// It is desirable that this number is larger than 7 days worth of headers, which is roughly
-    /// 40k ckb blocks. So this number should be 40k in production.
+    // We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
+    // Events that happen past this threshold cannot be verified by the client.
+    // It is desirable that this number is larger than 7 days worth of headers, which is roughly
+    // 40k ckb blocks. So this number should be 40k in production.
     uint64 public CanonicalGcThreshold;
-    /// We store full information about the headers for the past `FinalizedGcThreshold` blocks.
-    /// This is required to be able to adjust the canonical chain when the fork switch happens.
-    /// The commonly used number is 500 blocks, so this number should be 500 in production.
+    // We store full information about the headers for the past `FinalizedGcThreshold` blocks.
+    // This is required to be able to adjust the canonical chain when the fork switch happens.
+    // The commonly used number is 500 blocks, so this number should be 500 in production.
     uint64 public FinalizedGcThreshold;
 
     // Minimal information about the submitted block.
@@ -52,27 +54,27 @@ contract CKBChain is ICKBChain, ICKBSpv {
     address public governance;
     uint256 MOCK_DIFFICULTY = 1;
 
-    /// Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
-    /// entries.
-    /// header number -> header hash
+    // Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
+    // entries.
+    // header number -> header hash
     mapping(uint64 => bytes32) canonicalHeaderHashes;
 
-    /// TransactionRoots of the canonical chain mapped to their headerHash. Stores up to `canonical_gc_threshold`
-    /// entries.
-    /// header hash -> transactionRoots from the header
+    // TransactionRoots of the canonical chain mapped to their headerHash. Stores up to `canonical_gc_threshold`
+    // entries.
+    // header hash -> transactionRoots from the header
     mapping(bytes32 => bytes32) canonicalTransactionsRoots;
 
-    /// All known header hashes. Stores up to `finalized_gc_threshold`.
-    /// header number -> hashes of all headers with this number.
+    // All known header hashes. Stores up to `finalized_gc_threshold`.
+    // header number -> hashes of all headers with this number.
     mapping(uint64 => bytes32[]) allHeaderHashes;
 
-    /// Known headers. Stores up to `finalized_gc_threshold`.
+    // Known headers. Stores up to `finalized_gc_threshold`.
     mapping(bytes32 => BlockHeader) blockHeaders;
 
-    /// @notice             requires `memView` to be of a specified type
-    /// @param memView      a 29-byte view with a 5-byte type
-    /// @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
-    /// @return             passes if it is the correct type, errors if not
+    // @notice             requires `memView` to be of a specified type
+    // @param memView      a 29-byte view with a 5-byte type
+    // @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
+    // @return             passes if it is the correct type, errors if not
     modifier typeAssert(bytes29 memView, ViewCKB.CKBTypes t) {
         memView.assertType(uint40(t));
         _;
@@ -86,18 +88,19 @@ contract CKBChain is ICKBChain, ICKBSpv {
         _;
     }
 
-    constructor() public {
+    constructor() {
         governance = msg.sender;
     }
 
     // query
-    function getLatestBlockNumber() public returns (uint64) {
+    function getLatestBlockNumber() public view returns (uint64) {
         return latestBlockNumber;
     }
 
     // query
     function getHeadersByNumber(uint64 blockNumber)
         public
+        view
         returns (bytes32[] memory)
     {
         return allHeaderHashes[blockNumber];
@@ -106,6 +109,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
     // query
     function getCanonicalHeaderHash(uint64 blockNumber)
         public
+        view
         returns (bytes32)
     {
         return canonicalHeaderHashes[blockNumber];
@@ -114,13 +118,14 @@ contract CKBChain is ICKBChain, ICKBSpv {
     // query
     function getCanonicalTransactionsRoot(bytes32 blockHash)
         public
+        view
         returns (bytes32)
     {
         return canonicalTransactionsRoots[blockHash];
     }
 
     // query
-    function getLatestEpoch() public returns (uint64) {
+    function getLatestEpoch() public view returns (uint64) {
         return latestHeader.epoch;
     }
 
@@ -165,9 +170,9 @@ contract CKBChain is ICKBChain, ICKBSpv {
             .transactionsRoot();
     }
 
-    /// # ICKBChain
+    // # ICKBChain
     // TODO add onlyGov for phase1 production
-    function addHeaders(bytes calldata data) external {
+    function addHeaders(bytes calldata data) override external {
         require(initialized, "Contract is not initialized");
 
         // 1. view decode from data to headers view
@@ -238,11 +243,11 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
     }
 
-    /// @notice                     verifyPow for the header
-    /// @dev                        reference code:  https://github.com/nervosnetwork/ckb/blob/develop/pow/src/eaglesong.rs
-    /// @param headerView           the bytes29 view of the header
-    /// @param parentHeader         parent header of the header
-    /// @return                     the difficulty of the header
+    // @notice                     verifyPow for the header
+    // @dev                        reference code:  https://github.com/nervosnetwork/ckb/blob/develop/pow/src/eaglesong.rs
+    // @param headerView           the bytes29 view of the header
+    // @param parentHeader         parent header of the header
+    // @return                     the difficulty of the header
     function _verifyPow(
         bytes29 headerView,
         bytes29 rawHeaderView,
@@ -337,8 +342,9 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
     }
 
-    /// #ICKBSpv
+    // #ICKBSpv
     function proveTxExist(bytes calldata txProofData, uint64 numConfirmations)
+        override
         external
         view
         returns (bool)
@@ -393,7 +399,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         return true;
     }
 
-    /// Remove hashes from the Canonical chain that are at least as old as the given header number.
+    // Remove hashes from the Canonical chain that are at least as old as the given header number.
     function _gcCanonicalChain(uint64 blockNumber) internal {
         uint64 number = blockNumber;
         while (true) {
@@ -407,7 +413,7 @@ contract CKBChain is ICKBChain, ICKBSpv {
         }
     }
 
-    /// Remove information about the headers that are at least as old as the given header number.
+    // Remove information about the headers that are at least as old as the given header number.
     function _gcHeaders(uint64 blockNumber) internal {
         uint64 number = blockNumber;
         while (true) {

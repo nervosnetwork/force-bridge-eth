@@ -1,4 +1,7 @@
-pragma solidity ^0.5.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
+
 import {TypedMemView} from "../libraries/TypedMemView.sol";
 import {CKBCrypto} from "../libraries/CKBCrypto.sol";
 import {SafeMath} from "../libraries/SafeMath.sol";
@@ -9,7 +12,7 @@ import {ICKBChain} from "../interfaces/ICKBChain.sol";
 import {ICKBSpv} from "../interfaces/ICKBSpv.sol";
 //import "hardhat/console.sol";
 
-/// @dev    reference code:  https://github.com/nervosnetwork/ckb/blob/master/util/types/src/utilities/difficulty.rs
+// @dev    reference code:  https://github.com/nervosnetwork/ckb/blob/master/util/types/src/utilities/difficulty.rs
 library CKBPow {
     uint256 constant public MAX_UIN256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 

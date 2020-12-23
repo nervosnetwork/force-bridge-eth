@@ -48,6 +48,15 @@ module.exports = {
                         runs: 200
                     }
                 }
+            },
+            {
+                version: "0.8.0",
+                settings: {
+                    optimizer: {
+                        enabled: false,
+                        runs: 200
+                    }
+                }
             }
         ]
     },
