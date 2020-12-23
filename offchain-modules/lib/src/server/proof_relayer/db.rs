@@ -37,7 +37,7 @@ pub async fn update_eth_to_ckb_status(pool: &SqlitePool, record: &EthToCkbRecord
     log::info!("update_eth_to_ckb_status, record: {:?}", record);
     let rows_affected = sqlx::query(
         r#"
-UPDATE eth_to_ckb SET 
+UPDATE eth_to_ckb SET
     status = ?2,
     token_addr = ?3,
     sender_addr = ?4,
@@ -157,7 +157,7 @@ pub async fn update_ckb_to_eth_status(pool: &SqlitePool, record: &CkbToEthRecord
     log::info!("update_ckb_to_eth_status, record: {:?}", record);
     let rows_affected = sqlx::query(
         r#"
-UPDATE ckb_to_eth SET 
+UPDATE ckb_to_eth SET
     status = ?2,
     recipient_addr = ?3,
     token_addr = ?4,
@@ -185,8 +185,8 @@ WHERE id = ?1
 pub async fn get_ckb_to_eth_status(
     pool: &SqlitePool,
     ckb_burn_tx_hash: &str,
-) -> Result<Option<EthToCkbRecord>> {
-    Ok(sqlx::query_as::<_, EthToCkbRecord>(
+) -> Result<Option<CkbToEthRecord>> {
+    Ok(sqlx::query_as::<_, CkbToEthRecord>(
         r#"
 SELECT *
 FROM ckb_to_eth
