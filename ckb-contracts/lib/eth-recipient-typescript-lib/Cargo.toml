@@ -8,7 +8,7 @@ edition = "2018"
 
 [features]
 default = ["std"]
-std = ["mockall"]
+std = ["mockall", "no-std-compat/std"]
 
 [dependencies]
 ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }

@@ -9,7 +9,9 @@ use molecule::prelude::{Builder, Entity};
 #[should_panic(expected = "eth spv proof is invalid")]
 fn test_mint_mode_invalid_proof() {
     let mut mock = MockAdapter::new();
-    let witness = MintTokenWitness::new_builder().build();
+    let witness = MintTokenWitness::new_builder()
+        .cell_dep_index_list([0u8].to_vec().into())
+        .build();
     mock.expect_load_input_witness_args()
         .times(1)
         .returning(move || Ok(witness.as_bytes()));

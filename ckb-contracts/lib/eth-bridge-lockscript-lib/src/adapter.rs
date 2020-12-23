@@ -49,6 +49,10 @@ pub trait Adapter {
             .args(Bytes::from(script_hash.to_vec()).pack())
             .build()
     }
+
+    fn load_script_args(&self) -> Result<Bytes, SysError>;
+
+    fn load_dep_cell_typescript_hash(&self, index: usize) -> Result<Option<[u8; 32]>, SysError>;
 }
 
 pub struct ChainAdapter<T: DataLoader> {
@@ -123,5 +127,13 @@ where
         let cell = self.chain.load_cell(index, source)?;
         let data = self.chain.load_cell_data(index, source)?;
         Ok((cell.type_().to_opt(), cell.lock(), data))
+    }
+
+    fn load_script_args(&self) -> Result<Bytes, SysError> {
+        Ok(self.chain.load_script()?.args().raw_data())
+    }
+
+    fn load_dep_cell_typescript_hash(&self, index: usize) -> Result<Option<[u8; 32]>, SysError> {
+        self.chain.load_cell_type_hash(index, Source::CellDep)
     }
 }

@@ -51,8 +51,8 @@ pub fn verify_mint_token<T: Adapter>(
         assert_eq!(sudt_typescript_slice, second_output_typescript.as_slice());
         let second_output_lock_script = data_loader.load_cell_lock(index, Source::Output).unwrap();
         assert_eq!(
-            second_output_lock_script.as_bytes(),
-            data.owner_lock_script().raw_data()
+            second_output_lock_script.as_bytes().as_ref(),
+            data.owner_lock_script().raw_data().as_ref()
         );
         let second_output_data = data_loader.load_cell_data(index, Source::Output).unwrap();
         assert_eq!(&second_output_data[..16], data.fee().as_slice());

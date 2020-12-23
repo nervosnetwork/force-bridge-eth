@@ -3,7 +3,7 @@ use crate::util::ckb_tx_generator::Generator;
 use crate::util::eth_util::{
     convert_eth_address, parse_secret_key, relay_header_transaction, Web3Client,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use ethabi::Token;
 use ethereum_types::U256;
 use futures::future::try_join_all;
@@ -121,8 +121,14 @@ impl CKBRelayer {
         }
         if !futures.is_empty() {
             let now = Instant::now();
-            let results = try_join_all(futures).await?;
-            info!("join_all execute result {:?}", results);
+            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
+            let task_future = try_join_all(futures);
+            tokio::select! {
+                v = task_future => { v?; }
+                _ = timeout_future => {
+                    bail!("relay headers timeout");
+                }
+            }
             info!("relay headers time elapsed: {:?}", now.elapsed());
         }
         Ok(())
