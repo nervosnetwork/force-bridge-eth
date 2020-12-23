@@ -32,7 +32,8 @@ abstract contract Delegate is Base {
         returnAsm(false, notFoundMark);
     }
 
-    fallback(bytes calldata) external payable returns (bytes memory) {
+    // solhint-disable-next-line
+    fallback(/*bytes calldata*/) external payable /*returns (bytes memory)*/ {
         //target function doesn't hit normal functions
         defaultFallback();
     }

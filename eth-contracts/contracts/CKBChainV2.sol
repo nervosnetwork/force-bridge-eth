@@ -271,7 +271,7 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
         // 1. calc msgHash
         bytes32 msgHash = keccak256(
             abi.encodePacked(
-                '\x19\x01', // solium-disable-line
+                "\x19\x01", // solium-disable-line
                 DOMAIN_SEPARATOR,
                 keccak256(abi.encode(ADD_HEADERS_TYPEHASH, data))
             )

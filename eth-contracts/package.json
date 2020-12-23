@@ -11,12 +11,8 @@
     "test": "hardhat test --network geth || (npm run stop-geth && false)",
     "posttest": "npm run stop-geth",
     "test:coverage": "hardhat coverage",
-    "lint": "solium -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --check",
-    "lint:fix": "solium --fix -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write",
-    "l": "npx hardhat test test/V2/upgradeable/1_TokenLockerV2.test.upgradeable.js",
-    "m": "npx hardhat test test/V2/upgradeable/2_CKBChainV2.test.upgradeable.js",
-    "k": "npx hardhat test test/V2/2_CKBChainV2.test.js"
-
+    "lint": "solhint \"contracts/**/*.sol\" && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --check",
+    "lint:fix": "solhint --fix \"contracts/**/*.sol\" && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write"
   },
   "author": "cosinlink",
   "devDependencies": {
@@ -34,9 +30,9 @@
     "lodash": "^4.17.20",
     "prettier": "^2.1.2",
     "solc": "^0.5.16",
+    "solhint": "^3.3.2",
     "solidity-coverage": "^0.7.13",
     "solidity-docgen": "^0.3.0-beta.4",
-    "solium": "^1.2.4",
     "truffle": "^5.1.43",
     "web3": "^1.3.0"
   },

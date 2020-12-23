@@ -173,7 +173,7 @@ contract TokenLocker {
         // 2. calc msgHash
         bytes32 msgHash = keccak256(
             abi.encodePacked(
-                '\x19\x01', // solium-disable-line
+                "\x19\x01", // solium-disable-line
                 DOMAIN_SEPARATOR,
                 keccak256(abi.encode(SET_NEW_CKB_SPV_TYPEHASH, newSpvAddress, nonce))
             )

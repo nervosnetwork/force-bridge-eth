@@ -235,7 +235,8 @@ abstract contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
 
     //since low-level address.delegateCall is available in solidity,
     //we don't need to write assembly
-    fallback(bytes calldata) external payable outOfService returns (bytes memory){
+    // solhint-disable-next-line
+    fallback(/*bytes calldata*/) external payable outOfService /*returns (bytes memory)*/{
 
         /*
         the default transfer will set data to empty,
