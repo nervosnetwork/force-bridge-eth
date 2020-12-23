@@ -23,7 +23,7 @@ jobs:
           restore-keys: |
             cargo-target-offchain-
       - name: install-capsule
-#        if: steps.cache-contract-target.outputs.cache-hit != 'true'
+        #        if: steps.cache-contract-target.outputs.cache-hit != 'true'
         # Too slow to install capsule from source, replace it with download binary directly.
         # run: cargo install ckb-capsule --git https://github.com/nervosnetwork/capsule.git --tag v0.2.3
         run: |
