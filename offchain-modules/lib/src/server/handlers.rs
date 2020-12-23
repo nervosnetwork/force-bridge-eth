@@ -123,11 +123,13 @@ pub async fn relay_eth_to_ckb_proof(
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
     let create_db_res =
         db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await;
+    let row_id;
     if let Err(e) = &create_db_res {
         if e.to_string().contains("UNIQUE constraint failed") {
             let record = db::get_eth_to_ckb_status(&data.db, eth_lock_tx_hash.as_str())
                 .await?
                 .expect("EthToCkbRecord existed");
+            row_id = record.id;
             if record.status != "timeout" || !data.add_relaying_tx(eth_lock_tx_hash.clone()).await {
                 return Ok(HttpResponse::Ok().json(json!({
                     "message": "tx proof relay processing/processed"
@@ -141,8 +143,9 @@ pub async fn relay_eth_to_ckb_proof(
             )
             .into());
         };
+    } else {
+        row_id = create_db_res.unwrap();
     }
-    let row_id = create_db_res.unwrap();
     let generator = data.get_generator().await?;
     tokio::spawn(async move {
         let mut record = EthToCkbRecord {
@@ -249,7 +252,30 @@ pub async fn burn(
         serde_json::to_string_pretty(&rpc_tx).unwrap()
     );
     let ckb_tx_hash = hex::encode(tx.hash().as_slice());
-    let row_id = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await?;
+    let create_db_res = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await;
+    let row_id;
+    if let Err(e) = &create_db_res {
+        if e.to_string().contains("UNIQUE constraint failed") {
+            let record = db::get_ckb_to_eth_status(&data.db, ckb_tx_hash.as_str())
+                .await?
+                .expect("CkbToEthRecord existed");
+            row_id = record.id;
+            if record.status == "success" || !data.add_relaying_tx(ckb_tx_hash.clone()).await {
+                return Ok(HttpResponse::Ok().json(json!({
+                    "message": "tx proof relay processing/processed"
+                })));
+            }
+        } else {
+            return Err(anyhow!(
+                "relay_eth_to_ckb_proof create db fail for {}, err: {}",
+                ckb_tx_hash,
+                e
+            )
+            .into());
+        };
+    } else {
+        row_id = create_db_res.unwrap();
+    }
     tokio::spawn(async move {
         let eth_privkey_path = data
             .eth_key_channel
@@ -286,7 +312,7 @@ pub async fn burn(
                 }
                 Err(e) => {
                     err_msg = format!("unlock failed. index: {}, err: {}", i, e);
-                    tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                    tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
                 }
             }
         }
@@ -295,6 +321,7 @@ pub async fn burn(
             record.status = "error".to_string();
             db::update_ckb_to_eth_status(&data.db, &record).await?;
         }
+        data.remove_relaying_tx(ckb_tx_hash).await;
         data.eth_key_channel
             .0
             .clone()

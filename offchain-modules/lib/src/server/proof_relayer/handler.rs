@@ -30,11 +30,24 @@ pub async fn relay_ckb_to_eth_proof(
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, ckb_rpc_url.clone())?;
+    let try_get_ckb_proof = async || {
+        let mut error = "".to_string();
+        for _ in 0..3 {
+            let ret = get_ckb_proof_info(&ckb_tx_hash, ckb_rpc_url.clone());
+            if ret.is_ok() {
+                return ret;
+            }
+            error = format!("{}", ret.unwrap_err());
+            tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
+        }
+        bail!("get ckb burn tx proof failed: {}", error);
+    };
+    let (tx_proof, tx_info) = try_get_ckb_proof().await?;
+
     let light_client = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
     let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
 
-    let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
+    let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(3600));
     let wait_header_future = wait_block_submit(
         ethereum_rpc_url.clone(),
         ckb_rpc_url,
