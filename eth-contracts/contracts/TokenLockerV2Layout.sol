@@ -4,7 +4,7 @@ pragma abicoder v2;
 
 import "./interfaces/ICKBSpv.sol";
 
-contract TokenLockerV2Layout {
+contract TokenLockerV2Layout{
 
     //constants take no space, declare them at the begin
     //==============================================================================

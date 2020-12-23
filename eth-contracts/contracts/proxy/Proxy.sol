@@ -8,7 +8,9 @@ import "./EnhancedUniqueIndexMap.sol";
 
 abstract contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
     constructor (address admin) {
-        require(admin != address(0));
+        if(admin == address(0)){
+            admin = msg.sender;
+        }
         sysSaveSlotData(adminSlot, bytes32(uint256(uint160(admin))));
         sysSaveSlotData(userSigZeroSlot, bytes32(uint256(0)));
         sysSaveSlotData(outOfServiceSlot, bytes32(uint256(0)));
@@ -17,25 +19,25 @@ abstract contract Proxy is Base, EnhancedMap, EnhancedUniqueIndexMap {
     }
 
     // solium-disable-next-line
-    bytes32 constant adminSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("adminSlot"))))));
+    bytes32 internal constant adminSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("adminSlot"))))));
     // solium-disable-next-line
-    bytes32 constant revertMessageSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("revertMessageSlot"))))));
+    bytes32 internal constant revertMessageSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("revertMessageSlot"))))));
     // solium-disable-next-line
-    bytes32 constant outOfServiceSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("outOfServiceSlot"))))));
+    bytes32 internal constant outOfServiceSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("outOfServiceSlot"))))));
 
     //address <===>  index EnhancedUniqueIndexMap
     //0x2f80e9a12a11b80d2130b8e7dfc3bb1a6c04d0d87cc5c7ea711d9a261a1e0764
-    bytes32 constant delegatesSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("delegatesSlot"))))));
+    bytes32 internal constant delegatesSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("delegatesSlot"))))));
 
     //bytes4 abi ===> address, both not 0x00
     //0xba67a9e2b7b43c3c9db634d1c7bcdd060aa7869f4601d292a20f2eedaf0c2b1c
-    bytes32 constant userAbiSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("userAbiSlot"))))));
+    bytes32 internal constant userAbiSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("userAbiSlot"))))));
 
     // solium-disable-next-line
-    bytes32 constant userAbiSearchSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("userAbiSearchSlot"))))));
+    bytes32 internal constant userAbiSearchSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("userAbiSearchSlot"))))));
 
     //0xe2bb2e16cbb16a10fab839b4a5c3820d63a910f4ea675e7821846c4b2d3041dc
-    bytes32 constant userSigZeroSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("userSigZeroSlot"))))));
+    bytes32 internal constant userSigZeroSlot = keccak256(abi.encodePacked(keccak256(abi.encodePacked(keccak256(abi.encodePacked("userSigZeroSlot"))))));
 
     event DelegateSet(address delegate, bool activated);
     event AbiSet(bytes4 abi, address delegate, bytes32 slot);

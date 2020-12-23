@@ -12,10 +12,9 @@ import {Address} from "./libraries/Address.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 import "./TokenLockerV2Layout.sol";
-import "./TokenLockerV2ABI.sol";
 import "./proxy/Delegate.sol";
 
-contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
+contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout {
 
     using SafeMath for uint256;
     using Address for address;
@@ -24,11 +23,35 @@ contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
     using CKBTxView for bytes29;
     using ViewSpv for bytes29;
 
+
+    event Locked(
+        address indexed token,
+        address indexed sender,
+        uint256 lockedAmount,
+        uint256 bridgeFee,
+        bytes recipientLockscript,
+        bytes replayResistOutpoint,
+        bytes sudtExtraData
+    );
+
+    event Unlocked(
+        address indexed token,
+        address indexed recipient,
+        address indexed sender,
+        uint256 receivedAmount,
+        uint256 bridgeFee
+    );
+
+    event NewCkbSpv(
+        address ckbSpvAddress,
+        uint256 nonce
+    );
+
     /**
      * @notice  if addr is not one of validators_, return validators_.length
      * @return  index of addr in validators_
      */
-    function getIndexOfValidators(address user) override internal view returns (uint) {
+    function getIndexOfValidators(address user) internal view returns (uint) {
         for (uint i = 0; i < validators_.length; i++) {
             if (validators_[i] == user) {
                 return i;
@@ -43,7 +66,7 @@ contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
      * @param signatures   The signatures bytes array
      * @param threshold    check number of verified signatures >= `threshold`, signatures are approved by validators
      */
-    function validatorsApprove(bytes32 msgHash, bytes memory signatures, uint threshold) override public view {
+    function validatorsApprove(bytes32 msgHash, bytes memory signatures, uint threshold) public view {
         require(signatures.length % SIGNATURE_SIZE == 0, "invalid signatures");
         // 1. check length of signature
         uint length = signatures.length / SIGNATURE_SIZE;
@@ -90,7 +113,7 @@ contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
         address newSpvAddress,
         uint nonce,
         bytes memory signatures
-    ) override public {
+    ) public {
         // 1. check newSpvAddress and setNewCkbSpv nonce
         require(newSpvAddress != address(0), "invalid newSpvAddress");
         require(nonce == currentSetNewCkbSpvNonce, "invalid setNewCkbSpv nonce");
@@ -119,7 +142,7 @@ contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
         bytes memory recipientLockscript,
         bytes memory replayResistOutpoint,
         bytes memory sudtExtraData
-    ) override public payable {
+    ) public payable {
         require(msg.value > bridgeFee, "fee should not exceed bridge amount");
         emit Locked(
             address(0),
@@ -140,7 +163,7 @@ contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
         bytes memory recipientLockscript,
         bytes memory replayResistOutpoint,
         bytes memory sudtExtraData
-    ) override public {
+    ) public {
         require(amount > bridgeFee, "fee should not exceed bridge amount");
         // TODO modify `transferFrom` to `safeTransferFrom`
         IERC20(token).transferFrom(msg.sender, address(this), amount);
@@ -155,7 +178,7 @@ contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
         );
     }
 
-    function unlockToken(bytes memory ckbTxProof, bytes memory ckbTx) override public {
+    function unlockToken(bytes memory ckbTxProof, bytes memory ckbTx) public {
         require(ckbSpv_.proveTxExist(ckbTxProof, numConfirmations_), "tx from proofData should exist");
 
         bytes29 proof = ckbTxProof.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
@@ -183,7 +206,7 @@ contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout, TokenLockerV2ABI {
 
     // TODO refund function
 
-    function decodeBurnResult(bytes memory ckbTx) override public view returns (
+    function decodeBurnResult(bytes memory ckbTx) public view returns (
         uint256 bridgeAmount,
         uint256 bridgeFee,
         address token,

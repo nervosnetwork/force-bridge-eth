@@ -14,14 +14,13 @@ import {ICKBChainV2} from "./interfaces/ICKBChainV2.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 import "./CKBChainV2Layout.sol";
-import "./CKBChainV2ABI.sol";
 import "./CKBChainV2Library.sol";
 import "./proxy/Delegate.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
-contract CKBChainV2Logic is Delegate, CKBChainV2Layout, CKBChainV2ABI {
+contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
@@ -44,6 +43,17 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout, CKBChainV2ABI {
         require(msg.sender == governance, "caller is not the governance");
         _;
     }
+
+    event BlockHashAdded(
+        uint64 indexed blockNumber,
+        bytes32 blockHash
+    );
+
+    event BlockHashReverted(
+        uint64 indexed blockNumber,
+        bytes32 blockHash
+    );
+
 
     /**
      * @notice  if addr is not one of validators_, return validators_.length
@@ -185,7 +195,7 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout, CKBChainV2ABI {
     }
 
     // # ICKBChain
-    function addHeaders(bytes calldata data, bytes calldata signatures) override external {
+    function addHeaders(bytes calldata data, bytes calldata signatures) external {
         require(initialized, "Contract is not initialized");
 
         // 1. calc msgHash
@@ -369,7 +379,6 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout, CKBChainV2ABI {
 
     // #ICKBSpv
     function proveTxExist(bytes calldata txProofData, uint64 numConfirmations)
-        override
         external
         view
         returns (bool)

@@ -33,6 +33,24 @@ const deployContract = async (factoryPath, ...args) => {
   return contract;
 };
 
+const deployUpgradeabeContractFirstTime = async (factoryPathStorage,factoryPathLogic,_proxy_adminm, ...storageArgs) =>{
+  storageArgs.push(_proxy_adminm);
+  const storageContract = await deployContract(factoryPathStorage,...storageArgs);
+  const logicContract = await deployContract(factoryPathLogic);
+
+  const txRes = await storageContract.sysAddDelegates([logicContract.address],{from: _proxy_adminm});
+  await txRes.wait(1);
+
+  const instance = await ethers.getContractAt(
+    factoryPathLogic,
+    storageContract.address
+  );
+
+  log(`${instance.address}`);
+
+  return instance;
+}
+
 const deployAll = async (contractPaths) => {
   const contracts = [];
   const promises = [];
@@ -77,7 +95,9 @@ const runErrorCase = async (txPromise, expectErrorMsg) => {
     await txPromise;
   } catch (e) {
     const error = e.error ? e.error.toString() : e.toString();
-    expect(error.indexOf(expectErrorMsg) > -1).to.eq(true);
+    //expect(error.indexOf(expectErrorMsg) > -1).to.eq(true);
+    expect(error).to.have.string(expectErrorMsg);
+
   }
 };
 
@@ -129,6 +149,7 @@ module.exports = {
   waitingForReceipt,
   deployContract,
   deployAll,
+  deployUpgradeabeContractFirstTime,
   generateWallets,
   generateSignatures,
   runErrorCase,
