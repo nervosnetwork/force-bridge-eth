@@ -5,7 +5,6 @@ pub use ckb_tool::ckb_types::bytes::Bytes;
 use ckb_tool::ckb_types::{packed::*, prelude::*};
 use core::convert::TryInto;
 use force_eth_types::{
-    config::CONFIRM,
     eth_recipient_cell::ETHAddress,
     generated::{
         basic, eth_bridge_lock_cell::ETHBridgeLockArgs, eth_header_cell,
@@ -130,6 +129,7 @@ impl CellBuilder for CustomCell {
     }
 }
 
+#[allow(dead_code)]
 pub enum CellDepView {
     ETHLightClientTypeCellDep(ETHLightClientTypeDep),
     ETHBridgeLockCellDep(ETHBridgeLockDep),

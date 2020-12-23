@@ -22,6 +22,7 @@ fn test_tx_when_burned_amount_not_match_data_amount() {
 #[test]
 fn test_tx_when_fee_bigger_than_burned_amount() {
     let mut case = get_correct_case();
+    #[allow(irrefutable_let_patterns)]
     if let CustomCell::ETHRecipientCustomCell(script) = &mut case.script_cells.outputs[0] {
         script.data.fee = 100;
         case.expect_return_error_info = "fee is too much".to_string();

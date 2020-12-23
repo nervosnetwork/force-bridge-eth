@@ -7,7 +7,7 @@ use ckb_sdk::{Address, AddressPayload, SECP256K1};
 use ckb_types::core::TransactionView;
 use ckb_types::packed::Script;
 use ethereum_types::H256;
-use force_sdk::cell_collector::get_live_cell_by_lockscript;
+use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign_with_multi_key, MultisigConfig};
 use force_sdk::util::send_tx_sync_with_response;
@@ -214,7 +214,7 @@ impl ETHRelayer {
             .collect::<Vec<_>>();
         // make tx
         let cell =
-            get_live_cell_by_lockscript(&mut self.generator.indexer_client, cell_script.clone())
+            get_live_cell_by_typescript(&mut self.generator.indexer_client, cell_script.clone())
                 .map_err(|err| anyhow::anyhow!(err))?
                 .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
         let unsigned_tx = self.generator.generate_eth_light_client_tx_naive(
@@ -403,12 +403,14 @@ pub async fn update_cell_sync(
     timeout: u64,
     cell: &mut Cell,
 ) -> Result<()> {
-    let cell_lockscript = tx
+    let cell_script = tx
         .output(0)
         .ok_or_else(|| anyhow!("no out_put found"))?
-        .lock();
+        .type_()
+        .to_opt()
+        .ok_or_else(|| anyhow!("no typescript found"))?;
     for i in 0..timeout {
-        let temp_cell = get_live_cell_by_lockscript(index_client, cell_lockscript.clone())
+        let temp_cell = get_live_cell_by_typescript(index_client, cell_script.clone())
             .map_err(|e| anyhow!("failed to get temp_cell: {}", e))?;
         if let Some(c) = temp_cell {
             if c.block_number.value() > cell.block_number.value() {
@@ -456,7 +458,7 @@ pub async fn wait_header_sync_success(
     i = 0;
     loop {
         let cell_res =
-            get_live_cell_by_lockscript(&mut generator.indexer_client, cell_script.clone());
+            get_live_cell_by_typescript(&mut generator.indexer_client, cell_script.clone());
         let cell;
         match cell_res {
             Ok(cell_op) => {
@@ -475,8 +477,13 @@ pub async fn wait_header_sync_success(
                 continue;
             }
         }
-
         let ckb_cell_data = cell.clone().output_data.as_bytes().to_vec();
+        if ckb_cell_data.is_empty() {
+            debug!("waiting for eth light client cell init, loop index: {}", i);
+            tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
+            i += 1;
+            continue;
+        }
         let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
 
         let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]

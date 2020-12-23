@@ -307,10 +307,7 @@ pub async fn get_sudt_balance(
         convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
             .map_err(|e| format!("lock contract address parse fail: {}", e))?;
     let sudt_script: ScriptJson = get_sudt_type_script(
-        &data.deployed_contracts.bridge_lockscript.code_hash,
-        data.deployed_contracts.bridge_lockscript.hash_type,
-        &data.deployed_contracts.sudt.code_hash,
-        data.deployed_contracts.sudt.hash_type,
+        &data.deployed_contracts,
         token_address,
         lock_contract_address,
     )?
