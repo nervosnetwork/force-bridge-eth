@@ -34,7 +34,8 @@
     "solidity-coverage": "^0.7.13",
     "solidity-docgen": "^0.3.0-beta.4",
     "truffle": "^5.1.43",
-    "web3": "^1.3.0"
+    "web3": "^1.3.0",
+    "yarn": "^1.22.10"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
