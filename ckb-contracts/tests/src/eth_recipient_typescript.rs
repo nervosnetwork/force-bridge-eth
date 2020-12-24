@@ -68,6 +68,7 @@ fn get_correct_case() -> TestCase {
                 owner_script: ScriptView::build_sudt_owner(
                     "3E35617a629EEaD5a6767dC69D238831a7Bc391c",
                     "e404831459e3aCec0440F5c5462827e0Bccc2Ff1",
+                    &[0u8; 32],
                 ),
                 index: 1,
                 sudt_extra_data: Default::default(),
@@ -79,6 +80,7 @@ fn get_correct_case() -> TestCase {
                 owner_script: ScriptView::build_sudt_owner(
                     "3E35617a629EEaD5a6767dC69D238831a7Bc391c",
                     "e404831459e3aCec0440F5c5462827e0Bccc2Ff1",
+                    &[0u8; 32],
                 ),
                 index: 1,
                 sudt_extra_data: Default::default(),
