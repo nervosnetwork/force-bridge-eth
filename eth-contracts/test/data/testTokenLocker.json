@@ -3,6 +3,7 @@
     "codeHash": "0x8b79673c89404c1d98874fef0441bf25d99ed5c4e96d1180d72b203966e6c964",
     "hashType": 0
   },
+  "lightClientTypescriptHash": "0x1b79673c89404c1d98874fef0441bf25d99ed5c4e96d1180d72b203966e6c964",
   "bridgeCellLockscriptCodeHash": "0x1b79673c89404c1d98874fef0441bf25d99ed5c4e96d1180d72b203966e6c964",
   "lockETHTestCases": [
     {

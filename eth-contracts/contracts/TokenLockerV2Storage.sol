@@ -20,6 +20,7 @@ contract TokenLockerV2Storage is Proxy, TokenLockerV2Layout{
         uint64 numConfirmations,
         bytes32 recipientCellTypescriptCodeHash,
         uint8 typescriptHashType,
+        bytes32 lightClientTypescriptHash,
         bytes32 bridgeCellLockscriptCodeHash,
         address[] memory validators,
         uint multisigThreshold,
@@ -30,6 +31,7 @@ contract TokenLockerV2Storage is Proxy, TokenLockerV2Layout{
         numConfirmations_ = numConfirmations;
         recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
         recipientCellTypescriptHashType_ = typescriptHashType;
+        lightClientTypescriptHash_ = lightClientTypescriptHash;
         bridgeCellLockscriptCodeHash_ = bridgeCellLockscriptCodeHash;
 
         // set DOMAIN_SEPARATOR

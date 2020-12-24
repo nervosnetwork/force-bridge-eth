@@ -13,6 +13,7 @@ const {
 const testJson = require('../../data/testTokenLocker.json')
 
 const recipientCellTypescript = testJson.recipientCellTypescript
+const lightClientTypescriptHash = testJson.lightClientTypescriptHash
 const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash
 
 chai.use(solidity)
@@ -70,6 +71,7 @@ contract('TokenLocker in TokenLockerV2', () => {
       123,
       recipientCellTypescript.codeHash,
       recipientCellTypescript.hashType,
+      lightClientTypescriptHash,
       bridgeCellLockscriptCodeHash,
       validators,
       multisigThreshold,

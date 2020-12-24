@@ -23,6 +23,7 @@ contract TokenLockerV2Layout{
     ICKBSpv public ckbSpv_;
     bytes32 public recipientCellTypescriptCodeHash_;
     uint8 public recipientCellTypescriptHashType_;
+    bytes32 public lightClientTypescriptHash_;
     bytes32 public bridgeCellLockscriptCodeHash_;
 
     // txHash -> Used
