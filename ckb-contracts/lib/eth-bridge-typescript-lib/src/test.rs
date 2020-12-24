@@ -1,39 +1,57 @@
 use crate::_verify;
 use crate::adapter::*;
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::packed::Script;
+use ckb_std::ckb_types::packed::{Script, WitnessArgs};
 use ckb_std::ckb_types::prelude::Pack;
 use ckb_std::error::SysError;
+use contracts_helper::data_loader::MockDataLoader;
 use force_eth_types::generated::basic::Byte32;
 use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
 use force_eth_types::generated::witness::MintTokenWitness;
+use molecule::prelude::Builder;
 use molecule::prelude::Byte;
-use molecule::prelude::{Builder, Entity};
 
 #[test]
 fn test_manage_mode() {
-    let mut mock = MockAdapter::new();
+    let mut mock = MockDataLoader::new();
+
+    let owner_script = Script::new_builder().args([1u8; 1].pack()).build();
+    let data = ETHBridgeTypeData::new_builder()
+        .owner_lock_script(owner_script.as_slice().to_vec().into())
+        .build();
+
+    mock.expect_load_cell_data()
+        .times(2)
+        .returning(move |index, _| {
+            if index == 0 {
+                Ok(data.clone().as_slice().to_vec())
+            } else {
+                Err(SysError::IndexOutOfBound)
+            }
+        });
 
     let witness = MintTokenWitness::new_builder().mode(Byte::new(1u8)).build();
-
-    mock.expect_load_input_witness_args()
+    let witness_args = WitnessArgs::new_builder()
+        .lock(Some(witness.as_bytes()).pack())
+        .build();
+    mock.expect_load_witness_args()
         .times(1)
-        .returning(move || Ok(witness.as_bytes()));
+        .returning(move |_, _| Ok(witness_args.clone()));
 
-    #[allow(clippy::redundant_closure)]
-    mock.expect_load_script_args()
+    let script = Script::new_builder()
+        .args(ETHBridgeTypeArgs::default().as_bytes().pack())
+        .build();
+    mock.expect_load_script()
         .times(1)
-        .returning(|| ETHBridgeTypeArgs::default());
+        .returning(move || Ok(script.clone()));
 
-    mock.expect_load_data()
+    mock.expect_load_cell_lock()
         .times(1)
-        .returning(|| Some(ETHBridgeTypeData::default()));
+        .returning(move |_, _| Ok(owner_script.clone()));
 
-    mock.expect_lock_script_exists_in_inputs()
-        .times(1)
-        .returning(|_| true);
+    let adapter = ChainAdapter { chain: mock };
 
-    _verify(mock);
+    _verify(adapter);
 }
 
 #[test]
@@ -126,7 +144,7 @@ fn generate_mint_token_params() -> MockAdapter {
                 .build()
         });
 
-    mock.expect_load_cell_lock_script()
+    mock.expect_load_cell_lock()
         .times(1)
         .returning(move |_, _| Ok(Script::from_slice(&correct_owner_lockscript.clone()).unwrap()));
 

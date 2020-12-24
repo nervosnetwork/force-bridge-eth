@@ -6,6 +6,7 @@ extern crate no_std_compat as std;
 
 pub mod actions;
 pub mod adapter;
+mod test;
 
 use adapter::Adapter;
 use contracts_helper::debug;
@@ -46,7 +47,7 @@ pub fn _verify<T: Adapter>(data_loader: T) {
             actions::verify_mint_token(&data_loader, &script_args, &data);
         }
         _ => {
-            actions::verify_manage_mode(&data_loader, data.owner_lock_script().as_slice());
+            actions::verify_manage_mode(&data_loader, data.owner_lock_script().raw_data().as_ref());
         }
     }
 }
