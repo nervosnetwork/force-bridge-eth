@@ -8,8 +8,8 @@ use contracts_helper::data_loader::MockDataLoader;
 use force_eth_types::generated::basic::Byte32;
 use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
 use force_eth_types::generated::witness::MintTokenWitness;
-use molecule::prelude::Builder;
 use molecule::prelude::Byte;
+use molecule::prelude::{Builder, Entity};
 
 #[test]
 fn test_manage_mode() {

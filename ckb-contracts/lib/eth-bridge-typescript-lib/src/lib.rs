@@ -11,7 +11,7 @@ mod test;
 use adapter::Adapter;
 use contracts_helper::debug;
 use force_eth_types::generated::witness::MintTokenWitnessReader;
-use molecule::prelude::{Entity, Reader};
+use molecule::prelude::Reader;
 
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
