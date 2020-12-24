@@ -8,7 +8,7 @@ const {
   generateSignatures,
   runErrorCase,
   getMsgHashForSetNewCkbSpv,
-  deployUpgradeabeContractFirstTime
+  deployUpgradableContractFirstTime
 } = require('../../utils')
 const testJson = require('../../data/testTokenLocker.json')
 
@@ -62,7 +62,7 @@ contract('TokenLocker in TokenLockerV2', () => {
     // )
     // await tokenLocker.deployed()
 
-    tokenLocker = await deployUpgradeabeContractFirstTime(
+    tokenLocker = await deployUpgradableContractFirstTime(
       'contracts/TokenLockerV2Storage.sol:TokenLockerV2Storage',
       'contracts/TokenLockerV2Logic.sol:TokenLockerV2Logic',
       adminAddress,

@@ -8,7 +8,7 @@ const {
   generateSignatures,
   generateWallets,
   getMsgHashForAddHeaders,
-  deployUpgradeabeContractFirstTime,
+  deployUpgradableContractFirstTime,
 } = require('../../utils')
 
 chai.use(solidity)
@@ -39,7 +39,7 @@ contract('CKBChainV2 With Gc', () => {
     // )
     // ckbChain = await factory.deploy(validators, multisigThreshold, chainId)
     // await ckbChain.deployed()
-    ckbChain = await deployUpgradeabeContractFirstTime(
+    ckbChain = await deployUpgradableContractFirstTime(
       'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
       'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
       adminAddress,

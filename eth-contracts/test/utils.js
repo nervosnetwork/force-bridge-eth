@@ -24,22 +24,19 @@ async function waitingForReceipt(provider, res) {
 }
 
 const deployContract = async (factoryPath, ...args) => {
-  // const factory = await ethers.getContractFactory("contracts/token/NFI.sol:NFI");
   const factory = await ethers.getContractFactory(factoryPath);
   const contract = await factory.deploy(...args);
-
-  // await contract.deployed();
   await contract.deployTransaction.wait(1);
   return contract;
 };
 
-const deployUpgradeabeContractFirstTime = async (
+const deployUpgradableContractFirstTime = async (
   factoryPathStorage,
   factoryPathLogic,
-  _proxy_adminm,
+  _proxy_admin,
   ...storageArgs
 ) => {
-  storageArgs.push(_proxy_adminm);
+  storageArgs.push(_proxy_admin);
   const storageContract = await deployContract(
     factoryPathStorage,
     ...storageArgs
@@ -47,7 +44,7 @@ const deployUpgradeabeContractFirstTime = async (
   const logicContract = await deployContract(factoryPathLogic);
 
   const txRes = await storageContract.sysAddDelegates([logicContract.address], {
-    from: _proxy_adminm,
+    from: _proxy_admin,
   });
   await txRes.wait(1);
 
@@ -158,7 +155,7 @@ module.exports = {
   waitingForReceipt,
   deployContract,
   deployAll,
-  deployUpgradeabeContractFirstTime,
+  deployUpgradableContractFirstTime,
   generateWallets,
   generateSignatures,
   runErrorCase,
