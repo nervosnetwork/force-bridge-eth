@@ -77,16 +77,20 @@ library CKBTxView {
         return _input.indexAddress(40);
     }
 
-    function bridgeLockscriptCodeHash(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (bytes32) {
+    function lightClientTypescriptHash(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (bytes32) {
         return _input.index(60, 32);
     }
 
+    function bridgeLockscriptCodeHash(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (bytes32) {
+        return _input.index(92, 32);
+    }
+
     function bridgeAmount(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (uint256) {
-        return _input.indexLEUint(92, 16);
+        return _input.indexLEUint(124, 16);
     }
 
     function bridgeFee(bytes29 _input) internal pure typeAssert(_input, CKBTxTypes.RecipientCellData) returns (uint256) {
-        return _input.indexLEUint(108, 16);
+        return _input.indexLEUint(140, 16);
     }
 }
 
