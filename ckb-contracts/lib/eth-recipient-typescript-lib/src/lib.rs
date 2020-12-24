@@ -1,22 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+extern crate no_std_compat as std;
+
 pub mod actions;
 pub mod adapter;
-pub mod debug;
 
 pub use adapter::Adapter;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "std")] {
-    } else {
-        extern crate alloc;
-    }
-}
-
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
-    let chain = adapter::chain::ChainAdapter {};
-    _verify(chain)
+    let chain = contracts_helper::chain::Chain {};
+    let adapter = adapter::ChainAdapter { chain };
+    _verify(adapter);
+    0
 }
 
 // eth-recipient-typescript has two situations based on whether outputs have eth-recipient-typescript data:
@@ -45,6 +43,7 @@ mod tests {
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_bridge_lock_hash: [1u8; 32],
+            light_client_typescript_hash: [1u8; 32],
             token_amount: 100,
             fee: 1,
         };
@@ -63,6 +62,7 @@ mod tests {
     #[should_panic]
     fn mock_return_err_when_input_less_than_output() {
         let data = ETHRecipientDataView {
+            light_client_typescript_hash: [1u8; 32],
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
@@ -85,6 +85,7 @@ mod tests {
     #[should_panic]
     fn mock_return_err_when_burned_amount_not_equal_data_amount() {
         let data = ETHRecipientDataView {
+            light_client_typescript_hash: [1u8; 32],
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
@@ -107,6 +108,7 @@ mod tests {
     #[should_panic]
     fn mock_return_err_when_fee_is_too_much() {
         let data = ETHRecipientDataView {
+            light_client_typescript_hash: [1u8; 32],
             eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_token_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
             eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),

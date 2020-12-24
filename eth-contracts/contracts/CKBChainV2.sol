@@ -1,4 +1,6 @@
-pragma solidity ^0.5.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import {TypedMemView} from "./libraries/TypedMemView.sol";
 import {CKBCrypto} from "./libraries/CKBCrypto.sol";
@@ -8,29 +10,30 @@ import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {CKBPow} from "./libraries/CKBPow.sol";
 import {EaglesongLib} from "./libraries/EaglesongLib.sol";
-import {ICKBChain} from "./interfaces/ICKBChain.sol";
+import {ICKBChainV2} from "./interfaces/ICKBChainV2.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
+import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
-contract CKBChainV2 is ICKBChain, ICKBSpv {
+contract CKBChainV2 is ICKBChainV2, ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
 
-    /// CHAIN_VERSION means chain_id on CKB CHAIN
+    // CHAIN_VERSION means chain_id on CKB CHAIN
     uint32 public constant CHAIN_VERSION = 0;
 
-    /// We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
-    /// Events that happen past this threshold cannot be verified by the client.
-    /// It is desirable that this number is larger than 7 days worth of headers, which is roughly
-    /// 40k ckb blocks. So this number should be 40k in production.
+    // We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
+    // Events that happen past this threshold cannot be verified by the client.
+    // It is desirable that this number is larger than 7 days worth of headers, which is roughly
+    // 40k ckb blocks. So this number should be 40k in production.
     uint64 public CanonicalGcThreshold;
-    /// We store full information about the headers for the past `FinalizedGcThreshold` blocks.
-    /// This is required to be able to adjust the canonical chain when the fork switch happens.
-    /// The commonly used number is 500 blocks, so this number should be 500 in production.
+    // We store full information about the headers for the past `FinalizedGcThreshold` blocks.
+    // This is required to be able to adjust the canonical chain when the fork switch happens.
+    // The commonly used number is 500 blocks, so this number should be 500 in production.
     uint64 public FinalizedGcThreshold;
 
     // Minimal information about the submitted block.
@@ -52,27 +55,38 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
     address public governance;
     uint256 MOCK_DIFFICULTY = 1;
 
-    /// Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
-    /// entries.
-    /// header number -> header hash
+    // Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
+    // entries.
+    // header number -> header hash
     mapping(uint64 => bytes32) canonicalHeaderHashes;
 
-    /// TransactionRoots of the canonical chain mapped to their headerHash. Stores up to `canonical_gc_threshold`
-    /// entries.
-    /// header hash -> transactionRoots from the header
+    // TransactionRoots of the canonical chain mapped to their headerHash. Stores up to `canonical_gc_threshold`
+    // entries.
+    // header hash -> transactionRoots from the header
     mapping(bytes32 => bytes32) canonicalTransactionsRoots;
 
-    /// All known header hashes. Stores up to `finalized_gc_threshold`.
-    /// header number -> hashes of all headers with this number.
+    // All known header hashes. Stores up to `finalized_gc_threshold`.
+    // header number -> hashes of all headers with this number.
     mapping(uint64 => bytes32[]) allHeaderHashes;
 
-    /// Known headers. Stores up to `finalized_gc_threshold`.
+    // Known headers. Stores up to `finalized_gc_threshold`.
     mapping(bytes32 => BlockHeader) blockHeaders;
 
-    /// @notice             requires `memView` to be of a specified type
-    /// @param memView      a 29-byte view with a 5-byte type
-    /// @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
-    /// @return             passes if it is the correct type, errors if not
+    // refer to https://github.com/ethereum/EIPs/blob/master/EIPS/eip-712.md
+    uint public constant SIGNATURE_SIZE = 65;
+    uint public constant VALIDATORS_SIZE_LIMIT = 20;
+    string public constant name = "Force Bridge CKBChain";
+    // ADD_HEADERS_TYPEHASH = keccak256("AddHeaders(bytes data)");
+    bytes32 public constant ADD_HEADERS_TYPEHASH = 0xfa98e6fcbad03c89f421602d77ef593b53ee59d7442ea61663cb69d2a29a764d;
+    bytes32 public DOMAIN_SEPARATOR;
+    // if the number of verified signatures has reached `multisigThreshold_`, validators approve the tx
+    uint public multisigThreshold_;
+    address[] validators_;
+
+    // @notice             requires `memView` to be of a specified type
+    // @param memView      a 29-byte view with a 5-byte type
+    // @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
+    // @return             passes if it is the correct type, errors if not
     modifier typeAssert(bytes29 memView, ViewCKB.CKBTypes t) {
         memView.assertType(uint40(t));
         _;
@@ -86,18 +100,101 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
         _;
     }
 
-    constructor() public {
+    /**
+     * @notice  if addr is not one of validators_, return validators_.length
+     * @return  index of addr in validators_
+     */
+    function getIndexOfValidators(address user) internal view returns (uint) {
+        for (uint i = 0; i < validators_.length; i++) {
+            if (validators_[i] == user) {
+                return i;
+            }
+        }
+        return validators_.length;
+    }
+
+    /**
+     * @notice             @dev signatures are a multiple of 65 bytes and are densely packed.
+     * @param signatures   The signatures bytes array
+     */
+    function validatorsApprove(bytes32 msgHash, bytes memory signatures, uint threshold) public view {
+        require(signatures.length % SIGNATURE_SIZE == 0, "invalid signatures");
+
+        // 1. check length of signature
+        uint length = signatures.length / SIGNATURE_SIZE;
+        require(length >= threshold, "length of signatures must greater than threshold");
+
+        // 3. check number of verified signatures >= threshold
+        uint verifiedNum = 0;
+        uint i = 0;
+
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        address recoveredAddress;
+        // set indexVisited[ index of recoveredAddress in validators_ ] = true
+        bool[] memory validatorIndexVisited = new bool[](validators_.length);
+        uint validatorIndex;
+        while (i < length) {
+            (v, r, s) = MultisigUtils.parseSignature(signatures, i);
+            i++;
+
+            recoveredAddress = ecrecover(msgHash, v, r, s);
+            require(recoveredAddress != address(0), "invalid signature");
+
+            // get index of recoveredAddress in validators_
+            validatorIndex = getIndexOfValidators(recoveredAddress);
+
+            // recoveredAddress is not validator or has been visited
+            if (validatorIndex >= validators_.length || validatorIndexVisited[validatorIndex]) {
+                continue;
+            }
+
+            // recoveredAddress verified
+            validatorIndexVisited[validatorIndex] = true;
+            verifiedNum++;
+            if (verifiedNum >= threshold) {
+                return;
+            }
+        }
+
+        require(verifiedNum >= threshold, "signatures not verified");
+    }
+
+    constructor(
+        address[] memory validators,
+        uint multisigThreshold,
+        uint chainId
+    ) {
         governance = msg.sender;
+
+        // set DOMAIN_SEPARATOR
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes(name)),
+                keccak256(bytes("1")),
+                chainId,
+                address(this)
+            )
+        );
+
+        // set validators
+        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
+        validators_ = validators;
+        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
+        multisigThreshold_ = multisigThreshold;
     }
 
     // query
-    function getLatestBlockNumber() public returns (uint64) {
+    function getLatestBlockNumber() view public returns (uint64) {
         return latestBlockNumber;
     }
 
     // query
     function getHeadersByNumber(uint64 blockNumber)
         public
+        view
         returns (bytes32[] memory)
     {
         return allHeaderHashes[blockNumber];
@@ -106,6 +203,7 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
     // query
     function getCanonicalHeaderHash(uint64 blockNumber)
         public
+        view
         returns (bytes32)
     {
         return canonicalHeaderHashes[blockNumber];
@@ -114,24 +212,15 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
     // query
     function getCanonicalTransactionsRoot(bytes32 blockHash)
         public
+        view
         returns (bytes32)
     {
         return canonicalTransactionsRoots[blockHash];
     }
 
     // query
-    function getLatestEpoch() public returns (uint64) {
+    function getLatestEpoch() public view returns (uint64) {
         return latestHeader.epoch;
-    }
-
-    function checkSig(address user, uint8 v, bytes32 r, bytes32 s, uint times) external returns (uint){
-        bytes32 digest = bytes32(0x0000000000000000000000000000000000000000000000000000000000001234);
-        uint before = gasleft();
-        for (uint i = 0; i < times; i++) {
-            address recoveredAddress = ecrecover(digest, v, r, s);
-            require(recoveredAddress != address(0) && recoveredAddress == user, "INVALID_SIGNATURE");
-        }
-        return before - gasleft();
     }
 
     function initWithHeader(
@@ -175,15 +264,26 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
             .transactionsRoot();
     }
 
-    /// # ICKBChain
-    // TODO add onlyGov for phase1 production
-    function addHeaders(bytes calldata data) external {
+    // # ICKBChain
+    function addHeaders(bytes calldata data, bytes calldata signatures) override external {
         require(initialized, "Contract is not initialized");
 
-        // 1. view decode from data to headers view
+        // 1. calc msgHash
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01", // solium-disable-line
+                DOMAIN_SEPARATOR,
+                keccak256(abi.encode(ADD_HEADERS_TYPEHASH, data))
+            )
+        );
+
+        // 2. validatorsApprove
+        validatorsApprove(msgHash, signatures, multisigThreshold_);
+
+        // 3. view decode from data to headers view
         bytes29 headerVecView = data.ref(uint40(ViewCKB.CKBTypes.HeaderVec));
 
-        // 2. iter headers
+        // 4. iter headers
         uint32 length = headerVecView.lengthHeaderVec();
         uint32 index = 0;
         while (index < length) {
@@ -248,11 +348,11 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
         }
     }
 
-    /// @notice                     verifyPow for the header
-    /// @dev                        reference code:  https://github.com/nervosnetwork/ckb/blob/develop/pow/src/eaglesong.rs
-    /// @param headerView           the bytes29 view of the header
-    /// @param parentHeader         parent header of the header
-    /// @return                     the difficulty of the header
+    // @notice                     verifyPow for the header
+    // @dev                        reference code:  https://github.com/nervosnetwork/ckb/blob/develop/pow/src/eaglesong.rs
+    // @param headerView           the bytes29 view of the header
+    // @param parentHeader         parent header of the header
+    // @return                     the difficulty of the header
     function _verifyPow(
         bytes29 headerView,
         bytes29 rawHeaderView,
@@ -347,8 +447,9 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
         }
     }
 
-    /// #ICKBSpv
+    // #ICKBSpv
     function proveTxExist(bytes calldata txProofData, uint64 numConfirmations)
+        override
         external
         view
         returns (bool)
@@ -405,7 +506,7 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
         return true;
     }
 
-    /// Remove hashes from the Canonical chain that are at least as old as the given header number.
+    // Remove hashes from the Canonical chain that are at least as old as the given header number.
     function _gcCanonicalChain(uint64 blockNumber) internal {
         uint64 number = blockNumber;
         while (true) {
@@ -419,7 +520,7 @@ contract CKBChainV2 is ICKBChain, ICKBSpv {
         }
     }
 
-    /// Remove information about the headers that are at least as old as the given header number.
+    // Remove information about the headers that are at least as old as the given header number.
     function _gcHeaders(uint64 blockNumber) internal {
         uint64 number = blockNumber;
         while (true) {

@@ -1,4 +1,6 @@
-pragma solidity ^0.5.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP. Does not include

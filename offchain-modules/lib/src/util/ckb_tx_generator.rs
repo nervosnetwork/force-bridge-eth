@@ -1,15 +1,15 @@
 use crate::util::ckb_util::{
-    get_sudt_type_script, handle_unconfirmed_headers, parse_cell, parse_main_raw_data,
-    parse_uncle_raw_data, ETHSPVProofJson, EthWitness,
+    create_bridge_lockscript, get_sudt_type_script, handle_unconfirmed_headers, parse_cell,
+    parse_main_raw_data, parse_uncle_raw_data, ETHSPVProofJson, EthWitness,
 };
 use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::Witness;
 use crate::util::eth_util::convert_to_header_rlp;
-use anyhow::{anyhow, bail, Result};
-use ckb_sdk::constants::{MIN_SECP_CELL_CAPACITY, ONE_CKB};
+use anyhow::{anyhow, Result};
+use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
-use ckb_types::packed::{HeaderVec, WitnessArgs};
+use ckb_types::packed::HeaderVec;
 use ckb_types::prelude::{Builder, Entity, Pack, Reader};
 use ckb_types::{
     bytes::Bytes,
@@ -19,10 +19,9 @@ use ethereum_types::H160;
 use force_eth_types::eth_recipient_cell::{ETHAddress, ETHRecipientDataView};
 use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::BytesVec;
-use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeData;
 use force_eth_types::generated::eth_header_cell::{
-    ETHChain, ETHHeaderCellData, ETHHeaderInfo, ETHHeaderInfoReader, ETHLightClientWitness,
+    ETHChain, ETHHeaderCellData, ETHHeaderInfo, ETHHeaderInfoReader,
 };
 use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
@@ -31,6 +30,7 @@ use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
 use log::info;
 use rand::Rng;
 use secp256k1::SecretKey;
+use serde::export::Clone;
 use shellexpand::tilde;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -38,7 +38,7 @@ use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
-pub const CONFIRM: usize = 10;
+pub const CONFIRM: usize = 15;
 pub const UNCLE_HEADER_CACHE_LIMIT: usize = 10;
 
 pub struct Generator {
@@ -67,75 +67,75 @@ impl Generator {
     }
 
     #[allow(clippy::mutable_key_type)]
-    pub fn init_light_client_tx(
+    pub fn generate_eth_light_client_tx_naive(
         &mut self,
-        block: &Block<ethereum_types::H256>,
-        _witness: &Witness,
         from_lockscript: Script,
-        typescript: Script,
-        lockscript: Script,
+        cell: Cell,
+        headers: &[Block<ethereum_types::H256>],
     ) -> Result<TransactionView> {
-        let tx_fee: u64 = 500_000;
+        let mut rng = rand::thread_rng();
+        let tx_fee = rng.gen_range(ONE_CKB / 2000, ONE_CKB / 1000);
         let mut helper = TxHelper::default();
 
         let outpoints = vec![
             self.deployed_contracts
-                .light_client_lockscript
-                .outpoint
-                .clone(),
-            self.deployed_contracts
+                .clone()
                 .light_client_typescript
-                .outpoint
-                .clone(),
+                .outpoint,
         ];
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
-        let output = CellOutput::new_builder()
-            .capacity(Capacity::shannons(1000 * MIN_SECP_CELL_CAPACITY).pack())
-            .build();
-        let header_rlp = convert_to_header_rlp(block)?;
-        let header_info = ETHHeaderInfo::new_builder()
-            .header(hex::decode(header_rlp)?.into())
-            .total_difficulty(block.total_difficulty.unwrap().as_u64().into())
-            .hash(basic::Byte32::from_slice(block.hash.unwrap().as_bytes()).unwrap())
-            .build();
-        let main_chain_data: Vec<basic::Bytes> = vec![header_info.as_slice().to_vec().into()];
 
-        // let proofs = build_merkle_proofs(&witness)?;
+        let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
+            Default::default();
+        let rpc_client = &mut self.rpc_client;
+        let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+            get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+                .map(|(output, _)| output)
+        };
+
+        // add input
+        helper
+            .add_input(
+                OutPoint::from(cell.clone().out_point),
+                None,
+                &mut get_live_cell_fn,
+                &self.genesis_info,
+                true,
+            )
+            .map_err(|err| anyhow!(err))?;
+
+        // add output
+        let cell_output = CellOutput::from(cell.output);
+        let output = CellOutput::new_builder()
+            .lock(cell_output.lock())
+            .type_(cell_output.type_())
+            .build();
+        let mut main_chain_data: Vec<basic::Bytes> = vec![];
+        for (i, header) in headers.iter().enumerate() {
+            let data = if i + CONFIRM < headers.len() {
+                header.hash.unwrap().as_bytes().to_vec().into()
+            } else {
+                let header_rlp = convert_to_header_rlp(header)?;
+                let header_info = ETHHeaderInfo::new_builder()
+                    .header(hex::decode(header_rlp)?.into())
+                    .total_difficulty(header.total_difficulty.unwrap().as_u64().into())
+                    .hash(basic::Byte32::from_slice(header.hash.unwrap().as_bytes()).unwrap())
+                    .build();
+                header_info.as_slice().to_vec().into()
+            };
+            main_chain_data.push(data);
+        }
         let output_data = ETHHeaderCellData::new_builder()
             .headers(
                 ETHChain::new_builder()
                     .main(BytesVec::new_builder().set(main_chain_data).build())
                     .build(),
             )
-            // .merkle_proofs(MerkleProofVec::new_builder().set(vec![proofs]).build())
             .build()
             .as_bytes();
-        helper.add_output(output.clone(), output_data);
-        // add witness
-        {
-            let header_rlp = convert_to_header_rlp(block)?;
-            let witness_data = ETHLightClientWitness::new_builder()
-                .headers(
-                    BytesVec::new_builder()
-                        .set(vec![hex::decode(header_rlp)
-                            .map_err(|err| anyhow!(err))?
-                            .into()])
-                        .build(),
-                )
-                .cell_dep_index_list(vec![0].into())
-                .build();
-            let witness_args = WitnessArgs::new_builder()
-                .input_type(Some(witness_data.as_bytes()).pack())
-                .build();
-            helper.transaction = helper
-                .transaction
-                .as_advanced_builder()
-                .set_witnesses(vec![witness_args.as_bytes().pack()])
-                .build();
-        }
-
-        // build tx
+        helper.add_output_with_auto_capacity(output, output_data);
+        // make tx
         let tx = helper
             .supply_capacity(
                 &mut self.rpc_client,
@@ -145,7 +145,55 @@ impl Generator {
                 tx_fee,
             )
             .map_err(|err| anyhow!(err))?;
-        let first_outpoint = tx
+        Ok(tx)
+    }
+
+    pub fn init_eth_light_client_cell(
+        &mut self,
+        multisig_script: Script,
+        from_lockscript: Script,
+    ) -> Result<TransactionView> {
+        let mut helper = TxHelper::default();
+        let outpoints = vec![
+            self.deployed_contracts
+                .clone()
+                .light_client_typescript
+                .outpoint,
+        ];
+        self.add_cell_deps(&mut helper, outpoints)
+            .map_err(|err| anyhow!(err))?;
+        let cap = 10_000 * ONE_CKB;
+        let typescript_code_hash = hex::decode(
+            &self
+                .deployed_contracts
+                .clone()
+                .light_client_typescript
+                .code_hash,
+        )?;
+        let typescript = Script::new_builder()
+            .code_hash(Byte32::from_slice(&typescript_code_hash)?)
+            .hash_type(
+                self.deployed_contracts
+                    .light_client_typescript
+                    .hash_type
+                    .into(),
+            )
+            .build();
+        let output = CellOutput::new_builder()
+            .capacity(Capacity::shannons(cap).pack())
+            .build();
+        helper.add_output(output.clone(), Default::default());
+
+        let unsigned_tx = helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self.genesis_info,
+                99_999,
+            )
+            .map_err(|err| anyhow!(err))?;
+        let first_outpoint = unsigned_tx
             .inputs()
             .get(0)
             .expect("should have input")
@@ -153,16 +201,18 @@ impl Generator {
             .as_bytes();
         let typescript_args = first_outpoint.as_ref();
         let new_typescript = typescript.as_builder().args(typescript_args.pack()).build();
-
         let new_output = CellOutput::new_builder()
             .capacity(output.capacity())
             .type_(Some(new_typescript).pack())
-            .lock(lockscript)
+            .lock(multisig_script)
             .build();
-        let mut new_outputs = tx.outputs().into_iter().collect::<Vec<_>>();
+        let mut new_outputs = unsigned_tx.outputs().into_iter().collect::<Vec<_>>();
         new_outputs[0] = new_output;
-        let tx = tx.as_advanced_builder().set_outputs(new_outputs).build();
-        Ok(tx)
+        let unsigned_tx = unsigned_tx
+            .as_advanced_builder()
+            .set_outputs(new_outputs)
+            .build();
+        Ok(unsigned_tx)
     }
 
     #[allow(clippy::mutable_key_type)]
@@ -175,21 +225,9 @@ impl Generator {
         from_lockscript: Script,
     ) -> Result<TransactionView> {
         info!("generate eth light client tx.");
-        let tx_fee: u64 = 500_000;
+        let mut rng = rand::thread_rng();
+        let tx_fee = rng.gen_range(ONE_CKB / 2000, ONE_CKB / 1000);
         let mut helper = TxHelper::default();
-
-        let outpoints = vec![
-            self.deployed_contracts
-                .light_client_lockscript
-                .outpoint
-                .clone(),
-            self.deployed_contracts
-                .light_client_typescript
-                .outpoint
-                .clone(),
-        ];
-        self.add_cell_deps(&mut helper, outpoints)
-            .map_err(|err| anyhow!(err))?;
 
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
@@ -198,6 +236,8 @@ impl Generator {
             get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
+
+        // add input
         helper
             .add_input(
                 OutPoint::from(cell.clone().out_point),
@@ -207,145 +247,148 @@ impl Generator {
                 true,
             )
             .map_err(|err| anyhow!(err))?;
+
+        // add output
         {
             let cell_output = CellOutput::from(cell.clone().output);
+            let cap = 1_000_000 * ONE_CKB;
             let output = CellOutput::new_builder()
+                .capacity(Capacity::shannons(cap).pack())
                 .lock(cell_output.lock())
-                .type_(cell_output.type_())
                 .build();
-            let tip = &un_confirmed_headers[un_confirmed_headers.len() - 1];
-            let input_cell_data = packed::Bytes::from(cell.clone().output_data).raw_data();
-            let (mut unconfirmed, mut confirmed) = parse_main_raw_data(&input_cell_data)?;
-            let mut uncle_raw_data = parse_uncle_raw_data(&input_cell_data)?;
-            let header_infos;
-            if tip.hash.unwrap() == headers[0].parent_hash {
-                // the main chain is not reorg.
-                if unconfirmed.len().add(headers.len()) > CONFIRM {
-                    let mut idx = unconfirmed.len().add(headers.len()) - CONFIRM;
-                    while idx > 0 {
-                        let temp_data = unconfirmed[0];
-                        ETHHeaderInfoReader::verify(&temp_data, false)
-                            .map_err(|err| anyhow!(err))?;
-                        let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
-                        let hash = header_info_reader.hash().raw_data();
-                        confirmed.push(hash);
-                        unconfirmed.remove(0);
-                        idx -= 1;
-                    }
+            if un_confirmed_headers.is_empty() {
+                let mut main_chain_data: Vec<basic::Bytes> = vec![];
+                for item in headers {
+                    let header_rlp = convert_to_header_rlp(item)?;
+                    let header_info = ETHHeaderInfo::new_builder()
+                        .header(hex::decode(header_rlp)?.into())
+                        .total_difficulty(item.total_difficulty.unwrap().as_u64().into())
+                        .hash(basic::Byte32::from_slice(item.hash.unwrap().as_bytes()).unwrap())
+                        .build();
+                    main_chain_data.push(header_info.as_slice().to_vec().into());
                 }
-                if confirmed.len().add(unconfirmed.len()).add(headers.len())
-                    > MAIN_HEADER_CACHE_LIMIT
-                {
-                    let mut idx = confirmed.len().add(unconfirmed.len()).add(headers.len())
-                        - MAIN_HEADER_CACHE_LIMIT;
-                    while idx > 0 {
-                        confirmed.remove(0);
-                        idx -= 1;
-                    }
-                }
-
-                let input_tail_raw = unconfirmed[unconfirmed.len() - 1];
-                header_infos = handle_unconfirmed_headers(input_tail_raw, headers)?;
-                for item in &header_infos {
-                    unconfirmed.push(item.as_slice());
-                }
-                info!(
-                    "main chain confirmed len: {:?}, un_confirmed len: {:?}",
-                    confirmed.len(),
-                    unconfirmed.len()
-                );
+                let output_data = ETHHeaderCellData::new_builder()
+                    .headers(
+                        ETHChain::new_builder()
+                            .main(BytesVec::new_builder().set(main_chain_data).build())
+                            .build(),
+                    )
+                    // .merkle_proofs(MerkleProofVec::new_builder().set(vec![proofs]).build())
+                    .build()
+                    .as_bytes();
+                helper.add_output(output, output_data);
+            // helper.add_output_with_auto_capacity(output, output_data);
             } else {
-                // the main chain had been reorged.
-                let mut idx = un_confirmed_headers.len() - 1;
-                while idx > 0 {
-                    let header = &un_confirmed_headers[idx - 1];
-                    if header.hash.unwrap() == headers[0].parent_hash {
-                        break;
-                    }
-                    idx -= 1;
-                }
-                // remove the item to uncle chain if the index >= idx
-                while unconfirmed.len() > idx {
-                    if uncle_raw_data.len() == UNCLE_HEADER_CACHE_LIMIT {
-                        uncle_raw_data.remove(0);
-                    }
-                    uncle_raw_data.push(unconfirmed[idx]);
-                    unconfirmed.remove(idx);
-                }
-
-                let input_tail_raw = unconfirmed[idx - 1];
-                header_infos = handle_unconfirmed_headers(input_tail_raw, headers)?;
-                for item in &header_infos {
-                    unconfirmed.push(item.as_slice());
-                    if unconfirmed.len() > CONFIRM {
-                        let temp_data = unconfirmed[0];
-                        ETHHeaderInfoReader::verify(&temp_data, false)
-                            .map_err(|err| anyhow!(err))?;
-                        let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
-                        let hash = header_info_reader.hash().raw_data();
-                        confirmed.push(hash);
-                        if confirmed.len() > MAIN_HEADER_CACHE_LIMIT {
-                            confirmed.remove(0);
+                let tip = &un_confirmed_headers[un_confirmed_headers.len() - 1];
+                let input_cell_data = packed::Bytes::from(cell.clone().output_data).raw_data();
+                let (mut unconfirmed, mut confirmed) = parse_main_raw_data(&input_cell_data)?;
+                let mut uncle_raw_data = parse_uncle_raw_data(&input_cell_data)?;
+                let header_infos;
+                if tip.hash.unwrap() == headers[0].parent_hash {
+                    // the main chain is not reorg.
+                    if unconfirmed.len().add(headers.len()) > CONFIRM {
+                        let mut idx = unconfirmed.len().add(headers.len()) - CONFIRM;
+                        while idx > 0 {
+                            let temp_data = unconfirmed[0];
+                            ETHHeaderInfoReader::verify(&temp_data, false)
+                                .map_err(|err| anyhow!(err))?;
+                            let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
+                            let hash = header_info_reader.hash().raw_data();
+                            confirmed.push(hash);
+                            unconfirmed.remove(0);
+                            idx -= 1;
                         }
-                        unconfirmed.remove(0);
+                    }
+                    if confirmed.len().add(unconfirmed.len()).add(headers.len())
+                        > MAIN_HEADER_CACHE_LIMIT
+                    {
+                        let mut idx = confirmed.len().add(unconfirmed.len()).add(headers.len())
+                            - MAIN_HEADER_CACHE_LIMIT;
+                        while idx > 0 {
+                            confirmed.remove(0);
+                            idx -= 1;
+                        }
+                    }
+
+                    let input_tail_raw = unconfirmed[unconfirmed.len() - 1];
+                    header_infos = handle_unconfirmed_headers(input_tail_raw, headers)?;
+                    for item in &header_infos {
+                        unconfirmed.push(item.as_slice());
+                    }
+                    info!(
+                        "main chain confirmed len: {:?}, un_confirmed len: {:?}",
+                        confirmed.len(),
+                        unconfirmed.len()
+                    );
+                } else {
+                    // the main chain had been reorged.
+                    let mut idx = un_confirmed_headers.len() - 1;
+                    while idx > 0 {
+                        let header = &un_confirmed_headers[idx - 1];
+                        if header.hash.unwrap() == headers[0].parent_hash {
+                            break;
+                        }
+                        idx -= 1;
+                    }
+                    // remove the item to uncle chain if the index >= idx
+                    while unconfirmed.len() > idx {
+                        if uncle_raw_data.len() == UNCLE_HEADER_CACHE_LIMIT {
+                            uncle_raw_data.remove(0);
+                        }
+                        uncle_raw_data.push(unconfirmed[idx]);
+                        unconfirmed.remove(idx);
+                    }
+
+                    let input_tail_raw = unconfirmed[idx - 1];
+                    header_infos = handle_unconfirmed_headers(input_tail_raw, headers)?;
+                    for item in &header_infos {
+                        unconfirmed.push(item.as_slice());
+                        if unconfirmed.len() > CONFIRM {
+                            let temp_data = unconfirmed[0];
+                            ETHHeaderInfoReader::verify(&temp_data, false)
+                                .map_err(|err| anyhow!(err))?;
+                            let header_info_reader = ETHHeaderInfoReader::new_unchecked(&temp_data);
+                            let hash = header_info_reader.hash().raw_data();
+                            confirmed.push(hash);
+                            unconfirmed.remove(0);
+                            if confirmed.len().add(unconfirmed.len()) > MAIN_HEADER_CACHE_LIMIT {
+                                confirmed.remove(0);
+                            }
+                        }
                     }
                 }
-            }
-            let mut main_chain_data: Vec<basic::Bytes> = vec![];
-            for item in confirmed {
-                main_chain_data.push(item.to_vec().into());
-            }
-            for item in unconfirmed {
-                main_chain_data.push(item.to_vec().into());
-            }
-            let mut uncle_chain_data = vec![];
-            for item in uncle_raw_data {
-                uncle_chain_data.push(item.to_vec().into());
-            }
-            // Turn on this in later versions
-            // let mut proofs: Vec<MerkleProof> = vec![];
-            // for item in witness {
-            //     let proof = build_merkle_proofs(&item)?;
-            //     proofs.push(proof);
-            // }
+                let mut main_chain_data: Vec<basic::Bytes> = vec![];
+                for item in confirmed {
+                    main_chain_data.push(item.to_vec().into());
+                }
+                for item in unconfirmed {
+                    main_chain_data.push(item.to_vec().into());
+                }
+                let mut uncle_chain_data = vec![];
+                for item in uncle_raw_data {
+                    uncle_chain_data.push(item.to_vec().into());
+                }
+                // Turn on this in later versions
+                // let mut proofs: Vec<MerkleProof> = vec![];
+                // for item in witness {
+                //     let proof = build_merkle_proofs(&item)?;
+                //     proofs.push(proof);
+                // }
 
-            let output_data = ETHHeaderCellData::new_builder()
-                .headers(
-                    ETHChain::new_builder()
-                        .main(BytesVec::new_builder().set(main_chain_data).build())
-                        .uncle(BytesVec::new_builder().set(uncle_chain_data).build())
-                        .build(),
-                )
-                // .merkle_proofs(MerkleProofVec::new_builder().set(proofs).build())
-                .build()
-                .as_bytes();
-            helper.add_output_with_auto_capacity(output, output_data);
+                let output_data = ETHHeaderCellData::new_builder()
+                    .headers(
+                        ETHChain::new_builder()
+                            .main(BytesVec::new_builder().set(main_chain_data).build())
+                            .uncle(BytesVec::new_builder().set(uncle_chain_data).build())
+                            .build(),
+                    )
+                    // .merkle_proofs(MerkleProofVec::new_builder().set(proofs).build())
+                    .build()
+                    .as_bytes();
+                helper.add_output(output, output_data);
+            }
         }
 
-        {
-            // add witness
-            let mut headers_raw = vec![];
-            for item in headers {
-                let header_rlp = convert_to_header_rlp(item)?;
-                headers_raw.push(basic::Bytes::from(
-                    hex::decode(header_rlp).map_err(|err| anyhow!(err))?,
-                ))
-            }
-            let witness_data = ETHLightClientWitness::new_builder()
-                .headers(BytesVec::new_builder().set(headers_raw).build())
-                .cell_dep_index_list(vec![0].into())
-                .build();
-
-            let witness_args = WitnessArgs::new_builder()
-                .input_type(Some(witness_data.as_bytes()).pack())
-                .build();
-            helper.transaction = helper
-                .transaction
-                .as_advanced_builder()
-                .set_witnesses(vec![witness_args.as_bytes().pack()])
-                .build();
-        }
-        // build tx
         let tx = helper
             .supply_capacity(
                 &mut self.rpc_client,
@@ -355,7 +398,6 @@ impl Generator {
                 tx_fee,
             )
             .map_err(|err| anyhow!(err))?;
-
         Ok(tx)
     }
 
@@ -376,52 +418,40 @@ impl Generator {
             .deployed_contracts
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+
         // add cell deps.
-        {
-            let cell_script = parse_cell(
-                deployed_contracts
-                    .light_client_cell_script
-                    .cell_script
-                    .as_str(),
-            )?;
-            let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
-                .map_err(|err| anyhow!(err))?
-                .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
-            let mut builder = helper.transaction.as_advanced_builder();
-            builder = builder.cell_dep(
-                CellDep::new_builder()
-                    .out_point(cell.out_point.into())
-                    .dep_type(DepType::Code.into())
-                    .build(),
-            );
-            helper.transaction = builder.build();
+        let cell_script = parse_cell(
+            deployed_contracts
+                .light_client_cell_script
+                .cell_script
+                .as_str(),
+        )?;
+        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
+        let mut builder = helper.transaction.as_advanced_builder();
+        builder = builder.cell_dep(
+            CellDep::new_builder()
+                .out_point(cell.out_point.into())
+                .dep_type(DepType::Code.into())
+                .build(),
+        );
+        helper.transaction = builder.build();
 
-            let outpoints = vec![
-                self.deployed_contracts.bridge_lockscript.outpoint.clone(),
-                self.deployed_contracts.bridge_typescript.outpoint.clone(),
-                self.deployed_contracts.sudt.outpoint.clone(),
-            ];
-            self.add_cell_deps(&mut helper, outpoints)
-                .map_err(|err| anyhow!(err))?;
-        }
+        let outpoints = vec![
+            self.deployed_contracts.bridge_lockscript.outpoint.clone(),
+            self.deployed_contracts.bridge_typescript.outpoint.clone(),
+            self.deployed_contracts.sudt.outpoint.clone(),
+        ];
+        self.add_cell_deps(&mut helper, outpoints)
+            .map_err(|err| anyhow!(err))?;
 
-        let lockscript_code_hash =
-            hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash)?;
-        use force_eth_types::generated::basic::ETHAddress;
-        let args = ETHBridgeLockArgs::new_builder()
-            .eth_token_address(
-                ETHAddress::from_slice(&eth_proof.token.as_bytes()).map_err(|err| anyhow!(err))?,
-            )
-            .eth_contract_address(
-                ETHAddress::from_slice(&eth_proof.eth_address.as_bytes())
-                    .map_err(|err| anyhow!(err))?,
-            )
-            .build();
-        let lockscript = Script::new_builder()
-            .code_hash(Byte32::from_slice(&lockscript_code_hash)?)
-            .hash_type(self.deployed_contracts.bridge_lockscript.hash_type.into())
-            .args(args.as_bytes().pack())
-            .build();
+        let lockscript = create_bridge_lockscript(
+            &self.deployed_contracts,
+            &eth_proof.token,
+            &eth_proof.eth_address,
+            // cell_script,
+        )?;
 
         // input bridge cells
         let rpc_client = &mut self.rpc_client;
@@ -446,19 +476,22 @@ impl Generator {
         let (bridge_cell, bridge_cell_data) =
             get_live_cell_with_cache(&mut live_cell_cache, &mut self.rpc_client, outpoint, true)
                 .expect("outpoint not exists");
-        let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
-            .expect("invalid bridge data")
-            .owner_lock_script();
-        if owner_lock_script.raw_data() != from_lockscript.as_bytes() {
-            bail!("only support use bridge cell we created as lock outpoint");
-        }
+        // FIXME add owner lockscript verify
+        // let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
+        //     .expect("invalid bridge data")
+        //     .owner_lock_script();
+        // if owner_lock_script.raw_data() != from_lockscript.as_bytes() {
+        //     bail!("only support use bridge cell we created as lock outpoint");
+        // }
+
         // 1 xt cells
         {
             let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript).unwrap();
 
             let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash)?;
+            let code_hash = Byte32::from_slice(&sudt_typescript_code_hash)?;
             let sudt_typescript = Script::new_builder()
-                .code_hash(Byte32::from_slice(&sudt_typescript_code_hash)?)
+                .code_hash(code_hash)
                 .hash_type(self.deployed_contracts.sudt.hash_type.into())
                 .args(lockscript.calc_script_hash().as_bytes().pack())
                 .build();
@@ -590,7 +623,6 @@ impl Generator {
         from_lockscript: Script,
         bridge_typescript: Script,
         bridge_lockscript: Script,
-        recipient_lockscript: Script,
         bridge_fee: u128,
         cell_num: usize,
     ) -> Result<TransactionView> {
@@ -616,15 +648,6 @@ impl Generator {
         for _ in 0..cell_num {
             tx_helper.add_output(output.clone(), bridge_data.as_bytes());
         }
-        // create an extra cell with 61 CKB capacity for user, enable user do actions on ckb after the crosschain.
-        // used in testnet version temporarily.
-        // TODO: remove it in mainnet version.
-        let addtional_output = CellOutput::new_builder()
-            .capacity((ONE_CKB * 61).pack())
-            .lock(recipient_lockscript)
-            .build();
-        tx_helper.add_output(addtional_output, Bytes::new());
-        // build tx
         let tx = tx_helper
             .supply_capacity(
                 &mut self.rpc_client,
@@ -666,13 +689,17 @@ impl Generator {
                 .map_err(|err| anyhow!(err))?;
         }
 
-        let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            &self.deployed_contracts.sudt.code_hash,
-            self.deployed_contracts.sudt.hash_type,
-            token_addr,
-            lock_contract_addr,
+        let sudt_typescript =
+            get_sudt_type_script(&self.deployed_contracts, token_addr, lock_contract_addr)?;
+        let cell_script = parse_cell(
+            self.deployed_contracts
+                .light_client_cell_script
+                .cell_script
+                .as_str(),
         )?;
+        let mut light_client_typescript_hash = [0u8; 32];
+        light_client_typescript_hash
+            .copy_from_slice(cell_script.calc_script_hash().raw_data().as_ref());
 
         // gen output of eth_recipient cell
         {
@@ -693,6 +720,7 @@ impl Generator {
                 eth_bridge_lock_hash,
                 token_amount: burn_sudt_amount,
                 fee: unlock_fee,
+                light_client_typescript_hash,
             };
 
             log::info!(
@@ -770,13 +798,8 @@ impl Generator {
         self.add_cell_deps(&mut helper, outpoints)
             .map_err(|err| anyhow!(err))?;
 
-        let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            &self.deployed_contracts.sudt.code_hash,
-            self.deployed_contracts.sudt.hash_type,
-            token_addr,
-            lock_contract_addr,
-        )?;
+        let sudt_typescript =
+            get_sudt_type_script(&self.deployed_contracts, token_addr, lock_contract_addr)?;
 
         let sudt_output = CellOutput::new_builder()
             .capacity(Capacity::shannons(ckb_amount).pack())
@@ -816,13 +839,8 @@ impl Generator {
         token_addr: H160,
         lock_contract_addr: H160,
     ) -> Result<u128> {
-        let sudt_typescript = get_sudt_type_script(
-            &self.deployed_contracts.bridge_lockscript.code_hash,
-            &self.deployed_contracts.sudt.code_hash,
-            self.deployed_contracts.sudt.hash_type,
-            token_addr,
-            lock_contract_addr,
-        )?;
+        let sudt_typescript =
+            get_sudt_type_script(&self.deployed_contracts, token_addr, lock_contract_addr)?;
         collect_sudt_amount(&mut self.indexer_client, addr_lockscript, sudt_typescript)
             .map_err(|err| anyhow!(err))
     }

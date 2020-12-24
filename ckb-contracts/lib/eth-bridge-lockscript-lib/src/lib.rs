@@ -6,7 +6,6 @@ extern crate no_std_compat as std;
 
 pub mod actions;
 pub mod adapter;
-pub mod debug;
 #[cfg(test)]
 mod test;
 
@@ -16,8 +15,9 @@ use molecule::prelude::Reader;
 
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
-    let chain = adapter::chain::ChainAdapter {};
-    _verify(chain);
+    let chain = contracts_helper::chain::Chain {};
+    let adapter = adapter::ChainAdapter { chain };
+    _verify(adapter);
     0
 }
 

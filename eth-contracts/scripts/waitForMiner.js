@@ -1,11 +1,11 @@
-const ethers = require("ethers");
+const ethers = require('ethers');
 
 function sleep(s) {
   return new Promise((resolve) => setTimeout(resolve, 1000 * s));
 }
 
 async function main() {
-  let provider = ethers.getDefaultProvider("http://localhost:8545");
+  let provider = ethers.getDefaultProvider('http://localhost:8545');
   let retry_count = 0;
   let time_count = 0;
   while (true) {

@@ -1,9 +1,10 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use force_eth_lib::relay::ckb_relay::CKBRelayer;
 use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
+use force_eth_lib::relay::relay_monitor::relay_monitor;
 use force_eth_lib::transfer::to_ckb::{
-    self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, lock_eth, lock_token,
-    send_eth_spv_proof_tx,
+    self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
+    lock_eth, lock_token, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
@@ -18,6 +19,7 @@ use log::{debug, error, info};
 use serde_json::json;
 use shellexpand::tilde;
 use types::*;
+use web3::types::H256;
 
 pub mod server;
 pub mod types;
@@ -26,7 +28,8 @@ pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         SubCommand::Server(args) => server::server_handler(args).await,
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
-        SubCommand::Init(args) => init_config(args).await,
+        SubCommand::InitConfig(args) => init_config(args).await,
+        SubCommand::InitMultiSignAddress(args) => init_multisig_address_handler(args).await,
         SubCommand::DeployCKB(args) => deploy_ckb(args).await,
         SubCommand::CreateBridgeCell(args) => create_bridge_cell_handler(args).await,
         // transfer erc20 to ckb
@@ -51,6 +54,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::QuerySudtBlance(args) => query_sudt_balance_handler(args).await,
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
+        SubCommand::RelayerMonitor(args) => relayer_monitor(args).await,
     }
 }
 
@@ -70,7 +74,7 @@ pub async fn init_ckb_light_contract_handler(args: InitCkbLightContractArgs) -> 
     Ok(())
 }
 
-pub async fn init_config(args: InitArgs) -> Result<()> {
+pub async fn init_config(args: InitConfigArgs) -> Result<()> {
     config::init_config(
         args.force,
         args.project_path,
@@ -83,8 +87,32 @@ pub async fn init_config(args: InitArgs) -> Result<()> {
     .await
 }
 
+pub async fn init_multisig_address_handler(args: InitMultiSignAddressArgs) -> Result<()> {
+    let multi_sign_address = init_multi_sign_address(
+        args.multi_address,
+        args.require_first_n,
+        args.threshold,
+        args.config_path,
+        args.private_key_path,
+        args.network,
+    )
+    .await?;
+    info!(
+        "create multi sign address successfully. address: {:?}",
+        multi_sign_address
+    );
+    Ok(())
+}
+
 pub async fn deploy_ckb(args: DeployCKBArgs) -> Result<()> {
-    to_ckb::deploy_ckb(args.config_path, args.network, args.private_key_path).await
+    to_ckb::deploy_ckb(
+        args.config_path,
+        args.network,
+        args.private_key_path,
+        args.type_id,
+        args.sudt,
+    )
+    .await
 }
 
 pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()> {
@@ -195,8 +223,14 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
     let from_privkey =
         parse_privkey_path(args.private_key_path.as_str(), &force_config, &args.network)?;
     let config_path = tilde(args.config_path.as_str()).into_owned();
-    let tx_hash =
-        send_eth_spv_proof_tx(&mut generator, config_path, &eth_proof, from_privkey).await?;
+    let tx_hash = send_eth_spv_proof_tx(
+        &mut generator,
+        config_path,
+        args.hash,
+        &eth_proof,
+        from_privkey,
+    )
+    .await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);
     Ok(())
 }
@@ -343,7 +377,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         config_path,
         args.network,
         args.private_key_path,
-        args.proof_data_path,
+        args.multisig_privkeys,
     )?;
     loop {
         let res = eth_relayer.start().await;
@@ -361,10 +395,26 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+
+    if args.mutlisig_privkeys.len() < deployed_contracts.ckb_relay_mutlisig_threshold.threshold {
+        bail!(
+            "the mutlisig privkeys number is less. expect {}, actual {} ",
+            deployed_contracts.ckb_relay_mutlisig_threshold.threshold,
+            args.mutlisig_privkeys.len()
+        );
+    }
+
     let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
     let priv_key = parse_private_key(&args.private_key_path, &force_config, &args.network)?;
+    let multisig_privkeys = args
+        .mutlisig_privkeys
+        .clone()
+        .into_iter()
+        .map(|k| parse_private_key(&k, &force_config, &args.network))
+        .collect::<Result<Vec<H256>>>()?;
+
     let mut ckb_relayer = CKBRelayer::new(
         ckb_rpc_url,
         ckb_indexer_url,
@@ -372,14 +422,54 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         priv_key,
         deployed_contracts.eth_ckb_chain_addr.clone(),
         args.gas_price,
+        multisig_privkeys,
     )?;
-    loop {
+    let mut consecutive_failures = 0;
+    while consecutive_failures < 5 {
         let res = ckb_relayer
-            .start(eth_rpc_url.clone(), args.per_amount)
+            .start(eth_rpc_url.clone(), args.per_amount, args.max_tx_count)
             .await;
         if let Err(err) = res {
-            error!("An error occurred during the ckb relay. Err: {:?}", err)
+            error!("An error occurred during the ckb relay. Err: {:?}", err);
+            consecutive_failures += 1;
+        } else {
+            consecutive_failures = 0;
         }
-        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
+    }
+    bail!("5 consecutive failures when relay headers")
+}
+
+pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+
+    loop {
+        let res = relay_monitor(
+            ckb_rpc_url.clone(),
+            ckb_indexer_url.clone(),
+            eth_rpc_url.clone(),
+            deployed_contracts.eth_ckb_chain_addr.clone(),
+            deployed_contracts
+                .light_client_cell_script
+                .cell_script
+                .clone(),
+            args.ckb_alarm_number,
+            args.eth_alarm_number,
+            args.alarm_url.clone(),
+            args.ckb_conservator.clone(),
+            args.eth_conservator.clone(),
+        )
+        .await;
+        if let Err(err) = res {
+            error!("An error occurred during the relay monitor. Err: {:?}", err)
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(args.minute_interval * 60)).await;
     }
 }

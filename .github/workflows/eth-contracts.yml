@@ -38,3 +38,7 @@ jobs:
         run: yarn --frozen-lockfile
       - run: yarn test
       - run: yarn lint
+      - name: eth-contracts coverage
+        run: |
+          export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
+          bash ./eth_script_coverage.sh

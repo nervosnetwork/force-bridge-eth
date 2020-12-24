@@ -6,18 +6,17 @@ extern crate no_std_compat as std;
 
 pub mod actions;
 pub mod adapter;
-pub mod debug;
-#[cfg(test)]
-mod test;
 
 use adapter::Adapter;
+use contracts_helper::debug;
 use force_eth_types::generated::witness::MintTokenWitnessReader;
 use molecule::prelude::{Entity, Reader};
 
 #[cfg(target_arch = "riscv64")]
 pub fn verify() -> i8 {
-    let chain = adapter::chain::ChainAdapter {};
-    _verify(chain);
+    let chain = contracts_helper::chain::Chain {};
+    let adapter = adapter::ChainAdapter { chain };
+    _verify(adapter);
     0
 }
 
