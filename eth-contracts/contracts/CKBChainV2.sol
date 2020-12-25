@@ -89,7 +89,7 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
     }
 
     // # ICKBChain
-    function addHeaders(bytes[] calldata tinyHeaders, bytes calldata signatures) override external onlyGov {
+    function addHeaders(bytes[] calldata tinyHeaders) override external onlyGov {
         bytes29 tinyHeaderView;
         for (uint i = 0; i < tinyHeaders.length; i++) {
             tinyHeaderView = tinyHeaders[i].ref(uint40(ViewCKB.CKBTypes.TinyHeader));
