@@ -48,6 +48,7 @@ async function main() {
   let eth_network = await provider.getNetwork();
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
+
   // deploy CKBChainV2
   let CKBChainV2 = await ethers.getContractFactory(
     'contracts/CKBChainV2.sol:CKBChainV2',
