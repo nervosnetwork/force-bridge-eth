@@ -19,10 +19,11 @@ contract TokenLocker {
     using CKBTxView for bytes29;
     using ViewSpv for bytes29;
 
+    uint8 public recipientCellTypescriptHashType_;
     uint64 public numConfirmations_;
     ICKBSpv public ckbSpv_;
     bytes32 public recipientCellTypescriptCodeHash_;
-    uint8 public recipientCellTypescriptHashType_;
+    bytes32 public lightClientTypescriptHash_;
     bytes32 public bridgeCellLockscriptCodeHash_;
 
     // txHash -> Used
@@ -51,12 +52,14 @@ contract TokenLocker {
         uint64 numConfirmations,
         bytes32 recipientCellTypescriptCodeHash,
         uint8 typescriptHashType,
+        bytes32 lightClientTypescriptHash,
         bytes32 bridgeCellLockscriptCodeHash
     ) {
         ckbSpv_ = ICKBSpv(ckbSpvAddress);
         numConfirmations_ = numConfirmations;
         recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
         recipientCellTypescriptHashType_ = typescriptHashType;
+        lightClientTypescriptHash_ = lightClientTypescriptHash;
         bridgeCellLockscriptCodeHash_ = bridgeCellLockscriptCodeHash;
     }
 
@@ -144,7 +147,8 @@ contract TokenLocker {
         require((recipientCellTypescript.hashType() == recipientCellTypescriptHashType_), "invalid recipient cell typescript hash type");
         bytes29 recipientCellData = rawTx.outputsData().recipientCellData();
         require((recipientCellData.contractAddress() == address(this)), "invalid contract address in recipient cell");
-        require((recipientCellData.bridgeLockscriptCodeHash() == bridgeCellLockscriptCodeHash_), "invalid contract address in recipient cell");
+        require((recipientCellData.lightClientTypescriptHash() == lightClientTypescriptHash_), "invalid lightClientTypescriptHash in recipient cell");
+        require((recipientCellData.bridgeLockscriptCodeHash() == bridgeCellLockscriptCodeHash_), "invalid bridgeLockscriptCodeHash in recipient cell");
         return (
         recipientCellData.bridgeAmount(),
         recipientCellData.bridgeFee(),

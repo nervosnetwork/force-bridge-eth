@@ -3,6 +3,7 @@ const { log, waitingForReceipt } = require('./utils');
 const testJson = require('./data/testTokenLocker.json');
 
 const recipientCellTypescript = testJson.recipientCellTypescript;
+const lightClientTypescriptHash = testJson.lightClientTypescriptHash
 const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash;
 const decodeBurnTxTestCases = testJson.decodeBurnTxTestCases;
 const lockETHTestCases = testJson.lockETHTestCases;
@@ -29,6 +30,7 @@ contract('TokenLocker', () => {
       123,
       recipientCellTypescript.codeHash,
       recipientCellTypescript.hashType,
+      lightClientTypescriptHash,
       bridgeCellLockscriptCodeHash
     );
     await tokenLocker.deployed();
