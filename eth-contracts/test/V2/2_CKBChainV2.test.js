@@ -1,28 +1,15 @@
 const chai = require('chai')
-const vectors = require('../data/testVectors.json')
 const {getTinyHeaders} = require("../../scripts/benchmark/generateData");
 const { solidity } = require('ethereum-waffle')
 const {
   log,
   deployContract,
-  generateSignatures,
-  generateWallets,
 } = require('../utils')
-
 chai.use(solidity)
 const { expect } = chai
-const {
-  extractBlockNumber,
-  calculateBlockHash,
-  extractTransactionsRoot,
-  extractEpoch,
-  indexHeaderVec,
-} = vectors
 
 contract('CKBChainV2', () => {
-  let ckbChain, provider, initHeaderIndex, endHeaderIndex, factory
-  let wallets, validators
-  let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHeadersTypeHash
+  let ckbChain
 
   before(async function () {
     // disable timeout

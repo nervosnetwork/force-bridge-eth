@@ -22,9 +22,9 @@ import "./CKBChainV2Layout.sol";
 contract CKBChainV2Storage is Proxy, CKBChainV2Layout {
     constructor(
         uint64 canonicalGcThreshold,
-        address _proxy_admin,
         address[] memory validators,
-        uint multisigThreshold
+        uint multisigThreshold,
+        address _proxy_admin
     ) Proxy(_proxy_admin) {
         // set init threshold
         CanonicalGcThreshold = canonicalGcThreshold;

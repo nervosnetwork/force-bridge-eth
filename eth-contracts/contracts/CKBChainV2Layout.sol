@@ -14,8 +14,7 @@ contract CKBChainV2Layout {
     uint public constant VALIDATORS_SIZE_LIMIT = 20;
     string public constant NAME_712 = "Force Bridge CKBChain";
     // ADD_HEADERS_TYPEHASH = keccak256("AddHeaders(bytes[] tinyHeaders)");
-    // TODO modify ADD_HEADERS_TYPEHASH
-    bytes32 public constant ADD_HEADERS_TYPEHASH = 0xfa98e6fcbad03c89f421602d77ef593b53ee59d7442ea61663cb69d2a29a764d;
+    bytes32 public constant ADD_HEADERS_TYPEHASH = 0x1dac851def8ec317cf44b4a6cf63dabe82895259e6290d4c2ef271700bfce584;
 
     //==============================================================================
 
