@@ -40,33 +40,18 @@ contract('TokenLocker in TokenLockerV2', () => {
     user = mockSpv.signer
     provider = mockSpv.provider
 
-    // get validators
-    wallets = generateWallets(5)
-    validators = wallets.map((wallet) => wallet.address)
-    multisigThreshold = 5
-    chainId = await user.getChainId()
-
     tokenLocker = await deployUpgradableContractFirstTime(
-      'contracts/TokenLockerStorage.sol:TokenLockerV2Storage',
-      'contracts/TokenLockerLogic.sol:TokenLockerV2Logic',
+      'contracts/TokenLockerStorage.sol:TokenLockerStorage',
+      'contracts/TokenLockerLogic.sol:TokenLockerLogic',
       adminAddress,
       mockSpv.address,
       123,
       recipientCellTypescript.codeHash,
       recipientCellTypescript.hashType,
       lightClientTypescriptHash,
-      bridgeCellLockscriptCodeHash,
-      validators,
-      multisigThreshold,
-      chainId
+      bridgeCellLockscriptCodeHash
     )
 
     log('tokenLocker deployed to:', tokenLocker.address)
-  })
-
-  describe('setNewCkbSpv by multisig(5 of 5)', async function () {
-    // disable timeout
-    this.timeout(0)
-
   })
 })

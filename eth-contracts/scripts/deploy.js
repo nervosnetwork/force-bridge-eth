@@ -1,8 +1,10 @@
 const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
+const { deployUpgradableContractFirstTime } = require('../test/utils');
 
 async function main() {
+  // get force config
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   const network = process.env.FORCE_NETWORK;
   if (!forceConfigPath) {
@@ -16,61 +18,62 @@ async function main() {
     network_config = forceConfig.networks_config[forceConfig.default_network];
   }
   const provider = new ethers.providers.JsonRpcProvider(
-    network_config.ethereum_rpc_url
+      network_config.ethereum_rpc_url
   );
   const deployedContracts = forceConfig.deployed_contracts;
   const bridge_lockscript_code_hash =
-    deployedContracts.bridge_lockscript.code_hash;
+      deployedContracts.bridge_lockscript.code_hash;
   const recipient_typescript_code_hash =
-    deployedContracts.recipient_typescript.code_hash;
+      deployedContracts.recipient_typescript.code_hash;
   let recipientCellTypescriptHashType =
-    deployedContracts.recipient_typescript.hash_type;
+      deployedContracts.recipient_typescript.hash_type;
+
+  // TODO get lightClientTypescriptHash
+  let lightClientTypescriptHash = recipient_typescript_code_hash;
+
   const wallet = new ethers.Wallet(
-    '0x' + network_config.ethereum_private_keys[0],
-    provider
+      '0x' + network_config.ethereum_private_keys[0],
+      provider
   );
+  const adminAddress = wallet.address;
 
-  let CKBChainFactory = await ethers.getContractFactory(
-    'contracts/CKBChain.sol:CKBChain',
-    wallet
-  );
-  const CKBChain = await CKBChainFactory.deploy();
-  await CKBChain.deployed();
-  const CKBChainAddr = CKBChain.address;
-  console.error('CKBChain address: ', CKBChainAddr);
-
+  // deploy ckbChainV2
   const validators = network_config.ethereum_private_keys.map((privateKey) => {
     let publicKey = EthUtil.privateToPublic(Buffer.from(privateKey, 'hex'));
     return '0x' + EthUtil.publicToAddress(publicKey).toString('hex');
   });
   console.error('validator validator: ', validators);
-  multisigThreshold = 5;
+  const multisigThreshold = 5;
   let eth_network = await provider.getNetwork();
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
+
   // deploy CKBChainV2
-  let CKBChainV2 = await ethers.getContractFactory(
-    'contracts/CKBChainV2.sol:CKBChainV2',
-    wallet
+  const canonicalGcThreshold = 40000;
+  let CKBChainV2 = await deployUpgradableContractFirstTime(
+      'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
+      'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
+      adminAddress,
+      canonicalGcThreshold,
+      validators,
+      multisigThreshold
   );
-  ckbChainV2 = await CKBChainV2.deploy(validators, multisigThreshold, chainId);
-  await ckbChainV2.deployed();
-  const ckbChainV2Addr = ckbChainV2.address;
-  console.error('ckbChainV2 address: ', ckbChainV2Addr);
+  const ckbChainV2Addr = CKBChainV2.address;
 
   // deploy TokenLocker
-  let TokenLocker = await ethers.getContractFactory(
-    'contracts/TokenLocker.sol:TokenLocker',
-    wallet
+  const numConfirmations = 20;
+  const locker = await deployUpgradableContractFirstTime(
+      'contracts/TokenLockerStorage.sol:TokenLockerStorage',
+      'contracts/TokenLockerLogic.sol:TokenLockerLogic',
+      adminAddress,
+      ckbChainV2Addr,
+      numConfirmations,
+      '0x' + recipient_typescript_code_hash,
+      recipientCellTypescriptHashType,
+      '0x' + lightClientTypescriptHash,
+      '0x' + bridge_lockscript_code_hash
   );
-  const locker = await TokenLocker.deploy(
-    ckbChainV2Addr,
-    1,
-    '0x' + recipient_typescript_code_hash,
-    recipientCellTypescriptHashType,
-    '0x' + bridge_lockscript_code_hash
-  );
-  await locker.deployed();
+
   const lockerAddr = locker.address;
   console.error('tokenLocker address: ', lockerAddr);
 
@@ -87,20 +90,20 @@ async function main() {
   const ckbChainJSON = require('../artifacts/contracts/CKBChain.sol/CKBChain.json');
   const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
-    '../offchain-modules/lib/src/util/token_locker_abi.json',
-    JSON.stringify(lockerABI, null, 2)
+      '../offchain-modules/lib/src/util/token_locker_abi.json',
+      JSON.stringify(lockerABI, null, 2)
   );
   fs.writeFileSync(
-    '../offchain-modules/lib/src/util/ckb_chain_abi.json',
-    JSON.stringify(ckbChainABI, null, 2)
+      '../offchain-modules/lib/src/util/ckb_chain_abi.json',
+      JSON.stringify(ckbChainABI, null, 2)
   );
 }
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
 main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });

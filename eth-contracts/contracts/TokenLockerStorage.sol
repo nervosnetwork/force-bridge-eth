@@ -13,7 +13,7 @@ import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import "./TokenLockerLayout.sol";
 import "./proxy/Proxy.sol";
 
-contract TokenLockerV2Storage is Proxy, TokenLockerV2Layout{
+contract TokenLockerStorage is Proxy, TokenLockerLayout{
     constructor(
         address ckbSpvAddress,
         uint64 numConfirmations,

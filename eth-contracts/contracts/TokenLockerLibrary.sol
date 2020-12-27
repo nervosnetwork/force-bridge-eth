@@ -12,5 +12,5 @@ import {Address} from "./libraries/Address.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 
-contract TokenLockerV2Library {
+contract TokenLockerLibrary {
 }

@@ -14,7 +14,7 @@ import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 import "./TokenLockerLayout.sol";
 import "./proxy/Delegate.sol";
 
-contract TokenLockerV2Logic is Delegate, TokenLockerV2Layout {
+contract TokenLockerLogic is Delegate, TokenLockerLayout {
 
     using SafeMath for uint256;
     using Address for address;
