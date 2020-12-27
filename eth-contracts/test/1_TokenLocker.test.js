@@ -3,7 +3,7 @@ const { log, waitingForReceipt } = require('./utils');
 const testJson = require('./data/testTokenLocker.json');
 
 const recipientCellTypescript = testJson.recipientCellTypescript;
-const lightClientTypescriptHash = testJson.lightClientTypescriptHash
+const lightClientTypescriptHash = testJson.lightClientTypescriptHash;
 const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash;
 const decodeBurnTxTestCases = testJson.decodeBurnTxTestCases;
 const lockETHTestCases = testJson.lockETHTestCases;

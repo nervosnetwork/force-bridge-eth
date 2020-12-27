@@ -15,12 +15,12 @@ init();
 const fixedLength = (str, targetLen = 8) => {
   const len = str.length;
   return '0'.repeat(targetLen - len) + str;
-}
+};
 
 const fixedLengthLe = (str, targetLen = 8) => {
   const len = str.length;
   return str + '0'.repeat(targetLen - len);
-}
+};
 
 /*
  * @notice             generate a param of CKBChain.initWithHeader()
@@ -29,7 +29,7 @@ const fixedLengthLe = (str, targetLen = 8) => {
  * */
 const getHeaderAndHash = (index) => {
   return [headers[index], blockHashes[index]];
-}
+};
 /*
  * @notice             generate a param of CKBChain.addHeaders()
  * @param size         length of headerVec
@@ -51,29 +51,27 @@ const getHeadersVecAndHashes = (startIndex, size) => {
   //     }
   // )
   return ['0x' + headerHex, blockHashes.slice(startIndex, startIndex + size)];
-}
+};
 
 const getTinyHeaders = (startIndex, size) => {
-  const tinyHeaders = []
-  headers.slice(startIndex, startIndex + size).forEach(
-      (headerStr, index) => {
-        let tinyHeader = "0x"
-        // number
-        const numberIndex = 2 + 16 * 2
-        tinyHeader += headerStr.slice(numberIndex, numberIndex + 8 * 2)
+  const tinyHeaders = [];
+  headers.slice(startIndex, startIndex + size).forEach((headerStr, index) => {
+    let tinyHeader = '0x';
+    // number
+    const numberIndex = 2 + 16 * 2;
+    tinyHeader += headerStr.slice(numberIndex, numberIndex + 8 * 2);
 
-        // blockHash
-        tinyHeader += blockHashes[index].slice(2)
+    // blockHash
+    tinyHeader += blockHashes[index].slice(2);
 
-        const txRootIndex = 2 + 64 * 2
-        // txRoot
-        tinyHeader += headerStr.slice(txRootIndex, txRootIndex + 32 * 2)
+    const txRootIndex = 2 + 64 * 2;
+    // txRoot
+    tinyHeader += headerStr.slice(txRootIndex, txRootIndex + 32 * 2);
 
-        tinyHeaders.push(tinyHeader)
-      }
-  )
-    return tinyHeaders
-}
+    tinyHeaders.push(tinyHeader);
+  });
+  return tinyHeaders;
+};
 
 module.exports = {
   getHeaderAndHash,

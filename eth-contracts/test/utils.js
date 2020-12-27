@@ -140,7 +140,10 @@ const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
         '0x01',
         DOMAIN_SEPARATOR,
         keccak256(
-          defaultAbiCoder.encode(['bytes32', 'bytes[]'], [typeHash, headersData])
+          defaultAbiCoder.encode(
+            ['bytes32', 'bytes[]'],
+            [typeHash, headersData]
+          )
         ),
       ]
     )
