@@ -42,18 +42,10 @@ fn generate_push_correct_mock() -> MockDataLoader {
     mock.expect_load_cell_data()
         .times(4)
         .returning(move |index, source| {
-            if source == Source::GroupOutput {
-                if index == 0 {
-                    Ok(Default::default())
-                } else {
-                    Err(SysError::IndexOutOfBound)
-                }
+            if index == 0 {
+                Ok(Default::default())
             } else {
-                if index == 0 {
-                    Ok(Default::default())
-                } else {
-                    Err(SysError::IndexOutOfBound)
-                }
+                Err(SysError::IndexOutOfBound)
             }
         });
 
