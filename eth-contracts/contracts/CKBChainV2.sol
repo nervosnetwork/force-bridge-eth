@@ -161,7 +161,6 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
-        // TODO optimize rawTxRoot calculation with assembly code
         bytes32 rawTxRoot = proofView.txHash();
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
@@ -183,19 +182,5 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
             "proof not passed"
         );
         return true;
-    }
-
-    // TODO remove all mock function before production ready
-    // mock for test
-    function mockForProveTxExist(
-        uint64 _latestBlockNumber,
-        uint64 spvBlockNumber,
-        bytes32 blockHash,
-        bytes32 transactionsRoot
-    ) public {
-        governance = msg.sender;
-        latestBlockNumber = _latestBlockNumber;
-        canonicalHeaderHashes[spvBlockNumber] = blockHash;
-        canonicalTransactionsRoots[blockHash] = transactionsRoot;
     }
 }

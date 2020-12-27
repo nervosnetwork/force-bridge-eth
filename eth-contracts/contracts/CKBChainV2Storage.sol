@@ -20,10 +20,34 @@ import "./CKBChainV2Layout.sol";
 //import "hardhat/console.sol";
 
 contract CKBChainV2Storage is Proxy, CKBChainV2Layout {
-    constructor(uint64 canonicalGcThreshold, address _proxy_admin) Proxy(_proxy_admin) {
-        governance = msg.sender;
-
+    constructor(
+        uint64 canonicalGcThreshold,
+        address _proxy_admin,
+        address[] memory validators,
+        uint multisigThreshold
+    ) Proxy(_proxy_admin) {
         // set init threshold
         CanonicalGcThreshold = canonicalGcThreshold;
+
+        // set DOMAIN_SEPARATOR
+        uint chainId;
+        assembly {
+            chainId := chainid()
+        }
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes(NAME_712)),
+                keccak256(bytes("1")),
+                chainId,
+                address(this)
+            )
+        );
+
+        // set validators
+        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
+        validators_ = validators;
+        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
+        multisigThreshold_ = multisigThreshold;
     }
 }

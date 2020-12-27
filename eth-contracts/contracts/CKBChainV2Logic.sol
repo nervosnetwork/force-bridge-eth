@@ -41,12 +41,67 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
     }
 
     /**
-     * @dev Throws if called by any account other than the governance.
+     * @notice  if addr is not one of validators_, return validators_.length
+     * @return  index of addr in validators_
      */
-    modifier onlyGov() {
-        require(msg.sender == governance, "caller is not the governance");
-        _;
+    function getIndexOfValidators(address user) internal view returns (uint) {
+        for (uint i = 0; i < validators_.length; i++) {
+            if (validators_[i] == user) {
+                return i;
+            }
+        }
+        return validators_.length;
     }
+
+
+    /**
+     * @notice             @dev signatures are a multiple of 65 bytes and are densely packed.
+     * @param signatures   The signatures bytes array
+     */
+    function validatorsApprove(bytes32 msgHash, bytes memory signatures, uint threshold) public view {
+        require(signatures.length % SIGNATURE_SIZE == 0, "invalid signatures");
+
+        // 1. check length of signature
+        uint length = signatures.length / SIGNATURE_SIZE;
+        require(length >= threshold, "length of signatures must greater than threshold");
+
+        // 3. check number of verified signatures >= threshold
+        uint verifiedNum = 0;
+        uint i = 0;
+
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        address recoveredAddress;
+        // set indexVisited[ index of recoveredAddress in validators_ ] = true
+        bool[] memory validatorIndexVisited = new bool[](validators_.length);
+        uint validatorIndex;
+        while (i < length) {
+            (v, r, s) = MultisigUtils.parseSignature(signatures, i);
+            i++;
+
+            recoveredAddress = ecrecover(msgHash, v, r, s);
+            require(recoveredAddress != address(0), "invalid signature");
+
+            // get index of recoveredAddress in validators_
+            validatorIndex = getIndexOfValidators(recoveredAddress);
+
+            // recoveredAddress is not validator or has been visited
+            if (validatorIndex >= validators_.length || validatorIndexVisited[validatorIndex]) {
+                continue;
+            }
+
+            // recoveredAddress verified
+            validatorIndexVisited[validatorIndex] = true;
+            verifiedNum++;
+            if (verifiedNum >= threshold) {
+                return;
+            }
+        }
+
+        require(verifiedNum >= threshold, "signatures not verified");
+    }
+
 
     // query
     function getLatestBlockNumber() view public returns (uint64) {
@@ -72,7 +127,20 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
     }
 
     // # ICKBChain
-    function addHeaders(bytes[] calldata tinyHeaders) external onlyGov {
+    function addHeaders(bytes[] calldata tinyHeaders, bytes calldata signatures) external {
+        // 1. calc msgHash
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01", // solium-disable-line
+                DOMAIN_SEPARATOR,
+                keccak256(abi.encode(ADD_HEADERS_TYPEHASH, tinyHeaders))
+            )
+        );
+
+        // 2. validatorsApprove
+        validatorsApprove(msgHash, signatures, multisigThreshold_);
+
+        // 3. addHeaders
         bytes29 tinyHeaderView;
         for (uint i = 0; i < tinyHeaders.length; i++) {
             tinyHeaderView = tinyHeaders[i].ref(uint40(ViewCKB.CKBTypes.TinyHeader));
@@ -143,7 +211,6 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
-        // TODO optimize rawTxRoot calculation with assembly code
         bytes32 rawTxRoot = proofView.txHash();
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
