@@ -1,6 +1,7 @@
 use crate::utils::{case_builder::*, case_runner};
 use crate::Loader;
 use ckb_tool::ckb_types::packed::CellOutput;
+use ckb_tool::ckb_types::packed::Script;
 use force_eth_types::config::CKB_UNITS;
 use molecule::prelude::Entity;
 
@@ -35,6 +36,12 @@ fn get_correct_case() -> TestCase {
     let mut lock_hash = [0u8; 32];
     lock_hash.copy_from_slice(data_hash.as_slice());
 
+    let always_success_lockscript = Script::from_slice(&[
+        53u8, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0, 0, 49, 0, 0, 0, 230, 131, 176, 65, 57, 52, 71, 104,
+        52, 132, 153, 194, 62, 177, 50, 109, 90, 82, 214, 219, 0, 108, 13, 47, 236, 224, 10, 131,
+        31, 54, 96, 215, 0, 0, 0, 0, 0,
+    ])
+    .unwrap();
     TestCase {
         cell_deps: vec![],
         script_cells: CustomCells {
@@ -57,22 +64,26 @@ fn get_correct_case() -> TestCase {
             inputs: vec![SudtCell {
                 capacity: 100 * CKB_UNITS,
                 amount: 200,
-                lockscript: Default::default(),
+                lockscript: always_success_lockscript.clone(),
                 owner_script: ScriptView::build_sudt_owner(
                     "3E35617a629EEaD5a6767dC69D238831a7Bc391c",
                     "e404831459e3aCec0440F5c5462827e0Bccc2Ff1",
+                    &[0u8; 32],
                 ),
                 index: 1,
+                sudt_extra_data: Default::default(),
             }],
             outputs: vec![SudtCell {
                 capacity: 100 * CKB_UNITS,
                 amount: 100,
-                lockscript: Default::default(),
+                lockscript: always_success_lockscript,
                 owner_script: ScriptView::build_sudt_owner(
                     "3E35617a629EEaD5a6767dC69D238831a7Bc391c",
                     "e404831459e3aCec0440F5c5462827e0Bccc2Ff1",
+                    &[0u8; 32],
                 ),
                 index: 1,
+                sudt_extra_data: Default::default(),
             }],
         },
         capacity_cells: CapacityCells {
