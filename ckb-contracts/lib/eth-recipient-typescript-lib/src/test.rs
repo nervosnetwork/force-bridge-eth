@@ -13,13 +13,12 @@ use force_eth_types::config::{SUDT_CODE_HASH, SUDT_HASH_TYPE};
 use force_eth_types::eth_recipient_cell::{ETHAddress, ETHRecipientDataView};
 use molecule::prelude::{Builder, Entity};
 
-fn generate_correct_mock() -> MockDataLoader {
+fn generate_correct_mock(
+    input_sudt_amount: u128,
+    output_sudt_amount: u128,
+    fee: u128,
+) -> MockDataLoader {
     let mut mock = MockDataLoader::new();
-
-    let correct_input_sudt_amount: u128 = 100;
-    let correct_output_sudt_amount: u128 = 90;
-    let correct_token_amount: u128 = 10;
-    let correct_fee: u128 = 1;
 
     let data = ETHRecipientDataView {
         eth_recipient_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
@@ -27,8 +26,8 @@ fn generate_correct_mock() -> MockDataLoader {
         eth_lock_contract_address: ETHAddress::try_from(vec![0; 20]).unwrap(),
         eth_bridge_lock_hash: [1u8; 32],
         light_client_typescript_hash: [1u8; 32],
-        token_amount: correct_token_amount,
-        fee: correct_fee,
+        token_amount: 10,
+        fee,
     };
 
     mock.expect_load_cell_data()
@@ -41,9 +40,9 @@ fn generate_correct_mock() -> MockDataLoader {
                     Err(SysError::IndexOutOfBound)
                 }
             } else if source == Source::Input {
-                Ok(correct_input_sudt_amount.to_le_bytes().to_vec())
+                Ok(input_sudt_amount.to_le_bytes().to_vec())
             } else {
-                Ok(correct_output_sudt_amount.to_le_bytes().to_vec())
+                Ok(output_sudt_amount.to_le_bytes().to_vec())
             }
         });
 
@@ -72,7 +71,37 @@ fn generate_correct_mock() -> MockDataLoader {
 
 #[test]
 fn test_burn_token_correct() {
-    let mock = generate_correct_mock();
+    let mock = generate_correct_mock(100, 90, 1);
+
+    let adapter = ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
+#[should_panic(expected = "input sudt less than output sudt")]
+fn test_wrong_when_input_less_than_output() {
+    let mock = generate_correct_mock(90, 100, 1);
+
+    let adapter = ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
+#[should_panic(expected = "burned token amount not match data amount")]
+fn test_wrong_when_burned_amount_not_equal_data_amount() {
+    let mock = generate_correct_mock(100, 80, 1);
+
+    let adapter = ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
+#[should_panic(expected = "fee is too much")]
+fn test_wrong_when_fee_is_too_much() {
+    let mock = generate_correct_mock(100, 90, 11);
 
     let adapter = ChainAdapter { chain: mock };
 
