@@ -9,6 +9,7 @@ import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {ICKBChainV2} from "./interfaces/ICKBChainV2.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
+import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
@@ -41,6 +42,17 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
     // header hash -> transactionRoots from the header
     mapping(bytes32 => bytes32) canonicalTransactionsRoots;
 
+    // refer to https://github.com/ethereum/EIPs/blob/master/EIPS/eip-712.md
+    uint public constant SIGNATURE_SIZE = 65;
+    uint public constant VALIDATORS_SIZE_LIMIT = 20;
+    string public constant NAME_712 = "Force Bridge CKBChain";
+    // ADD_HEADERS_TYPEHASH = keccak256("AddHeaders(bytes[] tinyHeaders)");
+    bytes32 public constant ADD_HEADERS_TYPEHASH = 0x1dac851def8ec317cf44b4a6cf63dabe82895259e6290d4c2ef271700bfce584;
+    bytes32 public DOMAIN_SEPARATOR;
+    // if the number of verified signatures has reached `multisigThreshold_`, validators approve the tx
+    uint public multisigThreshold_;
+    address[] validators_;
+
     // @notice             requires `memView` to be of a specified type
     // @param memView      a 29-byte view with a 5-byte type
     // @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
@@ -51,18 +63,95 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
     }
 
     /**
-     * @dev Throws if called by any account other than the governance.
+     * @notice  if addr is not one of validators_, return validators_.length
+     * @return  index of addr in validators_
      */
-    modifier onlyGov() {
-        require(msg.sender == governance, "caller is not the governance");
-        _;
+    function getIndexOfValidators(address user) internal view returns (uint) {
+        for (uint i = 0; i < validators_.length; i++) {
+            if (validators_[i] == user) {
+                return i;
+            }
+        }
+        return validators_.length;
     }
 
-    constructor(uint64 canonicalGcThreshold) {
-        governance = msg.sender;
 
+    /**
+     * @notice             @dev signatures are a multiple of 65 bytes and are densely packed.
+     * @param signatures   The signatures bytes array
+     */
+    function validatorsApprove(bytes32 msgHash, bytes memory signatures, uint threshold) public view {
+        require(signatures.length % SIGNATURE_SIZE == 0, "invalid signatures");
+
+        // 1. check length of signature
+        uint length = signatures.length / SIGNATURE_SIZE;
+        require(length >= threshold, "length of signatures must greater than threshold");
+
+        // 3. check number of verified signatures >= threshold
+        uint verifiedNum = 0;
+        uint i = 0;
+
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        address recoveredAddress;
+        // set indexVisited[ index of recoveredAddress in validators_ ] = true
+        bool[] memory validatorIndexVisited = new bool[](validators_.length);
+        uint validatorIndex;
+        while (i < length) {
+            (v, r, s) = MultisigUtils.parseSignature(signatures, i);
+            i++;
+
+            recoveredAddress = ecrecover(msgHash, v, r, s);
+            require(recoveredAddress != address(0), "invalid signature");
+
+            // get index of recoveredAddress in validators_
+            validatorIndex = getIndexOfValidators(recoveredAddress);
+
+            // recoveredAddress is not validator or has been visited
+            if (validatorIndex >= validators_.length || validatorIndexVisited[validatorIndex]) {
+                continue;
+            }
+
+            // recoveredAddress verified
+            validatorIndexVisited[validatorIndex] = true;
+            verifiedNum++;
+            if (verifiedNum >= threshold) {
+                return;
+            }
+        }
+
+        require(verifiedNum >= threshold, "signatures not verified");
+    }
+
+    constructor(
+        uint64 canonicalGcThreshold,
+        address[] memory validators,
+        uint multisigThreshold
+    ) {
         // set init threshold
         CanonicalGcThreshold = canonicalGcThreshold;
+
+        // set DOMAIN_SEPARATOR
+        uint chainId;
+        assembly {
+            chainId := chainid()
+        }
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes(NAME_712)),
+                keccak256(bytes("1")),
+                chainId,
+                address(this)
+            )
+        );
+
+        // set validators
+        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
+        validators_ = validators;
+        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
+        multisigThreshold_ = multisigThreshold;
     }
 
     // query
@@ -89,7 +178,20 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
     }
 
     // # ICKBChain
-    function addHeaders(bytes[] calldata tinyHeaders) override external onlyGov {
+    function addHeaders(bytes[] calldata tinyHeaders, bytes calldata signatures) override external {
+        // 1. calc msgHash
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01", // solium-disable-line
+                DOMAIN_SEPARATOR,
+                keccak256(abi.encode(ADD_HEADERS_TYPEHASH, tinyHeaders))
+            )
+        );
+
+        // 2. validatorsApprove
+        validatorsApprove(msgHash, signatures, multisigThreshold_);
+
+        // 3. addHeaders
         bytes29 tinyHeaderView;
         for (uint i = 0; i < tinyHeaders.length; i++) {
             tinyHeaderView = tinyHeaders[i].ref(uint40(ViewCKB.CKBTypes.TinyHeader));
