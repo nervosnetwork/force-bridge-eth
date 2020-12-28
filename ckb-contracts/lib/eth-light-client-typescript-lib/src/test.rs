@@ -41,7 +41,7 @@ fn generate_push_correct_mock() -> MockDataLoader {
 
     mock.expect_load_cell_data()
         .times(4)
-        .returning(move |index, source| {
+        .returning(move |index, _| {
             if index == 0 {
                 Ok(Default::default())
             } else {
