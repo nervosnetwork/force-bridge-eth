@@ -18,22 +18,22 @@ async function main() {
     network_config = forceConfig.networks_config[forceConfig.default_network];
   }
   const provider = new ethers.providers.JsonRpcProvider(
-      network_config.ethereum_rpc_url
+    network_config.ethereum_rpc_url
   );
   const deployedContracts = forceConfig.deployed_contracts;
   const bridge_lockscript_code_hash =
-      deployedContracts.bridge_lockscript.code_hash;
+    deployedContracts.bridge_lockscript.code_hash;
   const recipient_typescript_code_hash =
-      deployedContracts.recipient_typescript.code_hash;
+    deployedContracts.recipient_typescript.code_hash;
   let recipientCellTypescriptHashType =
-      deployedContracts.recipient_typescript.hash_type;
+    deployedContracts.recipient_typescript.hash_type;
 
   // TODO get lightClientTypescriptHash
   let lightClientTypescriptHash = recipient_typescript_code_hash;
 
   const wallet = new ethers.Wallet(
-      '0x' + network_config.ethereum_private_keys[0],
-      provider
+    '0x' + network_config.ethereum_private_keys[0],
+    provider
   );
   const adminAddress = wallet.address;
 
@@ -51,27 +51,27 @@ async function main() {
   // deploy CKBChainV2
   const canonicalGcThreshold = 40000;
   let CKBChainV2 = await deployUpgradableContractFirstTime(
-      'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
-      'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
-      adminAddress,
-      canonicalGcThreshold,
-      validators,
-      multisigThreshold
+    'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
+    'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
+    adminAddress,
+    canonicalGcThreshold,
+    validators,
+    multisigThreshold
   );
   const ckbChainV2Addr = CKBChainV2.address;
 
   // deploy TokenLocker
   const numConfirmations = 20;
   const locker = await deployUpgradableContractFirstTime(
-      'contracts/TokenLockerStorage.sol:TokenLockerStorage',
-      'contracts/TokenLockerLogic.sol:TokenLockerLogic',
-      adminAddress,
-      ckbChainV2Addr,
-      numConfirmations,
-      '0x' + recipient_typescript_code_hash,
-      recipientCellTypescriptHashType,
-      '0x' + lightClientTypescriptHash,
-      '0x' + bridge_lockscript_code_hash
+    'contracts/TokenLockerStorage.sol:TokenLockerStorage',
+    'contracts/TokenLockerLogic.sol:TokenLockerLogic',
+    adminAddress,
+    ckbChainV2Addr,
+    numConfirmations,
+    '0x' + recipient_typescript_code_hash,
+    recipientCellTypescriptHashType,
+    '0x' + lightClientTypescriptHash,
+    '0x' + bridge_lockscript_code_hash
   );
 
   const lockerAddr = locker.address;
@@ -90,20 +90,20 @@ async function main() {
   const ckbChainJSON = require('../artifacts/contracts/CKBChain.sol/CKBChain.json');
   const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
-      '../offchain-modules/lib/src/util/token_locker_abi.json',
-      JSON.stringify(lockerABI, null, 2)
+    '../offchain-modules/lib/src/util/token_locker_abi.json',
+    JSON.stringify(lockerABI, null, 2)
   );
   fs.writeFileSync(
-      '../offchain-modules/lib/src/util/ckb_chain_abi.json',
-      JSON.stringify(ckbChainABI, null, 2)
+    '../offchain-modules/lib/src/util/ckb_chain_abi.json',
+    JSON.stringify(ckbChainABI, null, 2)
   );
 }
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
 main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-      console.error(error);
-      process.exit(1);
-    });
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
