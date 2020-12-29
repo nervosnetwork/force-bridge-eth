@@ -1,16 +1,16 @@
 const chai = require('chai')
 const vectors = require('../../data/testVectors.json')
-
-const { keccak256, defaultAbiCoder, toUtf8Bytes } = ethers.utils
-
+const {getTinyHeaders} = require("../../../scripts/benchmark/generateData");
 const { solidity } = require('ethereum-waffle')
+const { keccak256, defaultAbiCoder, toUtf8Bytes } = ethers.utils
 const {
   log,
+  deployContract,
   generateSignatures,
   generateWallets,
   runErrorCase,
+  deployUpgradableContractFirstTime,
   getMsgHashForAddHeaders,
-  deployUpgradeabeContractFirstTime,
 } = require('../../utils')
 
 chai.use(solidity)
@@ -23,11 +23,10 @@ const {
   indexHeaderVec,
 } = vectors
 
-contract('CKBChainV2', () => {
-  let ckbChain, provider, initHeaderIndex, endHeaderIndex
+contract('CKBChainV2 upgradeable', () => {
+  let ckbChain, adminAddress, provider, initHeaderIndex, endHeaderIndex, factory
   let wallets, validators
   let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHeadersTypeHash
-  let adminAddress;
 
   before(async function () {
     // disable timeout
@@ -40,27 +39,19 @@ contract('CKBChainV2', () => {
     wallets = generateWallets(7)
     validators = wallets.map((wallet) => wallet.address)
     multisigThreshold = 5
-    chainId = 1
+    chainId = await signer.getChainId()
 
     // deploy CKBChainV2
-    // factory = await ethers.getContractFactory(
-    //   'contracts/CKBChainV2.sol:CKBChainV2'
-    // )
-    // ckbChain = await factory.deploy(validators, multisigThreshold, chainId)
-    // await ckbChain.deployed()
-
-    ckbChain = await deployUpgradeabeContractFirstTime(
-      'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
-      'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
-      adminAddress,
-      validators,
-      multisigThreshold,
-      chainId
+    const canonicalGcThreshold = 40
+    ckbChain = await deployUpgradableContractFirstTime(
+        'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
+        'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
+        adminAddress,
+        canonicalGcThreshold,
+        validators,
+        multisigThreshold,
     )
-
-    log('ckbChain deployed to:', ckbChain.address)
-    provider = ckbChain.provider
-    initHeaderIndex = extractBlockNumber.length - 3 // it will add 2 headers
+    log('CKBChainV2 deployed to:', ckbChain.address)
   })
 
   describe('addHeaders by multisig(5 of 7)', async function () {
@@ -73,135 +64,106 @@ contract('CKBChainV2', () => {
       const name = 'Force Bridge CKBChain'
       expect(await ckbChain.NAME_712()).to.eq(name)
 
-      addHeadersTypeHash = keccak256(toUtf8Bytes('AddHeaders(bytes data)'))
+      addHeadersTypeHash = keccak256(toUtf8Bytes('AddHeaders(bytes[] tinyHeaders)'))
+      log(`addHeadersTypeHash`, addHeadersTypeHash)
       expect(await ckbChain.ADD_HEADERS_TYPEHASH()).to.eq(addHeadersTypeHash)
 
       DOMAIN_SEPARATOR = keccak256(
-        defaultAbiCoder.encode(
-          ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
-          [
-            keccak256(
-              toUtf8Bytes(
-                'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
-              )
-            ),
-            keccak256(toUtf8Bytes(name)),
-            keccak256(toUtf8Bytes('1')),
-            chainId,
-            ckbChain.address,
-          ]
-        )
+          defaultAbiCoder.encode(
+              ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
+              [
+                keccak256(
+                    toUtf8Bytes(
+                        'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
+                    )
+                ),
+                keccak256(toUtf8Bytes(name)),
+                keccak256(toUtf8Bytes('1')),
+                chainId,
+                ckbChain.address,
+              ]
+          )
       )
       expect(await ckbChain.DOMAIN_SEPARATOR()).to.eq(DOMAIN_SEPARATOR)
     })
 
-    it('Should initWithHeader success', async () => {
-      const finalizedGcThreshold = 500
-      const canonicalGcThreshold = 40000
-
-      const initHeaderData = calculateBlockHash[initHeaderIndex].input
-      const initBlockHash = calculateBlockHash[initHeaderIndex].output
-      let res = await ckbChain.initWithHeader(
-        initHeaderData,
-        initBlockHash,
-        finalizedGcThreshold,
-        canonicalGcThreshold
-      )
-      let txReceipt = await res.wait(1)
-      log(`initWithHeader gasUsed: ${txReceipt.gasUsed.toString()}`)
-
-      // verify result
-      let expectTipNumber = extractBlockNumber[initHeaderIndex].output
-      let actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber()
-      expect(actualTipNumber).to.equal(expectTipNumber)
-
-      let expectCanonicalHeaderHash = initBlockHash
-      let actualCanonicalHeaderHash = await ckbChain.callStatic.getCanonicalHeaderHash(
-        expectTipNumber
-      )
-      expect(actualCanonicalHeaderHash).to.equal(expectCanonicalHeaderHash)
-
-      let expectLatestEpoch = extractEpoch[initHeaderIndex].output
-      let actualLatestEpoch = await ckbChain.callStatic.getLatestEpoch()
-      expect(actualLatestEpoch).to.equal(expectLatestEpoch)
-
-      let expectTransactionsRoot =
-        extractTransactionsRoot[initHeaderIndex].output
-      let actualTransactionsRoot = await ckbChain.callStatic.getCanonicalTransactionsRoot(
-        initBlockHash
-      )
-      expect(actualTransactionsRoot).to.equal(expectTransactionsRoot)
-    })
-
     it('addHeaders correct case', async () => {
-      const startIndex = initHeaderIndex + 1
-      // get headers data
-      const headersInput = indexHeaderVec[startIndex].input
-      const headers = indexHeaderVec[startIndex].output
+      let startIndex = 1
+      let actualTipNumber
+      const reportSize = [1, 2, 3, 4, 5, 10, 20, 30, 40]
+      for (const size of reportSize) {
+        const tinyHeaders = getTinyHeaders(startIndex, size)
+        startIndex += size
 
-      const msgHash = getMsgHashForAddHeaders(
-        DOMAIN_SEPARATOR,
-        addHeadersTypeHash,
-        headersInput
-      )
-      let signatures = generateSignatures(
-        msgHash,
-        wallets.slice(0, multisigThreshold)
-      )
-
-      let tx = await ckbChain.addHeaders(headersInput, signatures)
-      let receipt = await tx.wait(1)
-      expect(receipt.status).to.eq(1)
-
-      // verify result
-      endHeaderIndex = startIndex + headers.length - 1
-      let expectTipNumber = extractBlockNumber[endHeaderIndex].output
-      let actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber()
-      expect(actualTipNumber).to.equal(expectTipNumber)
-
-      for (let i = 0; i < headers.length; i++) {
-        const headerIndex = startIndex + i
-        let expectBlockHash = calculateBlockHash[headerIndex].output
-        let blockNumber = extractBlockNumber[headerIndex].output
-        let actualBlockHash = await ckbChain.callStatic.getCanonicalHeaderHash(
-          blockNumber
+        // 1. calc msgHash
+        const msgHash = getMsgHashForAddHeaders(
+            DOMAIN_SEPARATOR,
+            addHeadersTypeHash,
+            tinyHeaders
         )
-        expect(actualBlockHash).to.equal(expectBlockHash)
+
+        // 2. generate signatures
+        let signatures = generateSignatures(
+            msgHash,
+            wallets.slice(0, multisigThreshold)
+        )
+
+        // 3. addHeaders with gc
+        const tx = await ckbChain.addHeaders(tinyHeaders, signatures)
+        const receipt = await tx.wait(1)
+        expect(receipt.status).to.eq(1)
+        log(
+            `add ${size} Headers gas: ${receipt.gasUsed}, gas cost per header: ${
+                receipt.gasUsed / size
+            }`
+        )
+
+        // check if addHeaders success
+        actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber()
+        log(`current tipBlockNumber: ${actualTipNumber}\r\n`)
       }
     })
 
-    it('setNewCkbSpv wrong cases', async () => {
-      const startIndex = initHeaderIndex + 1
+    it('addHeaders wrong cases', async () => {
       // get headers data
-      const headersInput = indexHeaderVec[startIndex].input
+      let startIndex = 1
+      const tinyHeaders = getTinyHeaders(startIndex, 1)
+
+      // 1. calc msgHash
       const msgHash = getMsgHashForAddHeaders(
-        DOMAIN_SEPARATOR,
-        addHeadersTypeHash,
-        headersInput
+          DOMAIN_SEPARATOR,
+          addHeadersTypeHash,
+          tinyHeaders
       )
 
-      let signatures = generateSignatures(msgHash, wallets)
+      // 2. generate signatures
+      let signatures = generateSignatures(
+          msgHash,
+          wallets.slice(0, multisigThreshold)
+      )
+
       // expect error of `invalid v of signature(r, s, v)`
       let wrongSignatures = signatures.slice(0, signatures.length - 2) + 'ff'
       await runErrorCase(
-        ckbChain.addHeaders(headersInput, wrongSignatures),
-        'invalid v of signature(r, s, v)'
+          ckbChain.addHeaders(tinyHeaders, wrongSignatures),
+          'invalid v of signature(r, s, v)'
       )
 
       // expect error of `length of signatures must greater than threshold`
       wrongSignatures = signatures.slice(0, signatures.length - 65 * 2)
       await runErrorCase(
-        ckbChain.addHeaders(headersInput, wrongSignatures),
-        'length of signatures must greater than threshold'
+          ckbChain.addHeaders(tinyHeaders, wrongSignatures),
+          'length of signatures must greater than threshold'
       )
 
       // expect error of `signatures not verified`
       wrongSignatures = signatures.slice(0, signatures.length - 65 * 2)
       wrongSignatures = wrongSignatures + wrongSignatures.slice(2)
       await runErrorCase(
-        ckbChain.addHeaders(headersInput, wrongSignatures),
-        'signatures not verified'
+          ckbChain.addHeaders(tinyHeaders, wrongSignatures),
+          'signatures not verified'
       )
     })
+
   })
 })

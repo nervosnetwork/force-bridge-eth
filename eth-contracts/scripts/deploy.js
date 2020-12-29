@@ -1,8 +1,13 @@
 const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
+const {
+  deployUpgradableContractFirstTime,
+  ckbBlake2b,
+} = require('../test/utils');
 
 async function main() {
+  // get force config
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   const network = process.env.FORCE_NETWORK;
   if (!forceConfigPath) {
@@ -25,52 +30,54 @@ async function main() {
     deployedContracts.recipient_typescript.code_hash;
   let recipientCellTypescriptHashType =
     deployedContracts.recipient_typescript.hash_type;
+
+  let lightClientTypescriptHash = ckbBlake2b(
+    deployedContracts.light_client_cell_script.cell_script
+  );
+
   const wallet = new ethers.Wallet(
     '0x' + network_config.ethereum_private_keys[0],
     provider
   );
+  const adminAddress = wallet.address;
 
-  let CKBChainFactory = await ethers.getContractFactory(
-    'contracts/CKBChain.sol:CKBChain',
-    wallet
-  );
-  const CKBChain = await CKBChainFactory.deploy();
-  await CKBChain.deployed();
-  const CKBChainAddr = CKBChain.address;
-  console.error('CKBChain address: ', CKBChainAddr);
-
+  // deploy ckbChainV2
   const validators = network_config.ethereum_private_keys.map((privateKey) => {
     let publicKey = EthUtil.privateToPublic(Buffer.from(privateKey, 'hex'));
     return '0x' + EthUtil.publicToAddress(publicKey).toString('hex');
   });
   console.error('validator validator: ', validators);
-  multisigThreshold = 5;
+  const multisigThreshold = 5;
   let eth_network = await provider.getNetwork();
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
+
   // deploy CKBChainV2
-  let CKBChainV2 = await ethers.getContractFactory(
-    'contracts/CKBChainV2.sol:CKBChainV2',
-    wallet
+  const canonicalGcThreshold = 40000;
+  let CKBChainV2 = await deployUpgradableContractFirstTime(
+    'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
+    'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
+    adminAddress,
+    canonicalGcThreshold,
+    validators,
+    multisigThreshold
   );
-  ckbChainV2 = await CKBChainV2.deploy(validators, multisigThreshold, chainId);
-  await ckbChainV2.deployed();
-  const ckbChainV2Addr = ckbChainV2.address;
-  console.error('ckbChainV2 address: ', ckbChainV2Addr);
+  const ckbChainV2Addr = CKBChainV2.address;
 
   // deploy TokenLocker
-  let TokenLocker = await ethers.getContractFactory(
-    'contracts/TokenLocker.sol:TokenLocker',
-    wallet
-  );
-  const locker = await TokenLocker.deploy(
+  const numConfirmations = 10;
+  const locker = await deployUpgradableContractFirstTime(
+    'contracts/TokenLockerStorage.sol:TokenLockerStorage',
+    'contracts/TokenLockerLogic.sol:TokenLockerLogic',
+    adminAddress,
     ckbChainV2Addr,
-    1,
+    numConfirmations,
     '0x' + recipient_typescript_code_hash,
     recipientCellTypescriptHashType,
+    lightClientTypescriptHash,
     '0x' + bridge_lockscript_code_hash
   );
-  await locker.deployed();
+
   const lockerAddr = locker.address;
   console.error('tokenLocker address: ', lockerAddr);
 

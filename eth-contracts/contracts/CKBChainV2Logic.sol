@@ -26,6 +26,10 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
 
+    event BlockHashAdded(
+        uint64 indexed blockNumber,
+        bytes32 blockHash
+    );
 
     // @notice             requires `memView` to be of a specified type
     // @param memView      a 29-byte view with a 5-byte type
@@ -35,25 +39,6 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
         memView.assertType(uint40(t));
         _;
     }
-
-    /**
-     * @dev Throws if called by any account other than the governance.
-     */
-    modifier onlyGov() {
-        require(msg.sender == governance, "caller is not the governance");
-        _;
-    }
-
-    event BlockHashAdded(
-        uint64 indexed blockNumber,
-        bytes32 blockHash
-    );
-
-    event BlockHashReverted(
-        uint64 indexed blockNumber,
-        bytes32 blockHash
-    );
-
 
     /**
      * @notice  if addr is not one of validators_, return validators_.length
@@ -67,6 +52,7 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
         }
         return validators_.length;
     }
+
 
     /**
      * @notice             @dev signatures are a multiple of 65 bytes and are densely packed.
@@ -116,275 +102,89 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
         require(verifiedNum >= threshold, "signatures not verified");
     }
 
+
     // query
-    function getLatestBlockNumber() public view returns (uint64) {
+    function getLatestBlockNumber() view public returns (uint64) {
         return latestBlockNumber;
     }
 
     // query
-    function getHeadersByNumber(uint64 blockNumber)
-        public
-        view
-        returns (bytes32[] memory)
-    {
-        return allHeaderHashes[blockNumber];
-    }
-
-    // query
     function getCanonicalHeaderHash(uint64 blockNumber)
-        public
-        view
-        returns (bytes32)
+    public
+    view
+    returns (bytes32)
     {
         return canonicalHeaderHashes[blockNumber];
     }
 
     // query
     function getCanonicalTransactionsRoot(bytes32 blockHash)
-        public
-        view
-        returns (bytes32)
+    public
+    view
+    returns (bytes32)
     {
         return canonicalTransactionsRoots[blockHash];
     }
 
-    // query
-    function getLatestEpoch() public view returns (uint64) {
-        return latestHeader.epoch;
-    }
-
-    function initWithHeader(
-        bytes calldata data,
-        bytes32 blockHash,
-        uint64 finalizedGcThreshold,
-        uint64 canonicalGcThreshold
-    ) external onlyGov {
-        require(!initialized, "Contract is already initialized");
-        initialized = true;
-
-        // set init threshold
-        FinalizedGcThreshold = finalizedGcThreshold;
-        CanonicalGcThreshold = canonicalGcThreshold;
-
-        // decoder init header
-        bytes29 rawHeaderView = data
-            .ref(uint40(ViewCKB.CKBTypes.Header))
-            .rawHeader();
-        (uint256 target, ) = CKBPow.compactToTarget(
-            rawHeaderView.compactTarget()
-        );
-        uint256 difficulty = CKBPow.targetToDifficulty(target);
-        uint64 blockNumber = rawHeaderView.blockNumber();
-        initBlockNumber = blockNumber;
-        CKBChainV2Library.BlockHeader memory header = CKBChainV2Library.BlockHeader(
-            blockNumber,
-            rawHeaderView.epoch(),
-            difficulty,
-            difficulty,
-            rawHeaderView.parentHash()
-        );
-
-        // set headers
-        allHeaderHashes[blockNumber].push(blockHash);
-        blockHeaders[blockHash] = header;
-
-        // set canonical chain
-        _refreshCanonicalChain(header, blockHash);
-        canonicalTransactionsRoots[blockHash] = rawHeaderView
-            .transactionsRoot();
-    }
-
     // # ICKBChain
-    function addHeaders(bytes calldata data, bytes calldata signatures) external {
-        require(initialized, "Contract is not initialized");
-
+    function addHeaders(bytes[] calldata tinyHeaders, bytes calldata signatures) external {
         // 1. calc msgHash
         bytes32 msgHash = keccak256(
             abi.encodePacked(
                 "\x19\x01", // solium-disable-line
                 DOMAIN_SEPARATOR,
-                keccak256(abi.encode(ADD_HEADERS_TYPEHASH, data))
+                keccak256(abi.encode(ADD_HEADERS_TYPEHASH, tinyHeaders))
             )
         );
 
         // 2. validatorsApprove
         validatorsApprove(msgHash, signatures, multisigThreshold_);
 
-        // 3. view decode from data to headers view
-        bytes29 headerVecView = data.ref(uint40(ViewCKB.CKBTypes.HeaderVec));
-
-        // 4. iter headers
-        uint32 length = headerVecView.lengthHeaderVec();
-        uint32 index = 0;
-        while (index < length) {
-            bytes29 headerView = headerVecView.indexHeaderVec(index);
-            _addHeader(headerView);
-            index++;
+        // 3. addHeaders
+        bytes29 tinyHeaderView;
+        for (uint i = 0; i < tinyHeaders.length; i++) {
+            tinyHeaderView = tinyHeaders[i].ref(uint40(ViewCKB.CKBTypes.TinyHeader));
+            _addHeader(tinyHeaderView);
         }
     }
 
-    function _addHeader(bytes29 headerView) private {
-        bytes29 rawHeaderView = headerView.rawHeader();
-        uint64 blockNumber = rawHeaderView.blockNumber();
+    function _addHeader(bytes29 tinyHeaderView) private {
+        bytes32 blockHash = tinyHeaderView.hash();
 
-        // calc blockHash
-        bytes32 blockHash = Blake2b.digest208Ptr(headerView.loc());
+        // 1. set latestBlockNumber
+        latestBlockNumber = tinyHeaderView.number();
 
-        // ## verify blockHash should not exist
-        if (
-            canonicalTransactionsRoots[blockHash] != bytes32(0) ||
-            blockHeaders[blockHash].number == blockNumber
-        ) {
-            return;
-        }
-
-        // ## verify blockNumber
-        require(
-            blockNumber + CanonicalGcThreshold >= latestBlockNumber,
-            "block is too old"
-        );
-        bytes32 parentHash = rawHeaderView.parentHash();
-
-        CKBChainV2Library.BlockHeader memory parentHeader = blockHeaders[parentHash];
-        require(
-            parentHeader.totalDifficulty > 0 &&
-                parentHeader.number + 1 == blockNumber,
-            "block's parent block mismatch"
-        );
-
-        // ## verify pow
-        // uint256 difficulty = _verifyPow(headerView, rawHeaderView, parentHeader);
-        uint256 difficulty = MOCK_DIFFICULTY;
-
-        // ## insert header to storage
-        // 1. insert to blockHeaders
-        CKBChainV2Library.BlockHeader memory header = CKBChainV2Library.BlockHeader(
-            blockNumber,
-            rawHeaderView.epoch(),
-            difficulty,
-            parentHeader.totalDifficulty + difficulty,
-            parentHash
-        );
-        blockHeaders[blockHash] = header;
-
-        // 2. insert to allHeaderHashes
-        allHeaderHashes[header.number].push(blockHash);
-
-        // 3. refresh canonicalChain
-        if (header.totalDifficulty > latestHeader.totalDifficulty) {
-            _refreshCanonicalChain(header, blockHash);
-            canonicalTransactionsRoots[blockHash] = rawHeaderView
-                .transactionsRoot();
-        }
-    }
-
-    // @notice                     verifyPow for the header
-    // @dev                        reference code:  https://github.com/nervosnetwork/ckb/blob/develop/pow/src/eaglesong.rs
-    // @param headerView           the bytes29 view of the header
-    // @param parentHeader         parent header of the header
-    // @return                     the difficulty of the header
-    function _verifyPow(
-        bytes29 headerView,
-        bytes29 rawHeaderView,
-        CKBChainV2Library.BlockHeader memory parentHeader
-    ) internal view returns (uint256) {
-        bytes32 rawHeaderHash = CKBCrypto.digest(rawHeaderView.clone(), 192);
-
-        // - 1. calc powMessage
-        bytes memory powMessage = abi.encodePacked(
-            rawHeaderHash,
-            headerView.slice(192, 16, uint40(ViewCKB.CKBTypes.Nonce)).clone()
-        );
-
-        // - 2. calc EaglesongHash to output
-        bytes32 output = EaglesongLib.EaglesongHash(powMessage);
-
-        // - 3. calc block_target, check if target > 0
-        (uint256 target, bool overflow) = CKBPow.compactToTarget(
-            rawHeaderView.compactTarget()
-        );
-        require(target > 0 && !overflow, "block target is zero or overflow");
-
-        // - 4. check if EaglesongHash <= block target
-        // @dev the smaller the target value, the greater the difficulty
-        require(
-            uint256(output) <= target,
-            "block difficulty should greater or equal the target difficulty"
-        );
-
-        // - 5. verify_difficulty
-        uint256 difficulty = CKBPow.targetToDifficulty(target);
-        uint64 epoch = rawHeaderView.epoch();
-        if (epoch == parentHeader.epoch) {
-            require(
-                difficulty == parentHeader.difficulty,
-                "difficulty should equal parent's difficulty"
-            );
-        } else {
-            // we are using dampening factor τ = 2 in CKB, the difficulty adjust range will be [previous / (τ * τ) .. previous * (τ * τ)]
-            require(
-                difficulty >= parentHeader.difficulty / 4 &&
-                    difficulty <= parentHeader.difficulty * 4,
-                "difficulty invalid"
-            );
-        }
-
-        return difficulty;
-    }
-
-    function _refreshCanonicalChain(
-        CKBChainV2Library.BlockHeader memory header,
-        bytes32 blockHash
-    ) internal {
-        // remove lower difficulty canonical branch
-        for (uint64 i = header.number + 1; i <= latestBlockNumber; i++) {
-            emit BlockHashReverted(i, canonicalHeaderHashes[i]);
-            delete canonicalTransactionsRoots[canonicalHeaderHashes[i]];
-            delete canonicalHeaderHashes[i];
-        }
-
-        // set latest
-        latestHeader = header;
-        latestBlockNumber = header.number;
-
-        // set canonical
+        // 1. refresh canonicalChain
         canonicalHeaderHashes[latestBlockNumber] = blockHash;
+        canonicalTransactionsRoots[blockHash] = tinyHeaderView.txRoot();
         emit BlockHashAdded(latestBlockNumber, blockHash);
 
-        // set new branch to canonical chain
-        uint64 parentNumber = latestBlockNumber - 1;
-        bytes32 parentHash = latestHeader.parentHash;
-        while (parentNumber > 0) {
-            if (
-                canonicalHeaderHashes[parentNumber] == bytes32(0) ||
-                canonicalHeaderHashes[parentNumber] == parentHash
-            ) {
+        // 2. gc
+        if (latestBlockNumber > CanonicalGcThreshold) {
+            _gcCanonicalChain(latestBlockNumber - CanonicalGcThreshold);
+        }
+    }
+
+    // Remove hashes from the Canonical chain that are at least as old as the given header number.
+    function _gcCanonicalChain(uint64 blockNumber) internal {
+        uint64 number = blockNumber;
+        while (true) {
+            if (number == 0 || canonicalHeaderHashes[number] == bytes32(0)) {
                 break;
             }
-            canonicalHeaderHashes[parentNumber] = parentHash;
 
-            parentHash = blockHeaders[parentHash].parentHash;
-            parentNumber--;
-        }
-
-        // gc
-        if (header.number >= CanonicalGcThreshold) {
-            _gcCanonicalChain(header.number - CanonicalGcThreshold);
-        }
-
-        if (header.number >= FinalizedGcThreshold) {
-            _gcHeaders(header.number - FinalizedGcThreshold);
+            delete canonicalTransactionsRoots[canonicalHeaderHashes[number]];
+            delete canonicalHeaderHashes[number];
+            number--;
         }
     }
 
     // #ICKBSpv
     function proveTxExist(bytes calldata txProofData, uint64 numConfirmations)
-        external
-        view
-        returns (bool)
+    external
+    view
+    returns (bool)
     {
-        require(initialized, "Contract is not initialized");
-
         bytes29 proofView = txProofData.ref(
             uint40(ViewSpv.SpvTypes.CKBTxProof)
         );
@@ -411,7 +211,6 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
-        // TODO optimize rawTxRoot calculation with assembly code
         bytes32 rawTxRoot = proofView.txHash();
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
@@ -433,50 +232,5 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
             "proof not passed"
         );
         return true;
-    }
-
-    // Remove hashes from the Canonical chain that are at least as old as the given header number.
-    function _gcCanonicalChain(uint64 blockNumber) internal {
-        uint64 number = blockNumber;
-        while (true) {
-            if (number == 0 || canonicalHeaderHashes[number] == bytes32(0)) {
-                break;
-            }
-
-            delete canonicalTransactionsRoots[canonicalHeaderHashes[number]];
-            delete canonicalHeaderHashes[number];
-            number--;
-        }
-    }
-
-    // Remove information about the headers that are at least as old as the given header number.
-    function _gcHeaders(uint64 blockNumber) internal {
-        uint64 number = blockNumber;
-        while (true) {
-            if (number == 0 || allHeaderHashes[number].length == 0) {
-                break;
-            }
-
-            for (uint256 i = 0; i < allHeaderHashes[number].length; i++) {
-                delete blockHeaders[allHeaderHashes[number][i]];
-            }
-            delete allHeaderHashes[number];
-            number--;
-        }
-    }
-
-    // TODO remove all mock function before production ready
-    // mock for test
-    function mockForProveTxExist(
-        uint64 _latestBlockNumber,
-        uint64 spvBlockNumber,
-        bytes32 blockHash,
-        bytes32 transactionsRoot
-    ) public {
-        governance = msg.sender;
-        initialized = true;
-        latestBlockNumber = _latestBlockNumber;
-        canonicalHeaderHashes[spvBlockNumber] = blockHash;
-        canonicalTransactionsRoots[blockHash] = transactionsRoot;
     }
 }
