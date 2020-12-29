@@ -54,6 +54,9 @@ deploy-contracts: deploy-ckb deploy-eth
 init-light-client:
 	${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
 
+init-multi-address:
+	${FORCE_CLI} init-multi-sign-address -k 1 --multi-address  ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37
+
 ckb2eth-relay:
 	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 1 --per-amount 5"
 
@@ -89,7 +92,7 @@ start-demo-services:
 stop-demo-services:
 	bash offchain-modules/stop-services.sh
 
-setup-dev-env: build-all start-docker-network deploy-ckb-sudt deploy-eth deploy-erc20 start-demo-services
+setup-dev-env: build-all start-docker-network deploy-ckb-sudt init-multi-address deploy-eth deploy-erc20 start-demo-services
 
 close-dev-env: stop-demo-services remove-docker-network
 
