@@ -424,10 +424,22 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         args.gas_price,
         multisig_privkeys,
     )?;
+    let ckb_height = ckb_relayer.get_ckb_contract_deloy_height(
+        deployed_contracts
+            .recipient_typescript
+            .outpoint
+            .tx_hash
+            .clone(),
+    )?;
     let mut consecutive_failures = 0;
     while consecutive_failures < 5 {
         let res = ckb_relayer
-            .start(eth_rpc_url.clone(), args.per_amount, args.max_tx_count)
+            .start(
+                eth_rpc_url.clone(),
+                args.per_amount,
+                args.max_tx_count,
+                ckb_height,
+            )
             .await;
         if let Err(err) = res {
             error!("An error occurred during the ckb relay. Err: {:?}", err);

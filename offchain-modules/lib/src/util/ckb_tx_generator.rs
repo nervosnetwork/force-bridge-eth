@@ -615,6 +615,25 @@ impl Generator {
         Ok(Vec::from(mol_headers.as_slice()))
     }
 
+    pub fn get_ckb_headers_v2(&mut self, block_numbers: Vec<u64>) -> Result<Vec<Vec<u8>>> {
+        info!("the headers vec of {:?}", block_numbers.as_slice(),);
+        let mut tiny_headers: Vec<Vec<u8>> = Default::default();
+        for number in block_numbers {
+            let mut tiny_header: Vec<u8> = Default::default();
+            let header = self
+                .rpc_client
+                .get_header_by_number(number)
+                .map_err(|e| anyhow::anyhow!("failed to get header: {}", e))?
+                .ok_or_else(|| anyhow::anyhow!("failed to get header which is none"))?;
+            tiny_header.append(&mut header.inner.number.to_le_bytes().to_vec());
+            tiny_header.append(&mut header.hash.0.to_vec());
+            tiny_header.append(&mut header.inner.transactions_root.0.to_vec());
+            info!("tiny_header {:?}  ", hex::encode(tiny_header.clone()));
+            tiny_headers.push(tiny_header);
+        }
+        Ok(tiny_headers)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn create_bridge_cell(
         &mut self,
@@ -703,8 +722,8 @@ impl Generator {
 
         // gen output of eth_recipient cell
         {
-            let mut eth_bridge_lock_hash = [0u8; 32];
-            eth_bridge_lock_hash.copy_from_slice(
+            let mut eth_bridge_lock_code_hash = [0u8; 32];
+            eth_bridge_lock_code_hash.copy_from_slice(
                 &hex::decode(&self.deployed_contracts.bridge_lockscript.code_hash)
                     .map_err(|err| anyhow!(err))?,
             );

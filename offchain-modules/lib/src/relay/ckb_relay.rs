@@ -1,5 +1,6 @@
 use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash, get_msg_signature};
 use crate::util::ckb_tx_generator::Generator;
+use crate::util::ckb_util::covert_to_h256;
 use crate::util::eth_util::{
     convert_eth_address, parse_secret_key, relay_header_transaction, Web3Client,
 };
@@ -56,20 +57,14 @@ impl CKBRelayer {
         eth_url: String,
         per_amount: u64,
         max_tx_amount: u64,
+        client_init_height: u64,
     ) -> Result<()> {
         let mut client_block_number = self
             .web3_client
             .get_contract_height("latestBlockNumber", self.contract_addr)
             .await?;
-        let client_init_height = self
-            .web3_client
-            .get_contract_height("initBlockNumber", self.contract_addr)
-            .await?;
         if client_block_number < client_init_height {
-            panic!(
-                "light client contract state error: latest height  : {}  <  init height : {}",
-                client_block_number, client_init_height
-            );
+            client_block_number = client_init_height;
         }
         while client_block_number > client_init_height {
             let ckb_header_hash = self
@@ -81,7 +76,7 @@ impl CKBRelayer {
 
             if self
                 .web3_client
-                .is_header_exist(client_block_number, ckb_header_hash, self.contract_addr)
+                .is_header_exist_v2(client_block_number, ckb_header_hash, self.contract_addr)
                 .await?
             {
                 break;
@@ -135,16 +130,17 @@ impl CKBRelayer {
     }
 
     pub async fn relay_headers(&mut self, heights: Vec<u64>, asec_nonce: U256) -> Result<Vec<u8>> {
-        let headers = self.ckb_client.get_ckb_headers(heights.clone())?;
-        info!(
-            "the headers vec of {:?} is {:?} ",
-            heights.as_slice(),
-            hex::encode(headers.as_slice())
-        );
+        let headers = self.ckb_client.get_ckb_headers_v2(heights.clone())?;
 
         let add_headers_func = get_add_ckb_headers_func();
         let chain_id = self.web3_client.client().eth().chain_id().await?;
-        let headers_msg_hash = get_msg_hash(chain_id, self.contract_addr, &headers)?;
+
+        let header_datas = headers
+            .into_iter()
+            .map(|header| Token::Bytes(header))
+            .collect::<Vec<Token>>();
+
+        let headers_msg_hash = get_msg_hash(chain_id, self.contract_addr, header_datas.clone())?;
 
         let mut signatures: Vec<u8> = vec![];
         for &privkey in self.multisig_privkeys.iter() {
@@ -153,8 +149,8 @@ impl CKBRelayer {
         }
         info!("msg signatures {}", hex::encode(&signatures));
 
-        let add_headers_abi =
-            add_headers_func.encode_input(&[Token::Bytes(headers), Token::Bytes(signatures)])?;
+        let add_headers_abi = add_headers_func
+            .encode_input(&[Token::Array(header_datas), Token::Bytes(signatures)])?;
         let increased_gas_price =
             self.web3_client.client().eth().gas_price().await?.as_u128() * 3 / 2;
         let signed_tx = self
@@ -170,5 +166,30 @@ impl CKBRelayer {
             )
             .await?;
         Ok(signed_tx)
+    }
+
+    pub fn get_ckb_contract_deloy_height(&mut self, tx_hash: String) -> Result<u64> {
+        let hash = covert_to_h256(&tx_hash)?;
+
+        let block_hash = self
+            .ckb_client
+            .rpc_client
+            .get_transaction(hash.clone())
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("failed to get block height : tx is none"))?
+            .tx_status
+            .block_hash
+            .ok_or_else(|| anyhow!("failed to get block height : block hash is none"))?;
+
+        let ckb_height = self
+            .ckb_client
+            .rpc_client
+            .get_block(block_hash)
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("failed to get block height : block is none"))?
+            .header
+            .inner
+            .number;
+        Ok(ckb_height)
     }
 }

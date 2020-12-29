@@ -1,226 +1,32 @@
 [
   {
-    "constant": false,
     "inputs": [
       {
-        "name": "token",
-        "type": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "name": "bridgeFee",
-        "type": "uint256"
-      },
-      {
-        "name": "recipientLockscript",
-        "type": "bytes"
-      },
-      {
-        "name": "replayResistOutpoint",
-        "type": "bytes"
-      },
-      {
-        "name": "sudtExtraData",
-        "type": "bytes"
-      }
-    ],
-    "name": "lockToken",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "bridgeFee",
-        "type": "uint256"
-      },
-      {
-        "name": "recipientLockscript",
-        "type": "bytes"
-      },
-      {
-        "name": "replayResistOutpoint",
-        "type": "bytes"
-      },
-      {
-        "name": "sudtExtraData",
-        "type": "bytes"
-      }
-    ],
-    "name": "lockETH",
-    "outputs": [],
-    "payable": true,
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "recipientCellTypescriptHashType_",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "numConfirmations_",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "name": "usedTx_",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "ckbTxProof",
-        "type": "bytes"
-      },
-      {
-        "name": "ckbTx",
-        "type": "bytes"
-      }
-    ],
-    "name": "unlockToken",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "recipientCellTypescriptCodeHash_",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "bridgeCellLockscriptCodeHash_",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [
-      {
-        "name": "ckbTx",
-        "type": "bytes"
-      }
-    ],
-    "name": "decodeBurnResult",
-    "outputs": [
-      {
-        "name": "bridgeAmount",
-        "type": "uint256"
-      },
-      {
-        "name": "bridgeFee",
-        "type": "uint256"
-      },
-      {
-        "name": "token",
-        "type": "address"
-      },
-      {
-        "name": "recipient",
-        "type": "address"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "ckbSpv_",
-    "outputs": [
-      {
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
+        "internalType": "address",
         "name": "ckbSpvAddress",
         "type": "address"
       },
       {
+        "internalType": "uint64",
         "name": "numConfirmations",
         "type": "uint64"
       },
       {
+        "internalType": "bytes32",
         "name": "recipientCellTypescriptCodeHash",
         "type": "bytes32"
       },
       {
+        "internalType": "uint8",
         "name": "typescriptHashType",
         "type": "uint8"
       },
       {
+        "internalType": "bytes32",
         "name": "bridgeCellLockscriptCodeHash",
         "type": "bytes32"
       }
     ],
-    "payable": false,
     "stateMutability": "nonpayable",
     "type": "constructor"
   },
@@ -229,36 +35,43 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "address",
         "name": "token",
         "type": "address"
       },
       {
         "indexed": true,
+        "internalType": "address",
         "name": "sender",
         "type": "address"
       },
       {
         "indexed": false,
+        "internalType": "uint256",
         "name": "lockedAmount",
         "type": "uint256"
       },
       {
         "indexed": false,
+        "internalType": "uint256",
         "name": "bridgeFee",
         "type": "uint256"
       },
       {
         "indexed": false,
+        "internalType": "bytes",
         "name": "recipientLockscript",
         "type": "bytes"
       },
       {
         "indexed": false,
+        "internalType": "bytes",
         "name": "replayResistOutpoint",
         "type": "bytes"
       },
       {
         "indexed": false,
+        "internalType": "bytes",
         "name": "sudtExtraData",
         "type": "bytes"
       }
@@ -271,31 +84,238 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "address",
         "name": "token",
         "type": "address"
       },
       {
         "indexed": true,
+        "internalType": "address",
         "name": "recipient",
         "type": "address"
       },
       {
         "indexed": true,
+        "internalType": "address",
         "name": "sender",
         "type": "address"
       },
       {
         "indexed": false,
+        "internalType": "uint256",
         "name": "receivedAmount",
         "type": "uint256"
       },
       {
         "indexed": false,
+        "internalType": "uint256",
         "name": "bridgeFee",
         "type": "uint256"
       }
     ],
     "name": "Unlocked",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "bridgeCellLockscriptCodeHash_",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "ckbSpv_",
+    "outputs": [
+      {
+        "internalType": "contract ICKBSpv",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "ckbTx",
+        "type": "bytes"
+      }
+    ],
+    "name": "decodeBurnResult",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "bridgeAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "bridgeFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "bridgeFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "recipientLockscript",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "replayResistOutpoint",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sudtExtraData",
+        "type": "bytes"
+      }
+    ],
+    "name": "lockETH",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "bridgeFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "recipientLockscript",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "replayResistOutpoint",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sudtExtraData",
+        "type": "bytes"
+      }
+    ],
+    "name": "lockToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "numConfirmations_",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "recipientCellTypescriptCodeHash_",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "recipientCellTypescriptHashType_",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "ckbTxProof",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "ckbTx",
+        "type": "bytes"
+      }
+    ],
+    "name": "unlockToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "usedTx_",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ]
