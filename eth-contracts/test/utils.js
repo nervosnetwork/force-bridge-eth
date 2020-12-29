@@ -205,6 +205,7 @@ module.exports = {
   waitingForReceipt,
   deployContract,
   deployAll,
+  deployContractByWallet,
   deployUpgradableContractFirstTime,
   deployUpgradableContractFirstTimeByWallet,
   generateWallets,
