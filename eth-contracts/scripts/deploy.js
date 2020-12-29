@@ -2,7 +2,7 @@ const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
 const {
-  deployUpgradableContractFirstTime,
+  deployUpgradableContractFirstTimeByWallet,
   ckbBlake2b,
 } = require('../test/utils');
 
@@ -56,7 +56,8 @@ async function main() {
 
   // deploy CKBChainV2
   const canonicalGcThreshold = 40000;
-  let CKBChainV2 = await deployUpgradableContractFirstTime(
+  let CKBChainV2 = await deployUpgradableContractFirstTimeByWallet(
+    wallet,
     'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
     'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
     adminAddress,
@@ -68,7 +69,8 @@ async function main() {
 
   // deploy TokenLocker
   const numConfirmations = 10;
-  const locker = await deployUpgradableContractFirstTime(
+  const locker = await deployUpgradableContractFirstTimeByWallet(
+    wallet,
     'contracts/TokenLockerStorage.sol:TokenLockerStorage',
     'contracts/TokenLockerLogic.sol:TokenLockerLogic',
     adminAddress,
