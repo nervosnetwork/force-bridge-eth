@@ -229,6 +229,41 @@ impl Web3Client {
         Ok(false)
     }
 
+    pub async fn is_header_exist_v2(
+        &mut self,
+        block_number: u64,
+        latest_header_hash: ckb_types::H256,
+        contract_addr: Address,
+    ) -> Result<bool> {
+        let contract = Contract::from_json(self.client.eth(), contract_addr, CKB_CHAIN_ABI)
+            .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+
+        info!(
+            "ckb block {:?} header hash : {:?}",
+            block_number,
+            hex::encode(latest_header_hash.as_bytes())
+        );
+
+        let result = contract.query(
+            "getCanonicalHeaderHash",
+            Uint::from(block_number),
+            None,
+            Options::default(),
+            None,
+        );
+
+        let header_hash: FixedBytes = result.await?;
+        info!(
+            "contact block {:?} header hash : {:?}",
+            block_number,
+            hex::encode(header_hash.as_slice())
+        );
+        if header_hash.as_slice() == latest_header_hash.as_bytes() {
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
     #[allow(clippy::clone_double_ref)]
     pub async fn get_locker_contract_confirm(
         &mut self,

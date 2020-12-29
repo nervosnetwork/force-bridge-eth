@@ -260,8 +260,8 @@ pub fn get_add_ckb_headers_func() -> Function {
         name: "addHeaders".to_owned(),
         inputs: vec![
             Param {
-                name: "data".to_owned(),
-                kind: ParamType::Bytes,
+                name: "tinyHeaders".to_owned(),
+                kind: ParamType::Array(Box::new(ParamType::Bytes)),
             },
             Param {
                 name: "signatures".to_owned(),
@@ -475,10 +475,14 @@ pub async fn get_balance(
     Ok(balance)
 }
 
-pub fn get_msg_hash(chain_id: U256, contract_addr: H160, headers_data: &[u8]) -> Result<[u8; 32]> {
+pub fn get_msg_hash(
+    chain_id: U256,
+    contract_addr: H160,
+    headers_data: Vec<Token>,
+) -> Result<[u8; 32]> {
     let ckb_light_client_name = "Force Bridge CKBChain";
     let vesion = "1";
-    let add_headers_func_name = "AddHeaders(bytes data)";
+    let add_headers_func_name = "AddHeaders(bytes[] tinyHeaders)";
     let pack_number = 1901;
     let eip712_domain =
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
@@ -496,7 +500,7 @@ pub fn get_msg_hash(chain_id: U256, contract_addr: H160, headers_data: &[u8]) ->
     let add_headers_type_hash = keccak256(add_headers_func_name.as_bytes());
     let msg = ethabi::encode(&[
         Token::FixedBytes(Vec::from(add_headers_type_hash)),
-        Token::Bytes(Vec::from(headers_data)),
+        Token::Array(headers_data),
     ]);
 
     let msg_data_hash = keccak256(&msg);

@@ -2,7 +2,7 @@ const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
 const {
-  deployUpgradableContractFirstTime,
+  deployUpgradableContractFirstTimeByWallet,
   ckbBlake2b,
 } = require('../test/utils');
 
@@ -42,19 +42,22 @@ async function main() {
   const adminAddress = wallet.address;
 
   // deploy ckbChainV2
-  const validators = network_config.ethereum_private_keys.map((privateKey) => {
-    let publicKey = EthUtil.privateToPublic(Buffer.from(privateKey, 'hex'));
-    return '0x' + EthUtil.publicToAddress(publicKey).toString('hex');
-  });
+  const validators = network_config.ethereum_private_keys
+    .slice(0, 2)
+    .map((privateKey) => {
+      let publicKey = EthUtil.privateToPublic(Buffer.from(privateKey, 'hex'));
+      return '0x' + EthUtil.publicToAddress(publicKey).toString('hex');
+    });
   console.error('validator validator: ', validators);
-  const multisigThreshold = 5;
+  const multisigThreshold = 1;
   let eth_network = await provider.getNetwork();
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
 
   // deploy CKBChainV2
   const canonicalGcThreshold = 40000;
-  let CKBChainV2 = await deployUpgradableContractFirstTime(
+  let CKBChainV2 = await deployUpgradableContractFirstTimeByWallet(
+    wallet,
     'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
     'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
     adminAddress,
@@ -66,7 +69,8 @@ async function main() {
 
   // deploy TokenLocker
   const numConfirmations = 10;
-  const locker = await deployUpgradableContractFirstTime(
+  const locker = await deployUpgradableContractFirstTimeByWallet(
+    wallet,
     'contracts/TokenLockerStorage.sol:TokenLockerStorage',
     'contracts/TokenLockerLogic.sol:TokenLockerLogic',
     adminAddress,

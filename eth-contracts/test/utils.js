@@ -31,6 +31,13 @@ const deployContract = async (factoryPath, ...args) => {
   return contract;
 };
 
+const deployContractByWallet = async (wallet, factoryPath, ...args) => {
+  const factory = await ethers.getContractFactory(factoryPath, wallet);
+  const contract = await factory.deploy(...args);
+  await contract.deployTransaction.wait(1);
+  return contract;
+};
+
 const deployUpgradableContractFirstTime = async (
   factoryPathStorage,
   factoryPathLogic,
@@ -52,6 +59,37 @@ const deployUpgradableContractFirstTime = async (
   const instance = await ethers.getContractAt(
     factoryPathLogic,
     storageContract.address
+  );
+
+  log(`${instance.address}`);
+
+  return instance;
+};
+
+const deployUpgradableContractFirstTimeByWallet = async (
+  wallet,
+  factoryPathStorage,
+  factoryPathLogic,
+  _proxy_admin,
+  ...storageArgs
+) => {
+  storageArgs.push(_proxy_admin);
+  const storageContract = await deployContractByWallet(
+    wallet,
+    factoryPathStorage,
+    ...storageArgs
+  );
+  const logicContract = await deployContractByWallet(wallet, factoryPathLogic);
+
+  const txRes = await storageContract.sysAddDelegates([logicContract.address], {
+    from: _proxy_admin,
+  });
+  await txRes.wait(1);
+
+  const instance = await ethers.getContractAt(
+    factoryPathLogic,
+    storageContract.address,
+    wallet
   );
 
   log(`${instance.address}`);
@@ -168,6 +206,7 @@ module.exports = {
   deployContract,
   deployAll,
   deployUpgradableContractFirstTime,
+  deployUpgradableContractFirstTimeByWallet,
   generateWallets,
   generateSignatures,
   runErrorCase,
