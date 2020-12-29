@@ -23,6 +23,7 @@ library ViewCKB {
         Header,
         Nonce,
         RawHeader,
+        TinyHeader,
         Version,
         CompactTarget,
         Timestamp,
@@ -170,5 +171,26 @@ library ViewCKB {
     // @return         the length of a header vector.
     function lengthHeaderVec(bytes29 _headers) internal pure typeAssert(_headers, CKBTypes.HeaderVec) returns (uint32) {
         return uint32(_headers.indexLEUint(0, 4));
+    }
+
+    // @notice         extracts the blockNumber from a TinyHeader
+    // @param _input   the TinyHeader
+    // @return         the blockNumber
+    function number(bytes29 _input) internal pure typeAssert(_input, CKBTypes.TinyHeader) returns (uint64) {
+        return uint64(_input.indexLEUint(0, 8));
+    }
+
+    // @notice         extracts the blockHash from a TinyHeader
+    // @param _input   the TinyHeader
+    // @return         the blockHash
+    function hash(bytes29 _input) internal pure typeAssert(_input, CKBTypes.TinyHeader) returns (bytes32) {
+        return _input.index(8, 32);
+    }
+
+    // @notice         extracts the txRoot from a TinyHeader
+    // @param _input   the TinyHeader
+    // @return         the txRoot
+    function txRoot(bytes29 _input) internal pure typeAssert(_input, CKBTypes.TinyHeader) returns (bytes32) {
+        return _input.index(40, 32);
     }
 }

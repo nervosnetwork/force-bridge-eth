@@ -1,6 +1,6 @@
 const fs = require('fs');
 const TOML = require('@iarna/toml');
-const { deployContract, sleep } = require('../../test/utils');
+const { deployContract, deployAll, sleep } = require('../../test/utils');
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
@@ -19,20 +19,7 @@ async function main() {
     'contracts/test/ERC20.sol:USDC',
     'contracts/CKBChain.sol:CKBChain',
   ];
-
-  const contracts = [];
-  const promises = [];
-  for (const path of factoryPaths) {
-    const factory = await ethers.getContractFactory(path);
-    const contract = await factory.deploy();
-    contracts.push(contract);
-    promises.push(contract.deployTransaction.wait(1));
-    // because nonce should increase in sequence
-    await sleep(1);
-  }
-
-  // waiting for all contracts deployed at least 1 confirmation
-  await Promise.all(promises);
+  const contracts = await deployAll(factoryPaths);
   const [DAIAddr, USDTAddr, USDCAddr, CKBChinDeployAddr] = contracts.map(
     (contract) => contract.address
   );

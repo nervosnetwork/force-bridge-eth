@@ -1,4 +1,5 @@
 const { ecsign, toRpcSig } = require('ethereumjs-util');
+const { blake2b, PERSONAL } = require('@nervosnetwork/ckb-sdk-utils');
 const { keccak256, defaultAbiCoder, solidityPack } = ethers.utils;
 
 async function sleep(seconds) {
@@ -24,22 +25,19 @@ async function waitingForReceipt(provider, res) {
 }
 
 const deployContract = async (factoryPath, ...args) => {
-  // const factory = await ethers.getContractFactory("contracts/token/NFI.sol:NFI");
   const factory = await ethers.getContractFactory(factoryPath);
   const contract = await factory.deploy(...args);
-
-  // await contract.deployed();
   await contract.deployTransaction.wait(1);
   return contract;
 };
 
-const deployUpgradeabeContractFirstTime = async (
+const deployUpgradableContractFirstTime = async (
   factoryPathStorage,
   factoryPathLogic,
-  _proxy_adminm,
+  _proxy_admin,
   ...storageArgs
 ) => {
-  storageArgs.push(_proxy_adminm);
+  storageArgs.push(_proxy_admin);
   const storageContract = await deployContract(
     factoryPathStorage,
     ...storageArgs
@@ -47,7 +45,7 @@ const deployUpgradeabeContractFirstTime = async (
   const logicContract = await deployContract(factoryPathLogic);
 
   const txRes = await storageContract.sysAddDelegates([logicContract.address], {
-    from: _proxy_adminm,
+    from: _proxy_admin,
   });
   await txRes.wait(1);
 
@@ -143,11 +141,22 @@ const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
         '0x01',
         DOMAIN_SEPARATOR,
         keccak256(
-          defaultAbiCoder.encode(['bytes32', 'bytes'], [typeHash, headersData])
+          defaultAbiCoder.encode(
+            ['bytes32', 'bytes[]'],
+            [typeHash, headersData]
+          )
         ),
       ]
     )
   );
+};
+
+const ckbBlake2b = (hexStr) => {
+  let str = hexStr.startsWith('0x') ? hexStr.slice(2) : hexStr;
+  const instance = blake2b(32, null, null, PERSONAL);
+  const input = new Uint8Array(Buffer.from(str, 'hex'));
+  instance.update(input);
+  return '0x' + instance.digest('hex');
 };
 
 const { log } = console;
@@ -158,10 +167,11 @@ module.exports = {
   waitingForReceipt,
   deployContract,
   deployAll,
-  deployUpgradeabeContractFirstTime,
+  deployUpgradableContractFirstTime,
   generateWallets,
   generateSignatures,
   runErrorCase,
   getMsgHashForSetNewCkbSpv,
   getMsgHashForAddHeaders,
+  ckbBlake2b,
 };

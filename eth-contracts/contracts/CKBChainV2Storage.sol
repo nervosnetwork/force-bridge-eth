@@ -21,14 +21,19 @@ import "./CKBChainV2Layout.sol";
 
 contract CKBChainV2Storage is Proxy, CKBChainV2Layout {
     constructor(
+        uint64 canonicalGcThreshold,
         address[] memory validators,
         uint multisigThreshold,
-        uint chainId,
         address _proxy_admin
-    ) Proxy(_proxy_admin){
-        governance = msg.sender;
+    ) Proxy(_proxy_admin) {
+        // set init threshold
+        CanonicalGcThreshold = canonicalGcThreshold;
 
         // set DOMAIN_SEPARATOR
+        uint chainId;
+        assembly {
+            chainId := chainid()
+        }
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -45,5 +50,4 @@ contract CKBChainV2Storage is Proxy, CKBChainV2Layout {
         require(multisigThreshold <= validators.length, "invalid multisigThreshold");
         multisigThreshold_ = multisigThreshold;
     }
-
 }
