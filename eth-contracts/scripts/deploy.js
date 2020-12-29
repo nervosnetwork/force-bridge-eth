@@ -65,7 +65,7 @@ async function main() {
   const ckbChainV2Addr = CKBChainV2.address;
 
   // deploy TokenLocker
-  const numConfirmations = 20;
+  const numConfirmations = 10;
   const locker = await deployUpgradableContractFirstTime(
     'contracts/TokenLockerStorage.sol:TokenLockerStorage',
     'contracts/TokenLockerLogic.sol:TokenLockerLogic',
