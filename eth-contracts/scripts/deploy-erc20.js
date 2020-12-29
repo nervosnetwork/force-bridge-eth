@@ -1,6 +1,6 @@
 const fs = require('fs');
 const TOML = require('@iarna/toml');
-const { deployAll } = require('../test/utils');
+const { sleep } = require('../test/utils');
 
 async function main() {
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
@@ -28,7 +28,17 @@ async function main() {
     'contracts/test/ERC20.sol:USDT',
     'contracts/test/ERC20.sol:USDC',
   ];
-  const contracts = await deployAll(contractPaths);
+  const contracts = [];
+  const promises = [];
+  for (const path of contractPaths) {
+    const factory = await ethers.getContractFactory(path, wallet);
+    const contract = await factory.deploy();
+    contracts.push(contract);
+    promises.push(contract.deployTransaction.wait(1));
+    // because nonce should increase in sequence
+    await sleep(1);
+  }
+  await Promise.all(promises);
   const [DAIAddr, USDTAddr, USDCAddr] = contracts.map(
     (contract) => contract.address
   );
