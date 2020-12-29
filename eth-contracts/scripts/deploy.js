@@ -74,7 +74,7 @@ async function main() {
     numConfirmations,
     '0x' + recipient_typescript_code_hash,
     recipientCellTypescriptHashType,
-    '0x' + lightClientTypescriptHash,
+    lightClientTypescriptHash,
     '0x' + bridge_lockscript_code_hash
   );
 
