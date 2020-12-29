@@ -1,7 +1,10 @@
 const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
-const { deployUpgradableContractFirstTime } = require('../test/utils');
+const {
+  deployUpgradableContractFirstTime,
+  ckbBlake2b,
+} = require('../test/utils');
 
 async function main() {
   // get force config
@@ -28,8 +31,9 @@ async function main() {
   let recipientCellTypescriptHashType =
     deployedContracts.recipient_typescript.hash_type;
 
-  // TODO get lightClientTypescriptHash
-  let lightClientTypescriptHash = recipient_typescript_code_hash;
+  let lightClientTypescriptHash = ckbBlake2b(
+    deployedContracts.light_client_cell_script.cell_script
+  );
 
   const wallet = new ethers.Wallet(
     '0x' + network_config.ethereum_private_keys[0],

@@ -1,4 +1,5 @@
 const { ecsign, toRpcSig } = require('ethereumjs-util');
+const { blake2b, PERSONAL } = require('@nervosnetwork/ckb-sdk-utils');
 const { keccak256, defaultAbiCoder, solidityPack } = ethers.utils;
 
 async function sleep(seconds) {
@@ -150,6 +151,14 @@ const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
   );
 };
 
+const ckbBlake2b = (hexStr) => {
+  let str = hexStr.startsWith('0x') ? hexStr.slice(2) : hexStr;
+  const instance = blake2b(32, null, null, PERSONAL);
+  const input = new Uint8Array(Buffer.from(str, 'hex'));
+  instance.update(input);
+  return '0x' + instance.digest('hex');
+};
+
 const { log } = console;
 
 module.exports = {
@@ -164,4 +173,5 @@ module.exports = {
   runErrorCase,
   getMsgHashForSetNewCkbSpv,
   getMsgHashForAddHeaders,
+  ckbBlake2b,
 };

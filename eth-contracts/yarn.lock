@@ -446,20 +446,20 @@
   resolved "https://registry.yarnpkg.com/@iarna/toml/-/toml-2.2.5.tgz#b32366c89b43c6f8cefbdefac778b9c828e3ba8c"
   integrity sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg==
 
-"@nervosnetwork/ckb-sdk-utils@^0.37.0":
-  version "0.37.0"
-  resolved "https://registry.yarnpkg.com/@nervosnetwork/ckb-sdk-utils/-/ckb-sdk-utils-0.37.0.tgz#25322c9b2860bee6672444e9a74ad699a3b83395"
-  integrity sha512-Mo1iJTJbQmOp1uAnLARNEy744imH2XlINL9eGjqO3wqNu/4QymFT8psKTQ+C8/0LRtt4ekb4aboQj2fMeQiw4w==
+"@nervosnetwork/ckb-sdk-utils@^0.38.2":
+  version "0.38.2"
+  resolved "https://registry.yarnpkg.com/@nervosnetwork/ckb-sdk-utils/-/ckb-sdk-utils-0.38.2.tgz#e52f1a9270582f44629a53d55d0e674a035f3d9b"
+  integrity sha512-FVV1zyJVwFGfE7AxaizZTNWmvF3sY5E/JoMam0k/2BE+Wk+I/9mvCyxm3aTJn6IBqbmZZ2geBax4malMX0YMoQ==
   dependencies:
-    "@nervosnetwork/ckb-types" "0.37.0"
+    "@nervosnetwork/ckb-types" "0.38.2"
     elliptic "6.5.3"
     jsbi "3.1.3"
     tslib "2.0.1"
 
-"@nervosnetwork/ckb-types@0.37.0":
-  version "0.37.0"
-  resolved "https://registry.yarnpkg.com/@nervosnetwork/ckb-types/-/ckb-types-0.37.0.tgz#2ac3261171c119895c91dc6f114dc55fbdc6a07e"
-  integrity sha512-2/kEVjRVr87MCEfTxhm842ZYLlehvWG5HC3dEsBENE3i9JCg3JQiibUGZeih+0k6W/S/rFpALIOJsctJK7SsRA==
+"@nervosnetwork/ckb-types@0.38.2":
+  version "0.38.2"
+  resolved "https://registry.yarnpkg.com/@nervosnetwork/ckb-types/-/ckb-types-0.38.2.tgz#2e584c0f3f3ba53d30abe1a0a80493091d92c547"
+  integrity sha512-d5oQug8qZGJ188JE5e7baYLER45vVuTkzgEU07dmUxbib3+nDdme1ZK1659329mSDO9u1yRPuhRhu8YXREWOtA==
 
 "@nodelib/fs.scandir@2.1.3":
   version "2.1.3"
