@@ -736,7 +736,7 @@ impl Generator {
                     lock_contract_addr.as_bytes().to_vec(),
                 )
                 .map_err(|err| anyhow!(err))?,
-                eth_bridge_lock_hash,
+                eth_bridge_lock_hash: eth_bridge_lock_code_hash,
                 token_amount: burn_sudt_amount,
                 fee: unlock_fee,
                 light_client_typescript_hash,

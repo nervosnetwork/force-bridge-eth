@@ -23,6 +23,11 @@
       },
       {
         "internalType": "bytes32",
+        "name": "lightClientTypescriptHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
         "name": "bridgeCellLockscriptCodeHash",
         "type": "bytes32"
       }
@@ -171,6 +176,19 @@
         "internalType": "address",
         "name": "recipient",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "lightClientTypescriptHash_",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",

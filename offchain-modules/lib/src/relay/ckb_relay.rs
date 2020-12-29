@@ -137,7 +137,7 @@ impl CKBRelayer {
 
         let header_datas = headers
             .into_iter()
-            .map(|header| Token::Bytes(header))
+            .map(Token::Bytes)
             .collect::<Vec<Token>>();
 
         let headers_msg_hash = get_msg_hash(chain_id, self.contract_addr, header_datas.clone())?;
@@ -174,7 +174,7 @@ impl CKBRelayer {
         let block_hash = self
             .ckb_client
             .rpc_client
-            .get_transaction(hash.clone())
+            .get_transaction(hash)
             .map_err(|err| anyhow!(err))?
             .ok_or_else(|| anyhow!("failed to get block height : tx is none"))?
             .tx_status
