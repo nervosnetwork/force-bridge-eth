@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Result};
+use dapp::dapp_handle;
 use force_eth_lib::header_relay::ckb_relay::CKBRelayer;
 use force_eth_lib::header_relay::eth_relay::{wait_header_sync_success, ETHRelayer};
 use force_eth_lib::header_relay::relay_monitor::relay_monitor;
@@ -21,6 +22,7 @@ use shellexpand::tilde;
 use types::*;
 use web3::types::H256;
 
+pub mod dapp;
 pub mod server;
 pub mod types;
 
@@ -55,6 +57,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
         SubCommand::RelayerMonitor(args) => relayer_monitor(args).await,
+        SubCommand::Dapp(dapp_command) => dapp_handle(dapp_command).await,
     }
 }
 
