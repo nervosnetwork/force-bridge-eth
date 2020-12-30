@@ -83,6 +83,7 @@ const deployUpgradableContractFirstTimeByWallet = async (
 
   const txRes = await storageContract.sysAddDelegates([logicContract.address], {
     from: _proxy_admin,
+    gasLimit: 1000000,
   });
   await txRes.wait(1);
 
@@ -205,6 +206,7 @@ module.exports = {
   waitingForReceipt,
   deployContract,
   deployAll,
+  deployContractByWallet,
   deployUpgradableContractFirstTime,
   deployUpgradableContractFirstTimeByWallet,
   generateWallets,

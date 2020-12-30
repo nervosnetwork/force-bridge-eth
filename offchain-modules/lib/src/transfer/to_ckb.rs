@@ -246,6 +246,27 @@ pub async fn generate_eth_spv_proof_json(
     })
 }
 
+pub async fn send_eth_spv_proof_tx_single(
+    generator: &mut Generator,
+    config_path: String,
+    eth_lock_tx: String,
+    eth_proof: &ETHSPVProofJson,
+    from_lockscript: Script,
+    from_privkey: SecretKey,
+) -> Result<ckb_types::H256> {
+    let unsigned_tx =
+        generator.generate_eth_spv_tx(config_path.clone(), from_lockscript.clone(), eth_proof)?;
+    let tx =
+        sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
+    log::info!(
+        "lock tx {} to mint tx: \n{}",
+        &eth_lock_tx,
+        serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
+            .map_err(|err| anyhow!(err))?
+    );
+    send_tx_sync_with_response(&mut generator.rpc_client, &tx, 600).await
+}
+
 pub async fn send_eth_spv_proof_tx(
     generator: &mut Generator,
     config_path: String,
@@ -256,39 +277,19 @@ pub async fn send_eth_spv_proof_tx(
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
     let from_lockscript = Script::from(&address_payload);
-
     let mut error_msg = String::new();
     for retry_times in 0..MAX_RETRY_TIMES {
-        let unsigned_tx = generator.generate_eth_spv_tx(
+        let result = send_eth_spv_proof_tx_single(
+            generator,
             config_path.clone(),
-            from_lockscript.clone(),
+            eth_lock_tx.clone(),
             eth_proof,
-        )?;
-        let tx = sign(unsigned_tx, &mut generator.rpc_client, &from_privkey)
-            .map_err(|err| anyhow!(err))?;
-        log::info!(
-            "lock tx {} to mint tx: \n{}",
-            &eth_lock_tx,
-            serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
-                .map_err(|err| anyhow!(err))?
-        );
-        let result = send_tx_sync_with_response(&mut generator.rpc_client, &tx, 600).await;
+            from_lockscript.clone(),
+            from_privkey,
+        )
+        .await;
         match result {
             Ok(tx_hash) => {
-                let cell_typescript = tx
-                    .output(0)
-                    .ok_or_else(|| anyhow!("no out_put found"))?
-                    .type_()
-                    .to_opt();
-                let cell_script = match cell_typescript {
-                    Some(script) => hex::encode(script.as_slice()),
-                    None => "".to_owned(),
-                };
-                let print_res = serde_json::json!({
-                    "tx_hash": hex::encode(tx.hash().as_slice()),
-                    "cell_typescript": cell_script,
-                });
-                log::debug!("{}", serde_json::to_string_pretty(&print_res)?);
                 return Ok(tx_hash);
             }
             Err(e) => {
