@@ -1,5 +1,5 @@
-use crate::relay::eth_relay::wait_header_sync_success;
-use crate::server::proof_relayer::db::{
+use crate::header_relay::eth_relay::wait_header_sync_success;
+use crate::dapp::server::proof_relayer::db::{
     self, update_eth_to_ckb_status, CkbToEthRecord, EthToCkbRecord,
 };
 use crate::transfer::to_ckb::{generate_eth_spv_proof_json, send_eth_spv_proof_tx};

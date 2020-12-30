@@ -1,10 +1,10 @@
 use super::error::RpcError;
 use super::state::DappState;
 use super::types::*;
-use crate::server::proof_relayer::db::{
+use crate::dapp::server::proof_relayer::db::{
     update_eth_to_ckb_status, CkbToEthRecord, CrosschainHistory, EthToCkbRecord,
 };
-use crate::server::proof_relayer::{db, handler};
+use crate::dapp::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb;
 use crate::util::ckb_util::{
     build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,

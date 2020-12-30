@@ -1,4 +1,4 @@
-use crate::server::proof_relayer::db::CrosschainHistory;
+use crate::dapp::server::proof_relayer::db::CrosschainHistory;
 use ckb_jsonrpc_types::TransactionView;
 use ckb_jsonrpc_types::Uint128;
 use serde::{Deserialize, Serialize};
