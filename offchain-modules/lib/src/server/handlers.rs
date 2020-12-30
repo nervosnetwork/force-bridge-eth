@@ -37,7 +37,7 @@ pub async fn get_or_create_bridge_cell(
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     log::info!("get_or_create_bridge_cell args: {:?}", args);
     let tx_fee = "0.1".to_string();
-    let capacity = "283".to_string();
+    let capacity = "315".to_string();
     let private_key_path = data
         .ckb_key_channel
         .1
