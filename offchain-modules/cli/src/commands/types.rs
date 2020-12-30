@@ -1,3 +1,4 @@
+use super::dapp::types::DappCommand;
 use clap::Clap;
 
 #[derive(Clap, Clone, Debug)]
@@ -31,6 +32,7 @@ pub enum SubCommand {
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
     RelayerMonitor(RelayerMonitorArgs),
+    Dapp(DappCommand),
 }
 
 #[derive(Clap, Clone, Debug)]
