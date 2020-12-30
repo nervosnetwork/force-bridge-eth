@@ -37,6 +37,7 @@ fn verify_witness<T: Adapter>(
     witness: &MintTokenWitnessReader,
 ) -> (u8, ETHLockEvent) {
     let proof = witness.spv_proof().raw_data();
+    debug!("proof {:?}", proof);
     let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
     assert_eq!(cell_dep_index_list.len(), 1);
 
@@ -237,6 +238,11 @@ fn verify_eth_receipt_info<T: Adapter>(
     )
     .into_iter()
     {
+        debug!(
+            "udt_script_slice {:?}, output {:?}",
+            udt_script_slice,
+            output_type.clone().unwrap().as_slice()
+        );
         if output_type.is_some() && udt_script_slice == output_type.unwrap().as_slice() {
             let mut amount = [0u8; 16];
             amount.copy_from_slice(&output_data[..16]);

@@ -2,6 +2,8 @@
 
 mod actions;
 mod adapter;
+#[cfg(test)]
+mod test;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
