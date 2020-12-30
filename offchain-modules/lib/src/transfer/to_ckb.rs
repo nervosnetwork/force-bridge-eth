@@ -285,7 +285,7 @@ pub async fn send_eth_spv_proof_tx(
             eth_lock_tx.clone(),
             eth_proof,
             from_lockscript.clone(),
-            from_privkey.clone(),
+            from_privkey,
         )
         .await;
         match result {
