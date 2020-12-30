@@ -1,6 +1,6 @@
 #![feature(async_closure)]
-pub mod header_relay;
 pub mod dapp;
+pub mod header_relay;
 pub mod transfer;
 pub mod util;
 
