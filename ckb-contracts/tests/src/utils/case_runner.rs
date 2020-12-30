@@ -2,7 +2,7 @@
 
 use super::case_builder::{
     CellBuilder, OutpointsContext, TestCase, ALWAYS_SUCCESS_OUTPOINT_KEY,
-    ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY, ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY,
+    ETH_BRIDGE_LOCKSCRIPT_OUTPOINT_KEY, ETH_BRIDGE_TYPESCRIPT_OUTPOINT_KEY,
     ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY, ETH_RECIPIENT_TYPESCRIPT_OUTPOINT_KEY,
     FIRST_INPUT_OUTPOINT_KEY, SUDT_TYPESCRIPT_OUTPOINT_KEY,
 };
@@ -23,14 +23,15 @@ pub fn run_test(case: TestCase) {
     context.set_capture_debug(true);
     let mut outpoints_context = OutpointsContext::new();
 
+    deploy_scripts(&mut context, &mut outpoints_context);
+
     // Cell deps
     let mut cell_deps = vec![];
     // Custom cell deps
     for cell_dep_view in case.cell_deps.iter() {
-        cell_deps.push(cell_dep_view.build_cell_dep(&mut context));
+        cell_deps.push(cell_dep_view.build_cell_dep(&mut context, &mut outpoints_context));
     }
     // Script cell deps
-    deploy_scripts(&mut context, &mut outpoints_context);
     for (_, v) in outpoints_context.iter() {
         let cell_dep = CellDep::new_builder().out_point(v.clone()).build();
         cell_deps.push(cell_dep);
@@ -125,9 +126,8 @@ fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContex
     let eth_bridge_lockscript_bin: Bytes = Loader::default().load_binary("eth-bridge-lockscript");
     let eth_bridge_lockscript_point = context.deploy_cell(eth_bridge_lockscript_bin);
 
-    let eth_light_client_lockscript_bin: Bytes =
-        Loader::default().load_binary("eth-light-client-lockscript");
-    let eth_light_client_lockscript_point = context.deploy_cell(eth_light_client_lockscript_bin);
+    let eth_bridge_typescript_bin: Bytes = Loader::default().load_binary("eth-bridge-typescript");
+    let eth_bridge_typescript_point = context.deploy_cell(eth_bridge_typescript_bin);
 
     let eth_light_client_typescript_bin: Bytes =
         Loader::default().load_binary("eth-light-client-typescript");
@@ -147,8 +147,8 @@ fn deploy_scripts(context: &mut Context, outpoints_context: &mut OutpointsContex
         eth_bridge_lockscript_point.clone(),
     );
     outpoints_context.insert(
-        ETH_LIGHT_CLIENT_LOCKSCRIPT_OUTPOINT_KEY,
-        eth_light_client_lockscript_point.clone(),
+        ETH_BRIDGE_TYPESCRIPT_OUTPOINT_KEY,
+        eth_bridge_typescript_point.clone(),
     );
     outpoints_context.insert(
         ETH_LIGHT_CLIENT_TYPESCRIPT_OUTPOINT_KEY,
@@ -206,9 +206,8 @@ fn build_output_cell<I, B>(
 }
 
 fn check_err(context: &Context, info: String) -> bool {
-    let expected = format!("panic occurred: {}", info);
     for message in context.captured_messages() {
-        if message.message.contains(&expected.clone()) {
+        if message.message.contains("panic occurred:") && message.message.contains(&info.clone()) {
             return true;
         }
     }

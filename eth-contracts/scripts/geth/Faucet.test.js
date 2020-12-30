@@ -1,8 +1,8 @@
-const BN = require("bn.js");
-const { expect } = require("chai");
-const { sleep, log } = require("../../test/utils");
+const BN = require('bn.js');
+const { expect } = require('chai');
+const { sleep, log } = require('../../test/utils');
 
-contract("Faucet", () => {
+contract('Faucet', () => {
   const contracts = [];
 
   before(async function () {
@@ -11,9 +11,9 @@ contract("Faucet", () => {
 
     // deploy all erc20 tokens
     const factoryPaths = [
-      "contracts/test/ERC20.sol:DAI",
-      "contracts/test/ERC20.sol:USDT",
-      "contracts/test/ERC20.sol:USDC",
+      'contracts/test/ERC20.sol:DAI',
+      'contracts/test/ERC20.sol:USDT',
+      'contracts/test/ERC20.sol:USDC',
     ];
     const promises = [];
     for (const path of factoryPaths) {
@@ -29,13 +29,13 @@ contract("Faucet", () => {
   `);
   });
 
-  describe("DAI Faucet correct case", async function () {
+  describe('DAI Faucet correct case', async function () {
     // disable timeout
     this.timeout(0);
 
-    it("Should claimTestToken verified", async () => {
+    it('Should claimTestToken verified', async () => {
       let res, receipt;
-      const testUser = "0x1234567890123456789012345678901234567890";
+      const testUser = '0x1234567890123456789012345678901234567890';
       for (const erc20 of contracts) {
         const decimal = await erc20.callStatic.decimals();
         const supply = 100 * Math.pow(10, decimal);
@@ -47,12 +47,12 @@ contract("Faucet", () => {
       }
     });
 
-    it("Should mint amount verified", async () => {
+    it('Should mint amount verified', async () => {
       let res, receipt;
       for (const erc20 of contracts) {
         const signerAddr = erc20.signer.address;
         const beforeBalance = await erc20.callStatic.balanceOf(signerAddr);
-        const amount = ethers.utils.parseEther("123");
+        const amount = ethers.utils.parseEther('123');
         res = await erc20.mint(amount);
         receipt = await res.wait(1);
         const afterBalance = await erc20.callStatic.balanceOf(signerAddr);

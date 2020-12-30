@@ -5,10 +5,9 @@ The Times 11/Nov/2020 Developers on brink of bailout for CKB Eaglesong Hash func
 
 A Golden Hamster saves them!
 */
-pragma solidity ^0.5.10;
+pragma solidity ^0.8.0;
 
 contract Eaglesong {
-    function () external {}
 
     /*
     for test

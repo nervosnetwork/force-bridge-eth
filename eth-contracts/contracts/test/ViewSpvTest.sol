@@ -1,4 +1,6 @@
-pragma solidity ^0.5.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import {TypedMemView} from "../libraries/TypedMemView.sol";
 import {ViewSpv} from "../libraries/ViewSpv.sol";

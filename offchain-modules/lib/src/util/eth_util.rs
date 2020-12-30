@@ -1,6 +1,5 @@
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, bail, Result};
-use eth_spv_lib::eth_types::my_keccak256;
 use ethabi::{FixedBytes, Function, Param, ParamType, Token, Uint};
 use ethereum_tx_sign::RawTransaction;
 use log::{debug, error, info};
@@ -230,6 +229,41 @@ impl Web3Client {
         Ok(false)
     }
 
+    pub async fn is_header_exist_v2(
+        &mut self,
+        block_number: u64,
+        latest_header_hash: ckb_types::H256,
+        contract_addr: Address,
+    ) -> Result<bool> {
+        let contract = Contract::from_json(self.client.eth(), contract_addr, CKB_CHAIN_ABI)
+            .map_err(|e| anyhow::anyhow!("failed to instantiate contract by parse abi: {}", e))?;
+
+        info!(
+            "ckb block {:?} header hash : {:?}",
+            block_number,
+            hex::encode(latest_header_hash.as_bytes())
+        );
+
+        let result = contract.query(
+            "getCanonicalHeaderHash",
+            Uint::from(block_number),
+            None,
+            Options::default(),
+            None,
+        );
+
+        let header_hash: FixedBytes = result.await?;
+        info!(
+            "contact block {:?} header hash : {:?}",
+            block_number,
+            hex::encode(header_hash.as_slice())
+        );
+        if header_hash.as_slice() == latest_header_hash.as_bytes() {
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
     #[allow(clippy::clone_double_ref)]
     pub async fn get_locker_contract_confirm(
         &mut self,
@@ -419,7 +453,7 @@ pub fn decode_block_header(serialized: &Rlp) -> Result<BlockHeader, DecoderError
         extra_data: Bytes::from(serialized.as_raw()),
         mix_hash: Some(serialized.val_at(13)?),
         nonce: Some(serialized.val_at(14)?),
-        hash: Some(my_keccak256(serialized.as_raw()).into()),
+        hash: Some(keccak256(serialized.as_raw()).into()),
     };
 
     Ok(block_header)
@@ -531,6 +565,10 @@ pub fn rlp_transaction(tx: &RawTransaction) -> String {
     s.append(&tx.value);
     s.append(&tx.data);
     hex::encode(s.out().as_slice())
+}
+
+pub fn parse_secret_key(privkey: H256) -> Result<SecretKey> {
+    Ok(SecretKey::from_slice(&privkey.0)?)
 }
 
 #[tokio::test]

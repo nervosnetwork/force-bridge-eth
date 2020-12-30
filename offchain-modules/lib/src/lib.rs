@@ -1,3 +1,4 @@
+#![feature(async_closure)]
 pub mod relay;
 pub mod server;
 pub mod transfer;

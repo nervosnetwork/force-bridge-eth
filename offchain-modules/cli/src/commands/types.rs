@@ -63,7 +63,7 @@ pub struct CreateBridgeCellArgs {
     pub recipient_address: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
-    #[clap(long, default_value = "283")]
+    #[clap(long, default_value = "315")]
     pub capacity: String,
     #[clap(long, default_value = "0")]
     pub bridge_fee: u128,
@@ -131,6 +131,8 @@ pub struct DeployCKBArgs {
     pub network: Option<String>,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
+    #[clap(long)]
+    pub type_id: bool,
     #[clap(long)]
     pub sudt: bool,
 }
@@ -322,8 +324,12 @@ pub struct CkbRelayArgs {
     pub private_key_path: String,
     #[clap(short, long)]
     pub per_amount: u64,
+    #[clap(long, default_value = "50")]
+    pub max_tx_count: u64,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
+    #[clap(long)]
+    pub mutlisig_privkeys: Vec<String>,
 }
 
 #[derive(Clap, Clone, Debug)]

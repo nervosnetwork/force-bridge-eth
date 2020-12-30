@@ -72,6 +72,19 @@ pub async fn get_eth_to_ckb_status(
     Ok(HttpResponse::Ok().json(status))
 }
 
+#[post("/get_ckb_to_eth_status")]
+pub async fn get_ckb_to_eth_status(
+    data: web::Data<DappState>,
+    args: web::Json<Value>,
+) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: CkbBurnTxHash =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    let status = db::get_ckb_to_eth_status(&data.db, &args.ckb_burn_tx_hash)
+        .await?
+        .ok_or(format!("ckb burn tx {} not found", &args.ckb_burn_tx_hash))?;
+    Ok(HttpResponse::Ok().json(status))
+}
+
 #[post("/get_crosschain_history")]
 pub async fn get_crosschain_history(
     data: web::Data<DappState>,
@@ -121,13 +134,31 @@ pub async fn relay_eth_to_ckb_proof(
     let _eth_lock_tx_hash = convert_hex_to_h256(&args.eth_lock_tx_hash)
         .map_err(|e| format!("invalid tx hash {}. err: {}", &args.eth_lock_tx_hash, e))?;
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
-    let status = db::get_eth_to_ckb_status(&data.db, &eth_lock_tx_hash).await?;
-    if status.is_some() {
-        return Ok(HttpResponse::Ok().json(json!({
-            "message": "tx proof relay processing/processed"
-        })));
+    let create_db_res =
+        db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await;
+    let row_id;
+    if let Err(e) = &create_db_res {
+        if e.to_string().contains("UNIQUE constraint failed") {
+            let record = db::get_eth_to_ckb_status(&data.db, eth_lock_tx_hash.as_str())
+                .await?
+                .expect("EthToCkbRecord existed");
+            row_id = record.id;
+            if record.status != "timeout" || !data.add_relaying_tx(eth_lock_tx_hash.clone()).await {
+                return Ok(HttpResponse::Ok().json(json!({
+                    "message": "tx proof relay processing/processed"
+                })));
+            }
+        } else {
+            return Err(anyhow!(
+                "relay_eth_to_ckb_proof create db fail for {}, err: {}",
+                eth_lock_tx_hash,
+                e
+            )
+            .into());
+        };
+    } else {
+        row_id = create_db_res.unwrap();
     }
-    let row_id = db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await?;
     let generator = data.get_generator().await?;
     tokio::spawn(async move {
         let mut record = EthToCkbRecord {
@@ -168,7 +199,11 @@ pub async fn relay_eth_to_ckb_proof(
                     e
                 );
                 record.err_msg = Some(e.to_string());
-                record.status = "error".to_string();
+                record.status = if e.to_string().contains("timeout") {
+                    "timeout".to_string()
+                } else {
+                    "error".to_string()
+                };
                 let res = update_eth_to_ckb_status(&data.db, &record).await;
                 if res.is_err() {
                     log::error!(
@@ -179,6 +214,7 @@ pub async fn relay_eth_to_ckb_proof(
                 }
             }
         }
+        data.remove_relaying_tx(eth_lock_tx_hash).await;
         data.ckb_key_channel
             .0
             .clone()
@@ -229,7 +265,30 @@ pub async fn burn(
         serde_json::to_string_pretty(&rpc_tx).unwrap()
     );
     let ckb_tx_hash = hex::encode(tx.hash().as_slice());
-    let row_id = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await?;
+    let create_db_res = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await;
+    let row_id;
+    if let Err(e) = &create_db_res {
+        if e.to_string().contains("UNIQUE constraint failed") {
+            let record = db::get_ckb_to_eth_status(&data.db, ckb_tx_hash.as_str())
+                .await?
+                .expect("CkbToEthRecord existed");
+            row_id = record.id;
+            if record.status == "success" || !data.add_relaying_tx(ckb_tx_hash.clone()).await {
+                return Ok(HttpResponse::Ok().json(json!({
+                    "message": "tx proof relay processing/processed"
+                })));
+            }
+        } else {
+            return Err(anyhow!(
+                "relay_eth_to_ckb_proof create db fail for {}, err: {}",
+                ckb_tx_hash,
+                e
+            )
+            .into());
+        };
+    } else {
+        row_id = create_db_res.unwrap();
+    }
     tokio::spawn(async move {
         let eth_privkey_path = data
             .eth_key_channel
@@ -266,7 +325,7 @@ pub async fn burn(
                 }
                 Err(e) => {
                     err_msg = format!("unlock failed. index: {}, err: {}", i, e);
-                    tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                    tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
                 }
             }
         }
@@ -275,6 +334,7 @@ pub async fn burn(
             record.status = "error".to_string();
             db::update_ckb_to_eth_status(&data.db, &record).await?;
         }
+        data.remove_relaying_tx(ckb_tx_hash).await;
         data.eth_key_channel
             .0
             .clone()
@@ -297,9 +357,7 @@ pub async fn get_sudt_balance(
         convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
             .map_err(|e| format!("lock contract address parse fail: {}", e))?;
     let sudt_script: ScriptJson = get_sudt_type_script(
-        &data.deployed_contracts.bridge_lockscript.code_hash,
-        &data.deployed_contracts.sudt.code_hash,
-        data.deployed_contracts.sudt.hash_type,
+        &data.deployed_contracts,
         token_address,
         lock_contract_address,
     )?

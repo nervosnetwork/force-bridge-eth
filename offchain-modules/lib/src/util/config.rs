@@ -108,12 +108,13 @@ pub struct DeployedContracts {
     pub eth_ckb_chain_addr: String,
     pub bridge_lockscript: ScriptConf,
     pub bridge_typescript: ScriptConf,
-    // pub light_client_typescript: ScriptConf,
+    pub light_client_typescript: ScriptConf,
     // pub light_client_lockscript: ScriptConf,
     pub recipient_typescript: ScriptConf,
     pub sudt: ScriptConf,
     pub light_client_cell_script: CellScript,
     pub multisig_address: MultisigConf,
+    pub ckb_relay_mutlisig_threshold: CKBRelayMultisigConf,
     pub pw_locks: PwLocks,
 }
 
@@ -122,6 +123,11 @@ pub struct MultisigConf {
     pub addresses: Vec<String>,
     pub require_first_n: u8,
     pub threshold: u8,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+pub struct CKBRelayMultisigConf {
+    pub threshold: usize,
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]

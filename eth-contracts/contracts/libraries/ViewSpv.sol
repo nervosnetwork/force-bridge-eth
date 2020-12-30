@@ -1,4 +1,7 @@
-pragma solidity ^0.5.10;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
+
 import {TypedMemView} from "./TypedMemView.sol";
 import {ViewCKB} from "./ViewCKB.sol";
 import {SafeMath} from "./SafeMath.sol";
@@ -15,10 +18,10 @@ library ViewSpv {
         H256Array
     }
 
-    /// @notice             requires `memView` to be of a specified type
-    /// @param memView      a 29-byte view with a 5-byte type
-    /// @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
-    /// @return             passes if it is the correct type, errors if not
+    // @notice             requires `memView` to be of a specified type
+    // @param memView      a 29-byte view with a 5-byte type
+    // @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
+    // @return             passes if it is the correct type, errors if not
     modifier typeAssert(bytes29 memView, SpvTypes t) {
         memView.assertType(uint40(t));
         _;
@@ -59,11 +62,11 @@ library ViewSpv {
         return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.H256Array));
     }
 
-    /// @notice         Index a H256 array.
-    /// @dev            Errors on overruns
-    /// @param _arr     The H256 array
-    /// @param index    The 0-indexed location of the H256 to get
-    /// @return         the typed H256 at `index`
+    // @notice         Index a H256 array.
+    // @dev            Errors on overruns
+    // @param _arr     The H256 array
+    // @param index    The 0-indexed location of the H256 to get
+    // @return         the typed H256 at `index`
     function indexH256Array(bytes29 _arr, uint256 index) internal pure typeAssert(_arr, SpvTypes.H256Array) returns (bytes32) {
         uint256 _start = index.mul(32);
         return _arr.index(_start, 32);

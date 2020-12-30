@@ -1,5 +1,6 @@
-pragma solidity ^0.5.10;
-pragma experimental ABIEncoderV2;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+pragma abicoder v2;
 
 import "./interfaces/IERC20.sol";
 import {CKBCrypto} from "./libraries/CKBCrypto.sol";
@@ -18,10 +19,11 @@ contract TokenLocker {
     using CKBTxView for bytes29;
     using ViewSpv for bytes29;
 
+    uint8 public recipientCellTypescriptHashType_;
     uint64 public numConfirmations_;
     ICKBSpv public ckbSpv_;
     bytes32 public recipientCellTypescriptCodeHash_;
-    uint8 public recipientCellTypescriptHashType_;
+    bytes32 public lightClientTypescriptHash_;
     bytes32 public bridgeCellLockscriptCodeHash_;
 
     // txHash -> Used
@@ -50,12 +52,14 @@ contract TokenLocker {
         uint64 numConfirmations,
         bytes32 recipientCellTypescriptCodeHash,
         uint8 typescriptHashType,
+        bytes32 lightClientTypescriptHash,
         bytes32 bridgeCellLockscriptCodeHash
-    ) public {
+    ) {
         ckbSpv_ = ICKBSpv(ckbSpvAddress);
         numConfirmations_ = numConfirmations;
         recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
         recipientCellTypescriptHashType_ = typescriptHashType;
+        lightClientTypescriptHash_ = lightClientTypescriptHash;
         bridgeCellLockscriptCodeHash_ = bridgeCellLockscriptCodeHash;
     }
 
@@ -117,7 +121,7 @@ contract TokenLocker {
         // if token == ETH
         if (tokenAddress == address(0)) {
             recipientAddress.toPayable().transfer(receivedAmount);
-            msg.sender.transfer(bridgeFee);
+            payable(msg.sender).transfer(bridgeFee);
         } else {
             IERC20(tokenAddress).transfer(recipientAddress, receivedAmount);
             IERC20(tokenAddress).transfer(msg.sender, bridgeFee);
@@ -143,12 +147,13 @@ contract TokenLocker {
         require((recipientCellTypescript.hashType() == recipientCellTypescriptHashType_), "invalid recipient cell typescript hash type");
         bytes29 recipientCellData = rawTx.outputsData().recipientCellData();
         require((recipientCellData.contractAddress() == address(this)), "invalid contract address in recipient cell");
-        require((recipientCellData.bridgeLockscriptCodeHash() == bridgeCellLockscriptCodeHash_), "invalid contract address in recipient cell");
+        require((recipientCellData.lightClientTypescriptHash() == lightClientTypescriptHash_), "invalid lightClientTypescriptHash in recipient cell");
+        require((recipientCellData.bridgeLockscriptCodeHash() == bridgeCellLockscriptCodeHash_), "invalid bridgeLockscriptCodeHash in recipient cell");
         return (
-            recipientCellData.bridgeAmount(),
-            recipientCellData.bridgeFee(),
-            recipientCellData.tokenAddress(),
-            recipientCellData.recipientAddress()
+        recipientCellData.bridgeAmount(),
+        recipientCellData.bridgeFee(),
+        recipientCellData.tokenAddress(),
+        recipientCellData.recipientAddress()
         );
     }
 }

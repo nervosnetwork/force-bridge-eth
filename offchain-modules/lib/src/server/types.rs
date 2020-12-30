@@ -17,6 +17,11 @@ pub struct EthLockTxHash {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CkbBurnTxHash {
+    pub ckb_burn_tx_hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetEthToCkbStatusArgs {
     pub ckb_recipient_lockscript: String,
 }

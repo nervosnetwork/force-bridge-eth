@@ -1,17 +1,18 @@
 {
-  "name": "@cosinlink/ckb-spv",
+  "name": "@nervosnetwork/force-bridge-eth",
   "version": "0.0.1",
   "description": "CKB SPV proofs in Solidity",
   "scripts": {
     "compile": "hardhat compile",
     "start-geth": "docker run -d --rm -it --name geth-node --mount type=bind,source=\"$(pwd)/../docker/geth\",target=/config --mount source=geth-dag,target=/root/.ethash -p 8545:8545 tockb/geth-priv:v1.9.23 && ./wait-for-it.sh -t 0 127.0.0.1:8545 -- echo \"node is up\" && node scripts/waitForMiner.js",
+    "restart-geth": "npm run stop-geth && npm run start-geth",
     "stop-geth": "docker rm -f geth-node",
     "pretest": "npm run start-geth",
     "test": "hardhat test --network geth || (npm run stop-geth && false)",
     "posttest": "npm run stop-geth",
-    "test:coverage": "solidity-coverage",
-    "lint": "solium -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --check",
-    "lint:fix": "solium --fix -d contracts/ && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write"
+    "test:coverage": "hardhat coverage",
+    "lint": "solhint \"contracts/**/*.sol\" && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --check",
+    "lint:fix": "solhint --fix \"contracts/**/*.sol\" && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write"
   },
   "author": "cosinlink",
   "devDependencies": {
@@ -26,20 +27,22 @@
     "ethereumjs-util": "^7.0.7",
     "ethers": "^5.0.18",
     "hardhat": "^2.0.2",
+    "lodash": "^4.17.20",
     "prettier": "^2.1.2",
     "solc": "^0.5.16",
-    "solidity-coverage": "^0.6.3",
+    "solhint": "^3.3.2",
+    "solidity-coverage": "^0.7.13",
     "solidity-docgen": "^0.3.0-beta.4",
-    "solium": "^1.2.4",
     "truffle": "^5.1.43",
-    "web3": "^1.3.0"
+    "web3": "^1.3.0",
+    "yarn": "^1.22.10"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
-    "@nervosnetwork/ckb-sdk-utils": "^0.37.0",
+    "@nervosnetwork/ckb-sdk-utils": "^0.38.2",
     "@openzeppelin/contracts": "^3.2.0",
     "hardhat-gas-reporter": "^1.0.0"
   },
-  "repository": "github.com/cosinlink/ckb-spv.git",
+  "repository": "https://github.com/nervosnetwork/force-bridge-eth.git",
   "license": "MIT"
 }
