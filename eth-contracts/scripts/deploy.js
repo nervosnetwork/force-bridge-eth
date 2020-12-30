@@ -4,7 +4,6 @@ const EthUtil = require('ethereumjs-util');
 const {
   deployUpgradableContractFirstTimeByWallet,
   ckbBlake2b,
-  deployContractByWallet,
 } = require('../test/utils');
 
 async function main() {
@@ -57,42 +56,24 @@ async function main() {
 
   // deploy CKBChainV2
   const canonicalGcThreshold = 40000;
-  let CKBChainV2 = await  deployContractByWallet(
-      wallet,
-      'contracts/CKBChainV2.sol:CKBChainV2',
-      canonicalGcThreshold,
-      validators,
-      multisigThreshold
+  let CKBChainV2 = await deployUpgradableContractFirstTimeByWallet(
+    wallet,
+    'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
+    'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
+    adminAddress,
+    canonicalGcThreshold,
+    validators,
+    multisigThreshold
   );
-  // let CKBChainV2 = await deployUpgradableContractFirstTimeByWallet(
-  //   wallet,
-  //   'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
-  //   'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
-  //   adminAddress,
-  //   canonicalGcThreshold,
-  //   validators,
-  //   multisigThreshold
-  // );
   const ckbChainV2Addr = CKBChainV2.address;
-  console.error('ckbChainV2Addr address: ', ckbChainV2Addr);
 
   // deploy TokenLocker
   const numConfirmations = 10;
-  // const locker = await deployUpgradableContractFirstTimeByWallet(
-  //     wallet,
-  //     'contracts/TokenLockerStorage.sol:TokenLockerStorage',
-  //     'contracts/TokenLockerLogic.sol:TokenLockerLogic',
-  //     adminAddress,
-  //     ckbChainV2Addr,
-  //     numConfirmations,
-  //     '0x' + recipient_typescript_code_hash,
-  //     recipientCellTypescriptHashType,
-  //     lightClientTypescriptHash,
-  //     '0x' + bridge_lockscript_code_hash
-  // );
-  const locker = await deployContractByWallet(
+  const locker = await deployUpgradableContractFirstTimeByWallet(
     wallet,
-    'contracts/TokenLocker.sol:TokenLocker',
+    'contracts/TokenLockerStorage.sol:TokenLockerStorage',
+    'contracts/TokenLockerLogic.sol:TokenLockerLogic',
+    adminAddress,
     ckbChainV2Addr,
     numConfirmations,
     '0x' + recipient_typescript_code_hash,
