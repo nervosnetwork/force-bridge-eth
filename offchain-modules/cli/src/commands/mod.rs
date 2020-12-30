@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Result};
-use force_eth_lib::relay::ckb_relay::CKBRelayer;
-use force_eth_lib::relay::eth_relay::{wait_header_sync_success, ETHRelayer};
-use force_eth_lib::relay::relay_monitor::relay_monitor;
+use force_eth_lib::header_relay::ckb_relay::CKBRelayer;
+use force_eth_lib::header_relay::eth_relay::{wait_header_sync_success, ETHRelayer};
+use force_eth_lib::header_relay::relay_monitor::relay_monitor;
 use force_eth_lib::transfer::to_ckb::{
     self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
     lock_eth, lock_token, send_eth_spv_proof_tx,

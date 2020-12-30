@@ -1,6 +1,6 @@
 use super::types::ServerArgs;
 use anyhow::Result;
-use force_eth_lib::server::rpc::start;
+use force_eth_lib::dapp::server::rpc::start;
 
 pub async fn server_handler(args: ServerArgs) -> Result<()> {
     Ok(start(
