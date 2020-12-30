@@ -6,6 +6,8 @@ extern crate no_std_compat as std;
 
 pub mod actions;
 pub mod adapter;
+#[cfg(test)]
+mod test;
 
 pub use adapter::Adapter;
 
