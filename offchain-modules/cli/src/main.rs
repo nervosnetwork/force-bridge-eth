@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     dbg!(&opts);
     let mut runtime = Builder::new()
         .threaded_scheduler()
-        .core_threads(20)
+        .core_threads(100)
         .enable_all()
         .build()
         .unwrap();

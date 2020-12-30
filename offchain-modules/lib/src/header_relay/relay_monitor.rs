@@ -2,7 +2,7 @@ use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use anyhow::{anyhow, Result};
-use force_sdk::cell_collector::get_live_cell_by_lockscript;
+use force_sdk::cell_collector::get_live_cell_by_typescript;
 use std::ops::Sub;
 
 #[allow(clippy::too_many_arguments)]
@@ -34,7 +34,7 @@ pub async fn relay_monitor(
 
     let script = parse_cell(&cell).map_err(|e| anyhow!("get typescript fail {:?}", e))?;
 
-    let cell = get_live_cell_by_lockscript(&mut generator.indexer_client, script)
+    let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
         .map_err(|e| anyhow!("get live cell fail: {}", e))?
         .ok_or_else(|| anyhow!("eth header cell not exist"))?;
 
