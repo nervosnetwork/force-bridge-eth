@@ -21,7 +21,7 @@ use ckb_jsonrpc_types::{Script as ScriptJson, Uint128, Uint64};
 use ckb_sdk::{Address, HumanCapacity};
 use ckb_types::packed::{Script, ScriptReader};
 use ethabi::Token;
-use force_sdk::cell_collector::get_live_cell_by_lockscript;
+use force_sdk::cell_collector::get_live_cell_by_typescript;
 use molecule::prelude::{Entity, Reader, ToOwned};
 use serde_json::{json, Value};
 use std::str::FromStr;
@@ -494,7 +494,7 @@ pub async fn get_best_block_height(
         "eth" => {
             let mut generator = data.get_generator().await?;
 
-            let lockscript = parse_cell(
+            let script = parse_cell(
                 data.deployed_contracts
                     .light_client_cell_script
                     .cell_script
@@ -502,7 +502,7 @@ pub async fn get_best_block_height(
             )
             .map_err(|e| format!("get typescript fail {:?}", e))?;
 
-            let cell = get_live_cell_by_lockscript(&mut generator.indexer_client, lockscript)
+            let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
                 .map_err(|e| format!("get live cell fail: {}", e))?
                 .ok_or("eth header cell not exist")?;
 
