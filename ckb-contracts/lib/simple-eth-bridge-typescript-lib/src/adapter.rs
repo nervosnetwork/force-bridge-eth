@@ -4,19 +4,10 @@ use mockall::predicate::*;
 use mockall::*;
 
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::{
-    bytes::Bytes,
-    packed::{Byte32, Script},
-    prelude::Pack,
-};
-use ckb_std::error::SysError;
 use ckb_std::high_level::QueryIter;
 use contracts_helper::data_loader::DataLoader;
-use force_eth_types::config::{SUDT_CODE_HASH, SUDT_HASH_TYPE};
-use force_eth_types::generated::eth_bridge_type_cell::{
-    ETHBridgeTypeArgs, ETHBridgeTypeArgsReader, ETHBridgeTypeData,
-};
-use molecule::prelude::{Builder, Entity, Reader};
+use molecule::bytes::Bytes;
+use molecule::prelude::Entity;
 use std::prelude::v1::*;
 
 #[cfg_attr(feature = "std", automock)]
@@ -36,7 +27,7 @@ where
     T: DataLoader,
 {
     fn load_script_args(&self) -> Bytes {
-        let args = self.chain.load_script().unwrap().args().raw_data();
+        self.chain.load_script().unwrap().args().raw_data()
     }
 
     fn lock_script_exists_in_inputs(&self, data: &[u8]) -> bool {

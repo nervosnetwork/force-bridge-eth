@@ -5,7 +5,7 @@
 #![feature(panic_info_message)]
 
 use ckb_std::default_alloc;
-use eth_bridge_typescript_lib::verify;
+use simple_eth_bridge_typescript_lib::verify;
 
 default_alloc!();
 contracts_helper::entry!(verify);

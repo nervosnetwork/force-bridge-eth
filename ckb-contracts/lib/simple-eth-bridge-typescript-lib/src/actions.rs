@@ -1,8 +1,4 @@
 use crate::adapter::Adapter;
-use ckb_std::ckb_constants::Source;
-use ckb_std::error::SysError;
-use force_eth_types::generated::eth_bridge_type_cell::{ETHBridgeTypeArgs, ETHBridgeTypeData};
-use molecule::prelude::*;
 
 pub fn verify_manage_mode<T: Adapter>(data_loader: &T) {
     let owner = data_loader.load_script_args();
