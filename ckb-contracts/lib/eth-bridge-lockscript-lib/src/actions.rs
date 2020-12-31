@@ -241,7 +241,7 @@ fn verify_eth_receipt_info<T: Adapter>(
         debug!(
             "udt_script_slice {:?}, output {:?}",
             udt_script_slice,
-            output_type.clone().unwrap_or(Default::default()).as_slice()
+            output_type.clone().unwrap_or_default().as_slice()
         );
         if output_type.is_some() && udt_script_slice == output_type.unwrap().as_slice() {
             let mut amount = [0u8; 16];

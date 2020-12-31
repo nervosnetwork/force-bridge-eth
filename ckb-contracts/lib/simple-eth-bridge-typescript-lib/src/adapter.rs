@@ -34,6 +34,6 @@ where
             |index, source| self.chain.load_cell_lock_hash(index, source),
             Source::Input,
         )
-        .any(|script| &script == data)
+        .any(|script| script.as_ref() == data)
     }
 }

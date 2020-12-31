@@ -559,34 +559,37 @@ pub async fn get_or_create_bridge_cell(
         &eth_contract_address,
     )?;
 
-    let mut bridge_typescript = Default::default();
-    if simple_typescript {
-        let bridge_typescript_args = from_lockscript.calc_script_hash();
-        bridge_typescript = Script::new_builder()
-            .code_hash(Byte32::from_slice(
-                &hex::decode(&deployed_contracts.simple_bridge_typescript.code_hash).unwrap(),
-            )?)
-            .hash_type(deployed_contracts.simple_bridge_typescript.hash_type.into())
-            .args(bridge_typescript_args.as_bytes().pack())
-            .build();
-    } else {
-        let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
-            .bridge_lock_hash(
-                basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap(),
-            )
-            .recipient_lock_hash(
-                basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice())
-                    .unwrap(),
-            )
-            .build();
-        bridge_typescript = Script::new_builder()
-            .code_hash(Byte32::from_slice(
-                &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
-            )?)
-            .hash_type(deployed_contracts.bridge_typescript.hash_type.into())
-            .args(bridge_typescript_args.as_bytes().pack())
-            .build();
-    }
+    let bridge_typescript = match simple_typescript {
+        true => {
+            let bridge_typescript_args = from_lockscript.calc_script_hash();
+            Script::new_builder()
+                .code_hash(Byte32::from_slice(
+                    &hex::decode(&deployed_contracts.simple_bridge_typescript.code_hash).unwrap(),
+                )?)
+                .hash_type(deployed_contracts.simple_bridge_typescript.hash_type.into())
+                .args(bridge_typescript_args.as_bytes().pack())
+                .build()
+        }
+        false => {
+            let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
+                .bridge_lock_hash(
+                    basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice())
+                        .unwrap(),
+                )
+                .recipient_lock_hash(
+                    basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice())
+                        .unwrap(),
+                )
+                .build();
+            Script::new_builder()
+                .code_hash(Byte32::from_slice(
+                    &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
+                )?)
+                .hash_type(deployed_contracts.bridge_typescript.hash_type.into())
+                .args(bridge_typescript_args.as_bytes().pack())
+                .build()
+        }
+    };
 
     let cells = collect_bridge_cells(
         &mut generator.indexer_client,
