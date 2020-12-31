@@ -46,4 +46,9 @@ pub struct EthTxRelayerArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
+    #[clap(short = 'p', long)]
+    pub private_key_path: String,
+    // TODO re-define db_args
+    #[clap(short = 'd', long, default_value = "")]
+    pub db_args: String,
 }
