@@ -125,6 +125,7 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
+        args.simple_typescript,
         1,
     )
     .await?;

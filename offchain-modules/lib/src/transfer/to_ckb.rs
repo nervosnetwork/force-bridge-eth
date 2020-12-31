@@ -332,16 +332,20 @@ pub async fn deploy_ckb(
     let bridge_lockscript_path = force_config.get_bridge_lockscript_bin_path()?;
     let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
     let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
+    let simple_bridge_typescript_path = force_config.get_simple_bridge_typescript_bin_path()?;
+
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
     let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
+    let simple_bridge_typescript_bin = std::fs::read(simple_bridge_typescript_path)?;
 
     let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
         recipient_typescript_bin,
         light_client_typescript_bin,
+        simple_bridge_typescript_bin,
     ];
     if deploy_sudt {
         let sudt_path = force_config.get_sudt_typescript_bin_path()?;
@@ -369,11 +373,11 @@ pub async fn deploy_ckb(
     let pw_locks = original_config.pw_locks;
     let sudt_conf = if deploy_sudt {
         ScriptConf {
-            code_hash: type_code_hashes[4].clone(),
+            code_hash: type_code_hashes[5].clone(),
             hash_type,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
-                index: 4,
+                index: 5,
                 dep_type: 0,
             },
         }
@@ -412,8 +416,17 @@ pub async fn deploy_ckb(
             code_hash: type_code_hashes[3].clone(),
             hash_type,
             outpoint: OutpointConf {
-                tx_hash: tx_hash_hex,
+                tx_hash: tx_hash_hex.clone(),
                 index: 3,
+                dep_type: 0,
+            },
+        },
+        simple_bridge_typescript: ScriptConf {
+            code_hash: type_code_hashes[4].clone(),
+            hash_type,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex,
+                index: 4,
                 dep_type: 0,
             },
         },
@@ -508,6 +521,7 @@ pub async fn get_or_create_bridge_cell(
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
+    simple_typescript: bool,
     cell_num: usize,
 ) -> Result<Vec<String>> {
     let force_config = ForceConfig::new(config_path.as_str())?;
@@ -544,21 +558,36 @@ pub async fn get_or_create_bridge_cell(
         &eth_token_address,
         &eth_contract_address,
     )?;
-    let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
-        .bridge_lock_hash(
-            basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap(),
-        )
-        .recipient_lock_hash(
-            basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice()).unwrap(),
-        )
-        .build();
-    let bridge_typescript = Script::new_builder()
-        .code_hash(Byte32::from_slice(
-            &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
-        )?)
-        .hash_type(deployed_contracts.bridge_typescript.hash_type.into())
-        .args(bridge_typescript_args.as_bytes().pack())
-        .build();
+
+    let mut bridge_typescript = Default::default();
+    if simple_typescript {
+        let bridge_typescript_args = from_lockscript.calc_script_hash();
+        bridge_typescript = Script::new_builder()
+            .code_hash(Byte32::from_slice(
+                &hex::decode(&deployed_contracts.simple_bridge_typescript.code_hash).unwrap(),
+            )?)
+            .hash_type(deployed_contracts.simple_bridge_typescript.hash_type.into())
+            .args(bridge_typescript_args.as_bytes().pack())
+            .build();
+    } else {
+        let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
+            .bridge_lock_hash(
+                basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap(),
+            )
+            .recipient_lock_hash(
+                basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice())
+                    .unwrap(),
+            )
+            .build();
+        bridge_typescript = Script::new_builder()
+            .code_hash(Byte32::from_slice(
+                &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
+            )?)
+            .hash_type(deployed_contracts.bridge_typescript.hash_type.into())
+            .args(bridge_typescript_args.as_bytes().pack())
+            .build();
+    }
+
     let cells = collect_bridge_cells(
         &mut generator.indexer_client,
         bridge_lockscript.clone(),
@@ -580,6 +609,7 @@ pub async fn get_or_create_bridge_cell(
             bridge_typescript,
             bridge_lockscript,
             bridge_fee,
+            simple_typescript,
             cell_num,
         )
         .map_err(|e| anyhow!("failed to build create bridge cell tx : {}", e))?;

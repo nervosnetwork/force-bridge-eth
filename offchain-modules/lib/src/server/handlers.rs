@@ -52,6 +52,7 @@ pub async fn get_or_create_bridge_cell(
         args.eth_token_address.clone(),
         args.recipient_address.clone(),
         args.bridge_fee.into(),
+        false,
         args.cell_num.unwrap_or(5),
     )
     .await?;

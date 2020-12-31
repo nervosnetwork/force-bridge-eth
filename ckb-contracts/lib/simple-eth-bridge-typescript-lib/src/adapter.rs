@@ -7,7 +7,6 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::high_level::QueryIter;
 use contracts_helper::data_loader::DataLoader;
 use molecule::bytes::Bytes;
-use molecule::prelude::Entity;
 use std::prelude::v1::*;
 
 #[cfg_attr(feature = "std", automock)]
@@ -32,9 +31,9 @@ where
 
     fn lock_script_exists_in_inputs(&self, data: &[u8]) -> bool {
         QueryIter::new(
-            |index, source| self.chain.load_cell_lock(index, source),
+            |index, source| self.chain.load_cell_lock_hash(index, source),
             Source::Input,
         )
-        .any(|script| script.as_slice() == data)
+        .any(|script| &script == data)
     }
 }
