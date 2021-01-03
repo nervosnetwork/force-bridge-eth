@@ -5,12 +5,9 @@ use anyhow::{anyhow, Result};
 use crossbeam_channel::{bounded, Receiver, Sender};
 use force_sdk::util::ensure_indexer_sync;
 use shellexpand::tilde;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::SqlitePool;
+use sqlx::mysql::MySqlPool;
 use std::collections::hash_set::HashSet;
-use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::Mutex;
 
 #[derive(Clone)]
@@ -23,7 +20,7 @@ pub struct DappState {
     pub indexer_url: String,
     pub ckb_rpc_url: String,
     pub eth_rpc_url: String,
-    pub db: SqlitePool,
+    pub db: MySqlPool,
     pub relaying_txs: Arc<Mutex<HashSet<String>>>,
 }
 
@@ -70,9 +67,8 @@ impl DappState {
         // let from_privkey =
         //     parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
         let db_path = tilde(db_path.as_str()).into_owned();
-        let db_options =
-            SqliteConnectOptions::from_str(&db_path)?.busy_timeout(Duration::from_secs(300));
-        let db = SqlitePool::connect_with(db_options).await?;
+        // let db_options = MySqlConnectOptions::from_str(&db_path)?;
+        let db = MySqlPool::connect(&db_path).await?;
         Ok(Self {
             ckb_key_channel: (ckb_key_sender, ckb_key_receiver),
             eth_key_channel: (eth_key_sender, eth_key_receiver),
