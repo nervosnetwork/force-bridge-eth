@@ -1,6 +1,8 @@
 use anyhow::Result;
 use types::*;
 
+use force_eth_lib::dapp::relayer::ckb_relayer::CkbTxRelay;
+
 pub mod types;
 
 pub async fn dapp_handle(command: DappCommand) -> Result<()> {
@@ -22,8 +24,9 @@ async fn indexer(_args: IndexerArgs) -> Result<()> {
     Ok(())
 }
 
-async fn ckb_tx_relay(_args: CkbTxRelayerArgs) -> Result<()> {
-    // TODO
+async fn ckb_tx_relay(args: CkbTxRelayerArgs) -> Result<()> {
+    let mut ckb_tx_relay = CkbTxRelay::new(args.config_path, args.network)?;
+    ckb_tx_relay.start();
     Ok(())
 }
 
