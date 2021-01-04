@@ -38,6 +38,14 @@ pub struct CkbTxRelayerArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
+    #[clap(short = 'p', long)]
+    pub private_key_path: String,
+    #[clap(
+        short = 'd',
+        long,
+        default_value = "mysql://root:123@127.0.0.1:3306/forcedb"
+    )]
+    pub db_args: String,
 }
 
 #[derive(Clap, Clone, Debug)]

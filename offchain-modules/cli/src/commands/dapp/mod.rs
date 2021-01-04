@@ -25,8 +25,8 @@ async fn indexer(_args: IndexerArgs) -> Result<()> {
 }
 
 async fn ckb_tx_relay(args: CkbTxRelayerArgs) -> Result<()> {
-    let mut ckb_tx_relay = CkbTxRelay::new(args.config_path, args.network)?;
-    ckb_tx_relay.start();
+    let mut ckb_tx_relay = CkbTxRelay::new(args.config_path, args.network, args.db_args).await?;
+    ckb_tx_relay.start().await?;
     Ok(())
 }
 
