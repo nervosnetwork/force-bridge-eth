@@ -67,6 +67,8 @@ pub struct CreateBridgeCellArgs {
     pub capacity: String,
     #[clap(long, default_value = "0")]
     pub bridge_fee: u128,
+    #[clap(short = 's', long)]
+    pub simple_typescript: bool,
 }
 
 #[derive(Clap, Clone, Debug)]
