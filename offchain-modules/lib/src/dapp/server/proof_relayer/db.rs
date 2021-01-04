@@ -84,7 +84,7 @@ where eth_lock_tx_hash = ?
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CrosschainHistory {
-    pub id: i64,
+    pub id: u64,
     pub eth_tx_hash: Option<String>,
     pub ckb_tx_hash: Option<String>,
     pub status: String,

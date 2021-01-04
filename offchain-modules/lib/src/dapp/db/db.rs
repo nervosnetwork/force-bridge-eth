@@ -5,7 +5,7 @@ use sqlx::mysql::MySqlPool;
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct EthToCkbRecord {
-    pub id: i64,
+    pub id: u64,
     pub eth_lock_tx_hash: String,
     pub status: String,
     pub token_addr: Option<String>,
@@ -35,7 +35,7 @@ pub async fn is_eth_to_ckb_record_exist(pool: &MySqlPool, eth_tx_hash: &str) -> 
     let sql = r#"
 SELECT id, eth_lock_tx_hash as eth_tx_hash, ckb_tx_hash, status, 'eth_to_ckb' as sort, locked_amount as amount, token_addr
 FROM eth_to_ckb
-where eth_lock_tx_hash = ?1
+where eth_lock_tx_hash = ?
         "#;
     let ret = sqlx::query_as::<_, CrosschainHistory>(sql)
         .bind(eth_tx_hash)
@@ -50,8 +50,8 @@ where eth_lock_tx_hash = ?1
 pub async fn create_eth_to_ckb_record(pool: &MySqlPool, record: &EthToCkbRecord) -> Result<u64> {
     let sql = r#"
 INSERT INTO eth_to_ckb ( eth_lock_tx_hash, status, token_addr, sender_addr, locked_amount, bridge_fee, 
-ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, err_msg)
-VALUES ( ?,?,?,?,?,?,?,?,?,?)"#;
+ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, err_msg, eth_spv_proof)
+VALUES ( ?,?,?,?,?,?,?,?,?,?,?)"#;
     let id = sqlx::query(sql)
         .bind(record.eth_lock_tx_hash.clone())
         .bind(record.status.clone())
@@ -63,6 +63,7 @@ VALUES ( ?,?,?,?,?,?,?,?,?,?)"#;
         .bind(record.sudt_extra_data.as_ref())
         .bind(record.ckb_tx_hash.as_ref())
         .bind(record.err_msg.as_ref())
+        .bind(record.eth_spv_proof.as_ref())
         .execute(pool)
         .await?
         .last_insert_id();
