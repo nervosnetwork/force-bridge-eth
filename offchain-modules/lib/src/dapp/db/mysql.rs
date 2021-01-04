@@ -1,4 +1,3 @@
-use crate::dapp::server::proof_relayer::db::CrosschainHistory;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::mysql::MySqlPool;
@@ -82,4 +81,15 @@ pub struct CkbToEthRecord {
     pub eth_tx_hash: Option<String>,
     pub err_msg: Option<String>,
     pub ckb_spv_proof: Option<Vec<u8>>,
+}
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CrosschainHistory {
+    pub id: u64,
+    pub eth_tx_hash: Option<String>,
+    pub ckb_tx_hash: Option<String>,
+    pub status: String,
+    pub sort: String,
+    pub amount: String,
+    pub token_addr: String,
 }
