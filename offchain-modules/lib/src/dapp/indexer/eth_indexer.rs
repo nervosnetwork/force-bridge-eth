@@ -1,4 +1,4 @@
-use crate::dapp::db::db::{
+use crate::dapp::db::mysql::{
     create_eth_to_ckb_record, get_latest_eth_to_ckb_record, is_eth_to_ckb_record_exist,
     EthToCkbRecord,
 };
@@ -49,8 +49,7 @@ impl EthIndexer {
             let receipt = self.eth_client.get_receipt(tx_hash).await?.unwrap();
             start_block_number = receipt.block_number.unwrap();
         } else {
-            // start_block_number = self.eth_client.client().eth().block_number().await?;
-            start_block_number = U64::from(332);
+            start_block_number = self.eth_client.client().eth().block_number().await?;
         }
 
         loop {
@@ -81,8 +80,6 @@ impl EthIndexer {
                     continue;
                 }
 
-                // let get_eth_spv_proof_with_retry = |max_retry_times| {};
-
                 let (eth_spv_proof, success) =
                     self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
                 if success {
@@ -100,22 +97,22 @@ impl EthIndexer {
                         String::from(self.eth_client.url()),
                     )
                     .await?;
-                    let mut record = EthToCkbRecord {
+                    let witness = EthWitness {
+                        cell_dep_index_list: vec![0],
+                        spv_proof: eth_proof_json.clone(),
+                    }
+                    .as_bytes();
+                    let record = EthToCkbRecord {
                         eth_lock_tx_hash: hash.clone(),
                         status: "pending".to_string(),
                         token_addr: Some(hex::encode(eth_spv_proof.token.as_bytes())),
                         ckb_recipient_lockscript: Some(hex::encode(
-                            eth_proof_json.recipient_lockscript.clone(),
+                            eth_proof_json.recipient_lockscript,
                         )),
                         locked_amount: Some(Uint128::from(eth_spv_proof.lock_amount).to_string()),
+                        eth_spv_proof: Some(witness.to_vec()),
                         ..Default::default()
                     };
-                    let witness = EthWitness {
-                        cell_dep_index_list: vec![0],
-                        spv_proof: eth_proof_json,
-                    }
-                    .as_bytes();
-                    record.eth_spv_proof = Some(witness.to_vec());
                     create_eth_to_ckb_record(&self.db, &record).await?;
                     info!("create eth_to_ckb record success. tx_hash: {}", hash,);
                 }
