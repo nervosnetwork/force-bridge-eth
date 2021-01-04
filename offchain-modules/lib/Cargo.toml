@@ -28,7 +28,7 @@ toml = "0.5"
 ethereum-tx-sign = "3.0.3"
 ethabi = "12.0.0"
 tokio = { version = "0.2.9", features = ["full"]}
-rusty-receipt-proof-maker = { git = "https://github.com/LeonLi000/ethereum-receipt-proof-maker.git", rev = "7024152" }
+rusty-receipt-proof-maker = { git = "https://github.com/LeonLi000/ethereum-receipt-proof-maker.git", rev = "20d0af3" }
 faster-hex = "0.4"
 eth-spv-lib = { path = "../../ckb-contracts/eth-spv-lib", default-features = false }
 cmd_lib = "0.8.5"

@@ -1,15 +1,15 @@
-use crate::dapp::db::mysql::{
+use crate::dapp::indexer::db::{
     create_eth_to_ckb_record, get_latest_eth_to_ckb_record, is_eth_to_ckb_record_exist,
     EthToCkbRecord,
 };
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
-use crate::util::ckb_util::EthWitness;
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::Uint128;
 use log::{debug, info};
-use rusty_receipt_proof_maker::{generate_eth_proof, types::EthSpvProof};
+use rusty_receipt_proof_maker::types::UnlockEvent;
+use rusty_receipt_proof_maker::{generate_eth_proof, parse_unlock_event, types::EthSpvProof};
 use shellexpand::tilde;
 use sqlx::MySqlPool;
 use std::ops::Add;
@@ -49,7 +49,8 @@ impl EthIndexer {
             let receipt = self.eth_client.get_receipt(tx_hash).await?.unwrap();
             start_block_number = receipt.block_number.unwrap();
         } else {
-            start_block_number = self.eth_client.client().eth().block_number().await?;
+            // start_block_number = self.eth_client.client().eth().block_number().await?;
+            start_block_number = U64::from(232);
         }
 
         loop {
@@ -62,63 +63,49 @@ impl EthIndexer {
             let txs = block.unwrap().transactions;
             for tx_hash in txs {
                 let hash = hex::encode(tx_hash);
-                let hash_with_0x = format!("{}{}", "0x", hash.clone());
-                if is_eth_to_ckb_record_exist(&self.db, &hash).await? {
-                    // the record is exist, check unlock event.
-                    // let ret: Result<bool, AppError> =
-                    //     parse_unlock_tx(hash, String::from(self.eth_client.url()));
-                    // match ret {
-                    //     Ok(ret) => {
-                    //         if ret {
-                    //             // update ckb to eth record status.
-                    //             // unlock event add ckb_tx hash.
-                    //         }
-                    //     }
-                    //     Err(_) => { // retry
-                    //     }
-                    // }
-                    continue;
-                }
-
-                let (eth_spv_proof, success) =
-                    self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
-                if success {
-                    let lock_contract_address = self
-                        .force_config
-                        .deployed_contracts
-                        .as_ref()
-                        .unwrap()
-                        .eth_token_locker_addr
-                        .clone();
-                    let eth_proof_json = to_eth_spv_proof_json(
-                        hash_with_0x,
-                        eth_spv_proof.clone(),
-                        lock_contract_address,
-                        String::from(self.eth_client.url()),
-                    )
-                    .await?;
-                    let witness = EthWitness {
-                        cell_dep_index_list: vec![0],
-                        spv_proof: eth_proof_json.clone(),
-                    }
-                    .as_bytes();
-                    let record = EthToCkbRecord {
-                        eth_lock_tx_hash: hash.clone(),
-                        status: "pending".to_string(),
-                        token_addr: Some(hex::encode(eth_spv_proof.token.as_bytes())),
-                        ckb_recipient_lockscript: Some(hex::encode(
-                            eth_proof_json.recipient_lockscript,
-                        )),
-                        locked_amount: Some(Uint128::from(eth_spv_proof.lock_amount).to_string()),
-                        eth_spv_proof: Some(witness.to_vec()),
-                        ..Default::default()
-                    };
-                    create_eth_to_ckb_record(&self.db, &record).await?;
-                    info!("create eth_to_ckb record success. tx_hash: {}", hash,);
+                if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
+                    self.handle_lock_event(hash.clone()).await?;
                 }
             }
             start_block_number = start_block_number.add(U64::from(1));
         }
+    }
+
+    pub async fn handle_lock_event(&mut self, hash: String) -> Result<()> {
+        let hash_with_0x = format!("{}{}", "0x", hash.clone());
+        let (eth_spv_proof, exist) = self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
+        if exist {
+            let lock_contract_address = self
+                .force_config
+                .deployed_contracts
+                .as_ref()
+                .unwrap()
+                .eth_token_locker_addr
+                .clone();
+            let eth_proof_json = to_eth_spv_proof_json(
+                hash_with_0x,
+                eth_spv_proof.clone(),
+                lock_contract_address,
+                String::from(self.eth_client.url()),
+            )
+            .await?;
+            let proof_json = serde_json::to_string(&eth_proof_json)?;
+            let record = EthToCkbRecord {
+                eth_lock_tx_hash: hash.clone(),
+                status: "pending".to_string(),
+                token_addr: Some(hex::encode(eth_spv_proof.token.as_bytes())),
+                ckb_recipient_lockscript: Some(hex::encode(eth_proof_json.recipient_lockscript)),
+                locked_amount: Some(Uint128::from(eth_spv_proof.lock_amount).to_string()),
+                eth_spv_proof: Some(proof_json),
+                ..Default::default()
+            };
+            create_eth_to_ckb_record(&self.db, &record).await?;
+            info!("create eth_to_ckb record success. tx_hash: {}", hash,);
+        } else {
+            // if the tx is not lock tx, check if unlock tx.
+            self.handle_unlock_event(hash.clone()).await?;
+        }
+        Ok(())
     }
 
     pub fn get_eth_spv_proof_with_retry(
@@ -144,6 +131,43 @@ impl EthIndexer {
         }
         Err(anyhow!(
             "Failed to generate eth proof for lock tx:{}, after retry {} times",
+            hash.as_str(),
+            max_retry_times
+        ))
+    }
+
+    pub async fn handle_unlock_event(&mut self, hash: String) -> Result<()> {
+        let hash_with_0x = format!("{}{}", "0x", hash.clone());
+        let (_event, exist) = self.parse_unlock_event_with_retry(hash_with_0x.clone(), 3)?;
+        if exist {
+            // TODO: waiting for solidity to add ckb_tx_hash in unlock event.
+        }
+        Ok(())
+    }
+
+    pub fn parse_unlock_event_with_retry(
+        &mut self,
+        hash: String,
+        max_retry_times: i32,
+    ) -> Result<(UnlockEvent, bool)> {
+        for retry in 0..max_retry_times {
+            let ret = parse_unlock_event(hash.clone(), String::from(self.eth_client.url()).clone());
+            match ret {
+                Ok(event) => return Ok((event, true)),
+                Err(e) => {
+                    info!(
+                        "get eth receipt proof failed, retried {} times, err: {}",
+                        retry, e
+                    );
+                    if e.to_string().contains("the unlocked tx is not exist") {
+                        info!("the locked tx is not exist");
+                        return Ok((Default::default(), false));
+                    }
+                }
+            }
+        }
+        Err(anyhow!(
+            "Failed to parse unlock event for tx:{}, after retry {} times",
             hash.as_str(),
             max_retry_times
         ))

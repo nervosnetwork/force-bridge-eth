@@ -15,7 +15,7 @@ pub struct EthToCkbRecord {
     pub sudt_extra_data: Option<String>,
     pub ckb_tx_hash: Option<String>,
     pub err_msg: Option<String>,
-    pub eth_spv_proof: Option<Vec<u8>>,
+    pub eth_spv_proof: Option<String>,
 }
 
 pub async fn get_latest_eth_to_ckb_record(pool: &MySqlPool) -> Result<Option<EthToCkbRecord>> {
