@@ -264,7 +264,19 @@ pub async fn send_eth_spv_proof_tx_single(
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
             .map_err(|err| anyhow!(err))?
     );
-    send_tx_sync_with_response(&mut generator.rpc_client, &tx, 600).await
+    send_tx_sync_with_response(&mut generator.rpc_client, &tx, 600)
+        .await
+        .map_err(|e| {
+            let error = e.to_string();
+            if error.contains("CKBInternalError")
+                || error.contains("TransactionFailedToResolve")
+                || error.contains("TransactionFailedToVerify")
+            {
+                anyhow!("irreparable error: {:?}", error)
+            } else {
+                e
+            }
+        })
 }
 
 pub async fn send_eth_spv_proof_tx(
@@ -298,7 +310,7 @@ pub async fn send_eth_spv_proof_tx(
                     retry_times, e
                 );
                 log::info!("{}", error_msg);
-                if error_msg.contains("ValidationFailure(-1)") {
+                if error_msg.contains("irreparable error") {
                     anyhow::bail!(error_msg);
                 }
             }

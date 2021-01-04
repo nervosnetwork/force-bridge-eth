@@ -1,4 +1,5 @@
 use anyhow::Result;
+use force_eth_lib::dapp::EthTxRelayer;
 use types::*;
 
 pub mod types;
@@ -27,7 +28,12 @@ async fn ckb_tx_relay(_args: CkbTxRelayerArgs) -> Result<()> {
     Ok(())
 }
 
-async fn eth_tx_relay(_args: EthTxRelayerArgs) -> Result<()> {
-    // TODO
-    Ok(())
+async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
+    let eth_tx_relayer = EthTxRelayer::new(
+        args.config_path,
+        args.network,
+        args.private_key_path,
+        args.db_args,
+    )?;
+    eth_tx_relayer.start().await
 }

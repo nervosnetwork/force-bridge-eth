@@ -461,8 +461,12 @@ impl Generator {
             get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
-        let outpoint = OutPoint::from_slice(&eth_proof.replay_resist_outpoint)
-            .expect("replay resist outpoint in lock event is invalid");
+        let outpoint = OutPoint::from_slice(&eth_proof.replay_resist_outpoint).map_err(|e| {
+            anyhow!(
+                "irreparable error: wrong replay resist cell outpoint format in lock event: {:?}",
+                e
+            )
+        })?;
         helper
             .add_input(
                 outpoint.clone(),
@@ -471,11 +475,23 @@ impl Generator {
                 &self.genesis_info,
                 true,
             )
-            .map_err(|err| anyhow!(err))?;
+            .map_err(|err| {
+                if err.contains("Invalid cell status") {
+                    anyhow!("irreparable error: {:?}", err)
+                } else {
+                    anyhow!(err)
+                }
+            })?;
 
         let (bridge_cell, bridge_cell_data) =
             get_live_cell_with_cache(&mut live_cell_cache, &mut self.rpc_client, outpoint, true)
-                .expect("outpoint not exists");
+                .map_err(|e| {
+                    anyhow!(
+                        "irreparable error: replay resist cell outpoint status is dead: {:?}",
+                        e
+                    )
+                })?;
+
         // FIXME add owner lockscript verify
         // let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
         //     .expect("invalid bridge data")
