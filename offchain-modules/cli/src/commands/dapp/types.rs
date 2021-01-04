@@ -38,7 +38,7 @@ pub struct CkbTxRelayerArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
-    #[clap(short = 'p', long)]
+    #[clap(short = 'k', long)]
     pub private_key_path: String,
     #[clap(
         short = 'd',

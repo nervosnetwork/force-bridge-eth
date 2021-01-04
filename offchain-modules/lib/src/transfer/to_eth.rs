@@ -87,6 +87,7 @@ pub async fn init_light_client(
             init_header_abi,
             U256::from(gas_price),
             U256::zero(),
+            U256::zero(),
             wait,
         )
         .await?;
@@ -207,19 +208,16 @@ pub async fn wait_block_submit(
 
 #[allow(clippy::too_many_arguments)]
 pub async fn unlock(
-    config_path: String,
-    network: Option<String>,
-    key_path: String,
+    eth_private_key: ethereum_types::H256,
+    eth_url: String,
     to: String,
     tx_proof: String,
     raw_tx: String,
     gas_price: u64,
+    asec_nonce: U256,
     wait: bool,
 ) -> Result<String> {
-    let force_config = ForceConfig::new(config_path.as_str())?;
-    let eth_url = force_config.get_ethereum_rpc_url(&network)?;
     let to = convert_eth_address(&to)?;
-    let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
     let mut rpc_client = Web3Client::new(eth_url);
     let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
     let tx_info = hex::decode(raw_tx).map_err(|err| anyhow!(err))?;
@@ -247,7 +245,8 @@ pub async fn unlock(
             eth_private_key,
             input_data,
             U256::from(gas_price),
-            U256::from(0),
+            U256::zero(),
+            asec_nonce,
             wait,
         )
         .await?;

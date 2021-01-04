@@ -6,10 +6,13 @@ use crate::transfer::to_ckb::{generate_eth_spv_proof_json, send_eth_spv_proof_tx
 use crate::transfer::to_eth::{get_ckb_proof_info, unlock, wait_block_submit};
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::config::ForceConfig;
-use crate::util::eth_util::{convert_eth_address, convert_hex_to_h256, Web3Client};
+use crate::util::eth_util::{
+    convert_eth_address, convert_hex_to_h256, parse_private_key, Web3Client,
+};
 use anyhow::{anyhow, bail, Result};
 use ckb_jsonrpc_types::Uint128;
 use ckb_types::core::TransactionView;
+use ethereum_types::U256;
 use molecule::prelude::Entity;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
@@ -26,6 +29,7 @@ pub async fn relay_ckb_to_eth_proof(
     let force_config = ForceConfig::new(config_path.as_str())?;
     let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let eth_private_key = parse_private_key(&eth_privkey_path, &force_config, &network)?;
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
@@ -63,13 +67,13 @@ pub async fn relay_ckb_to_eth_proof(
     }
 
     let result = unlock(
-        config_path,
-        network,
-        eth_privkey_path,
+        eth_private_key,
+        ethereum_rpc_url.clone(),
         deployed_contracts.eth_token_locker_addr.clone(),
         tx_proof,
         tx_info,
         0,
+        U256::zero(),
         true,
     )
     .await?;
