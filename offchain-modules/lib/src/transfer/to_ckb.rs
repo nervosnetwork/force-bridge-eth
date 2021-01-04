@@ -30,6 +30,7 @@ use force_sdk::tx_helper::{sign, MultisigConfig, TxHelper};
 use force_sdk::util::{ensure_indexer_sync, send_tx_sync, send_tx_sync_with_response};
 use log::info;
 use rusty_receipt_proof_maker::generate_eth_proof;
+use rusty_receipt_proof_maker::types::EthSpvProof;
 use secp256k1::SecretKey;
 use serde_json::Value;
 use shellexpand::tilde;
@@ -214,6 +215,21 @@ pub async fn generate_eth_spv_proof_json(
         ))
     };
     let eth_spv_proof = eth_spv_proof_retry(3)?;
+    to_eth_spv_proof_json(
+        hash.clone(),
+        eth_spv_proof,
+        eth_token_locker_addr,
+        ethereum_rpc_url,
+    )
+    .await
+}
+
+pub async fn to_eth_spv_proof_json(
+    hash: String,
+    eth_spv_proof: EthSpvProof,
+    eth_token_locker_addr: String,
+    ethereum_rpc_url: String,
+) -> Result<ETHSPVProofJson> {
     let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
     info!("tx: {:?}, eth_spv_proof: {:?}", hash, eth_spv_proof);
     let hash_str = hash.clone();
