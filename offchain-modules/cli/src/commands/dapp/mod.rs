@@ -26,7 +26,7 @@ async fn eth_indexer(args: IndexerArgs) -> Result<()> {
         if let Err(err) = res {
             log::error!("An error occurred during the eth_indexer. Err: {:?}", err)
         }
-        tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
     }
 }
 
