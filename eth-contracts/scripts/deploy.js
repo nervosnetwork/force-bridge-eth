@@ -41,6 +41,7 @@ async function main() {
     provider
   );
   const adminAddress = wallet.address;
+  console.log(`wallet.getBalance() : `, await wallet.getBalance())
 
   // deploy ckbChainV2
   const validators = network_config.ethereum_private_keys
