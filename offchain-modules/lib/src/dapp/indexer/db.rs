@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::mysql::MySqlPool;
+use sqlx::Done;
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct EthToCkbRecord {
@@ -80,7 +81,44 @@ pub struct CkbToEthRecord {
     pub fee: Option<String>,
     pub eth_tx_hash: Option<String>,
     pub err_msg: Option<String>,
-    pub ckb_spv_proof: Option<Vec<u8>>,
+    pub ckb_spv_proof: Option<String>,
+}
+
+pub async fn get_ckb_to_eth_record_by_eth_hash(
+    pool: &MySqlPool,
+    hash: String,
+) -> Result<Option<CkbToEthRecord>> {
+    let sql = r#"
+SELECT *
+FROM ckb_to_eth where eth_tx_hash = ?
+        "#;
+
+    Ok(sqlx::query_as::<_, CkbToEthRecord>(sql)
+        .bind(hash)
+        .fetch_optional(pool)
+        .await?)
+}
+
+pub async fn update_ckb_to_eth_record_status(
+    pool: &MySqlPool,
+    ckb_tx_hash: String,
+    eth_tx_hash: String,
+    status: &str,
+) -> Result<bool> {
+    let sql = r#"
+UPDATE ckb_to_eth SET
+    status = ?,
+    eth_tx_hash = ?
+WHERE  ckb_burn_tx_hash = ?
+        "#;
+    let rows_affected = sqlx::query(sql)
+        .bind(status)
+        .bind(ckb_tx_hash)
+        .bind(eth_tx_hash)
+        .execute(pool)
+        .await?
+        .rows_affected();
+    Ok(rows_affected > 0)
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
