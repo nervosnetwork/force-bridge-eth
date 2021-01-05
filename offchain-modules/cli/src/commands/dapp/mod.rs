@@ -32,7 +32,7 @@ async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
 }
 
 async fn ckb_indexer(args: CkbIndexerArgs) -> Result<()> {
-    let ckb_indexer = CkbIndexer::new(
+    let mut ckb_indexer = CkbIndexer::new(
         args.config_path,
         args.db_path,
         args.ckb_rpc_url,

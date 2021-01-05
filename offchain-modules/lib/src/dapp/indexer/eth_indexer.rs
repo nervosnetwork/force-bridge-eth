@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types::Uint128;
 use ethabi::{Function, Param, ParamType};
-use log::{debug, info};
+use log::info;
 use rusty_receipt_proof_maker::types::UnlockEvent;
 use rusty_receipt_proof_maker::{generate_eth_proof, parse_unlock_event, types::EthSpvProof};
 use shellexpand::tilde;
@@ -45,20 +45,17 @@ impl EthIndexer {
         let record_option = get_latest_eth_to_ckb_record(&self.db).await?;
         let mut start_block_number;
         if record_option.is_some() {
-            start_block_number = U64::from(
-                record_option
-                    .unwrap()
-                    .block_number
-                    .ok_or_else(|| anyhow!("the block_number is null"))?,
-            );
+            start_block_number = U64::from(record_option.unwrap().block_number);
         } else {
             start_block_number = self.eth_client.client().eth().block_number().await?;
+            // start_block_number = U64::from(593);
         }
 
         loop {
+            dbg!(start_block_number.as_u64());
             let block = self.eth_client.get_block(start_block_number.into()).await;
             if block.is_err() {
-                debug!("waiting for new block.");
+                info!("waiting for new block.");
                 tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
                 continue;
             }
@@ -93,6 +90,7 @@ impl EthIndexer {
             )
             .await?;
             let proof_json = serde_json::to_string(&eth_proof_json)?;
+            dbg!(proof_json.clone());
             let record = EthToCkbRecord {
                 eth_lock_tx_hash: hash.clone(),
                 status: "pending".to_string(),
@@ -100,7 +98,10 @@ impl EthIndexer {
                 ckb_recipient_lockscript: Some(hex::encode(eth_proof_json.recipient_lockscript)),
                 locked_amount: Some(Uint128::from(eth_spv_proof.lock_amount).to_string()),
                 eth_spv_proof: Some(proof_json),
-                block_number: Some(block_number),
+                replay_resist_outpoint: Some(hex::encode(
+                    eth_spv_proof.replay_resist_outpoint.as_slice(),
+                )),
+                block_number,
                 ..Default::default()
             };
             create_eth_to_ckb_record(&self.db, &record).await?;
