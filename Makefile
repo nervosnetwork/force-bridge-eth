@@ -43,7 +43,7 @@ deploy-ckb-sudt:
 
 deploy-eth:
 	cd eth-contracts \
-	&& npx hardhat run ./scripts/deploy.js
+	&& npx hardhat run ./scripts/deploy.js --network geth
 
 deploy-erc20:
 	cd eth-contracts \
