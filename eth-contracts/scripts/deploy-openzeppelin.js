@@ -1,7 +1,6 @@
 const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
-const { upgrades } = require('hardhat');
 const {
   deployUpgradableContractFirstTimeByWallet,
   ckbBlake2b,
@@ -57,42 +56,30 @@ async function main() {
 
   // deploy CKBChainV2
   const canonicalGcThreshold = 40000;
-  let factory = await ethers.getContractFactory(
-    'contracts/CKBChainV2-openzeppelin.sol:CKBChainV2',
-    wallet
-  );
-  let CKBChainV2 = await upgrades.deployProxy(
-    factory,
-    [canonicalGcThreshold, validators, multisigThreshold],
-    {
-      initializer: 'initialize',
-      unsafeAllowCustomTypes: true,
-      unsafeAllowLinkedLibraries: true,
-    }
+  let CKBChainV2 = await deployUpgradableContractFirstTimeByWallet(
+    wallet,
+    'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
+    'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
+    adminAddress,
+    canonicalGcThreshold,
+    validators,
+    multisigThreshold
   );
   const ckbChainV2Addr = CKBChainV2.address;
 
   // deploy TokenLocker
   const numConfirmations = 10;
-  factory = await ethers.getContractFactory(
-    'contracts/TokenLocker-openzeppelin.sol:TokenLocker',
-    wallet
-  );
-  const locker = await upgrades.deployProxy(
-    factory,
-    [
-      ckbChainV2Addr,
-      numConfirmations,
-      '0x' + recipient_typescript_code_hash,
-      recipientCellTypescriptHashType,
-      lightClientTypescriptHash,
-      '0x' + bridge_lockscript_code_hash,
-    ],
-    {
-      initializer: 'initialize',
-      unsafeAllowCustomTypes: true,
-      unsafeAllowLinkedLibraries: true,
-    }
+  const locker = await deployUpgradableContractFirstTimeByWallet(
+    wallet,
+    'contracts/TokenLockerStorage.sol:TokenLockerStorage',
+    'contracts/TokenLockerLogic.sol:TokenLockerLogic',
+    adminAddress,
+    ckbChainV2Addr,
+    numConfirmations,
+    '0x' + recipient_typescript_code_hash,
+    recipientCellTypescriptHashType,
+    lightClientTypescriptHash,
+    '0x' + bridge_lockscript_code_hash
   );
 
   const lockerAddr = locker.address;
