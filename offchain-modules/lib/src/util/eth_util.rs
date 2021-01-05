@@ -43,6 +43,7 @@ impl Web3Client {
         &mut self.client
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn send_transaction(
         &mut self,
         to: H160,

@@ -81,9 +81,9 @@ impl CkbTxRelay {
         let nonce = Web3Client::new(self.ethereum_rpc_url.clone())
             .get_eth_nonce(&self.eth_private_key)
             .await?;
-        for i in 0..unlock_tasks.len() {
-            let tx_proof = hex::encode(unlock_tasks[i].ckb_spv_proof.clone());
-            let raw_tx = hex::encode(unlock_tasks[i].ckb_raw_tx.clone());
+        for (i, tx_record) in unlock_tasks.iter().enumerate() {
+            let tx_proof = hex::encode(tx_record.ckb_spv_proof.clone());
+            let raw_tx = hex::encode(tx_record.ckb_raw_tx.clone());
             info!(
                 "tx proof : {:?} \n tx info {:?}",
                 tx_proof.clone(),
@@ -91,7 +91,7 @@ impl CkbTxRelay {
             );
 
             unlock_futures.push(unlock(
-                self.eth_private_key.clone(),
+                self.eth_private_key,
                 self.ethereum_rpc_url.clone(),
                 self.eth_token_locker_addr.clone(),
                 tx_proof,
