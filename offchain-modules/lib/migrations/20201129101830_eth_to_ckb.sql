@@ -1,4 +1,3 @@
-
 DROP TABLE IF EXISTS `ckb_to_eth`;
 
 CREATE TABLE `ckb_to_eth` (
@@ -14,12 +13,11 @@ CREATE TABLE `ckb_to_eth` (
   `eth_tx_hash` varchar(64) DEFAULT NULL,
   `err_msg` varchar(256) DEFAULT NULL,
   `ckb_spv_proof` varbinary(2048) DEFAULT NULL,
+  `block_number` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ckb_burn_tx_hash` (`ckb_burn_tx_hash`),
   KEY `eth_tx_hash` (`eth_tx_hash`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
 
 
 DROP TABLE IF EXISTS `eth_to_ckb`;
@@ -37,6 +35,7 @@ CREATE TABLE `eth_to_ckb` (
   `ckb_tx_hash` varchar(64) DEFAULT NULL,
   `err_msg` varchar(256) DEFAULT NULL,
   `eth_spv_proof` varchar(8192) DEFAULT NULL,
+  `block_number` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `eth_lock_tx_hash` (`eth_lock_tx_hash`),
   KEY `ckb_tx_hash` (`ckb_tx_hash`)

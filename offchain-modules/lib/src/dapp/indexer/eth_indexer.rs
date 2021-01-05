@@ -33,7 +33,6 @@ impl EthIndexer {
         let force_config = ForceConfig::new(config_path.as_str())?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let eth_client = Web3Client::new(eth_rpc_url);
-        let db_path = tilde(db_path.as_str()).into_owned();
         let db = MySqlPool::connect(&db_path).await?;
         Ok(EthIndexer {
             force_config,
@@ -46,13 +45,14 @@ impl EthIndexer {
         let record_option = get_latest_eth_to_ckb_record(&self.db).await?;
         let mut start_block_number;
         if record_option.is_some() {
-            let tx_hash_str = record_option.unwrap().eth_lock_tx_hash;
-            let tx_hash = convert_hex_to_h256(&tx_hash_str)?;
-            let receipt = self.eth_client.get_receipt(tx_hash).await?.unwrap();
-            start_block_number = receipt.block_number.unwrap();
+            start_block_number = U64::from(
+                record_option
+                    .unwrap()
+                    .block_number
+                    .ok_or_else(|| anyhow!("the block_number is null"))?,
+            );
         } else {
             start_block_number = self.eth_client.client().eth().block_number().await?;
-            // start_block_number = U64::from(114);
         }
 
         loop {
@@ -66,15 +66,15 @@ impl EthIndexer {
             for tx_hash in txs {
                 let hash = hex::encode(tx_hash);
                 if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
-                    self.handle_lock_event(hash.clone()).await?;
+                    self.handle_lock_event(hash.clone(), start_block_number.as_u64())
+                        .await?;
                 }
             }
             start_block_number = start_block_number.add(U64::from(1));
         }
-        Ok(())
     }
 
-    pub async fn handle_lock_event(&mut self, hash: String) -> Result<()> {
+    pub async fn handle_lock_event(&mut self, hash: String, block_number: u64) -> Result<()> {
         let hash_with_0x = format!("{}{}", "0x", hash.clone());
         let (eth_spv_proof, exist) = self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
         if exist {
@@ -100,6 +100,7 @@ impl EthIndexer {
                 ckb_recipient_lockscript: Some(hex::encode(eth_proof_json.recipient_lockscript)),
                 locked_amount: Some(Uint128::from(eth_spv_proof.lock_amount).to_string()),
                 eth_spv_proof: Some(proof_json),
+                block_number: Some(block_number),
                 ..Default::default()
             };
             create_eth_to_ckb_record(&self.db, &record).await?;

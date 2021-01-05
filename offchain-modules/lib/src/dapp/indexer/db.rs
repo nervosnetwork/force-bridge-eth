@@ -17,6 +17,7 @@ pub struct EthToCkbRecord {
     pub ckb_tx_hash: Option<String>,
     pub err_msg: Option<String>,
     pub eth_spv_proof: Option<String>,
+    pub block_number: Option<u64>,
 }
 
 pub async fn get_latest_eth_to_ckb_record(pool: &MySqlPool) -> Result<Option<EthToCkbRecord>> {
@@ -50,7 +51,7 @@ where eth_lock_tx_hash = ?
 pub async fn create_eth_to_ckb_record(pool: &MySqlPool, record: &EthToCkbRecord) -> Result<u64> {
     let sql = r#"
 INSERT INTO eth_to_ckb ( eth_lock_tx_hash, status, token_addr, sender_addr, locked_amount, bridge_fee, 
-ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, err_msg, eth_spv_proof)
+ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, err_msg, eth_spv_proof, block_number)
 VALUES ( ?,?,?,?,?,?,?,?,?,?,?)"#;
     let id = sqlx::query(sql)
         .bind(record.eth_lock_tx_hash.clone())
@@ -64,6 +65,7 @@ VALUES ( ?,?,?,?,?,?,?,?,?,?,?)"#;
         .bind(record.ckb_tx_hash.as_ref())
         .bind(record.err_msg.as_ref())
         .bind(record.eth_spv_proof.as_ref())
+        .bind(record.block_number.as_ref())
         .execute(pool)
         .await?
         .last_insert_id();
