@@ -1,10 +1,10 @@
 use crate::transfer::to_eth::unlock;
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{parse_private_key, Web3Client};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use ethereum_types::H256;
 use futures::future::join_all;
-use log::info;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use shellexpand::tilde;
 use sqlx::MySqlPool;
@@ -32,11 +32,6 @@ pub struct CkbTxRelay {
     ethereum_rpc_url: String,
     eth_private_key: H256,
     db: MySqlPool,
-}
-
-pub struct UnlockTask {
-    pub burn_tx_proof: String,
-    pub burn_raw_tx: String,
 }
 
 impl CkbTxRelay {
@@ -68,13 +63,10 @@ impl CkbTxRelay {
         // let mut unlock_tasks: Vec<UnlockTask> = vec![];
         loop {
             self.relay().await?;
-            tokio::time::delay_for(Duration::from_secs(10)).await
+            tokio::time::delay_for(Duration::from_secs(600)).await
         }
     }
 
-    // the tx relay will retry in the following situations:
-    // 1. network connect problem
-    // 2.
     pub async fn relay(&mut self) -> Result<()> {
         let unlock_tasks = get_ckb_tx_record(&self.db).await?;
         let mut unlock_futures = vec![];
@@ -84,12 +76,6 @@ impl CkbTxRelay {
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
             let tx_proof = hex::encode(tx_record.ckb_spv_proof.clone());
             let raw_tx = hex::encode(tx_record.ckb_raw_tx.clone());
-            info!(
-                "tx proof : {:?} \n tx info {:?}",
-                tx_proof.clone(),
-                raw_tx.clone()
-            );
-
             unlock_futures.push(unlock(
                 self.eth_private_key,
                 self.ethereum_rpc_url.clone(),
@@ -104,19 +90,23 @@ impl CkbTxRelay {
         if !unlock_futures.is_empty() {
             let now = Instant::now();
             let unlock_count = unlock_futures.len();
-            let res = join_all(unlock_futures).await;
-            for res in res.iter() {
-                match res {
-                    Ok(data) => info!("hash : {}", data),
-                    Err(error) => {
-                        let err_msg = format!("{}", error);
-                        if err_msg.contains("Connect") {}
-                    }
-                }
-                // if let Err(error) = res {}
-            }
 
-            log::info!("unlock {} txs elapsed {:?}", unlock_count, now.elapsed());
+            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(600));
+            let task_future = join_all(unlock_futures);
+            tokio::select! {
+                v = task_future => {
+                    for res in v.iter() {
+                       match res {
+                          Ok(hash) => info!("hash : {}", hash),
+                          Err(error) => error!("error {:?}", error),
+                    }
+                 }
+               }
+                _ = timeout_future => {
+                    bail!("relay headers timeout");
+                }
+            }
+            info!("unlock {} txs elapsed {:?}", unlock_count, now.elapsed());
         }
         Ok(())
     }
