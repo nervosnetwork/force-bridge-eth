@@ -47,7 +47,6 @@ impl CkbTxRelay {
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
         let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
-        let db_path = tilde(&db_path).into_owned();
         let db = MySqlPool::connect(&db_path).await?;
         let eth_private_key = parse_private_key(&private_key_path, &force_config, &network)?;
 
@@ -100,13 +99,13 @@ impl CkbTxRelay {
                           Ok(hash) => info!("hash : {}", hash),
                           Err(error) => error!("error {:?}", error),
                     }
-                 }
+                  }
+                  info!("unlock {} txs elapsed {:?}", unlock_count, now.elapsed());
                }
                 _ = timeout_future => {
-                    bail!("relay headers timeout");
+                    error!("batch relay ckb tx timeout");
                 }
             }
-            info!("unlock {} txs elapsed {:?}", unlock_count, now.elapsed());
         }
         Ok(())
     }

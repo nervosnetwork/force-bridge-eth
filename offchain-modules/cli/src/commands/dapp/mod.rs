@@ -1,7 +1,6 @@
 use anyhow::Result;
+use force_eth_lib::dapp::CkbTxRelay;
 use types::*;
-
-use force_eth_lib::dapp::relayer::ckb_relayer::CkbTxRelay;
 
 pub mod types;
 
@@ -32,8 +31,7 @@ async fn ckb_tx_relay(args: CkbTxRelayerArgs) -> Result<()> {
         args.private_key_path,
     )
     .await?;
-    ckb_tx_relay.start().await?;
-    Ok(())
+    ckb_tx_relay.start().await
 }
 
 async fn eth_tx_relay(_args: EthTxRelayerArgs) -> Result<()> {
