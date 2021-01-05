@@ -1,12 +1,11 @@
 use crate::transfer::to_eth::unlock;
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{parse_private_key, Web3Client};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use ethereum_types::H256;
 use futures::future::join_all;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use shellexpand::tilde;
 use sqlx::MySqlPool;
 use std::ops::Add;
 use std::time::Instant;
