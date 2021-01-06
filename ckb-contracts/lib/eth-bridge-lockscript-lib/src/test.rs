@@ -104,9 +104,7 @@ fn generate_mint_token_witness() -> WitnessArgs {
     let mut height = [0u8; 16];
     height.copy_from_slice(39u128.to_le_bytes().as_ref());
 
-    for i in 0..16 {
-        key[i] = height[i];
-    }
+    key[..16].clone_from_slice(&height);
 
     let block_hash = smt_tree.get(&key.into());
     let merkle_proof = smt_tree.merkle_proof(vec![key.into()]).unwrap();
