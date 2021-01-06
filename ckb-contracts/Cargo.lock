@@ -141,8 +141,7 @@ checksum = "d9f6b7b71e3097ed6ee470bab30e1025dd1327eee94ab1e3040b5b5c3f992117"
 [[package]]
 name = "blake2b-ref"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88756126a7634ad9c13ed0a6da9aa3376a6b7000eb5fcdbb89d153196326bbcd"
+source = "git+https://github.com/jjyr/blake2b-ref.rs.git?rev=6c88968#6c8896822b940a67ab7956847fbe388e5f35314d"
 
 [[package]]
 name = "blake2b-rs"
@@ -3314,7 +3313,7 @@ dependencies = [
 [[package]]
 name = "sparse-merkle-tree"
 version = "0.3.1-pre"
-source = "git+https://github.com/jacobdenver007/sparse-merkle-tree?rev=df202fa#df202fa17fd36fd0b566d015349848094a64de70"
+source = "git+https://github.com/jacobdenver007/sparse-merkle-tree?rev=91f2496#91f249612a5063199616d060e3a39a7709bbc452"
 dependencies = [
  "blake2b-ref 0.3.0",
  "cfg-if 0.1.10",
