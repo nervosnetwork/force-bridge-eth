@@ -48,7 +48,14 @@ pub struct EthTxRelayerArgs {
     pub network: Option<String>,
     #[clap(short = 'p', long)]
     pub private_key_path: String,
-    // TODO re-define db_args
-    #[clap(short = 'd', long, default_value = "")]
-    pub db_args: String,
+    #[clap(long, default_value = "100")]
+    pub mint_concurrency: u64,
+    #[clap(long, default_value = "1000")]
+    pub minimum_cell_capacity: u64,
+    #[clap(
+        short = 'd',
+        long,
+        default_value = "mysql://root:@127.0.0.1:3306/forcedb"
+    )]
+    pub db_url: String,
 }

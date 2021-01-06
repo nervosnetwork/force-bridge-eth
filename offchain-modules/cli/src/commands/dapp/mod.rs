@@ -33,7 +33,10 @@ async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
         args.config_path,
         args.network,
         args.private_key_path,
-        args.db_args,
-    )?;
+        args.mint_concurrency,
+        args.minimum_cell_capacity,
+        args.db_url,
+    )
+    .await?;
     eth_tx_relayer.start().await
 }

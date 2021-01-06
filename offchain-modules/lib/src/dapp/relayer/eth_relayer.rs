@@ -1,16 +1,28 @@
+use crate::dapp::db::eth_relayer::{
+    get_mint_tasks, get_retry_tasks, last_relayed_number, MintTask,
+};
 use crate::transfer::to_ckb::send_eth_spv_proof_tx;
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{get_eth_client_best_number, parse_privkey_path, ETHSPVProofJson};
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, Result};
+use ckb_sdk::constants::ONE_CKB;
+use ckb_sdk::AddressPayload;
+use ckb_sdk::{HumanCapacity, SECP256K1};
+use ckb_types::core::Capacity;
+use ckb_types::packed::{CellOutput, OutPoint, Script};
+use ckb_types::prelude::Pack;
 use ckb_types::H256;
-use crossbeam_channel::{bounded, Receiver, Sender};
+use force_sdk::cell_collector::get_capacity_cells_for_mint;
+use force_sdk::tx_helper::TxHelper;
 use force_sdk::util::ensure_indexer_sync;
 use futures::future::join_all;
-use std::collections::hash_set::HashSet;
-use std::sync::Arc;
+use molecule::prelude::{Builder, Entity};
+use secp256k1::SecretKey;
+use shellexpand::tilde;
+use sqlx::MySqlPool;
+use std::str::FromStr;
 use std::time::{Duration, Instant};
-use tokio::sync::Mutex;
 
 pub struct EthTxRelayer {
     pub config_path: String,
@@ -18,94 +30,165 @@ pub struct EthTxRelayer {
     pub network: Option<String>,
     pub ckb_rpc_url: String,
     pub ckb_indexer_url: String,
-    pub privkey_channel: PrivkeyChannel,
-    pub db_args: String,
-    pub relaying_tx: Arc<Mutex<HashSet<String>>>,
-}
-
-pub struct PrivkeyChannel {
-    pub sender: Sender<String>,
-    pub receiver: Receiver<String>,
-}
-
-pub struct MintTask {
-    pub lock_tx_hash: String,
-    pub lock_tx_proof: ETHSPVProofJson,
+    pub private_key: SecretKey,
+    pub db_pool: MySqlPool,
+    pub mint_concurrency: u64,
+    pub minimum_cell_capacity: u64,
 }
 
 impl EthTxRelayer {
-    pub fn new(
+    pub async fn new(
         config_path: String,
         network: Option<String>,
-        privkey_index: String,
-        db_args: String,
+        private_key: String,
+        mint_concurrency: u64,
+        minimum_cell_capacity: u64,
+        db_url: String,
     ) -> Result<Self> {
+        let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
-        let privkey_index = privkey_index.as_str().parse::<usize>()?;
-        let privkey_length = force_config.get_ckb_private_keys(&network)?.len();
-        assert!(
-            privkey_length > privkey_index,
-            "invalid args: ckb_private_key_path"
-        );
-        let (sender, receiver) = bounded(privkey_length - privkey_index);
-        for i in privkey_index..privkey_length {
-            sender
-                .send(i.to_string())
-                .expect("init ckb private key channel succeed");
-        }
+        let private_key = parse_privkey_path(private_key.as_str(), &force_config, &network)?;
+        let db_pool = MySqlPool::connect(db_url.as_str()).await?;
         Ok(EthTxRelayer {
             config_path,
             force_config,
             network,
             ckb_rpc_url,
             ckb_indexer_url,
-            privkey_channel: PrivkeyChannel { sender, receiver },
-            db_args,
-            relaying_tx: Default::default(),
+            private_key,
+            db_pool,
+            mint_concurrency,
+            minimum_cell_capacity: minimum_cell_capacity * ONE_CKB,
         })
     }
 
     pub async fn start(&self) -> Result<()> {
-        let mut latest_relayed_number = self.latest_relayed_number().await?;
+        let mut last_relayed_number = last_relayed_number(&self.db_pool).await?;
         loop {
-            latest_relayed_number = self.relay(latest_relayed_number).await?;
-            tokio::time::delay_for(Duration::from_secs(10)).await
+            last_relayed_number = self.relay(last_relayed_number).await?;
+            tokio::time::delay_for(Duration::from_secs(15)).await
         }
     }
 
-    async fn relay(&self, latest_relayed_number: u64) -> Result<u64> {
+    async fn relay(&self, last_relayed_number: u64) -> Result<u64> {
         let client_tip_number = self.client_tip_number().await?;
         log::info!(
-            "start relay: last relayed number: {}, client tip number: {}",
-            latest_relayed_number,
+            "eth relayer start relay: last relayed number: {}, client tip number: {}",
+            last_relayed_number,
             client_tip_number
         );
-        let mut mint_tasks = self
-            .get_mint_tasks(latest_relayed_number, client_tip_number)
-            .await?;
-
-        // TODO write mint_tasks to eth_relay_record table
-        // TODO write client_tip_number to db
-
-        let retry_tasks = self.get_retry_tasks().await?;
+        let retry_tasks = get_retry_tasks(&self.db_pool).await?;
+        log::debug!("get retry tasks: {:?}", &retry_tasks);
+        let mut mint_tasks =
+            get_mint_tasks(&self.db_pool, last_relayed_number, client_tip_number).await?;
+        log::debug!("get mint tasks: {:?}", &mint_tasks);
         mint_tasks.extend(retry_tasks);
+
+        // TODO write mint_tasks to eth_relay_record table atomic
+
+        let capacity_cells = self.capacity_cells_for_mint().await;
+        if let Err(e) = capacity_cells {
+            log::error!("wait for capacity cells generated: {:?}", e);
+            return Ok(client_tip_number);
+        }
+
+        let capacity_cells = capacity_cells.expect("succeed");
+        let mint_count = std::cmp::min(mint_tasks.len(), capacity_cells.len());
         let mut mint_futures = vec![];
-        for task in mint_tasks.into_iter() {
-            mint_futures.push(self.mint(task));
+        for i in 0..mint_count {
+            mint_futures.push(self.mint(&mint_tasks[i], &capacity_cells[i]));
         }
         if !mint_futures.is_empty() {
             let now = Instant::now();
-            let mint_count = mint_futures.len();
             join_all(mint_futures).await;
             log::info!("mint {} txs elapsed {:?}", mint_count, now.elapsed());
         }
         Ok(client_tip_number)
     }
 
-    async fn latest_relayed_number(&self) -> Result<u64> {
-        unimplemented!()
+    async fn mint(&self, task: &MintTask, capacity_cell: &OutPoint) {
+        if let Err(error) = self.try_mint(&task, capacity_cell).await {
+            if error.to_string().contains("irreparable error") {
+                // TODO update db with error
+            } else {
+                // TODO update db with retryable and retry times
+            }
+        } else {
+            // TODO delete db record
+        }
+    }
+
+    async fn try_mint(&self, task: &MintTask, capacity_cell: &OutPoint) -> Result<H256> {
+        let mut generator = self.get_generator().await?;
+        let lock_tx_proof: ETHSPVProofJson = serde_json::from_str(task.lock_tx_proof.as_str())?;
+        send_eth_spv_proof_tx(
+            &mut generator,
+            self.config_path.clone(),
+            task.lock_tx_hash.clone(),
+            &lock_tx_proof,
+            self.private_key.clone(),
+            Some(capacity_cell.clone()),
+        )
+        .await
+    }
+
+    async fn capacity_cells_for_mint(&self) -> Result<Vec<OutPoint>> {
+        let mut generator = self.get_generator().await?;
+        let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &self.private_key);
+        let address_payload = AddressPayload::from_pubkey(&from_public_key);
+        let from_lockscript = Script::from(&address_payload);
+        let capacity_cells = get_capacity_cells_for_mint(
+            &mut generator.indexer_client,
+            from_lockscript.clone(),
+            self.minimum_cell_capacity,
+            self.mint_concurrency,
+        )
+        .map_err(|e| anyhow!("get capacity cell error when mint: {:?}", e))?;
+        if (capacity_cells.len() as u64) < self.mint_concurrency {
+            self.generate_capacity_cells(&mut generator, from_lockscript.clone())
+                .await?;
+            Err(anyhow!("capacity cells for mint not enough"))
+        } else {
+            let ret = capacity_cells
+                .into_iter()
+                .map(|cell| cell.out_point.into())
+                .collect();
+            Ok(ret)
+        }
+    }
+
+    async fn generate_capacity_cells(
+        &self,
+        generator: &mut Generator,
+        lockscript: Script,
+    ) -> Result<()> {
+        let tx_fee: u64 = HumanCapacity::from_str("0.9")
+            .map_err(|e| anyhow!(e))?
+            .into();
+        let mut tx_helper = TxHelper::default();
+        for _ in 0..self.mint_concurrency {
+            let cell_output = CellOutput::new_builder()
+                .capacity(Capacity::shannons(100 * self.minimum_cell_capacity).pack())
+                .lock(lockscript.clone())
+                .build();
+            tx_helper.add_output(cell_output, Default::default());
+        }
+        let unsigned_tx = tx_helper
+            .supply_capacity(
+                &mut generator.rpc_client,
+                &mut generator.indexer_client,
+                lockscript,
+                &generator.genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
+        let tx_hash = generator
+            .sign_and_send_transaction(unsigned_tx, self.private_key.clone())
+            .await?;
+        log::info!("generate capacity cell for mint: {:?}", tx_hash);
+        Ok(())
     }
 
     async fn client_tip_number(&self) -> Result<u64> {
@@ -119,46 +202,6 @@ impl EthTxRelayer {
             &mut generator,
             force_contracts.light_client_cell_script.cell_script,
         )
-    }
-
-    async fn get_mint_tasks(
-        &self,
-        _from_block_number: u64,
-        _to_block_number: u64,
-    ) -> Result<Vec<MintTask>> {
-        unimplemented!()
-    }
-
-    async fn get_retry_tasks(&self) -> Result<Vec<MintTask>> {
-        unimplemented!()
-    }
-
-    async fn mint(&self, task: MintTask) {
-        if let Err(error) = self.try_mint(task).await {
-            if error.to_string().contains("irreparable error") {
-                // TODO update db with error
-            } else {
-                // TODO update db with retryable and retry times
-            }
-        } else {
-            // TODO delete db record
-        }
-    }
-
-    async fn try_mint(&self, task: MintTask) -> Result<H256> {
-        let mut generator = self.get_generator().await?;
-        let mint_privkey = self.privkey_channel.get_privkey()?;
-        let mint_privkey =
-            parse_privkey_path(mint_privkey.as_str(), &self.force_config, &self.network)
-                .expect("get ckb key succeed");
-        send_eth_spv_proof_tx(
-            &mut generator,
-            self.config_path.clone(),
-            task.lock_tx_hash,
-            &task.lock_tx_proof,
-            mint_privkey,
-        )
-        .await
     }
 
     async fn get_generator(&self) -> Result<Generator> {
@@ -177,14 +220,5 @@ impl EthTxRelayer {
             .await
             .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
         Ok(generator)
-    }
-}
-
-impl PrivkeyChannel {
-    pub fn get_privkey(&self) -> Result<String> {
-        self.receiver
-            .clone()
-            .recv_timeout(Duration::from_secs(600))
-            .map_err(|e| anyhow!("crossbeam channel recv ckb key timeout: {:?}", e))
     }
 }

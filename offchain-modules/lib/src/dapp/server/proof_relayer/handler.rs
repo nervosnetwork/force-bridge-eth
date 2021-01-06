@@ -151,6 +151,7 @@ pub async fn relay_eth_to_ckb_proof(
         record.eth_lock_tx_hash.clone(),
         &eth_proof,
         from_privkey,
+        None,
     )
     .await?;
     log::info!(

@@ -24,6 +24,7 @@ use force_eth_types::generated::{basic, witness};
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use rlp::Rlp;
 use secp256k1::SecretKey;
+use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 use std::ops::Add;
 use std::str::FromStr;
@@ -179,14 +180,11 @@ pub fn get_eth_client_best_number(
 ) -> Result<u64> {
     let script = parse_cell(client_cell_script.as_str())
         .map_err(|e| anyhow!("get typescript fail {:?}", e))?;
-
     let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
         .map_err(|e| anyhow!("get live cell fail: {}", e))?
         .ok_or(anyhow!("eth header cell not exist"))?;
-
     let (un_confirmed_headers, _) = parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
         .map_err(|e| anyhow!("parse header data fail: {}", e))?;
-
     let best_header = un_confirmed_headers
         .last()
         .ok_or(anyhow!("header is none"))?;
@@ -325,7 +323,7 @@ fn to_u64(data: &[u8]) -> u64 {
     u64::from_le_bytes(res)
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ETHSPVProofJson {
     pub log_index: u64,
     pub log_entry_data: String,
