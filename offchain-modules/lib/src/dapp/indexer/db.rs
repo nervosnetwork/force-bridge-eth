@@ -33,6 +33,20 @@ order by id desc limit 1
     .await?)
 }
 
+pub async fn get_eth_to_ckb_record_by_outpoint(
+    pool: &MySqlPool,
+    outpoint: String,
+) -> Result<Option<EthToCkbRecord>> {
+    let sql = r#"SELECT *
+FROM eth_to_ckb
+where replay_resist_outpoint = ?"#;
+    let ret = sqlx::query_as::<_, EthToCkbRecord>(sql)
+        .bind(outpoint)
+        .fetch_optional(pool)
+        .await?;
+    Ok(ret)
+}
+
 pub async fn is_eth_to_ckb_record_exist(pool: &MySqlPool, eth_tx_hash: &str) -> Result<bool> {
     let sql = r#"
 SELECT *
@@ -47,6 +61,17 @@ where eth_lock_tx_hash = ?
         return Ok(false);
     }
     Ok(true)
+}
+
+pub async fn update_eth_to_ckb_status(pool: &MySqlPool, record: &EthToCkbRecord) -> Result<bool> {
+    let sql = r#"UPDATE eth_to_ckb SET status = ? WHERE id = ?"#;
+    let rows_affected = sqlx::query(sql)
+        .bind(record.status.clone())
+        .bind(record.id)
+        .execute(pool)
+        .await?
+        .rows_affected();
+    Ok(rows_affected > 0)
 }
 
 pub async fn create_eth_to_ckb_record(pool: &MySqlPool, record: &EthToCkbRecord) -> Result<u64> {
@@ -76,7 +101,7 @@ VALUES ( ?,?,?,?,?,?,?,?,?,?,?,?,?)"#;
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CkbToEthRecord {
-    pub id: i64,
+    pub id: u64,
     pub ckb_burn_tx_hash: String,
     pub status: String,
     pub recipient_addr: Option<String>,
@@ -86,6 +111,31 @@ pub struct CkbToEthRecord {
     pub eth_tx_hash: Option<String>,
     pub err_msg: Option<String>,
     pub ckb_spv_proof: Option<String>,
+    pub block_number: u64,
+}
+
+pub async fn create_ckb_to_eth_record(pool: &MySqlPool, record: &CkbToEthRecord) -> Result<u64> {
+    dbg!(record.clone());
+    dbg!(record.ckb_burn_tx_hash.len().clone());
+    let sql = r#"
+INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
+eth_tx_hash, err_msg, ckb_spv_proof, block_number)
+VALUES ( ?,?,?,?,?,?,?,?,?,?)"#;
+    let id = sqlx::query(sql)
+        .bind(record.ckb_burn_tx_hash.clone())
+        .bind(record.status.clone())
+        .bind(record.recipient_addr.as_ref())
+        .bind(record.token_addr.as_ref())
+        .bind(record.token_amount.as_ref())
+        .bind(record.fee.as_ref())
+        .bind(record.eth_tx_hash.as_ref())
+        .bind(record.err_msg.as_ref())
+        .bind(record.ckb_spv_proof.as_ref())
+        .bind(record.block_number)
+        .execute(pool)
+        .await?
+        .last_insert_id();
+    Ok(id)
 }
 
 pub async fn is_ckb_to_eth_record_exist(pool: &MySqlPool, ckb_tx_hash: &str) -> Result<bool> {
