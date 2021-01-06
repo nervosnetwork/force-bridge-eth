@@ -7,13 +7,12 @@ use eth_spv_lib::ethspv;
 use force_eth_types::config::CONFIRM;
 use force_eth_types::eth_lock_event::ETHLockEvent;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use force_eth_types::generated::eth_header_cell::{ETHHeaderCellDataReader, ETHHeaderInfoReader};
+use force_eth_types::generated::eth_header_cell::ETHHeaderCellDataReader;
 use force_eth_types::generated::witness::{
-    ETHSPVProofReader, MerkleProofOptReader, MintTokenWitnessReader,
+    ETHSPVProofReader, MerkleProofReader, MintTokenWitnessReader,
 };
 use molecule::prelude::*;
 use sparse_merkle_tree::blake2b::Blake2bHasher;
-use sparse_merkle_tree::H256;
 use std::convert::TryInto;
 
 /// In manage mode, mint associated sudt is forbidden.
@@ -61,7 +60,7 @@ fn verify_eth_spv_proof<T: Adapter>(
     data_loader: &T,
     proof: &[u8],
     cell_dep_index_list: &[u8],
-    merkle_proof: &MerkleProofOptReader,
+    merkle_proof: &MerkleProofReader,
 ) -> ETHLockEvent {
     if ETHSPVProofReader::verify(proof, false).is_err() {
         panic!("eth spv proof is invalid")
@@ -81,7 +80,7 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
     data_loader: &T,
     header: &BlockHeader,
     cell_dep_index_list: &[u8],
-    merkle_proof: &MerkleProofOptReader,
+    merkle_proof: &MerkleProofReader,
 ) {
     debug!("cell_dep_index_list: {:?}", cell_dep_index_list);
     let dep_data = data_loader
@@ -96,68 +95,41 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
     let eth_cell_data_reader = ETHHeaderCellDataReader::new_unchecked(&dep_data);
     debug!("eth_cell_data_reader: {:?}", eth_cell_data_reader);
 
-    if merkle_proof.is_some() {
-        let mut merkle_root = [0u8; 32];
-        merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
+    let mut light_client_latest_height = [0u8; 8];
+    light_client_latest_height.copy_from_slice(eth_cell_data_reader.latest_height().raw_data());
+    let light_client_latest_height: u64 = u64::from_le_bytes(light_client_latest_height);
 
-        let compiled_merkle_proof = sparse_merkle_tree::CompiledMerkleProof(
-            merkle_proof.to_opt().unwrap().proof().raw_data().to_vec(),
-        );
-        let leaves = merkle_proof.to_opt().unwrap().leaves();
-
-        let mut compiled_leaves = vec![];
-        for i in 0..leaves.len() {
-            let leaf = leaves.get_unchecked(i);
-
-            let mut leaf_index = [0u8; 32];
-            leaf_index.copy_from_slice(leaf.index().raw_data());
-
-            let mut leaf_value = [0u8; 32];
-            leaf_value.copy_from_slice(leaf.value().raw_data());
-
-            compiled_leaves.push((leaf_index.into(), leaf_value.into()));
-        }
-        assert!(compiled_merkle_proof
-            .verify::<Blake2bHasher>(&H256::from(merkle_root), compiled_leaves)
-            .expect("verify compiled proof"));
-        return;
-    }
-
-    let tail_raw = eth_cell_data_reader
-        .headers()
-        .main()
-        .get_unchecked(eth_cell_data_reader.headers().main().len() - 1)
-        .raw_data();
-    if ETHHeaderInfoReader::verify(&tail_raw, false).is_err() {
-        panic!("header info invalid");
-    }
-    let tail_info_reader = ETHHeaderInfoReader::new_unchecked(&tail_raw);
-    let tail_info_raw = tail_info_reader.header().raw_data();
-    let tail: BlockHeader =
-        rlp::decode(tail_info_raw.to_vec().as_slice()).expect("invalid tail info.");
-    if header.number > tail.number {
+    if header.number > light_client_latest_height {
         panic!("header is not on mainchain, header number too big");
     }
-    let offset = (tail.number - header.number) as usize;
+    let offset = (light_client_latest_height - header.number) as usize;
 
     if offset < CONFIRM {
         panic!("header is not confirmed");
     }
-    if offset > eth_cell_data_reader.headers().main().len() - 1 {
-        panic!("header is not on mainchain, header number is too small");
-    }
 
-    //confirmed headers only store header hash
-    let header_hash = eth_cell_data_reader
-        .headers()
-        .main()
-        .get_unchecked(eth_cell_data_reader.headers().main().len() - 1 - offset)
-        .raw_data()
-        .as_ref();
+    let mut merkle_root = [0u8; 32];
+    merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
 
-    if header_hash != header.hash.expect("invalid hash").0.as_bytes() {
-        panic!("header is not on mainchain, target not in eth data");
+    let compiled_merkle_proof =
+        sparse_merkle_tree::CompiledMerkleProof(merkle_proof.proof().raw_data().to_vec());
+    let leaves = merkle_proof.leaves();
+
+    let mut compiled_leaves = vec![];
+    for i in 0..leaves.len() {
+        let leaf = leaves.get_unchecked(i);
+
+        let mut leaf_index = [0u8; 32];
+        leaf_index.copy_from_slice(leaf.index().raw_data());
+
+        let mut leaf_value = [0u8; 32];
+        leaf_value.copy_from_slice(leaf.value().raw_data());
+
+        compiled_leaves.push((leaf_index.into(), leaf_value.into()));
     }
+    assert!(compiled_merkle_proof
+        .verify::<Blake2bHasher>(&merkle_root.into(), compiled_leaves)
+        .expect("verify compiled proof"));
 }
 
 fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) -> ETHLockEvent {

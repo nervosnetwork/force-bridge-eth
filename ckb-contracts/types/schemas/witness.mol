@@ -1,5 +1,25 @@
 import basic;
 
+table MintTokenWitness {
+    // unlock mode:
+    // 0: mint mode, user can mint token with the proof provided
+    // 1: manage mode, user can charge capacity or destroy this cell,
+    //    and the tx can not contains associated sudt in outputs.
+    mode: byte,
+    spv_proof: Bytes,
+    cell_dep_index_list: Bytes,
+    merkle_proof: MerkleProof,
+}
+
+table ETHSPVProof {
+    log_index: Uint64,
+    log_entry_data: Bytes,
+    receipt_index: Uint64,
+    receipt_data: Bytes,
+    header_data: Bytes,
+    proof: BytesVec,
+}
+
 struct MerkleTreeLeaf {
     index: Byte32,
     value: Byte32,
@@ -10,26 +30,4 @@ vector MerkleTreeLeaves <MerkleTreeLeaf>;
 table MerkleProof {
     proof: Bytes,
     leaves: MerkleTreeLeaves,
-}
-
-option MerkleProofOpt (MerkleProof);
-
-table MintTokenWitness {
-    // unlock mode:
-    // 0: mint mode, user can mint token with the proof provided
-    // 1: manage mode, user can charge capacity or destroy this cell,
-    //    and the tx can not contains associated sudt in outputs.
-    mode: byte,
-    spv_proof: Bytes,
-    cell_dep_index_list: Bytes,
-    merkle_proof: MerkleProofOpt,
-}
-
-table ETHSPVProof {
-    log_index: Uint64,
-    log_entry_data: Bytes,
-    receipt_index: Uint64,
-    receipt_data: Bytes,
-    header_data: Bytes,
-    proof: BytesVec,
 }
