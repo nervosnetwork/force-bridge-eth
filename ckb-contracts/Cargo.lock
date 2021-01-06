@@ -139,6 +139,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9f6b7b71e3097ed6ee470bab30e1025dd1327eee94ab1e3040b5b5c3f992117"
 
 [[package]]
+name = "blake2b-ref"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88756126a7634ad9c13ed0a6da9aa3376a6b7000eb5fcdbb89d153196326bbcd"
+
+[[package]]
 name = "blake2b-rs"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1153,6 +1159,7 @@ dependencies = [
  "molecule",
  "no-std-compat",
  "rlp",
+ "sparse-merkle-tree",
 ]
 
 [[package]]
@@ -1187,7 +1194,7 @@ dependencies = [
 name = "eth-recipient-typescript-lib"
 version = "0.1.0"
 dependencies = [
- "blake2b-ref",
+ "blake2b-ref 0.1.0",
  "ckb-std",
  "contracts-helper",
  "force-eth-types",
@@ -3302,6 +3309,15 @@ dependencies = [
  "libc",
  "redox_syscall",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "sparse-merkle-tree"
+version = "0.3.1-pre"
+source = "git+https://github.com/jacobdenver007/sparse-merkle-tree?rev=df202fa#df202fa17fd36fd0b566d015349848094a64de70"
+dependencies = [
+ "blake2b-ref 0.3.0",
+ "cfg-if 0.1.10",
 ]
 
 [[package]]

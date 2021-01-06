@@ -17,6 +17,7 @@ vector MerkleProof <Bytes>;
 vector MerkleProofVec <MerkleProof>;
 
 table ETHHeaderCellData {
+    merkle_root: Byte32,
     headers: ETHChain,
     merkle_proofs: MerkleProofVec,
 }

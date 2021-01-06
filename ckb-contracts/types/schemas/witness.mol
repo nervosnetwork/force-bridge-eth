@@ -1,5 +1,19 @@
 import basic;
 
+struct MerkleTreeLeaf {
+    index: Byte32,
+    value: Byte32,
+}
+
+vector MerkleTreeLeaves <MerkleTreeLeaf>;
+
+table MerkleProof {
+    proof: Bytes,
+    leaves: MerkleTreeLeaves,
+}
+
+option MerkleProofOpt (MerkleProof);
+
 table MintTokenWitness {
     // unlock mode:
     // 0: mint mode, user can mint token with the proof provided
@@ -8,6 +22,7 @@ table MintTokenWitness {
     mode: byte,
     spv_proof: Bytes,
     cell_dep_index_list: Bytes,
+    merkle_proof: MerkleProofOpt,
 }
 
 table ETHSPVProof {
