@@ -1,11 +1,17 @@
-use crate::dapp::indexer::db::is_ckb_to_eth_record_exist;
+use crate::dapp::indexer::db::{
+    create_ckb_to_eth_record, get_eth_to_ckb_record_by_outpoint, is_ckb_to_eth_record_exist,
+    update_eth_to_ckb_status, CkbToEthRecord,
+};
+use crate::util::ckb_util::parse_cell;
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, Result};
+use ckb_jsonrpc_types::Uint128;
 use ckb_sdk::rpc::Transaction;
 use ckb_sdk::HttpRpcClient;
 use ckb_types::packed::{Byte32, OutPoint};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use force_eth_types::eth_recipient_cell::ETHRecipientDataView;
+use force_eth_types::generated::basic::ETHAddress;
 use force_sdk::indexer::IndexerRpcClient;
 use log::info;
 use shellexpand::tilde;
@@ -43,9 +49,7 @@ impl CkbIndexer {
             .rpc_client
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
-
         loop {
-            dbg!(ckb_height);
             let block = self
                 .rpc_client
                 .get_block_by_number(ckb_height)
@@ -57,10 +61,10 @@ impl CkbIndexer {
                     let tx_hash = hex::encode(tx_view.hash.as_bytes());
                     let exist = is_ckb_to_eth_record_exist(&self.db, tx_hash.as_str()).await?;
                     if !exist {
-                        self.handle_burn_tx(tx.clone()).await?;
+                        self.handle_burn_tx(tx.clone(), tx_hash, ckb_height).await?;
                     }
                 }
-                ckb_height = ckb_height + 1;
+                ckb_height += 1;
             } else {
                 info!("waiting for new block.");
                 tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
@@ -68,19 +72,34 @@ impl CkbIndexer {
         }
     }
 
-    pub async fn handle_burn_tx(&mut self, tx: Transaction) -> Result<()> {
-        let ret = self.verify_burn_tx(tx.clone())?;
+    pub async fn handle_burn_tx(
+        &mut self,
+        tx: Transaction,
+        tx_hash: String,
+        block_number: u64,
+    ) -> Result<()> {
+        let ret = self
+            .verify_burn_tx(tx.clone(), tx_hash, block_number)
+            .await?;
         if !ret {
             self.handle_mint_tx(tx).await?;
         }
         Ok(())
     }
 
-    pub fn verify_burn_tx(&mut self, tx: Transaction) -> Result<bool> {
+    pub async fn verify_burn_tx(
+        &mut self,
+        tx: Transaction,
+        hash: String,
+        block_number: u64,
+    ) -> Result<bool> {
+        if tx.outputs_data.is_empty() {
+            return Ok(false);
+        }
         let output_data = tx.outputs_data[0].as_bytes();
         let ret = ETHRecipientDataView::new(&output_data);
         if let Ok(eth_recipient) = ret {
-            let ret = self.verify_eth_recipient_data(eth_recipient)?;
+            let ret = self.verify_eth_recipient_data(eth_recipient.clone())?;
             if ret {
                 let recipient_typescript_code_hash = hex::decode(
                     &self
@@ -95,6 +114,23 @@ impl CkbIndexer {
                 let typescript = tx.outputs[0].type_.as_ref().unwrap();
                 if typescript.code_hash.as_bytes().to_vec() == recipient_typescript_code_hash {
                     // the tx is burn tx.
+                    let token_addr: ETHAddress =
+                        eth_recipient.eth_token_address.get_address().into();
+                    let recipient_addr: ETHAddress =
+                        eth_recipient.eth_recipient_address.get_address().into();
+                    let token_amount = eth_recipient.token_amount;
+                    let record = CkbToEthRecord {
+                        ckb_burn_tx_hash: hash.clone(),
+                        status: "pending".to_string(),
+                        token_addr: Some(hex::encode(token_addr.raw_data().to_vec().as_slice())),
+                        recipient_addr: Some(hex::encode(
+                            recipient_addr.raw_data().to_vec().as_slice(),
+                        )),
+                        token_amount: Some(Uint128::from(token_amount).to_string()),
+                        block_number,
+                        ..Default::default()
+                    };
+                    create_ckb_to_eth_record(&self.db, &record).await?;
                     return Ok(true);
                 }
             }
@@ -106,40 +142,55 @@ impl CkbIndexer {
         &mut self,
         eth_recipient: ETHRecipientDataView,
     ) -> Result<bool> {
-        let light_client_typescript_hash_left =
-            hex::encode(eth_recipient.light_client_typescript_hash);
-        let light_client_typescript_hash_right = &self
-            .force_config
-            .deployed_contracts
-            .as_ref()
-            .unwrap()
-            .light_client_typescript
-            .code_hash;
-        let eth_bridge_lock_hash_left = hex::encode(eth_recipient.eth_bridge_lock_hash);
-        let eth_bridge_lock_hash_right = &self
-            .force_config
-            .deployed_contracts
-            .as_ref()
-            .unwrap()
-            .bridge_lockscript
-            .code_hash;
-        if (light_client_typescript_hash_left == (*light_client_typescript_hash_right))
-            && (eth_bridge_lock_hash_left == (*eth_bridge_lock_hash_right))
+        let light_client_typescript_hash_left = eth_recipient.light_client_typescript_hash;
+        let cell_script = parse_cell(
+            &self
+                .force_config
+                .deployed_contracts
+                .as_ref()
+                .unwrap()
+                .light_client_cell_script
+                .cell_script
+                .as_str(),
+        )?;
+        let mut light_client_typescript_hash = [0u8; 32];
+        light_client_typescript_hash
+            .copy_from_slice(cell_script.calc_script_hash().raw_data().as_ref());
+        let eth_bridge_lock_hash_left = eth_recipient.eth_bridge_lock_hash;
+        let mut eth_bridge_lock_code_hash = [0u8; 32];
+        eth_bridge_lock_code_hash.copy_from_slice(
+            &hex::decode(
+                &self
+                    .force_config
+                    .deployed_contracts
+                    .as_ref()
+                    .unwrap()
+                    .bridge_lockscript
+                    .code_hash,
+            )
+            .map_err(|err| anyhow!(err))?,
+        );
+        if (light_client_typescript_hash_left == light_client_typescript_hash)
+            && (eth_bridge_lock_hash_left == eth_bridge_lock_code_hash)
         {
-            Ok(true)
-        } else {
-            Ok(false)
+            return Ok(true);
         }
+        Ok(false)
     }
 
     pub async fn handle_mint_tx(&mut self, tx: Transaction) -> Result<()> {
         let input = tx.inputs[0].previous_output.clone();
         let outpoint = OutPoint::new_builder()
-            .tx_hash(Byte32::from_slice(input.tx_hash.as_ref().clone())?)
+            .tx_hash(Byte32::from_slice(input.tx_hash.as_ref())?)
             .index(input.index.pack())
             .build();
         let outpoint_hex = hex::encode(outpoint.as_slice());
-        dbg!(outpoint_hex);
+        let ret = get_eth_to_ckb_record_by_outpoint(&self.db, outpoint_hex).await?;
+        if let Some(mut eth_to_ckb_record) = ret {
+            tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+            eth_to_ckb_record.status = String::from("success");
+            update_eth_to_ckb_status(&self.db, &eth_to_ckb_record).await?;
+        }
         Ok(())
     }
 }
