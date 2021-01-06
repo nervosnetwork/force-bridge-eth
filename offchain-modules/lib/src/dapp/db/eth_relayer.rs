@@ -42,6 +42,19 @@ WHERE status = ? AND block_number BETWEEN ? AND ?
     Ok(tasks)
 }
 
+pub async fn get_retry_tasks(pool: &MySqlPool) -> Result<Vec<MintTask>> {
+    let sql = r#"
+SELECT block_number, lock_tx_hash, lock_tx_proof
+FROM eth_tx_relayer
+WHERE status = ?
+    "#;
+    let tasks = sqlx::query_as::<_, MintTask>(sql)
+        .bind("retryable")
+        .fetch_all(pool)
+        .await?;
+    Ok(tasks)
+}
+
 pub async fn store_mint_task(pool: &MySqlPool, task: MintTask) -> Result<()> {
     let sql = r#"
 INSERT INTO eth_tx_relayer (block_number, lock_tx_hash, lock_tx_proof)
@@ -56,18 +69,6 @@ VALUES (?,?,?)
     Ok(())
 }
 
-pub async fn get_retry_tasks(pool: &MySqlPool) -> Result<Vec<MintTask>> {
-    let sql = r#"
-SELECT block_number, lock_tx_hash, lock_tx_proof
-FROM eth_tx_relayer
-WHERE status = ?
-    "#;
-    let tasks = sqlx::query_as::<_, MintTask>(sql)
-        .bind("retryable")
-        .fetch_all(pool)
-        .await?;
-    Ok(tasks)
-}
 
 #[cfg(test)]
 mod test {
