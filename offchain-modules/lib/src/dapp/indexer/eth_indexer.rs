@@ -88,7 +88,6 @@ impl EthIndexer {
             )
             .await?;
             let proof_json = serde_json::to_string(&eth_proof_json)?;
-            dbg!(proof_json.clone());
             let record = EthToCkbRecord {
                 eth_lock_tx_hash: hash.clone(),
                 status: "pending".to_string(),
@@ -205,7 +204,6 @@ impl EthIndexer {
         max_retry_times: i32,
     ) -> Result<(UnlockEvent, bool)> {
         for retry in 0..max_retry_times {
-            dbg!(hash.clone());
             let ret = parse_unlock_event(hash.clone(), String::from(self.eth_client.url()).clone());
             match ret {
                 Ok(event) => return Ok((event, true)),
