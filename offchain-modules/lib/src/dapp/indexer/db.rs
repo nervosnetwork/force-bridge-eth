@@ -114,6 +114,18 @@ pub struct CkbToEthRecord {
     pub block_number: u64,
 }
 
+pub async fn get_latest_ckb_to_eth_record(pool: &MySqlPool) -> Result<Option<CkbToEthRecord>> {
+    Ok(sqlx::query_as::<_, CkbToEthRecord>(
+        r#"
+SELECT *
+FROM ckb_to_eth
+order by id desc limit 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?)
+}
+
 pub async fn create_ckb_to_eth_record(pool: &MySqlPool, record: &CkbToEthRecord) -> Result<u64> {
     dbg!(record.clone());
     dbg!(record.ckb_burn_tx_hash.len().clone());
@@ -180,8 +192,8 @@ WHERE  ckb_burn_tx_hash = ?
         "#;
     let rows_affected = sqlx::query(sql)
         .bind(status)
-        .bind(ckb_tx_hash)
         .bind(eth_tx_hash)
+        .bind(ckb_tx_hash)
         .execute(pool)
         .await?
         .rows_affected();
