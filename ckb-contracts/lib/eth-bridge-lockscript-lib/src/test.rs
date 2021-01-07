@@ -13,11 +13,10 @@ use force_eth_types::generated::{
     eth_header_cell::ETHHeaderCellData,
     witness::{MerkleTreeLeaf, MintTokenWitness},
 };
+use force_eth_types::hasher::Blake2bHasher;
 use molecule::bytes::Bytes;
 use molecule::prelude::{Builder, Byte, Entity};
-use sparse_merkle_tree::{
-    blake2b::Blake2bHasher, default_store::DefaultStore, SparseMerkleTree, H256,
-};
+use sparse_merkle_tree::{default_store::DefaultStore, SparseMerkleTree, H256};
 use std::convert::TryFrom;
 
 type SMT = SparseMerkleTree<Blake2bHasher, H256, DefaultStore<H256>>;

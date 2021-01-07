@@ -3,7 +3,8 @@
 [[package]]
 name = "blake2b-ref"
 version = "0.3.0"
-source = "git+https://github.com/jjyr/blake2b-ref.rs.git?rev=6c88968#6c8896822b940a67ab7956847fbe388e5f35314d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88756126a7634ad9c13ed0a6da9aa3376a6b7000eb5fcdbb89d153196326bbcd"
 
 [[package]]
 name = "block-buffer"
@@ -218,11 +219,13 @@ dependencies = [
 name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
+ "blake2b-ref",
  "cfg-if",
  "eth-spv-lib",
  "ethereum-types",
  "molecule",
  "no-std-compat",
+ "sparse-merkle-tree",
 ]
 
 [[package]]
@@ -374,9 +377,9 @@ dependencies = [
 [[package]]
 name = "sparse-merkle-tree"
 version = "0.3.1-pre"
-source = "git+https://github.com/jacobdenver007/sparse-merkle-tree?rev=91f2496#91f249612a5063199616d060e3a39a7709bbc452"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "319827f79e565c18099ef900023e7bcc3ebf8ca9ae8d5bf9b28df87f5ef19a34"
 dependencies = [
- "blake2b-ref",
  "cfg-if",
 ]
 

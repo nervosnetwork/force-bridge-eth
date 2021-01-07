@@ -11,8 +11,8 @@ use force_eth_types::generated::eth_header_cell::ETHHeaderCellDataReader;
 use force_eth_types::generated::witness::{
     ETHSPVProofReader, MerkleProofReader, MintTokenWitnessReader,
 };
+use force_eth_types::hasher::Blake2bHasher;
 use molecule::prelude::*;
-use sparse_merkle_tree::blake2b::Blake2bHasher;
 use std::convert::TryInto;
 
 /// In manage mode, mint associated sudt is forbidden.
