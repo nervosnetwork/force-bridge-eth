@@ -111,6 +111,7 @@ pub struct DeployedContracts {
     pub light_client_typescript: ScriptConf,
     // pub light_client_lockscript: ScriptConf,
     pub recipient_typescript: ScriptConf,
+    pub simple_bridge_typescript: ScriptConf,
     pub sudt: ScriptConf,
     pub light_client_cell_script: CellScript,
     pub multisig_address: MultisigConf,
@@ -290,6 +291,16 @@ impl ForceConfig {
             .get_ckb_script_bin_path()?
             .join(std::path::Path::new("eth-bridge-typescript"));
         bridge_typescript_bin_path
+            .into_os_string()
+            .into_string()
+            .map_err(|e| anyhow!(format!("{:?}", e)))
+    }
+
+    pub fn get_simple_bridge_typescript_bin_path(&self) -> Result<String> {
+        let simple_bridge_typescript_bin_path = self
+            .get_ckb_script_bin_path()?
+            .join(std::path::Path::new("simple-eth-bridge-typescript"));
+        simple_bridge_typescript_bin_path
             .into_os_string()
             .into_string()
             .map_err(|e| anyhow!(format!("{:?}", e)))
