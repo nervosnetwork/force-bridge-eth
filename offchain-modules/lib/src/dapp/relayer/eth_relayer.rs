@@ -1,5 +1,6 @@
 use crate::dapp::db::eth_relayer::{
-    get_mint_tasks, get_retry_tasks, last_relayed_number, MintTask,
+    delete_relayed_tx, get_mint_tasks, get_retry_tasks, last_relayed_number, store_mint_tasks,
+    update_relayed_tx, MintTask,
 };
 use crate::transfer::to_ckb::send_eth_spv_proof_tx;
 use crate::util::ckb_tx_generator::Generator;
@@ -84,9 +85,8 @@ impl EthTxRelayer {
         let mut mint_tasks =
             get_mint_tasks(&self.db_pool, last_relayed_number, client_tip_number).await?;
         log::debug!("get mint tasks: {:?}", &mint_tasks);
+        store_mint_tasks(&self.db_pool, &mint_tasks).await?;
         mint_tasks.extend(retry_tasks);
-
-        // TODO write mint_tasks to eth_relay_record table atomic
 
         let capacity_cells = self.capacity_cells_for_mint().await;
         if let Err(e) = capacity_cells {
@@ -108,16 +108,40 @@ impl EthTxRelayer {
         Ok(client_tip_number)
     }
 
-    async fn mint(&self, task: &MintTask, capacity_cell: &OutPoint) {
+    async fn mint(&self, task: &MintTask, capacity_cell: &OutPoint) -> Result<()> {
         if let Err(error) = self.try_mint(&task, capacity_cell).await {
             if error.to_string().contains("irreparable error") {
-                // TODO update db with error
+                update_relayed_tx(
+                    &self.db_pool,
+                    task.lock_tx_hash.clone(),
+                    "irreparable error".to_string(),
+                    error.to_string(),
+                )
+                .await?;
+                log::info!(
+                    "mint for lock tx {:?} failed with irreparable error: {:?}",
+                    task.lock_tx_hash,
+                    error
+                );
             } else {
-                // TODO update db with retryable and retry times
+                update_relayed_tx(
+                    &self.db_pool,
+                    task.lock_tx_hash.clone(),
+                    "retryable".to_string(),
+                    error.to_string(),
+                )
+                .await?;
+                log::info!(
+                    "mint for lock tx {:?} failed with retryable error: {:?}",
+                    task.lock_tx_hash,
+                    error
+                );
             }
         } else {
-            // TODO delete db record
+            delete_relayed_tx(&self.db_pool, task.lock_tx_hash.clone()).await?;
+            log::info!("mint for lock tx {:?} succeed", task.lock_tx_hash);
         }
+        Ok(())
     }
 
     async fn try_mint(&self, task: &MintTask, capacity_cell: &OutPoint) -> Result<H256> {
@@ -128,7 +152,7 @@ impl EthTxRelayer {
             self.config_path.clone(),
             task.lock_tx_hash.clone(),
             &lock_tx_proof,
-            self.private_key.clone(),
+            self.private_key,
             Some(capacity_cell.clone()),
         )
         .await
@@ -149,7 +173,7 @@ impl EthTxRelayer {
         if (capacity_cells.len() as u64) < self.mint_concurrency {
             self.generate_capacity_cells(&mut generator, from_lockscript.clone())
                 .await?;
-            Err(anyhow!("capacity cells for mint not enough"))
+            Err(anyhow!("capacity cells for this round not enough"))
         } else {
             let ret = capacity_cells
                 .into_iter()
@@ -185,9 +209,12 @@ impl EthTxRelayer {
             )
             .map_err(|err| anyhow!(err))?;
         let tx_hash = generator
-            .sign_and_send_transaction(unsigned_tx, self.private_key.clone())
+            .sign_and_send_transaction(unsigned_tx, self.private_key)
             .await?;
-        log::info!("generate capacity cell for mint: {:?}", tx_hash);
+        log::info!(
+            "generate capacity cell for next round succeed: {:?}",
+            tx_hash
+        );
         Ok(())
     }
 
