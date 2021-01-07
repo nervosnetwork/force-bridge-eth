@@ -11,7 +11,6 @@ use force_eth_types::{
         eth_recipient_cell::ETHRecipientCellData,
     },
 };
-use hex::FromHex;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::vec::Vec;
@@ -132,24 +131,7 @@ pub struct ETHBridgeLockDep {
 
 impl ETHBridgeLockDep {
     pub fn build_cell_dep(&self, context: &mut Context, outpoints: &OutpointsContext) -> CellDep {
-        let mut main = vec![];
-        for hash in self.confirmed_hashes.clone() {
-            main.push(hex::decode(hash).unwrap().into())
-        }
-        for hash in self.unconfirmed_blocks.clone() {
-            let header = eth_header_cell::ETHHeaderInfo::new_builder()
-                .header(basic::Bytes::from(Vec::from_hex(hash).unwrap()))
-                .build();
-            main.push(header.as_slice().to_vec().into())
-        }
-
-        let data = eth_header_cell::ETHHeaderCellData::new_builder()
-            .headers(
-                eth_header_cell::ETHChain::new_builder()
-                    .main(basic::BytesVec::new_builder().set(main).build())
-                    .build(),
-            )
-            .build();
+        let data = eth_header_cell::ETHHeaderCellData::default();
 
         let light_client_typescript = context
             .build_script(

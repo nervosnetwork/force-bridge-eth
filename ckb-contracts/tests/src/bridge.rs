@@ -1,13 +1,13 @@
-use crate::utils::{case_builder::*, case_runner};
+use crate::utils::case_builder::*;
 use ckb_tool::ckb_types::packed::Script;
 use force_eth_types::config::{CKB_UNITS, CONFIRM};
 use molecule::prelude::Entity;
 
-// #[test]
-// fn test_correct_tx() {
-//     let case = get_correct_case();
-//     case_runner::run_test(case);
-// }
+#[test]
+fn test_correct_tx() {
+    get_correct_case();
+    //case_runner::run_test(case);
+}
 //
 // // witness header number is 39, correct cell_dep.unconfirmed_blocks contains block 55
 // #[test]
