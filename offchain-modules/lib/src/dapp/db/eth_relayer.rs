@@ -108,82 +108,82 @@ WHERE lock_tx_hash = ?
         .rows_affected();
     Ok(rows_affected > 0)
 }
-
-#[cfg(test)]
-mod test {
-    use super::{
-        delete_relayed_tx, get_retry_tasks, last_relayed_number, store_mint_tasks,
-        update_relayed_tx, MintTask,
-    };
-    use sqlx::MySqlPool;
-
-    #[tokio::test]
-    async fn test_get_latest_number() {
-        let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
-            .await
-            .expect("connect db error");
-        let number = last_relayed_number(&pool).await.expect("get number error");
-        println!("number: {:?}", number);
-    }
-
-    #[tokio::test]
-    async fn test_store_mint_tasks() {
-        let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
-            .await
-            .expect("connect db error");
-        let mint_tasks = vec![
-            MintTask {
-                block_number: 1,
-                lock_tx_hash: "6f6d3b16f97a3910da97b863deb6408a3e636f8a5fe30f2e66ad1a8ec6b96d68"
-                    .to_owned(),
-                lock_tx_proof: "proof".to_owned(),
-            },
-            MintTask {
-                block_number: 2,
-                lock_tx_hash: "9f6d3b16f97a3910da97b863deb6408a3e636f8a5fe30f2e66ad1a8ec6b96d68"
-                    .to_owned(),
-                lock_tx_proof: "proof2".to_owned(),
-            },
-        ];
-        store_mint_tasks(&pool, &mint_tasks).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_get_retry_tasks() {
-        let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
-            .await
-            .expect("connect db error");
-        let tasks = get_retry_tasks(&pool).await.unwrap();
-        println!("retry tasks: {:?}", tasks);
-    }
-
-    #[tokio::test]
-    async fn test_update_relayed_tx() {
-        let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
-            .await
-            .expect("connect db error");
-        let is_succeed = update_relayed_tx(
-            &pool,
-            "6f6d3b16f97a3910da97b863deb6408a3e636f8a5fe30f2e66ad1a8ec6b96d68".to_string(),
-            "retryable".to_string(),
-            "network timeout".to_string(),
-        )
-        .await
-        .unwrap();
-        assert!(is_succeed, true);
-    }
-
-    #[tokio::test]
-    async fn test_delete_relayed_tx() {
-        let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
-            .await
-            .expect("connect db error");
-        let is_succeed = delete_relayed_tx(
-            &pool,
-            "9f6d3b16f97a3910da97b863deb6408a3e636f8a5fe30f2e66ad1a8ec6b96d68".to_string(),
-        )
-        .await
-        .unwrap();
-        assert!(is_succeed, true);
-    }
-}
+//
+// #[cfg(test)]
+// mod test {
+//     use super::{
+//         delete_relayed_tx, get_retry_tasks, last_relayed_number, store_mint_tasks,
+//         update_relayed_tx, MintTask,
+//     };
+//     use sqlx::MySqlPool;
+//
+//     #[tokio::test]
+//     async fn test_get_latest_number() {
+//         let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
+//             .await
+//             .expect("connect db error");
+//         let number = last_relayed_number(&pool).await.expect("get number error");
+//         println!("number: {:?}", number);
+//     }
+//
+//     #[tokio::test]
+//     async fn test_store_mint_tasks() {
+//         let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
+//             .await
+//             .expect("connect db error");
+//         let mint_tasks = vec![
+//             MintTask {
+//                 block_number: 1,
+//                 lock_tx_hash: "6f6d3b16f97a3910da97b863deb6408a3e636f8a5fe30f2e66ad1a8ec6b96d68"
+//                     .to_owned(),
+//                 lock_tx_proof: "proof".to_owned(),
+//             },
+//             MintTask {
+//                 block_number: 2,
+//                 lock_tx_hash: "9f6d3b16f97a3910da97b863deb6408a3e636f8a5fe30f2e66ad1a8ec6b96d68"
+//                     .to_owned(),
+//                 lock_tx_proof: "proof2".to_owned(),
+//             },
+//         ];
+//         store_mint_tasks(&pool, &mint_tasks).await.unwrap();
+//     }
+//
+//     #[tokio::test]
+//     async fn test_get_retry_tasks() {
+//         let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
+//             .await
+//             .expect("connect db error");
+//         let tasks = get_retry_tasks(&pool).await.unwrap();
+//         println!("retry tasks: {:?}", tasks);
+//     }
+//
+//     #[tokio::test]
+//     async fn test_update_relayed_tx() {
+//         let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
+//             .await
+//             .expect("connect db error");
+//         let is_succeed = update_relayed_tx(
+//             &pool,
+//             "6f6d3b16f97a3910da97b863deb6408a3e636f8a5fe30f2e66ad1a8ec6b96d68".to_string(),
+//             "retryable".to_string(),
+//             "network timeout".to_string(),
+//         )
+//         .await
+//         .unwrap();
+//         assert!(is_succeed, true);
+//     }
+//
+//     #[tokio::test]
+//     async fn test_delete_relayed_tx() {
+//         let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
+//             .await
+//             .expect("connect db error");
+//         let is_succeed = delete_relayed_tx(
+//             &pool,
+//             "9f6d3b16f97a3910da97b863deb6408a3e636f8a5fe30f2e66ad1a8ec6b96d68".to_string(),
+//         )
+//         .await
+//         .unwrap();
+//         assert!(is_succeed, true);
+//     }
+// }
