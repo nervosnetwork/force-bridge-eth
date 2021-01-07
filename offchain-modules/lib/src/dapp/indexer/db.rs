@@ -15,7 +15,6 @@ pub struct EthToCkbRecord {
     pub ckb_recipient_lockscript: Option<String>,
     pub sudt_extra_data: Option<String>,
     pub ckb_tx_hash: Option<String>,
-    pub err_msg: Option<String>,
     pub eth_spv_proof: Option<String>,
     pub block_number: u64,
     pub replay_resist_outpoint: Option<String>,
@@ -77,8 +76,8 @@ pub async fn update_eth_to_ckb_status(pool: &MySqlPool, record: &EthToCkbRecord)
 pub async fn create_eth_to_ckb_record(pool: &MySqlPool, record: &EthToCkbRecord) -> Result<u64> {
     let sql = r#"
 INSERT INTO eth_to_ckb ( eth_lock_tx_hash, status, token_addr, sender_addr, locked_amount, bridge_fee, 
-ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, err_msg, eth_spv_proof, block_number, replay_resist_outpoint)
-VALUES ( ?,?,?,?,?,?,?,?,?,?,?,?,?)"#;
+ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, eth_spv_proof, block_number, replay_resist_outpoint)
+VALUES ( ?,?,?,?,?,?,?,?,?,?,?,?)"#;
     let id = sqlx::query(sql)
         .bind(record.eth_lock_tx_hash.clone())
         .bind(record.status.clone())
@@ -89,7 +88,6 @@ VALUES ( ?,?,?,?,?,?,?,?,?,?,?,?,?)"#;
         .bind(record.ckb_recipient_lockscript.as_ref())
         .bind(record.sudt_extra_data.as_ref())
         .bind(record.ckb_tx_hash.as_ref())
-        .bind(record.err_msg.as_ref())
         .bind(record.eth_spv_proof.as_ref())
         .bind(record.block_number)
         .bind(record.replay_resist_outpoint.as_ref())
@@ -109,7 +107,6 @@ pub struct CkbToEthRecord {
     pub token_amount: Option<String>,
     pub fee: Option<String>,
     pub eth_tx_hash: Option<String>,
-    pub err_msg: Option<String>,
     pub ckb_spv_proof: Option<String>,
     pub block_number: u64,
 }
@@ -129,7 +126,7 @@ order by id desc limit 1
 pub async fn create_ckb_to_eth_record(pool: &MySqlPool, record: &CkbToEthRecord) -> Result<u64> {
     let sql = r#"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
-eth_tx_hash, err_msg, ckb_spv_proof, block_number)
+eth_tx_hash, ckb_spv_proof, block_number)
 VALUES ( ?,?,?,?,?,?,?,?,?,?)"#;
     let id = sqlx::query(sql)
         .bind(record.ckb_burn_tx_hash.clone())
@@ -139,7 +136,6 @@ VALUES ( ?,?,?,?,?,?,?,?,?,?)"#;
         .bind(record.token_amount.as_ref())
         .bind(record.fee.as_ref())
         .bind(record.eth_tx_hash.as_ref())
-        .bind(record.err_msg.as_ref())
         .bind(record.ckb_spv_proof.as_ref())
         .bind(record.block_number)
         .execute(pool)

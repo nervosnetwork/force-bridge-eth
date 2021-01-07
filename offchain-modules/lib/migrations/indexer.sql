@@ -11,14 +11,13 @@ CREATE TABLE `ckb_to_eth` (
   `token_amount` varchar(20) DEFAULT NULL,
   `fee` varchar(20) DEFAULT NULL,
   `eth_tx_hash` varchar(64) DEFAULT NULL,
-  `err_msg` varchar(256) DEFAULT NULL,
   `ckb_spv_proof` varbinary(2048) DEFAULT NULL,
   `block_number` int(11) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ckb_burn_tx_hash` (`ckb_burn_tx_hash`),
-  KEY `eth_tx_hash` (`eth_tx_hash`)
+  KEY `eth_tx_hash` (`eth_tx_hash`),
+  KEY `status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
 
 DROP TABLE IF EXISTS `eth_to_ckb`;
 
@@ -33,11 +32,11 @@ CREATE TABLE `eth_to_ckb` (
   `ckb_recipient_lockscript` varchar(256) DEFAULT NULL,
   `sudt_extra_data` varchar(256) DEFAULT NULL,
   `ckb_tx_hash` varchar(64) DEFAULT NULL,
-  `err_msg` varchar(256) DEFAULT NULL,
   `eth_spv_proof` varchar(8192) DEFAULT NULL,
   `block_number` int(11) unsigned DEFAULT NULL,
   `replay_resist_outpoint` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `eth_lock_tx_hash` (`eth_lock_tx_hash`),
-  KEY `replay_resist_outpoint` (`replay_resist_outpoint`)
+  KEY `replay_resist_outpoint` (`replay_resist_outpoint`),
+  KEY `status` (`status`,`block_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
