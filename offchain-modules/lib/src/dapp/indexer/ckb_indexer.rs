@@ -11,7 +11,6 @@ use ckb_sdk::rpc::Transaction;
 use ckb_sdk::HttpRpcClient;
 use ckb_types::packed::{Byte32, OutPoint};
 use ckb_types::prelude::{Builder, Entity, Pack};
-use eth_spv_lib::eth_types::U64;
 use force_eth_types::eth_recipient_cell::ETHRecipientDataView;
 use force_eth_types::generated::basic::ETHAddress;
 use force_sdk::indexer::IndexerRpcClient;
