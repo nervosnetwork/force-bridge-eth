@@ -48,11 +48,9 @@ impl EthIndexer {
             start_block_number = U64::from(record_option.unwrap().block_number);
         } else {
             start_block_number = self.eth_client.client().eth().block_number().await?;
-            // start_block_number = U64::from(593);
         }
 
         loop {
-            dbg!(start_block_number.as_u64());
             let block = self.eth_client.get_block(start_block_number.into()).await;
             if block.is_err() {
                 info!("waiting for new block.");

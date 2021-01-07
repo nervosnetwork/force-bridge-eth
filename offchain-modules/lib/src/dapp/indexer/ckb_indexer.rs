@@ -1,7 +1,8 @@
 use crate::dapp::indexer::db::{
-    create_ckb_to_eth_record, get_eth_to_ckb_record_by_outpoint, is_ckb_to_eth_record_exist,
-    update_eth_to_ckb_status, CkbToEthRecord,
+    create_ckb_to_eth_record, get_eth_to_ckb_record_by_outpoint, get_latest_ckb_to_eth_record,
+    is_ckb_to_eth_record_exist, update_eth_to_ckb_status, CkbToEthRecord,
 };
+use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::parse_cell;
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, Result};
@@ -10,6 +11,7 @@ use ckb_sdk::rpc::Transaction;
 use ckb_sdk::HttpRpcClient;
 use ckb_types::packed::{Byte32, OutPoint};
 use ckb_types::prelude::{Builder, Entity, Pack};
+use eth_spv_lib::eth_types::U64;
 use force_eth_types::eth_recipient_cell::ETHRecipientDataView;
 use force_eth_types::generated::basic::ETHAddress;
 use force_sdk::indexer::IndexerRpcClient;
@@ -45,10 +47,16 @@ impl CkbIndexer {
     }
 
     pub async fn start(&mut self) -> Result<()> {
-        let mut ckb_height = self
-            .rpc_client
-            .get_tip_block_number()
-            .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
+        let record_option = get_latest_ckb_to_eth_record(&self.db).await?;
+        let mut ckb_height;
+        if record_option.is_some() {
+            ckb_height = record_option.unwrap().block_number;
+        } else {
+            ckb_height = self
+                .rpc_client
+                .get_tip_block_number()
+                .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
+        }
         loop {
             let block = self
                 .rpc_client
@@ -119,6 +127,11 @@ impl CkbIndexer {
                     let recipient_addr: ETHAddress =
                         eth_recipient.eth_recipient_address.get_address().into();
                     let token_amount = eth_recipient.token_amount;
+                    let ckb_tx_proof = parse_ckb_proof(
+                        hash.clone().as_str(),
+                        String::from(self.rpc_client.url()),
+                    )?;
+                    let proof_str = serde_json::to_string(&ckb_tx_proof)?;
                     let record = CkbToEthRecord {
                         ckb_burn_tx_hash: hash.clone(),
                         status: "pending".to_string(),
@@ -127,6 +140,7 @@ impl CkbIndexer {
                             recipient_addr.raw_data().to_vec().as_slice(),
                         )),
                         token_amount: Some(Uint128::from(token_amount).to_string()),
+                        ckb_spv_proof: Some(proof_str),
                         block_number,
                         ..Default::default()
                     };
