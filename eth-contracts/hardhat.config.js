@@ -5,9 +5,9 @@ require("solidity-coverage");
 require("@nomiclabs/hardhat-ethers");
 require('@openzeppelin/hardhat-upgrades');
 require('dotenv').config()
+const fs = require('fs');
+const TOML = require('@iarna/toml');
 
-// This is a sample Buidler task. To learn how to create your own go to
-// https://buidler.dev/guides/create-task.html
 task("accounts", "Prints the list of accounts", async () => {
     const accounts = await ethers.getSigners();
 
@@ -16,10 +16,26 @@ task("accounts", "Prints the list of accounts", async () => {
     }
 });
 
-// You have to export an object to set up your config
-// This object can have the following optional entries:
-// defaultNetwork, networks, solc, and paths.
-// Go to https://buidler.dev/config/ to learn more
+const getCiNetwork = () => {
+    // get force config
+    const forceConfigPath = process.env.FORCE_CONFIG_PATH;
+    const network = process.env.FORCE_NETWORK;
+    if (!forceConfigPath) {
+        throw 'FORCE_CONFIG_PATH not set';
+    }
+    const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
+    let network_config;
+    if (network) {
+        network_config = forceConfig.networks_config[network];
+    } else {
+        network_config = forceConfig.networks_config[forceConfig.default_network];
+    }
+    return {
+        url: network_config.ethereum_rpc_url,
+        accounts: network_config.ethereum_private_keys
+    }
+}
+
 module.exports = {
     // This is a sample solc configuration that specifies which version of solc to use
     solidity: {
@@ -86,7 +102,8 @@ module.exports = {
             // address [`0x10A4c9D160196086Ab8D4247e2D607f910e8cac0`]
             // Mnemonic [`live blush purchase cheap obey spare purchase depend remain truly slush assist`]
             accounts: [`0x719e94ec5d2ecef67b5878503ffd6e1e0e2fe7a52ddd55c436878cb4d52d376d`],
-        }
+        },
+        ci: getCiNetwork()
     },
 
     paths: {

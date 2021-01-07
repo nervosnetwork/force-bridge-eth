@@ -2,10 +2,7 @@ const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
 const { upgrades } = require('hardhat');
-const {
-  deployUpgradableContractFirstTimeByWallet,
-  ckbBlake2b,
-} = require('../test/utils');
+const { sleep, ckbBlake2b } = require('../test/utils');
 
 async function main() {
   // get force config
@@ -59,8 +56,7 @@ async function main() {
   // deploy CKBChainV2
   const canonicalGcThreshold = 40000;
   let factory = await ethers.getContractFactory(
-    'contracts/CKBChainV2-openzeppelin.sol:CKBChainV2',
-    wallet
+    'contracts/CKBChainV2-openzeppelin.sol:CKBChainV2'
   );
   let CKBChainV2 = await upgrades.deployProxy(
     factory,
@@ -72,12 +68,15 @@ async function main() {
     }
   );
   const ckbChainV2Addr = CKBChainV2.address;
+  console.error('ckbChainV2 address: ', ckbChainV2Addr);
+  const waitingSeconds = 20;
+  console.error(`waiting ${waitingSeconds} seconds`);
+  await sleep(waitingSeconds);
 
   // deploy TokenLocker
   const numConfirmations = 10;
   factory = await ethers.getContractFactory(
-    'contracts/TokenLocker-openzeppelin.sol:TokenLocker',
-    wallet
+    'contracts/TokenLocker-openzeppelin.sol:TokenLocker'
   );
   const locker = await upgrades.deployProxy(
     factory,
@@ -98,6 +97,8 @@ async function main() {
 
   const lockerAddr = locker.address;
   console.error('tokenLocker address: ', lockerAddr);
+  console.error(`waiting ${waitingSeconds} seconds`);
+  await sleep(waitingSeconds);
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
