@@ -600,8 +600,7 @@ impl TxHelper {
         if from_capacity + manual_cell_capacity < to_capacity + tx_fee {
             return Err(format!(
                 "manual cell capacity(mature) not enough: {:?} => {}",
-                capacity_cell.clone(),
-                manual_cell_capacity,
+                capacity_cell, manual_cell_capacity,
             ));
         }
         let rest_capacity = from_capacity + manual_cell_capacity - to_capacity - tx_fee;
