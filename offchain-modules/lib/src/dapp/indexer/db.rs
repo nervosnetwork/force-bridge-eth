@@ -127,8 +127,6 @@ order by id desc limit 1
 }
 
 pub async fn create_ckb_to_eth_record(pool: &MySqlPool, record: &CkbToEthRecord) -> Result<u64> {
-    dbg!(record.clone());
-    dbg!(record.ckb_burn_tx_hash.len().clone());
     let sql = r#"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
 eth_tx_hash, err_msg, ckb_spv_proof, block_number)
