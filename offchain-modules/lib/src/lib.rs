@@ -1,4 +1,6 @@
 #![feature(async_closure)]
+#![feature(array_methods)]
+
 pub mod dapp;
 pub mod header_relay;
 pub mod transfer;

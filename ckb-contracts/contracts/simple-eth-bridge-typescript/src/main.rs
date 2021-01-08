@@ -1,0 +1,11 @@
+#![no_std]
+#![no_main]
+#![feature(lang_items)]
+#![feature(alloc_error_handler)]
+#![feature(panic_info_message)]
+
+use ckb_std::default_alloc;
+use simple_eth_bridge_typescript_lib::verify;
+
+default_alloc!();
+contracts_helper::entry!(verify);

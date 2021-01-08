@@ -52,6 +52,7 @@ pub async fn get_or_create_bridge_cell(
         args.eth_token_address.clone(),
         args.recipient_address.clone(),
         args.bridge_fee.into(),
+        false,
         args.cell_num.unwrap_or(5),
     )
     .await?;
@@ -157,7 +158,7 @@ pub async fn relay_eth_to_ckb_proof(
             .into());
         };
     } else {
-        row_id = create_db_res.unwrap();
+        row_id = create_db_res.unwrap() as i64;
     }
     let generator = data.get_generator().await?;
     tokio::spawn(async move {
