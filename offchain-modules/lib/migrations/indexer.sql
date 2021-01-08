@@ -11,13 +11,15 @@ CREATE TABLE `ckb_to_eth` (
   `token_amount` varchar(20) DEFAULT NULL,
   `fee` varchar(20) DEFAULT NULL,
   `eth_tx_hash` varchar(64) DEFAULT NULL,
-  `ckb_spv_proof` varbinary(2048) DEFAULT NULL,
+  `ckb_spv_proof` varchar(2048) DEFAULT NULL,
   `block_number` int(11) unsigned DEFAULT NULL,
+  `ckb_raw_tx` varchar(4096) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ckb_burn_tx_hash` (`ckb_burn_tx_hash`),
   KEY `eth_tx_hash` (`eth_tx_hash`),
   KEY `status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 DROP TABLE IF EXISTS `eth_to_ckb`;
 

@@ -109,6 +109,7 @@ pub struct CkbToEthRecord {
     pub eth_tx_hash: Option<String>,
     pub ckb_spv_proof: Option<String>,
     pub block_number: u64,
+    pub ckb_raw_tx: Option<String>,
 }
 
 pub async fn get_latest_ckb_to_eth_record(pool: &MySqlPool) -> Result<Option<CkbToEthRecord>> {
@@ -126,8 +127,8 @@ order by id desc limit 1
 pub async fn create_ckb_to_eth_record(pool: &MySqlPool, record: &CkbToEthRecord) -> Result<u64> {
     let sql = r#"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
-eth_tx_hash, ckb_spv_proof, block_number)
-VALUES ( ?,?,?,?,?,?,?,?,?,?)"#;
+eth_tx_hash, ckb_spv_proof, block_number, ckb_raw_tx)
+VALUES ( ?,?,?,?,?,?,?,?,?,?,?)"#;
     let id = sqlx::query(sql)
         .bind(record.ckb_burn_tx_hash.clone())
         .bind(record.status.clone())
@@ -138,6 +139,7 @@ VALUES ( ?,?,?,?,?,?,?,?,?,?)"#;
         .bind(record.eth_tx_hash.as_ref())
         .bind(record.ckb_spv_proof.as_ref())
         .bind(record.block_number)
+        .bind(record.ckb_raw_tx.as_ref())
         .execute(pool)
         .await?
         .last_insert_id();

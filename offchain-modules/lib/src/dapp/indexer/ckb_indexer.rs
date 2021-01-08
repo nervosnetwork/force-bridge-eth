@@ -9,6 +9,7 @@ use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::Uint128;
 use ckb_sdk::rpc::Transaction;
 use ckb_sdk::HttpRpcClient;
+use ckb_types::packed;
 use ckb_types::packed::{Byte32, OutPoint};
 use ckb_types::prelude::{Builder, Entity, Pack};
 use force_eth_types::eth_recipient_cell::ETHRecipientDataView;
@@ -131,6 +132,9 @@ impl CkbIndexer {
                         String::from(self.rpc_client.url()),
                     )?;
                     let proof_str = serde_json::to_string(&ckb_tx_proof)?;
+                    let tx_raw: packed::Transaction = tx.into();
+                    let mol_hex_tx = hex::encode(tx_raw.raw().as_slice());
+
                     let record = CkbToEthRecord {
                         ckb_burn_tx_hash: hash.clone(),
                         status: "pending".to_string(),
@@ -141,6 +145,7 @@ impl CkbIndexer {
                         token_amount: Some(Uint128::from(token_amount).to_string()),
                         ckb_spv_proof: Some(proof_str),
                         block_number,
+                        ckb_raw_tx: Some(mol_hex_tx),
                         ..Default::default()
                     };
                     create_ckb_to_eth_record(&self.db, &record).await?;
