@@ -553,6 +553,78 @@ impl TxHelper {
         Ok(self.transaction.clone())
     }
 
+    #[allow(clippy::mutable_key_type)]
+    pub fn supply_capacity_manual(
+        &mut self,
+        rpc_client: &mut HttpRpcClient,
+        lockscript: Script,
+        genesis_info: &GenesisInfo,
+        tx_fee: u64,
+        capacity_cell: OutPoint,
+    ) -> Result<TransactionView, String> {
+        if tx_fee > ONE_CKB {
+            return Err("Transaction fee can not be more than 1.0 CKB".to_string());
+        }
+
+        let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
+            Default::default();
+        let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+            get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+                .map(|(output, _)| output)
+        };
+        let from_capacity: u64 = self
+            .transaction
+            .inputs()
+            .into_iter()
+            .map(|input| {
+                let cap: u64 = get_live_cell_fn(input.previous_output(), false)
+                    .expect("input not exist")
+                    .capacity()
+                    .unpack();
+                cap
+            })
+            .sum();
+        let to_capacity: u64 = self
+            .transaction
+            .outputs()
+            .into_iter()
+            .map(|output| {
+                let cap: u64 = output.capacity().unpack();
+                cap
+            })
+            .sum();
+
+        let manual_cell_capacity: u64 = get_live_cell_fn(capacity_cell.clone(), false)?
+            .capacity()
+            .unpack();
+        if from_capacity + manual_cell_capacity < to_capacity + tx_fee {
+            return Err(format!(
+                "manual cell capacity(mature) not enough: {:?} => {}",
+                capacity_cell, manual_cell_capacity,
+            ));
+        }
+        let rest_capacity = from_capacity + manual_cell_capacity - to_capacity - tx_fee;
+        if rest_capacity < MIN_SECP_CELL_CAPACITY && tx_fee + rest_capacity > ONE_CKB {
+            // return Err("Transaction fee can not be more than 1.0 CKB, please change to-capacity value to adjust".to_string());
+            log::warn!("Transaction fee can not be more than 1.0 CKB, please change to-capacity value to adjust. rest_capacity: {}, tx_fee: {}", rest_capacity, tx_fee);
+        }
+        self.add_input(
+            capacity_cell,
+            None,
+            &mut get_live_cell_fn,
+            genesis_info,
+            true,
+        )?;
+        if rest_capacity >= MIN_SECP_CELL_CAPACITY {
+            let change_output = CellOutput::new_builder()
+                .capacity(Capacity::shannons(rest_capacity).pack())
+                .lock(lockscript)
+                .build();
+            self.add_output(change_output, Bytes::default());
+        }
+        Ok(self.transaction.clone())
+    }
+
     pub fn sign<F: FnMut(OutPoint, bool) -> Result<CellOutput, String>>(
         &mut self,
         mut get_live_cell_fn: F,
