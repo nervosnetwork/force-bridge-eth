@@ -12,20 +12,12 @@ use std::time::Instant;
 use tokio::time::Duration;
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
-pub struct CkbToEthRecord {
+pub struct UnlockTask {
     pub id: u32,
     pub ckb_burn_tx_hash: String,
-    // pub status: String,
-    // pub recipient_addr: Option<String>,
-    // pub token_addr: Option<String>,
-    // pub token_amount: Option<String>,
-    // pub fee: Option<String>,
-    // pub eth_tx_hash: Option<String>,
-    // pub err_msg: Option<String>,
-    pub ckb_spv_proof: Vec<u8>,
-    pub ckb_raw_tx: Vec<u8>,
+    pub ckb_spv_proof: String,
+    pub ckb_raw_tx: String,
 }
-
 pub struct CkbTxRelay {
     eth_token_locker_addr: String,
     ethereum_rpc_url: String,
@@ -66,20 +58,18 @@ impl CkbTxRelay {
     }
 
     pub async fn relay(&mut self) -> Result<()> {
-        let unlock_tasks = get_ckb_tx_record(&self.db).await?;
+        let unlock_tasks = get_unlock_tasks(&self.db).await?;
         let mut unlock_futures = vec![];
         let nonce = Web3Client::new(self.ethereum_rpc_url.clone())
             .get_eth_nonce(&self.eth_private_key)
             .await?;
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
-            let tx_proof = hex::encode(tx_record.ckb_spv_proof.clone());
-            let raw_tx = hex::encode(tx_record.ckb_raw_tx.clone());
             unlock_futures.push(unlock(
                 self.eth_private_key,
                 self.ethereum_rpc_url.clone(),
                 self.eth_token_locker_addr.clone(),
-                tx_proof,
-                raw_tx,
+                tx_record.ckb_spv_proof.clone(),
+                tx_record.ckb_raw_tx.clone(),
                 0,
                 nonce.add(i),
                 true,
@@ -110,14 +100,15 @@ impl CkbTxRelay {
     }
 }
 
-pub async fn get_ckb_tx_record(pool: &MySqlPool) -> Result<Vec<CkbToEthRecord>> {
-    // TODO : filter with status
-    Ok(sqlx::query_as::<_, CkbToEthRecord>(
-        r#"
-SELECT *
+pub async fn get_unlock_tasks(pool: &MySqlPool) -> Result<Vec<UnlockTask>> {
+    let sql = r#"
+SELECT id, ckb_burn_tx_hash, ckb_spv_proof, ckb_raw_tx
 FROM ckb_to_eth
-        "#,
-    )
-    .fetch_all(pool)
-    .await?)
+WHERE status = ?
+    "#;
+    let tasks = sqlx::query_as::<_, UnlockTask>(sql)
+        .bind("pending")
+        .fetch_all(pool)
+        .await?;
+    Ok(tasks)
 }
