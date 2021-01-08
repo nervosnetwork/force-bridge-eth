@@ -20,7 +20,6 @@ CREATE TABLE `ckb_to_eth` (
   KEY `status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-
 DROP TABLE IF EXISTS `eth_to_ckb`;
 
 CREATE TABLE `eth_to_ckb` (
