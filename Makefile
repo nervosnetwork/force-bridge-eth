@@ -43,11 +43,11 @@ deploy-ckb-sudt:
 
 deploy-eth:
 	cd eth-contracts \
-	&& npx hardhat run ./scripts/deploy.js --network geth
+	&& npx hardhat run ./scripts/deploy.js --network ci
 
 deploy-erc20:
 	cd eth-contracts \
-	&& npx hardhat run ./scripts/deploy-erc20.js > ~/.force-bridge/erc20-contracts.json
+	&& npx hardhat run ./scripts/deploy-erc20.js --network ci > ~/.force-bridge/erc20-contracts.json
 
 deploy-contracts: deploy-ckb deploy-eth
 
