@@ -50,7 +50,6 @@ impl CkbTxRelay {
     }
 
     pub async fn start(&mut self) -> Result<()> {
-        // let mut unlock_tasks: Vec<UnlockTask> = vec![];
         loop {
             self.relay().await?;
             tokio::time::delay_for(Duration::from_secs(600)).await
