@@ -56,10 +56,7 @@ where eth_lock_tx_hash = ?
         .bind(eth_tx_hash)
         .fetch_all(pool)
         .await?;
-    if ret.is_empty() {
-        return Ok(false);
-    }
-    Ok(true)
+    Ok(!ret.is_empty())
 }
 
 pub async fn update_eth_to_ckb_status(pool: &MySqlPool, record: &EthToCkbRecord) -> Result<bool> {
