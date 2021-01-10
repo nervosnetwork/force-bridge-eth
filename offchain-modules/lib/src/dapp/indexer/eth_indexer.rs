@@ -58,21 +58,53 @@ impl EthIndexer {
                 continue;
             }
             let txs = block.unwrap().transactions;
+            let mut lock_records = vec![];
+            let mut unlock_records = vec![];
             for tx_hash in txs {
                 let hash = hex::encode(tx_hash);
                 if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
-                    self.handle_lock_event(hash.clone(), start_block_number.as_u64())
+                    let is_lock_tx = self
+                        .handle_lock_event(
+                            hash.clone(),
+                            start_block_number.as_u64(),
+                            &mut lock_records,
+                        )
                         .await?;
+                    // if the tx is not lock tx, check if unlock tx.
+                    if !is_lock_tx {
+                        self.handle_unlock_event(hash.clone(), &mut unlock_records)
+                            .await?;
+                    }
                 }
             }
+            if !lock_records.is_empty() || !unlock_records.is_empty() {
+                let mut conn = self.db.begin().await?;
+                if !lock_records.is_empty() {
+                    create_eth_to_ckb_record(&mut conn, &lock_records).await?;
+                }
+                if !unlock_records.is_empty() {
+                    for item in unlock_records {
+                        update_ckb_to_eth_record_status(&mut conn, item.0, item.1, "success")
+                            .await?;
+                    }
+                }
+                conn.commit().await?;
+            }
+
             start_block_number = start_block_number.add(U64::from(1));
         }
     }
 
-    pub async fn handle_lock_event(&mut self, hash: String, block_number: u64) -> Result<()> {
+    pub async fn handle_lock_event(
+        &mut self,
+        hash: String,
+        block_number: u64,
+        records: &mut Vec<EthToCkbRecord>,
+    ) -> Result<bool> {
         let hash_with_0x = format!("{}{}", "0x", hash.clone());
-        let (eth_spv_proof, exist) = self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
-        if exist {
+        let (eth_spv_proof, is_lock_tx) =
+            self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
+        if is_lock_tx {
             let lock_contract_address = self
                 .force_config
                 .deployed_contracts
@@ -101,13 +133,11 @@ impl EthIndexer {
                 block_number,
                 ..Default::default()
             };
-            create_eth_to_ckb_record(&self.db, &record).await?;
-            info!("create eth_to_ckb record success. tx_hash: {}", hash,);
-        } else {
-            // if the tx is not lock tx, check if unlock tx.
-            self.handle_unlock_event(hash.clone()).await?;
+            records.push(record);
+            // create_eth_to_ckb_record(&self.db, vec![&record, &record]).await?;
+            // info!("create eth_to_ckb record success. tx_hash: {}", hash,);
         }
-        Ok(())
+        Ok(is_lock_tx)
     }
 
     pub fn get_eth_spv_proof_with_retry(
@@ -138,7 +168,11 @@ impl EthIndexer {
         ))
     }
 
-    pub async fn handle_unlock_event(&mut self, hash: String) -> Result<()> {
+    pub async fn handle_unlock_event(
+        &mut self,
+        hash: String,
+        unlock_datas: &mut Vec<(String, String)>,
+    ) -> Result<()> {
         let hash_with_0x = format!("{}{}", "0x", hash.clone());
         let record_op = get_ckb_to_eth_record_by_eth_hash(&self.db, hash.clone()).await?;
         if record_op.is_some() {
@@ -179,19 +213,20 @@ impl EthIndexer {
                 if tx_raw.is_some() {
                     let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
                     let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
-                    let ret = update_ckb_to_eth_record_status(
-                        &self.db,
-                        ckb_tx_hash_str,
-                        hash.clone(),
-                        "success",
-                    )
-                    .await?;
-                    if !ret {
-                        log::error!(
-                            "failed to update ckb to eth cross chain record. ckb_tx_hash: {:?}",
-                            hash
-                        );
-                    }
+                    unlock_datas.push((ckb_tx_hash_str, hash.clone()));
+                    // let ret = update_ckb_to_eth_record_status(
+                    //     &self.db,
+                    //     ckb_tx_hash_str,
+                    //     hash.clone(),
+                    //     "success",
+                    // )
+                    // .await?;
+                    // if !ret {
+                    //     log::error!(
+                    //         "failed to update ckb to eth cross chain record. ckb_tx_hash: {:?}",
+                    //         hash
+                    //     );
+                    // }
                 }
             }
         }
