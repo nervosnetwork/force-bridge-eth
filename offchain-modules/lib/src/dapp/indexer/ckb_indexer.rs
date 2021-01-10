@@ -1,6 +1,6 @@
 use crate::dapp::indexer::db::{
     create_ckb_to_eth_record, get_eth_to_ckb_record_by_outpoint, get_latest_ckb_to_eth_record,
-    is_ckb_to_eth_record_exist, update_eth_to_ckb_status, CkbToEthRecord,
+    is_ckb_to_eth_record_exist, update_eth_to_ckb_status, CkbToEthRecord, EthToCkbRecord,
 };
 use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::{create_bridge_lockscript, parse_cell};
@@ -70,13 +70,32 @@ impl CkbIndexer {
                 .map_err(|e| anyhow!("failed to get ckb block by hash : {}", e))?;
             if let Some(block) = block {
                 let txs = block.transactions;
+                let mut burn_records = vec![];
+                let mut mint_records = vec![];
                 for tx_view in txs {
                     let tx = tx_view.inner;
                     let tx_hash = hex::encode(tx_view.hash.as_bytes());
                     let exist = is_ckb_to_eth_record_exist(&self.db, tx_hash.as_str()).await?;
                     if !exist {
-                        self.handle_tx(tx.clone(), tx_hash, ckb_height).await?;
+                        let is_burn_tx = self
+                            .handle_burn_tx(tx.clone(), tx_hash, ckb_height, &mut burn_records)
+                            .await?;
+                        if !is_burn_tx {
+                            self.handle_mint_tx(tx, &mut mint_records).await?;
+                        }
                     }
+                }
+                if !burn_records.is_empty() || !mint_records.is_empty() {
+                    let mut db_tx = self.db.begin().await?;
+                    if !burn_records.is_empty() {
+                        create_ckb_to_eth_record(&mut db_tx, &burn_records).await?;
+                    }
+                    if !mint_records.is_empty() {
+                        for item in mint_records {
+                            update_eth_to_ckb_status(&mut db_tx, &item).await?;
+                        }
+                    }
+                    db_tx.commit().await?;
                 }
                 ckb_height += 1;
             } else {
@@ -86,26 +105,28 @@ impl CkbIndexer {
         }
     }
 
-    pub async fn handle_tx(
-        &mut self,
-        tx: Transaction,
-        tx_hash: String,
-        block_number: u64,
-    ) -> Result<()> {
-        let ret = self
-            .handle_burn_tx(tx.clone(), tx_hash, block_number)
-            .await?;
-        if !ret {
-            self.handle_mint_tx(tx).await?;
-        }
-        Ok(())
-    }
+    // pub async fn handle_tx(
+    //     &mut self,
+    //     tx: Transaction,
+    //     tx_hash: String,
+    //     block_number: u64,
+    // ) -> Result<()> {
+    //     let mut burn_records = vec![];
+    //     let is_burn_tx = self
+    //         .handle_burn_tx(tx.clone(), tx_hash, block_number, &mut burn_records)
+    //         .await?;
+    //     if !is_burn_tx {
+    //         self.handle_mint_tx(tx).await?;
+    //     }
+    //     Ok(())
+    // }
 
     pub async fn handle_burn_tx(
         &mut self,
         tx: Transaction,
         hash: String,
         block_number: u64,
+        burn_records: &mut Vec<CkbToEthRecord>,
     ) -> Result<bool> {
         if tx.outputs_data.is_empty() {
             return Ok(false);
@@ -149,7 +170,8 @@ impl CkbIndexer {
                         ckb_raw_tx: Some(mol_hex_tx),
                         ..Default::default()
                     };
-                    create_ckb_to_eth_record(&self.db, &record).await?;
+                    burn_records.push(record);
+                    // create_ckb_to_eth_record(&self.db, &record).await?;
                     return Ok(true);
                 }
             }
@@ -187,7 +209,11 @@ impl CkbIndexer {
         Ok(false)
     }
 
-    pub async fn handle_mint_tx(&mut self, tx: Transaction) -> Result<()> {
+    pub async fn handle_mint_tx(
+        &mut self,
+        tx: Transaction,
+        unlock_datas: &mut Vec<EthToCkbRecord>,
+    ) -> Result<()> {
         let input = tx.inputs[0].previous_output.clone();
         let outpoint = OutPoint::new_builder()
             .tx_hash(Byte32::from_slice(input.tx_hash.as_ref())?)
@@ -207,8 +233,9 @@ impl CkbIndexer {
             if let Ok(success) = ret {
                 if success {
                     eth_to_ckb_record.status = String::from("success");
-                    update_eth_to_ckb_status(&self.db, &eth_to_ckb_record).await?;
-                    log::info!("succeed to update eth_to_ckb cross status.");
+                    unlock_datas.push(eth_to_ckb_record);
+                    // update_eth_to_ckb_status(&self.db, &eth_to_ckb_record).await?;
+                    // log::info!("succeed to update eth_to_ckb cross status.");
                 }
             }
         }
