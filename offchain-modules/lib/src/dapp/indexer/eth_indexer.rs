@@ -61,7 +61,7 @@ impl EthIndexer {
             .cell_script
             .as_str();
         let cell_script = parse_cell(light_client_cell_script)?;
-        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script.clone())
+        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
             .map_err(|err| anyhow!(err))?
             .ok_or_else(|| anyhow!("the cell is not exist"))?;
         let ckb_cell_data = cell.output_data.as_bytes().to_vec();
