@@ -3,12 +3,16 @@ use crate::dapp::indexer::db::{
     is_eth_to_ckb_record_exist, update_ckb_to_eth_record_status, EthToCkbRecord,
 };
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
+use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types::Uint128;
 use ethabi::{Function, Param, ParamType};
+use force_eth_types::config::CONFIRM;
+use force_sdk::cell_collector::get_live_cell_by_typescript;
+use force_sdk::indexer::IndexerRpcClient;
 use log::info;
 use rusty_receipt_proof_maker::types::UnlockEvent;
 use rusty_receipt_proof_maker::{generate_eth_proof, parse_unlock_event, types::EthSpvProof};
@@ -18,9 +22,10 @@ use std::ops::Add;
 use web3::types::U64;
 
 pub struct EthIndexer {
-    pub force_config: ForceConfig,
+    pub config_path: String,
     pub eth_client: Web3Client,
     pub db: MySqlPool,
+    pub indexer_client: IndexerRpcClient,
 }
 
 impl EthIndexer {
@@ -28,70 +33,115 @@ impl EthIndexer {
         config_path: String,
         network: Option<String>,
         db_path: String,
+        indexer_url: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let eth_client = Web3Client::new(eth_rpc_url);
+        let indexer_client = IndexerRpcClient::new(indexer_url);
         let db = MySqlPool::connect(&db_path).await?;
         Ok(EthIndexer {
-            force_config,
+            config_path,
             eth_client,
             db,
+            indexer_client,
         })
     }
 
+    pub async fn get_latest_confirm_block_number(&mut self) -> Result<u64> {
+        let config_path = tilde(self.config_path.as_str()).into_owned();
+        let force_config = ForceConfig::new(config_path.as_str())?;
+        let deployed_contracts = force_config
+            .deployed_contracts
+            .as_ref()
+            .ok_or_else(|| anyhow!("the deployed_contracts is not init."))?;
+        let light_client_cell_script = deployed_contracts
+            .light_client_cell_script
+            .cell_script
+            .as_str();
+        let cell_script = parse_cell(light_client_cell_script)?;
+        let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script.clone())
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("the cell is not exist"))?;
+        let ckb_cell_data = cell.output_data.as_bytes().to_vec();
+        if !ckb_cell_data.is_empty() {
+            let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
+            let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
+                .number
+                .ok_or_else(|| anyhow!("the number is not exist"))?
+                .as_u64();
+            if best_block_height > CONFIRM as u64 {
+                return Ok(best_block_height - CONFIRM as u64);
+            }
+        }
+        anyhow::bail!("waiting for the block confirmed!")
+    }
+
+    pub async fn get_latest_block_number_with_loop(&mut self) -> U64 {
+        loop {
+            let ret = self.get_latest_confirm_block_number().await;
+            match ret {
+                Ok(number) => {
+                    return U64::from(number);
+                }
+                Err(err) => {
+                    log::error!("failed to get latest confirm block number.Err: {:?}", err);
+                    tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                }
+            }
+        }
+    }
+
+    #[allow(unused_assignments)]
     pub async fn start(&mut self) -> Result<()> {
         let record_option = get_latest_eth_to_ckb_record(&self.db).await?;
         let mut start_block_number;
         if record_option.is_some() {
-            start_block_number = U64::from(record_option.unwrap().block_number);
-        } else {
-            start_block_number = self.eth_client.client().eth().block_number().await?;
+            start_block_number = U64::from(record_option.unwrap().block_number + 1);
         }
-
+        let mut latest_block_number = self.get_latest_block_number_with_loop().await;
+        start_block_number = latest_block_number;
         loop {
-            let block = self.eth_client.get_block(start_block_number.into()).await;
-            if block.is_err() {
-                info!("waiting for new block.");
-                tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
-                continue;
-            }
-            let txs = block.unwrap().transactions;
-            let mut lock_records = vec![];
-            let mut unlock_records = vec![];
-            for tx_hash in txs {
-                let hash = hex::encode(tx_hash);
-                if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
-                    let is_lock_tx = self
-                        .handle_lock_event(
-                            hash.clone(),
-                            start_block_number.as_u64(),
-                            &mut lock_records,
-                        )
-                        .await?;
-                    // if the tx is not lock tx, check if unlock tx.
-                    if !is_lock_tx {
-                        self.handle_unlock_event(hash.clone(), &mut unlock_records)
+            while latest_block_number >= start_block_number {
+                let block = self.eth_client.get_block(start_block_number.into()).await?;
+                let txs = block.transactions;
+                let mut lock_records = vec![];
+                let mut unlock_records = vec![];
+                for tx_hash in txs {
+                    let hash = hex::encode(tx_hash);
+                    if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
+                        let is_lock_tx = self
+                            .handle_lock_event(
+                                hash.clone(),
+                                start_block_number.as_u64(),
+                                &mut lock_records,
+                            )
                             .await?;
+                        // if the tx is not lock tx, check if unlock tx.
+                        if !is_lock_tx {
+                            self.handle_unlock_event(hash.clone(), &mut unlock_records)
+                                .await?;
+                        }
                     }
                 }
-            }
-            if !lock_records.is_empty() || !unlock_records.is_empty() {
-                let mut conn = self.db.begin().await?;
-                if !lock_records.is_empty() {
-                    create_eth_to_ckb_record(&mut conn, &lock_records).await?;
-                }
-                if !unlock_records.is_empty() {
-                    for item in unlock_records {
-                        update_ckb_to_eth_record_status(&mut conn, item.0, item.1, "success")
-                            .await?;
+                if !lock_records.is_empty() || !unlock_records.is_empty() {
+                    let mut conn = self.db.begin().await?;
+                    if !lock_records.is_empty() {
+                        create_eth_to_ckb_record(&mut conn, &lock_records).await?;
                     }
+                    if !unlock_records.is_empty() {
+                        for item in unlock_records {
+                            update_ckb_to_eth_record_status(&mut conn, item.0, item.1, "success")
+                                .await?;
+                        }
+                    }
+                    conn.commit().await?;
                 }
-                conn.commit().await?;
+                start_block_number = start_block_number.add(U64::from(1));
             }
-
-            start_block_number = start_block_number.add(U64::from(1));
+            tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+            latest_block_number = self.get_latest_block_number_with_loop().await;
         }
     }
 
@@ -105,11 +155,12 @@ impl EthIndexer {
         let (eth_spv_proof, is_lock_tx) =
             self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
         if is_lock_tx {
-            let lock_contract_address = self
-                .force_config
+            let config_path = tilde(self.config_path.as_str()).into_owned();
+            let force_config = ForceConfig::new(config_path.as_str())?;
+            let lock_contract_address = force_config
                 .deployed_contracts
                 .as_ref()
-                .unwrap()
+                .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
                 .eth_token_locker_addr
                 .clone();
             let eth_proof_json = to_eth_spv_proof_json(
@@ -214,19 +265,6 @@ impl EthIndexer {
                     let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
                     let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
                     unlock_datas.push((ckb_tx_hash_str, hash.clone()));
-                    // let ret = update_ckb_to_eth_record_status(
-                    //     &self.db,
-                    //     ckb_tx_hash_str,
-                    //     hash.clone(),
-                    //     "success",
-                    // )
-                    // .await?;
-                    // if !ret {
-                    //     log::error!(
-                    //         "failed to update ckb to eth cross chain record. ckb_tx_hash: {:?}",
-                    //         hash
-                    //     );
-                    // }
                 }
             }
         }
