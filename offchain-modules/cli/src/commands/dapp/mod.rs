@@ -1,8 +1,8 @@
 use anyhow::Result;
-use force_eth_lib::dapp::EthTxRelayer;
 use force_eth_lib::dapp::indexer::ckb_indexer::CkbIndexer;
 use force_eth_lib::dapp::indexer::eth_indexer::EthIndexer;
 use force_eth_lib::dapp::relayer::ckb_relayer::CkbTxRelay;
+use force_eth_lib::dapp::EthTxRelayer;
 use types::*;
 
 pub mod types;

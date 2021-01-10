@@ -128,7 +128,7 @@ pub async fn create_ckb_to_eth_record(pool: &MySqlPool, record: &CkbToEthRecord)
     let sql = r#"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
 eth_tx_hash, ckb_spv_proof, block_number, ckb_raw_tx)
-VALUES ( ?,?,?,?,?,?,?,?,?,?,?)"#;
+VALUES (?,?,?,?,?,?,?,?,?,?)"#;
     let id = sqlx::query(sql)
         .bind(record.ckb_burn_tx_hash.clone())
         .bind(record.status.clone())

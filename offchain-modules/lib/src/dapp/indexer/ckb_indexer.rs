@@ -5,6 +5,7 @@ use crate::dapp::indexer::db::{
 use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::parse_cell;
 use crate::util::config::ForceConfig;
+use crate::util::generated::ckb_tx_proof::CkbTxProof;
 use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::Uint128;
 use ckb_sdk::rpc::Transaction;
@@ -131,7 +132,8 @@ impl CkbIndexer {
                         hash.clone().as_str(),
                         String::from(self.rpc_client.url()),
                     )?;
-                    let proof_str = serde_json::to_string(&ckb_tx_proof)?;
+                    let mol_tx_proof: CkbTxProof = ckb_tx_proof.into();
+                    let proof_str = hex::encode(mol_tx_proof.as_bytes().as_ref());
                     let tx_raw: packed::Transaction = tx.into();
                     let mol_hex_tx = hex::encode(tx_raw.raw().as_slice());
 

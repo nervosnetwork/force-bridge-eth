@@ -52,7 +52,7 @@ impl CkbTxRelay {
     pub async fn start(&mut self) -> Result<()> {
         loop {
             self.relay().await?;
-            tokio::time::delay_for(Duration::from_secs(600)).await
+            tokio::time::delay_for(Duration::from_secs(300)).await
         }
     }
 
@@ -63,6 +63,7 @@ impl CkbTxRelay {
             .get_eth_nonce(&self.eth_private_key)
             .await?;
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
+            info!("burn tx {} wait to unlock", tx_record.ckb_burn_tx_hash);
             unlock_futures.push(unlock(
                 self.eth_private_key,
                 self.ethereum_rpc_url.clone(),
@@ -103,11 +104,8 @@ pub async fn get_unlock_tasks(pool: &MySqlPool) -> Result<Vec<UnlockTask>> {
     let sql = r#"
 SELECT id, ckb_burn_tx_hash, ckb_spv_proof, ckb_raw_tx
 FROM ckb_to_eth
-WHERE status = ?
+WHERE status = 'pending'
     "#;
-    let tasks = sqlx::query_as::<_, UnlockTask>(sql)
-        .bind("pending")
-        .fetch_all(pool)
-        .await?;
+    let tasks = sqlx::query_as::<_, UnlockTask>(sql).fetch_all(pool).await?;
     Ok(tasks)
 }

@@ -11,17 +11,18 @@ pub struct MintTask {
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct BlockNumber {
-    pub inner: u64,
+    pub id: u32,
+    pub block_number: u64,
 }
 
 pub async fn last_relayed_number(pool: &MySqlPool) -> Result<u64> {
     let sql = r#"
-SELECT block_number FROM eth_tx_relayer order by block_number desc limit 1
+SELECT id, block_number FROM eth_tx_relayer order by block_number desc limit 1
     "#;
     let block_number = sqlx::query_as::<_, BlockNumber>(sql)
         .fetch_optional(pool)
         .await?;
-    Ok(block_number.map_or(0, |v| v.inner))
+    Ok(block_number.map_or(0, |v| v.block_number))
 }
 
 pub async fn get_mint_tasks(
