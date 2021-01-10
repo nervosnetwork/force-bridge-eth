@@ -47,8 +47,7 @@ impl EthIndexer {
         if record_option.is_some() {
             start_block_number = U64::from(record_option.unwrap().block_number);
         } else {
-            // start_block_number = self.eth_client.client().eth().block_number().await?;
-            start_block_number = U64::from(1);
+            start_block_number = self.eth_client.client().eth().block_number().await?;
         }
 
         loop {
@@ -59,28 +58,32 @@ impl EthIndexer {
                 continue;
             }
             let txs = block.unwrap().transactions;
-            let mut records = vec![];
-            let mut unlock_datas = vec![];
+            let mut lock_records = vec![];
+            let mut unlock_records = vec![];
             for tx_hash in txs {
                 let hash = hex::encode(tx_hash);
                 if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
                     let is_lock_tx = self
-                        .handle_lock_event(hash.clone(), start_block_number.as_u64(), &mut records)
+                        .handle_lock_event(
+                            hash.clone(),
+                            start_block_number.as_u64(),
+                            &mut lock_records,
+                        )
                         .await?;
                     // if the tx is not lock tx, check if unlock tx.
                     if !is_lock_tx {
-                        self.handle_unlock_event(hash.clone(), &mut unlock_datas)
+                        self.handle_unlock_event(hash.clone(), &mut unlock_records)
                             .await?;
                     }
                 }
             }
-            if !records.is_empty() || !unlock_datas.is_empty() {
+            if !lock_records.is_empty() || !unlock_records.is_empty() {
                 let mut conn = self.db.begin().await?;
-                if !records.is_empty() {
-                    create_eth_to_ckb_record(&mut conn, &records).await?;
+                if !lock_records.is_empty() {
+                    create_eth_to_ckb_record(&mut conn, &lock_records).await?;
                 }
-                if !unlock_datas.is_empty() {
-                    for item in unlock_datas {
+                if !unlock_records.is_empty() {
+                    for item in unlock_records {
                         update_ckb_to_eth_record_status(&mut conn, item.0, item.1, "success")
                             .await?;
                     }

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::mysql::MySqlPool;
-use sqlx::{Done, MySql, Transaction};
+use sqlx::{MySql, Transaction};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct EthToCkbRecord {
@@ -74,7 +74,7 @@ pub async fn update_eth_to_ckb_status(
 
 pub async fn create_eth_to_ckb_record(
     pool: &mut Transaction<'_, MySql>,
-    records: &Vec<EthToCkbRecord>,
+    records: &[EthToCkbRecord],
 ) -> Result<()> {
     let mut sql = String::from(
         r"
@@ -91,10 +91,10 @@ VALUES ",
         ret = ret
             .bind(record.eth_lock_tx_hash.clone())
             .bind(record.status.clone())
-            .bind(record.token_addr.as_ref().clone())
-            .bind(record.sender_addr.as_ref().clone())
-            .bind(record.locked_amount.as_ref().clone())
-            .bind(record.bridge_fee.as_ref().clone())
+            .bind(record.token_addr.as_ref())
+            .bind(record.sender_addr.as_ref())
+            .bind(record.locked_amount.as_ref())
+            .bind(record.bridge_fee.as_ref())
             .bind(record.ckb_recipient_lockscript.as_ref())
             .bind(record.sudt_extra_data.as_ref())
             .bind(record.ckb_tx_hash.as_ref())
@@ -135,7 +135,7 @@ order by id desc limit 1
 
 pub async fn create_ckb_to_eth_record(
     pool: &mut Transaction<'_, MySql>,
-    records: &Vec<CkbToEthRecord>,
+    records: &[CkbToEthRecord],
 ) -> Result<()> {
     let mut sql = String::from(
         r"

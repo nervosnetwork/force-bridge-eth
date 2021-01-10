@@ -105,22 +105,6 @@ impl CkbIndexer {
         }
     }
 
-    // pub async fn handle_tx(
-    //     &mut self,
-    //     tx: Transaction,
-    //     tx_hash: String,
-    //     block_number: u64,
-    // ) -> Result<()> {
-    //     let mut burn_records = vec![];
-    //     let is_burn_tx = self
-    //         .handle_burn_tx(tx.clone(), tx_hash, block_number, &mut burn_records)
-    //         .await?;
-    //     if !is_burn_tx {
-    //         self.handle_mint_tx(tx).await?;
-    //     }
-    //     Ok(())
-    // }
-
     pub async fn handle_burn_tx(
         &mut self,
         tx: Transaction,
@@ -149,16 +133,14 @@ impl CkbIndexer {
                     let recipient_addr: ETHAddress =
                         eth_recipient.eth_recipient_address.get_address().into();
                     let token_amount = eth_recipient.token_amount;
-                    let ckb_tx_proof = parse_ckb_proof(
-                        hash.clone().as_str(),
-                        String::from(self.rpc_client.url()),
-                    )?;
+                    let ckb_tx_proof =
+                        parse_ckb_proof(hash.as_str(), String::from(self.rpc_client.url()))?;
                     let proof_str = serde_json::to_string(&ckb_tx_proof)?;
                     let tx_raw: packed::Transaction = tx.into();
                     let mol_hex_tx = hex::encode(tx_raw.raw().as_slice());
 
                     let record = CkbToEthRecord {
-                        ckb_burn_tx_hash: hash.clone(),
+                        ckb_burn_tx_hash: hash,
                         status: "pending".to_string(),
                         token_addr: Some(hex::encode(token_addr.raw_data().to_vec().as_slice())),
                         recipient_addr: Some(hex::encode(
@@ -171,7 +153,6 @@ impl CkbIndexer {
                         ..Default::default()
                     };
                     burn_records.push(record);
-                    // create_ckb_to_eth_record(&self.db, &record).await?;
                     return Ok(true);
                 }
             }
@@ -234,8 +215,6 @@ impl CkbIndexer {
                 if success {
                     eth_to_ckb_record.status = String::from("success");
                     unlock_datas.push(eth_to_ckb_record);
-                    // update_eth_to_ckb_status(&self.db, &eth_to_ckb_record).await?;
-                    // log::info!("succeed to update eth_to_ckb cross status.");
                 }
             }
         }
