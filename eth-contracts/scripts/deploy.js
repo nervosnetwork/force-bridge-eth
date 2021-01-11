@@ -2,9 +2,22 @@ const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
 const { upgrades } = require('hardhat');
-const { sleep, ckbBlake2b } = require('../test/utils');
+const { sleep, ckbBlake2b, log } = require('../test/utils');
 
 async function main() {
+  const retryTimes = 10;
+  for (let i = 0; i < retryTimes; i++) {
+    try {
+      await deploy();
+      log(`deploy success!`);
+      break;
+    } catch (e) {
+      log('retry deploy times: ', i);
+    }
+  }
+}
+
+async function deploy() {
   // get force config
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   const network = process.env.FORCE_NETWORK;
