@@ -20,6 +20,41 @@ pub struct EthToCkbRecord {
     pub replay_resist_outpoint: Option<String>,
 }
 
+#[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CrossChainHeightInfo {
+    pub id: u64,
+    pub eth_height: u64,
+    pub eth_client_height: u64,
+    pub ckb_height: u64,
+    pub ckb_client_height: u64,
+}
+
+pub async fn get_height_info(pool: &MySqlPool) -> Result<CrossChainHeightInfo> {
+    let sql = r#"select * from cross_chain_height_info limit 1"#;
+    let ret = sqlx::query_as::<_, CrossChainHeightInfo>(sql)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("the record is not exist"))?;
+    Ok(ret)
+}
+
+pub async fn update_cross_chain_height_info(
+    pool: &mut Transaction<'_, MySql>,
+    info: &CrossChainHeightInfo,
+) -> Result<()> {
+    let sql = r#"update cross_chain_height_info set
+    eth_height = ?, eth_client_height = ?, ckb_height = ?, ckb_client_height = ? WHERE id = ?"#;
+    sqlx::query(sql)
+        .bind(info.eth_height)
+        .bind(info.eth_client_height)
+        .bind(info.ckb_height)
+        .bind(info.ckb_client_height)
+        .bind(info.id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn get_latest_eth_to_ckb_record(pool: &MySqlPool) -> Result<Option<EthToCkbRecord>> {
     Ok(sqlx::query_as::<_, EthToCkbRecord>(
         r#"

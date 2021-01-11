@@ -43,6 +43,7 @@ async fn ckb_indexer(args: CkbIndexerArgs) -> Result<()> {
         args.db_path,
         args.ckb_rpc_url,
         args.ckb_indexer_url,
+        args.network,
     )
     .await?;
     loop {

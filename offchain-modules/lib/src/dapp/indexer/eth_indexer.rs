@@ -1,6 +1,7 @@
 use crate::dapp::indexer::db::{
-    create_eth_to_ckb_record, get_ckb_to_eth_record_by_eth_hash, get_latest_eth_to_ckb_record,
-    is_eth_to_ckb_record_exist, update_ckb_to_eth_record_status, EthToCkbRecord,
+    create_eth_to_ckb_record, get_ckb_to_eth_record_by_eth_hash, get_height_info,
+    is_eth_to_ckb_record_exist, update_ckb_to_eth_record_status, update_cross_chain_height_info,
+    EthToCkbRecord,
 };
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
 use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
@@ -10,7 +11,6 @@ use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types::Uint128;
 use ethabi::{Function, Param, ParamType};
-use force_eth_types::config::CONFIRM;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use log::info;
@@ -18,7 +18,6 @@ use rusty_receipt_proof_maker::types::UnlockEvent;
 use rusty_receipt_proof_maker::{generate_eth_proof, parse_unlock_event, types::EthSpvProof};
 use shellexpand::tilde;
 use sqlx::MySqlPool;
-use std::ops::Add;
 use web3::types::U64;
 
 pub struct EthIndexer {
@@ -49,7 +48,7 @@ impl EthIndexer {
         })
     }
 
-    pub async fn get_latest_confirm_block_number(&mut self) -> Result<u64> {
+    pub async fn get_light_client_height(&mut self) -> Result<u64> {
         let config_path = tilde(self.config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
         let deployed_contracts = force_config
@@ -71,22 +70,20 @@ impl EthIndexer {
                 .number
                 .ok_or_else(|| anyhow!("the number is not exist"))?
                 .as_u64();
-            if best_block_height > CONFIRM as u64 {
-                return Ok(best_block_height - CONFIRM as u64);
-            }
+            return Ok(best_block_height);
         }
         anyhow::bail!("waiting for the block confirmed!")
     }
 
-    pub async fn get_latest_block_number_with_loop(&mut self) -> U64 {
+    pub async fn get_light_client_height_with_loop(&mut self) -> u64 {
         loop {
-            let ret = self.get_latest_confirm_block_number().await;
+            let ret = self.get_light_client_height().await;
             match ret {
                 Ok(number) => {
-                    return U64::from(number);
+                    return number;
                 }
                 Err(err) => {
-                    log::error!("failed to get latest confirm block number.Err: {:?}", err);
+                    log::error!("failed to get light client height.Err: {:?}", err);
                     tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
                 }
             }
@@ -95,53 +92,55 @@ impl EthIndexer {
 
     #[allow(unused_assignments)]
     pub async fn start(&mut self) -> Result<()> {
-        let record_option = get_latest_eth_to_ckb_record(&self.db).await?;
-        let mut start_block_number;
-        if record_option.is_some() {
-            start_block_number = U64::from(record_option.unwrap().block_number + 1);
+        let mut height_info = get_height_info(&self.db).await?;
+        if height_info.eth_height == 0 {
+            // height info init.
+            height_info.eth_height = self.get_light_client_height_with_loop().await;
         }
-        let mut latest_block_number = self.get_latest_block_number_with_loop().await;
-        start_block_number = latest_block_number;
+        let mut start_block_number = height_info.eth_height;
         loop {
-            while latest_block_number >= start_block_number {
-                let block = self.eth_client.get_block(start_block_number.into()).await?;
-                let txs = block.transactions;
-                let mut lock_records = vec![];
-                let mut unlock_records = vec![];
-                for tx_hash in txs {
-                    let hash = hex::encode(tx_hash);
-                    if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
-                        let is_lock_tx = self
-                            .handle_lock_event(
-                                hash.clone(),
-                                start_block_number.as_u64(),
-                                &mut lock_records,
-                            )
-                            .await?;
-                        // if the tx is not lock tx, check if unlock tx.
-                        if !is_lock_tx {
-                            self.handle_unlock_event(hash.clone(), &mut unlock_records)
-                                .await?;
-                        }
-                    }
-                }
-                if !lock_records.is_empty() || !unlock_records.is_empty() {
-                    let mut conn = self.db.begin().await?;
-                    if !lock_records.is_empty() {
-                        create_eth_to_ckb_record(&mut conn, &lock_records).await?;
-                    }
-                    if !unlock_records.is_empty() {
-                        for item in unlock_records {
-                            update_ckb_to_eth_record_status(&mut conn, item.0, item.1, "success")
-                                .await?;
-                        }
-                    }
-                    conn.commit().await?;
-                }
-                start_block_number = start_block_number.add(U64::from(1));
+            let block = self
+                .eth_client
+                .get_block(U64::from(start_block_number).into())
+                .await;
+            if block.is_err() {
+                log::info!("waiting for new block.");
+                tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
             }
-            tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
-            latest_block_number = self.get_latest_block_number_with_loop().await;
+            let block = block.unwrap();
+            let txs = block.transactions;
+            let mut lock_records = vec![];
+            let mut unlock_records = vec![];
+            for tx_hash in txs {
+                let hash = hex::encode(tx_hash);
+                if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
+                    let is_lock_tx = self
+                        .handle_lock_event(hash.clone(), start_block_number, &mut lock_records)
+                        .await?;
+                    // if the tx is not lock tx, check if unlock tx.
+                    if !is_lock_tx {
+                        self.handle_unlock_event(hash.clone(), &mut unlock_records)
+                            .await?;
+                    }
+                }
+            }
+
+            let mut db_tx = self.db.begin().await?;
+            if !lock_records.is_empty() {
+                create_eth_to_ckb_record(&mut db_tx, &lock_records).await?;
+            }
+            if !unlock_records.is_empty() {
+                for item in unlock_records {
+                    update_ckb_to_eth_record_status(&mut db_tx, item.0, item.1, "success").await?;
+                }
+            }
+            let light_client_height = self.get_light_client_height_with_loop().await;
+            height_info.eth_height = start_block_number;
+            height_info.eth_client_height = light_client_height;
+            update_cross_chain_height_info(&mut db_tx, &height_info).await?;
+            db_tx.commit().await?;
+            start_block_number += 1;
+            // tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
         }
     }
 

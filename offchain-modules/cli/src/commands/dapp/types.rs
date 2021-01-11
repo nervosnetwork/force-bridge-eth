@@ -47,6 +47,8 @@ pub struct CkbIndexerArgs {
     pub ckb_rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8116")]
     pub ckb_indexer_url: String,
+    #[clap(long)]
+    pub network: Option<String>,
 }
 
 #[derive(Clap, Clone, Debug)]

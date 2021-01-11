@@ -1,11 +1,12 @@
 use crate::dapp::indexer::db::{
-    create_ckb_to_eth_record, get_eth_to_ckb_record_by_outpoint, get_latest_ckb_to_eth_record,
-    is_ckb_to_eth_record_exist, update_eth_to_ckb_status, CkbToEthRecord, EthToCkbRecord,
+    create_ckb_to_eth_record, get_eth_to_ckb_record_by_outpoint, get_height_info,
+    is_ckb_to_eth_record_exist, update_cross_chain_height_info, update_eth_to_ckb_status,
+    CkbToEthRecord, EthToCkbRecord,
 };
 use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::{create_bridge_lockscript, parse_cell};
 use crate::util::config::{DeployedContracts, ForceConfig};
-use crate::util::eth_util::convert_eth_address;
+use crate::util::eth_util::{convert_eth_address, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::Uint128;
 use ckb_sdk::rpc::Transaction;
@@ -26,6 +27,7 @@ pub struct CkbIndexer {
     pub config_path: String,
     pub rpc_client: HttpRpcClient,
     pub indexer_client: IndexerRpcClient,
+    pub eth_client: Web3Client,
     pub db: MySqlPool,
 }
 
@@ -35,38 +37,44 @@ impl CkbIndexer {
         db_path: String,
         rpc_url: String,
         indexer_url: String,
+        network: Option<String>,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
-        // let force_config = ForceConfig::new(config_path.as_str())?;
+        let force_config = ForceConfig::new(config_path.as_str())?;
+        let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let rpc_client = HttpRpcClient::new(rpc_url);
         let indexer_client = IndexerRpcClient::new(indexer_url);
         let db = MySqlPool::connect(&db_path).await?;
+        let eth_client = Web3Client::new(eth_rpc_url);
         Ok(CkbIndexer {
             config_path,
             rpc_client,
             indexer_client,
+            eth_client,
             db,
         })
     }
 
     pub async fn start(&mut self) -> Result<()> {
-        let record_option = get_latest_ckb_to_eth_record(&self.db).await?;
-        let mut ckb_height;
-        if record_option.is_some() {
-            ckb_height = record_option.unwrap().block_number;
-        } else {
-            ckb_height = self
-                .indexer_client
-                .get_tip()
-                .unwrap()
-                .unwrap()
-                .block_number
-                .value();
+        let force_config = ForceConfig::new(self.config_path.as_str())?;
+        let eth_contract_addr = force_config
+            .deployed_contracts
+            .ok_or_else(|| anyhow!("the deployed_contracts is not exist"))?
+            .eth_token_locker_addr;
+        let contract_addr = convert_eth_address(&eth_contract_addr)?;
+        let mut height_info = get_height_info(&self.db).await?;
+        if height_info.ckb_client_height == 0 {
+            // height info init.
+            height_info.ckb_client_height = self
+                .eth_client
+                .get_contract_height("latestBlockNumber", contract_addr)
+                .await?;
         }
+        let mut start_block_number = height_info.ckb_client_height;
         loop {
             let block = self
                 .rpc_client
-                .get_block_by_number(ckb_height)
+                .get_block_by_number(start_block_number)
                 .map_err(|e| anyhow!("failed to get ckb block by hash : {}", e))?;
             if let Some(block) = block {
                 let txs = block.transactions;
@@ -78,26 +86,35 @@ impl CkbIndexer {
                     let exist = is_ckb_to_eth_record_exist(&self.db, tx_hash.as_str()).await?;
                     if !exist {
                         let is_burn_tx = self
-                            .handle_burn_tx(tx.clone(), tx_hash, ckb_height, &mut burn_records)
+                            .handle_burn_tx(
+                                tx.clone(),
+                                tx_hash,
+                                start_block_number,
+                                &mut burn_records,
+                            )
                             .await?;
                         if !is_burn_tx {
                             self.handle_mint_tx(tx, &mut mint_records).await?;
                         }
                     }
                 }
-                if !burn_records.is_empty() || !mint_records.is_empty() {
-                    let mut db_tx = self.db.begin().await?;
-                    if !burn_records.is_empty() {
-                        create_ckb_to_eth_record(&mut db_tx, &burn_records).await?;
-                    }
-                    if !mint_records.is_empty() {
-                        for item in mint_records {
-                            update_eth_to_ckb_status(&mut db_tx, &item).await?;
-                        }
-                    }
-                    db_tx.commit().await?;
+                let mut db_tx = self.db.begin().await?;
+                if !burn_records.is_empty() {
+                    create_ckb_to_eth_record(&mut db_tx, &burn_records).await?;
                 }
-                ckb_height += 1;
+                if !mint_records.is_empty() {
+                    for item in mint_records {
+                        update_eth_to_ckb_status(&mut db_tx, &item).await?;
+                    }
+                }
+                height_info.ckb_height = start_block_number;
+                height_info.ckb_client_height = self
+                    .eth_client
+                    .get_contract_height("latestBlockNumber", contract_addr)
+                    .await?;
+                update_cross_chain_height_info(&mut db_tx, &height_info).await?;
+                db_tx.commit().await?;
+                start_block_number += 1;
             } else {
                 info!("waiting for new block.");
                 tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
