@@ -8,7 +8,7 @@ table MintTokenWitness {
     mode: byte,
     spv_proof: Bytes,
     cell_dep_index_list: Bytes,
-    merkle_proof: MerkleProof,
+    merkle_proof: Bytes,
 }
 
 table ETHSPVProof {
@@ -20,14 +20,3 @@ table ETHSPVProof {
     proof: BytesVec,
 }
 
-struct MerkleTreeLeaf {
-    index: Byte32,
-    value: Byte32,
-}
-
-vector MerkleTreeLeaves <MerkleTreeLeaf>;
-
-table MerkleProof {
-    proof: Bytes,
-    leaves: MerkleTreeLeaves,
-}

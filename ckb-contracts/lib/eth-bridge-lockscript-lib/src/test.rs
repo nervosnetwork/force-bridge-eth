@@ -6,12 +6,9 @@ use ckb_std::error::SysError;
 use contracts_helper::data_loader::MockDataLoader;
 use force_eth_types::config::{SUDT_CODE_HASH, SUDT_HASH_TYPE};
 use force_eth_types::eth_recipient_cell::ETHAddress;
-use force_eth_types::generated::witness::{MerkleProof, MerkleTreeLeaves};
 use force_eth_types::generated::{
-    basic,
-    eth_bridge_lock_cell::ETHBridgeLockArgs,
-    eth_header_cell::ETHHeaderCellData,
-    witness::{MerkleTreeLeaf, MintTokenWitness},
+    basic, eth_bridge_lock_cell::ETHBridgeLockArgs, eth_header_cell::ETHHeaderCellData,
+    witness::MintTokenWitness,
 };
 use force_eth_types::hasher::Blake2bHasher;
 use molecule::bytes::Bytes;
@@ -112,30 +109,11 @@ fn generate_mint_token_witness() -> WitnessArgs {
         .compile(vec![(key.into(), block_hash.unwrap())])
         .unwrap();
 
-    let mut block_hash = [0u8; 32];
-    block_hash.copy_from_slice(
-        hex::decode("ee7e2a1ea96119744c2965dcaf37954c0a7e9a6442d2057daae96a8d767c0ced")
-            .unwrap()
-            .as_slice(),
-    );
-
-    let leaf = MerkleTreeLeaf::new_builder()
-        .index(basic::Byte32::from_slice(key.as_ref()).unwrap())
-        .value(basic::Byte32::from_slice(block_hash.as_ref()).unwrap())
-        .build();
-
-    let leaves = MerkleTreeLeaves::new_builder().push(leaf).build();
-
-    let merkle_proof = MerkleProof::new_builder()
-        .proof(compiled_merkle_proof.0.into())
-        .leaves(leaves)
-        .build();
-
     let witness = MintTokenWitness::new_builder()
         .mode(Byte::new(0u8))
         .cell_dep_index_list([0u8].to_vec().into())
         .spv_proof(correct_spv_proof.into())
-        .merkle_proof(merkle_proof)
+        .merkle_proof(compiled_merkle_proof.0.into())
         .build();
     WitnessArgs::new_builder()
         .lock(Some(witness.as_bytes()).pack())

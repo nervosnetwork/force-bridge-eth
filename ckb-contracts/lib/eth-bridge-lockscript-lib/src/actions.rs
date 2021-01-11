@@ -8,9 +8,7 @@ use force_eth_types::config::CONFIRM;
 use force_eth_types::eth_lock_event::ETHLockEvent;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_header_cell::ETHHeaderCellDataReader;
-use force_eth_types::generated::witness::{
-    ETHSPVProofReader, MerkleProofReader, MintTokenWitnessReader,
-};
+use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
 use force_eth_types::hasher::Blake2bHasher;
 use molecule::prelude::*;
 use std::convert::TryInto;
@@ -44,8 +42,8 @@ fn verify_witness<T: Adapter>(
     let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
     assert_eq!(cell_dep_index_list.len(), 1);
 
-    let merkle_proof = witness.merkle_proof();
-    let lock_event = verify_eth_spv_proof(data_loader, proof, cell_dep_index_list, &merkle_proof);
+    let merkle_proof = witness.merkle_proof().raw_data();
+    let lock_event = verify_eth_spv_proof(data_loader, proof, cell_dep_index_list, merkle_proof);
     (cell_dep_index_list[0], lock_event)
 }
 
@@ -60,7 +58,7 @@ fn verify_eth_spv_proof<T: Adapter>(
     data_loader: &T,
     proof: &[u8],
     cell_dep_index_list: &[u8],
-    merkle_proof: &MerkleProofReader,
+    merkle_proof: &[u8],
 ) -> ETHLockEvent {
     if ETHSPVProofReader::verify(proof, false).is_err() {
         panic!("eth spv proof is invalid")
@@ -80,7 +78,7 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
     data_loader: &T,
     header: &BlockHeader,
     cell_dep_index_list: &[u8],
-    merkle_proof: &MerkleProofReader,
+    merkle_proof: &[u8],
 ) {
     debug!("cell_dep_index_list: {:?}", cell_dep_index_list);
     let dep_data = data_loader
@@ -111,22 +109,18 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
     let mut merkle_root = [0u8; 32];
     merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
 
-    let compiled_merkle_proof =
-        sparse_merkle_tree::CompiledMerkleProof(merkle_proof.proof().raw_data().to_vec());
-    let leaves = merkle_proof.leaves();
+    let compiled_merkle_proof = sparse_merkle_tree::CompiledMerkleProof(merkle_proof.to_vec());
 
     let mut compiled_leaves = vec![];
-    for i in 0..leaves.len() {
-        let leaf = leaves.get_unchecked(i);
 
-        let mut leaf_index = [0u8; 32];
-        leaf_index.copy_from_slice(leaf.index().raw_data());
+    let mut leaf_index = [0u8; 32];
+    leaf_index[..8].copy_from_slice(header.number.to_le_bytes().as_ref());
 
-        let mut leaf_value = [0u8; 32];
-        leaf_value.copy_from_slice(leaf.value().raw_data());
+    let mut leaf_value = [0u8; 32];
+    leaf_value.copy_from_slice(header.hash.expect("header hash is none").0.as_bytes());
 
-        compiled_leaves.push((leaf_index.into(), leaf_value.into()));
-    }
+    compiled_leaves.push((leaf_index.into(), leaf_value.into()));
+
     assert!(compiled_merkle_proof
         .verify::<Blake2bHasher>(&merkle_root.into(), compiled_leaves)
         .expect("verify compiled proof"));
