@@ -22,9 +22,10 @@ pub struct CkbTxRelay {
     eth_token_locker_addr: String,
     ethereum_rpc_url: String,
     eth_private_key: H256,
-    db: MySqlPool,
     web3_client: Web3Client,
     contract_addr: H160,
+    confirm_num: u64,
+    db: MySqlPool,
 }
 
 impl CkbTxRelay {
@@ -43,14 +44,18 @@ impl CkbTxRelay {
         let db = MySqlPool::connect(&db_path).await?;
         let eth_private_key = parse_private_key(&private_key_path, &force_config, &network)?;
         let contract_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr.clone())?;
-        let web3_client = Web3Client::new(ethereum_rpc_url.clone());
+        let mut web3_client = Web3Client::new(ethereum_rpc_url.clone());
+        let confirm_num = web3_client
+            .get_locker_contract_confirm("numConfirmations_", contract_addr)
+            .await?;
         Ok(CkbTxRelay {
             eth_token_locker_addr: deployed_contracts.eth_token_locker_addr.clone(),
             ethereum_rpc_url,
             eth_private_key,
-            db,
             web3_client,
             contract_addr,
+            confirm_num,
+            db,
         })
     }
 
@@ -66,7 +71,8 @@ impl CkbTxRelay {
             .web3_client
             .get_contract_height("latestBlockNumber", self.contract_addr)
             .await?;
-        let unlock_tasks = get_unlock_tasks(&self.db, client_block_number).await?;
+        let unlock_tasks =
+            get_unlock_tasks(&self.db, self.confirm_num.add(client_block_number)).await?;
         let mut unlock_futures = vec![];
         let nonce = self
             .web3_client
