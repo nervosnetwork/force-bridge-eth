@@ -1,6 +1,6 @@
 use anyhow::Result;
-use force_eth_lib::dapp::indexer::ckb_indexer::CkbIndexer;
-use force_eth_lib::dapp::indexer::eth_indexer::EthIndexer;
+use force_eth_lib::dapp::CkbIndexer;
+use force_eth_lib::dapp::EthIndexer;
 use force_eth_lib::dapp::EthTxRelayer;
 use types::*;
 
