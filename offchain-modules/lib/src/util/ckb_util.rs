@@ -23,6 +23,7 @@ use force_eth_types::generated::eth_header_cell::{
 use force_eth_types::generated::{basic, witness};
 use rlp::Rlp;
 use secp256k1::SecretKey;
+use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 use std::ops::Add;
 use std::str::FromStr;
@@ -300,7 +301,7 @@ fn to_u64(data: &[u8]) -> u64 {
     u64::from_le_bytes(res)
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct ETHSPVProofJson {
     pub log_index: u64,
     pub log_entry_data: String,

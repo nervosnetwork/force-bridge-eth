@@ -158,7 +158,7 @@ pub async fn relay_eth_to_ckb_proof(
             .into());
         };
     } else {
-        row_id = create_db_res.unwrap();
+        row_id = create_db_res.unwrap() as i64;
     }
     let generator = data.get_generator().await?;
     tokio::spawn(async move {
