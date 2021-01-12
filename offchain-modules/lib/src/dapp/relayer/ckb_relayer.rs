@@ -1,8 +1,8 @@
 use crate::transfer::to_eth::unlock;
 use crate::util::config::ForceConfig;
-use crate::util::eth_util::{parse_private_key, Web3Client};
+use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use anyhow::{anyhow, Result};
-use ethereum_types::H256;
+use ethereum_types::{H160, H256};
 use futures::future::join_all;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,8 @@ pub struct CkbTxRelay {
     ethereum_rpc_url: String,
     eth_private_key: H256,
     db: MySqlPool,
+    web3_client: Web3Client,
+    contract_addr: H160,
 }
 
 impl CkbTxRelay {
@@ -40,26 +42,34 @@ impl CkbTxRelay {
         let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let db = MySqlPool::connect(&db_path).await?;
         let eth_private_key = parse_private_key(&private_key_path, &force_config, &network)?;
-
+        let contract_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr.clone())?;
+        let web3_client = Web3Client::new(ethereum_rpc_url.clone());
         Ok(CkbTxRelay {
             eth_token_locker_addr: deployed_contracts.eth_token_locker_addr.clone(),
             ethereum_rpc_url,
             eth_private_key,
             db,
+            web3_client,
+            contract_addr,
         })
     }
 
     pub async fn start(&mut self) -> Result<()> {
         loop {
             self.relay().await?;
-            tokio::time::delay_for(Duration::from_secs(600)).await
+            tokio::time::delay_for(Duration::from_secs(180)).await
         }
     }
 
     pub async fn relay(&mut self) -> Result<()> {
-        let unlock_tasks = get_unlock_tasks(&self.db).await?;
+        let client_block_number = self
+            .web3_client
+            .get_contract_height("latestBlockNumber", self.contract_addr)
+            .await?;
+        let unlock_tasks = get_unlock_tasks(&self.db, client_block_number).await?;
         let mut unlock_futures = vec![];
-        let nonce = Web3Client::new(self.ethereum_rpc_url.clone())
+        let nonce = self
+            .web3_client
             .get_eth_nonce(&self.eth_private_key)
             .await?;
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
@@ -99,14 +109,14 @@ impl CkbTxRelay {
     }
 }
 
-pub async fn get_unlock_tasks(pool: &MySqlPool) -> Result<Vec<UnlockTask>> {
+pub async fn get_unlock_tasks(pool: &MySqlPool, height: u64) -> Result<Vec<UnlockTask>> {
     let sql = r#"
 SELECT id, ckb_burn_tx_hash, ckb_spv_proof, ckb_raw_tx
 FROM ckb_to_eth
-WHERE status = ?
+WHERE status = 'pending' AND block_number < ?
     "#;
     let tasks = sqlx::query_as::<_, UnlockTask>(sql)
-        .bind("pending")
+        .bind(height)
         .fetch_all(pool)
         .await?;
     Ok(tasks)
