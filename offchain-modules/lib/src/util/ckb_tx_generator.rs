@@ -442,6 +442,10 @@ impl Generator {
         let outpoints = vec![
             self.deployed_contracts.bridge_lockscript.outpoint.clone(),
             self.deployed_contracts.bridge_typescript.outpoint.clone(),
+            self.deployed_contracts
+                .simple_bridge_typescript
+                .outpoint
+                .clone(),
             self.deployed_contracts.sudt.outpoint.clone(),
         ];
         self.add_cell_deps(&mut helper, outpoints)
@@ -678,14 +682,22 @@ impl Generator {
         bridge_typescript: Script,
         bridge_lockscript: Script,
         bridge_fee: u128,
+        simple_typescript: bool,
         cell_num: usize,
     ) -> Result<TransactionView> {
         let mut tx_helper = TxHelper::default();
         // add cell deps
-        let outpoints = vec![
-            self.deployed_contracts.bridge_lockscript.outpoint.clone(),
-            self.deployed_contracts.bridge_typescript.outpoint.clone(),
-        ];
+        let mut outpoints = vec![self.deployed_contracts.bridge_lockscript.outpoint.clone()];
+        if simple_typescript {
+            outpoints.push(
+                self.deployed_contracts
+                    .simple_bridge_typescript
+                    .outpoint
+                    .clone(),
+            );
+        } else {
+            outpoints.push(self.deployed_contracts.bridge_typescript.outpoint.clone());
+        }
         self.add_cell_deps(&mut tx_helper, outpoints)
             .map_err(|err| anyhow!(err))?;
         // build bridge data

@@ -1,0 +1,18 @@
+[package]
+name = "simple-eth-bridge-typescript"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+simple-eth-bridge-typescript-lib = { path = "../../lib/simple-eth-bridge-typescript-lib", default_features = false }
+ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
+contracts-helper = { path = "../../contracts-helper", default_features = false }
+
+[profile.release]
+overflow-checks = true
+opt-level = 's'
+lto = true
+codegen-units = 1
+panic = 'abort'

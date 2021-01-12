@@ -30,6 +30,7 @@ use force_sdk::tx_helper::{sign, MultisigConfig, TxHelper};
 use force_sdk::util::{ensure_indexer_sync, send_tx_sync, send_tx_sync_with_response};
 use log::info;
 use rusty_receipt_proof_maker::generate_eth_proof;
+use rusty_receipt_proof_maker::types::EthSpvProof;
 use secp256k1::SecretKey;
 use serde_json::Value;
 use shellexpand::tilde;
@@ -214,6 +215,21 @@ pub async fn generate_eth_spv_proof_json(
         ))
     };
     let eth_spv_proof = eth_spv_proof_retry(3)?;
+    to_eth_spv_proof_json(
+        hash.clone(),
+        eth_spv_proof,
+        eth_token_locker_addr,
+        ethereum_rpc_url,
+    )
+    .await
+}
+
+pub async fn to_eth_spv_proof_json(
+    hash: String,
+    eth_spv_proof: EthSpvProof,
+    eth_token_locker_addr: String,
+    ethereum_rpc_url: String,
+) -> Result<ETHSPVProofJson> {
     let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
     info!("tx: {:?}, eth_spv_proof: {:?}", hash, eth_spv_proof);
     let hash_str = hash.clone();
@@ -348,16 +364,20 @@ pub async fn deploy_ckb(
     let bridge_lockscript_path = force_config.get_bridge_lockscript_bin_path()?;
     let recipient_typescript_path = force_config.get_recipient_typescript_bin_path()?;
     let light_client_typescript_path = force_config.get_light_client_typescript_bin_path()?;
+    let simple_bridge_typescript_path = force_config.get_simple_bridge_typescript_bin_path()?;
+
     let bridge_typescript_bin = std::fs::read(bridge_typescript_path)?;
     let bridge_lockscript_bin = std::fs::read(bridge_lockscript_path)?;
     let recipient_typescript_bin = std::fs::read(recipient_typescript_path)?;
     let light_client_typescript_bin = std::fs::read(light_client_typescript_path)?;
+    let simple_bridge_typescript_bin = std::fs::read(simple_bridge_typescript_path)?;
 
     let mut data = vec![
         bridge_lockscript_bin,
         bridge_typescript_bin,
         recipient_typescript_bin,
         light_client_typescript_bin,
+        simple_bridge_typescript_bin,
     ];
     if deploy_sudt {
         let sudt_path = force_config.get_sudt_typescript_bin_path()?;
@@ -385,11 +405,11 @@ pub async fn deploy_ckb(
     let pw_locks = original_config.pw_locks;
     let sudt_conf = if deploy_sudt {
         ScriptConf {
-            code_hash: type_code_hashes[4].clone(),
+            code_hash: type_code_hashes[5].clone(),
             hash_type,
             outpoint: OutpointConf {
                 tx_hash: tx_hash_hex.clone(),
-                index: 4,
+                index: 5,
                 dep_type: 0,
             },
         }
@@ -428,8 +448,17 @@ pub async fn deploy_ckb(
             code_hash: type_code_hashes[3].clone(),
             hash_type,
             outpoint: OutpointConf {
-                tx_hash: tx_hash_hex,
+                tx_hash: tx_hash_hex.clone(),
                 index: 3,
+                dep_type: 0,
+            },
+        },
+        simple_bridge_typescript: ScriptConf {
+            code_hash: type_code_hashes[4].clone(),
+            hash_type,
+            outpoint: OutpointConf {
+                tx_hash: tx_hash_hex,
+                index: 4,
                 dep_type: 0,
             },
         },
@@ -524,6 +553,7 @@ pub async fn get_or_create_bridge_cell(
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
+    simple_typescript: bool,
     cell_num: usize,
 ) -> Result<Vec<String>> {
     let force_config = ForceConfig::new(config_path.as_str())?;
@@ -560,21 +590,39 @@ pub async fn get_or_create_bridge_cell(
         &eth_token_address,
         &eth_contract_address,
     )?;
-    let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
-        .bridge_lock_hash(
-            basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice()).unwrap(),
-        )
-        .recipient_lock_hash(
-            basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice()).unwrap(),
-        )
-        .build();
-    let bridge_typescript = Script::new_builder()
-        .code_hash(Byte32::from_slice(
-            &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
-        )?)
-        .hash_type(deployed_contracts.bridge_typescript.hash_type.into())
-        .args(bridge_typescript_args.as_bytes().pack())
-        .build();
+
+    let bridge_typescript = match simple_typescript {
+        true => {
+            let bridge_typescript_args = from_lockscript.calc_script_hash();
+            Script::new_builder()
+                .code_hash(Byte32::from_slice(
+                    &hex::decode(&deployed_contracts.simple_bridge_typescript.code_hash).unwrap(),
+                )?)
+                .hash_type(deployed_contracts.simple_bridge_typescript.hash_type.into())
+                .args(bridge_typescript_args.as_bytes().pack())
+                .build()
+        }
+        false => {
+            let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
+                .bridge_lock_hash(
+                    basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice())
+                        .unwrap(),
+                )
+                .recipient_lock_hash(
+                    basic::Byte32::from_slice(recipient_lockscript.calc_script_hash().as_slice())
+                        .unwrap(),
+                )
+                .build();
+            Script::new_builder()
+                .code_hash(Byte32::from_slice(
+                    &hex::decode(&deployed_contracts.bridge_typescript.code_hash).unwrap(),
+                )?)
+                .hash_type(deployed_contracts.bridge_typescript.hash_type.into())
+                .args(bridge_typescript_args.as_bytes().pack())
+                .build()
+        }
+    };
+
     let cells = collect_bridge_cells(
         &mut generator.indexer_client,
         bridge_lockscript.clone(),
@@ -596,6 +644,7 @@ pub async fn get_or_create_bridge_cell(
             bridge_typescript,
             bridge_lockscript,
             bridge_fee,
+            simple_typescript,
             cell_num,
         )
         .map_err(|e| anyhow!("failed to build create bridge cell tx : {}", e))?;

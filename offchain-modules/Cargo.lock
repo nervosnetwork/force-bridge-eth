@@ -1797,7 +1797,6 @@ dependencies = [
  "log",
  "molecule",
  "rlp",
- "rusty-receipt-proof-maker",
  "serde 1.0.118",
  "serde_json",
  "shellexpand",
@@ -2630,17 +2629,6 @@ name = "libm"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
-
-[[package]]
-name = "libsqlite3-sys"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d31059f22935e6c31830db5249ba2b7ecd54fd73a9909286f0a67aa55c2fbd"
-dependencies = [
- "cc",
- "pkg-config",
- "vcpkg",
-]
 
 [[package]]
 name = "linked-hash-map"
@@ -3857,7 +3845,7 @@ dependencies = [
 [[package]]
 name = "rusty-receipt-proof-maker"
 version = "0.1.0"
-source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=d80ff36#d80ff36fa7f0f89f3cec05213300340a36360f20"
+source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=2b34465#2b344650ef6900f62151a58ffb1086002d50dcaf"
 dependencies = [
  "chrono",
  "docopt",
@@ -4333,7 +4321,6 @@ dependencies = [
  "hex 0.4.2",
  "itoa",
  "libc",
- "libsqlite3-sys",
  "log",
  "lru-cache",
  "memchr",

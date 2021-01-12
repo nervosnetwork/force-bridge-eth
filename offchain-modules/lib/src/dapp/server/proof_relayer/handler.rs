@@ -12,11 +12,11 @@ use ckb_jsonrpc_types::Uint128;
 use ckb_types::core::TransactionView;
 use molecule::prelude::Entity;
 use secp256k1::SecretKey;
-use sqlx::SqlitePool;
+use sqlx::mysql::MySqlPool;
 
 pub async fn relay_ckb_to_eth_proof(
     mut record: CkbToEthRecord,
-    db: &SqlitePool,
+    db: &MySqlPool,
     config_path: String,
     eth_privkey_path: String,
     network: Option<String>,
@@ -87,7 +87,7 @@ pub async fn relay_eth_to_ckb_proof(
     mut generator: Generator,
     config_path: String,
     from_privkey: SecretKey,
-    db: &SqlitePool,
+    db: &MySqlPool,
 ) -> Result<()> {
     let mut web3 = Web3Client::new(ethereum_rpc_url.clone());
     let eth_lock_tx_hash = convert_hex_to_h256(&record.eth_lock_tx_hash)?;
