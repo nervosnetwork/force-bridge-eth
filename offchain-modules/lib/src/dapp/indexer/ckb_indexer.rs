@@ -116,7 +116,6 @@ impl CkbIndexer {
                 update_cross_chain_height_info(&mut db_tx, &height_info).await?;
                 db_tx.commit().await?;
                 start_block_number += 1;
-                dbg!(height_info.clone());
             } else {
                 info!("waiting for new block.");
                 tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
