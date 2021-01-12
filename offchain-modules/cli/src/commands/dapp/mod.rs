@@ -21,7 +21,13 @@ async fn server(_args: ServerArgs) -> Result<()> {
 }
 
 async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
-    let mut eth_indexer = EthIndexer::new(args.config_path, args.network, args.db_path).await?;
+    let mut eth_indexer = EthIndexer::new(
+        args.config_path,
+        args.network,
+        args.db_path,
+        args.ckb_indexer_url,
+    )
+    .await?;
     loop {
         let res = eth_indexer.start().await;
         if let Err(err) = res {
@@ -37,6 +43,7 @@ async fn ckb_indexer(args: CkbIndexerArgs) -> Result<()> {
         args.db_path,
         args.ckb_rpc_url,
         args.ckb_indexer_url,
+        args.network,
     )
     .await?;
     loop {
