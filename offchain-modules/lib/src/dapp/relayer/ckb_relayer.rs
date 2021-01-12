@@ -43,13 +43,15 @@ impl CkbTxRelay {
         let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let db = MySqlPool::connect(&db_path).await?;
         let eth_private_key = parse_private_key(&private_key_path, &force_config, &network)?;
+        let eth_token_locker_addr = deployed_contracts.eth_token_locker_addr.clone();
         let contract_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr.clone())?;
+        let token_locker_addr = convert_eth_address(&eth_token_locker_addr)?;
         let mut web3_client = Web3Client::new(ethereum_rpc_url.clone());
         let confirm_num = web3_client
-            .get_locker_contract_confirm("numConfirmations_", contract_addr)
+            .get_locker_contract_confirm("numConfirmations_", token_locker_addr)
             .await?;
         Ok(CkbTxRelay {
-            eth_token_locker_addr: deployed_contracts.eth_token_locker_addr.clone(),
+            eth_token_locker_addr,
             ethereum_rpc_url,
             eth_private_key,
             web3_client,
