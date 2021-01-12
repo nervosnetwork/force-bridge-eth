@@ -1,6 +1,7 @@
 use anyhow::Result;
-use force_eth_lib::dapp::indexer::ckb_indexer::CkbIndexer;
-use force_eth_lib::dapp::indexer::eth_indexer::EthIndexer;
+use force_eth_lib::dapp::CkbIndexer;
+use force_eth_lib::dapp::EthIndexer;
+use force_eth_lib::dapp::EthTxRelayer;
 use types::*;
 
 pub mod types;
@@ -60,7 +61,15 @@ async fn ckb_tx_relay(_args: CkbTxRelayerArgs) -> Result<()> {
     Ok(())
 }
 
-async fn eth_tx_relay(_args: EthTxRelayerArgs) -> Result<()> {
-    // TODO
-    Ok(())
+async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
+    let eth_tx_relayer = EthTxRelayer::new(
+        args.config_path,
+        args.network,
+        args.private_key_path,
+        args.mint_concurrency,
+        args.minimum_cell_capacity,
+        args.db_url,
+    )
+    .await?;
+    eth_tx_relayer.start().await
 }

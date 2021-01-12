@@ -233,6 +233,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         args.hash,
         &eth_proof,
         from_privkey,
+        None,
     )
     .await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);

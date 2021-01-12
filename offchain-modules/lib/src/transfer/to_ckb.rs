@@ -269,9 +269,14 @@ pub async fn send_eth_spv_proof_tx_single(
     eth_proof: &ETHSPVProofJson,
     from_lockscript: Script,
     from_privkey: SecretKey,
+    manual_capacity_cell: Option<OutPoint>,
 ) -> Result<ckb_types::H256> {
-    let unsigned_tx =
-        generator.generate_eth_spv_tx(config_path.clone(), from_lockscript.clone(), eth_proof)?;
+    let unsigned_tx = generator.generate_eth_spv_tx(
+        config_path.clone(),
+        from_lockscript.clone(),
+        eth_proof,
+        manual_capacity_cell,
+    )?;
     let tx =
         sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
     log::info!(
@@ -280,7 +285,16 @@ pub async fn send_eth_spv_proof_tx_single(
         serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(tx.clone()))
             .map_err(|err| anyhow!(err))?
     );
-    send_tx_sync_with_response(&mut generator.rpc_client, &tx, 600).await
+    send_tx_sync_with_response(&mut generator.rpc_client, &tx, 600)
+        .await
+        .map_err(|e| {
+            let error = e.to_string();
+            if error.contains("CKBInternalError") || error.contains("TransactionFailedToVerify") {
+                anyhow!("irreparable error: {:?}", error)
+            } else {
+                e
+            }
+        })
 }
 
 pub async fn send_eth_spv_proof_tx(
@@ -289,6 +303,7 @@ pub async fn send_eth_spv_proof_tx(
     eth_lock_tx: String,
     eth_proof: &ETHSPVProofJson,
     from_privkey: SecretKey,
+    manual_capacity_cell: Option<OutPoint>,
 ) -> Result<ckb_types::H256> {
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
@@ -302,6 +317,7 @@ pub async fn send_eth_spv_proof_tx(
             eth_proof,
             from_lockscript.clone(),
             from_privkey,
+            manual_capacity_cell.clone(),
         )
         .await;
         match result {
@@ -314,7 +330,7 @@ pub async fn send_eth_spv_proof_tx(
                     retry_times, e
                 );
                 log::info!("{}", error_msg);
-                if error_msg.contains("ValidationFailure(-1)") {
+                if error_msg.contains("irreparable error") {
                     anyhow::bail!(error_msg);
                 }
             }

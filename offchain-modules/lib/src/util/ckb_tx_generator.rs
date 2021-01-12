@@ -407,6 +407,7 @@ impl Generator {
         config_path: String,
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
+        manual_capacity_cell: Option<OutPoint>,
     ) -> Result<TransactionView> {
         let mut rng = rand::thread_rng();
         let tx_fee = rng.gen_range(ONE_CKB / 4, ONE_CKB / 2);
@@ -465,8 +466,12 @@ impl Generator {
             get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
-        let outpoint = OutPoint::from_slice(&eth_proof.replay_resist_outpoint)
-            .expect("replay resist outpoint in lock event is invalid");
+        let outpoint = OutPoint::from_slice(&eth_proof.replay_resist_outpoint).map_err(|e| {
+            anyhow!(
+                "irreparable error: wrong replay resist cell outpoint format in lock event: {:?}",
+                e
+            )
+        })?;
         helper
             .add_input(
                 outpoint.clone(),
@@ -475,11 +480,23 @@ impl Generator {
                 &self.genesis_info,
                 true,
             )
-            .map_err(|err| anyhow!(err))?;
+            .map_err(|err| {
+                if err.contains("Invalid cell status") {
+                    anyhow!("irreparable error: {:?}", err)
+                } else {
+                    anyhow!(err)
+                }
+            })?;
 
         let (bridge_cell, bridge_cell_data) =
             get_live_cell_with_cache(&mut live_cell_cache, &mut self.rpc_client, outpoint, true)
-                .expect("outpoint not exists");
+                .map_err(|e| {
+                    anyhow!(
+                        "irreparable error: replay resist cell outpoint status is dead: {:?}",
+                        e
+                    )
+                })?;
+
         // FIXME add owner lockscript verify
         // let owner_lock_script = ETHBridgeTypeData::from_slice(bridge_cell_data.as_ref())
         //     .expect("invalid bridge data")
@@ -490,7 +507,13 @@ impl Generator {
 
         // 1 xt cells
         {
-            let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript).unwrap();
+            let recipient_lockscript = Script::from_slice(&eth_proof.recipient_lockscript)
+                .map_err(|e| {
+                    anyhow!(
+                        "irreparable error: molecule decode recipient lockscript error, {:?}",
+                        e
+                    )
+                })?;
 
             let sudt_typescript_code_hash = hex::decode(&self.deployed_contracts.sudt.code_hash)?;
             let code_hash = Byte32::from_slice(&sudt_typescript_code_hash)?;
@@ -538,15 +561,27 @@ impl Generator {
                 .build();
         }
         // build tx
-        let tx = helper
-            .supply_capacity(
-                &mut self.rpc_client,
-                &mut self.indexer_client,
-                from_lockscript,
-                &self.genesis_info,
-                tx_fee,
-            )
-            .map_err(|err| anyhow!(err))?;
+        let tx = if let Some(manual_capacity_cell) = manual_capacity_cell {
+            helper
+                .supply_capacity_manual(
+                    &mut self.rpc_client,
+                    from_lockscript,
+                    &self.genesis_info,
+                    tx_fee,
+                    manual_capacity_cell,
+                )
+                .map_err(|err| anyhow!(err))?
+        } else {
+            helper
+                .supply_capacity(
+                    &mut self.rpc_client,
+                    &mut self.indexer_client,
+                    from_lockscript,
+                    &self.genesis_info,
+                    tx_fee,
+                )
+                .map_err(|err| anyhow!(err))?
+        };
         Ok(tx)
     }
 
