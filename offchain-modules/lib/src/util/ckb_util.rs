@@ -174,7 +174,7 @@ pub fn build_outpoint(outpoint_conf: OutpointConf) -> Result<OutPoint> {
     Ok(outpoint)
 }
 
-pub fn get_eth_client_best_number(
+pub fn get_eth_client_tip_number(
     generator: &mut Generator,
     client_cell_script: String,
 ) -> Result<u64> {

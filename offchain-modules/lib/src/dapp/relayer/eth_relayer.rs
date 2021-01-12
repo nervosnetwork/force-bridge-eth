@@ -3,8 +3,8 @@ use crate::dapp::db::eth_relayer::{
     update_relayed_tx, MintTask,
 };
 use crate::transfer::to_ckb::send_eth_spv_proof_tx;
-use crate::util::ckb_tx_generator::Generator;
-use crate::util::ckb_util::{get_eth_client_best_number, parse_privkey_path, ETHSPVProofJson};
+use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_util::{get_eth_client_tip_number, parse_privkey_path, ETHSPVProofJson};
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, Result};
 use ckb_sdk::constants::ONE_CKB;
@@ -74,24 +74,26 @@ impl EthTxRelayer {
     }
 
     async fn relay(&self, last_relayed_number: u64) -> Result<u64> {
-        let client_tip_number = self.client_tip_number().await?;
+        let client_confirmed_number = self.client_confirmed_number().await?;
         log::info!(
-            "eth relayer start relay: last relayed number: {}, client tip number: {}",
+            "eth relayer start relay round: last relayed number: {}, client tip number: {}",
             last_relayed_number,
-            client_tip_number
+            client_confirmed_number
         );
         let retry_tasks = get_retry_tasks(&self.db_pool).await?;
         log::debug!("get retry tasks: {:?}", &retry_tasks);
+        log::info!("total retry tasks: {}", retry_tasks.len());
         let mut mint_tasks =
-            get_mint_tasks(&self.db_pool, last_relayed_number, client_tip_number).await?;
+            get_mint_tasks(&self.db_pool, last_relayed_number, client_confirmed_number).await?;
         log::debug!("get mint tasks: {:?}", &mint_tasks);
+        log::info!("total mint tasks: {}", mint_tasks.len());
         store_mint_tasks(&self.db_pool, &mint_tasks).await?;
         mint_tasks.extend(retry_tasks);
 
         let capacity_cells = self.capacity_cells_for_mint().await;
         if let Err(e) = capacity_cells {
             log::error!("wait for capacity cells generated: {:?}", e);
-            return Ok(client_tip_number);
+            return Ok(client_confirmed_number);
         }
 
         let capacity_cells = capacity_cells.expect("succeed");
@@ -101,11 +103,12 @@ impl EthTxRelayer {
             mint_futures.push(self.mint(&mint_tasks[i], &capacity_cells[i]));
         }
         if !mint_futures.is_empty() {
+            log::info!("start send {} mint txs", mint_count);
             let now = Instant::now();
             join_all(mint_futures).await;
             log::info!("mint {} txs elapsed {:?}", mint_count, now.elapsed());
         }
-        Ok(client_tip_number)
+        Ok(client_confirmed_number)
     }
 
     async fn mint(&self, task: &MintTask, capacity_cell: &OutPoint) -> Result<()> {
@@ -218,17 +221,22 @@ impl EthTxRelayer {
         Ok(())
     }
 
-    async fn client_tip_number(&self) -> Result<u64> {
+    async fn client_confirmed_number(&self) -> Result<u64> {
         let mut generator = self.get_generator().await?;
         let force_contracts = self
             .force_config
             .deployed_contracts
             .clone()
             .expect("force contracts deployed");
-        get_eth_client_best_number(
+        let tip_number = get_eth_client_tip_number(
             &mut generator,
             force_contracts.light_client_cell_script.cell_script,
-        )
+        )?;
+        if tip_number > (CONFIRM as u64) {
+            Ok(tip_number - (CONFIRM as u64))
+        } else {
+            Ok(0)
+        }
     }
 
     async fn get_generator(&self) -> Result<Generator> {
