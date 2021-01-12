@@ -33,6 +33,8 @@ pub struct EthIndexerArgs {
     pub network: Option<String>,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
     pub db_path: String,
+    #[clap(long, default_value = "http://127.0.0.1:8116")]
+    pub ckb_indexer_url: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -45,6 +47,8 @@ pub struct CkbIndexerArgs {
     pub ckb_rpc_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8116")]
     pub ckb_indexer_url: String,
+    #[clap(long)]
+    pub network: Option<String>,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -69,4 +73,16 @@ pub struct EthTxRelayerArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
+    #[clap(short = 'p', long)]
+    pub private_key_path: String,
+    #[clap(long, default_value = "100")]
+    pub mint_concurrency: u64,
+    #[clap(long, default_value = "1000")]
+    pub minimum_cell_capacity: u64,
+    #[clap(
+        short = 'd',
+        long,
+        default_value = "mysql://root:@127.0.0.1:3306/forcedb"
+    )]
+    pub db_url: String,
 }

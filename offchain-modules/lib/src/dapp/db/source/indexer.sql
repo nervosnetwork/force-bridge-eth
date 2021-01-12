@@ -17,9 +17,38 @@ CREATE TABLE `ckb_to_eth` (
   PRIMARY KEY (`id`),
   KEY `ckb_burn_tx_hash` (`ckb_burn_tx_hash`),
   KEY `eth_tx_hash` (`eth_tx_hash`),
-  KEY `status` (`status`)
+  KEY `block_number` (`block_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+
+
+# Dump of table cross_chain_height_info
+# ------------------------------------------------------------
+
+DROP TABLE IF EXISTS `cross_chain_height_info`;
+
+CREATE TABLE `cross_chain_height_info` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `eth_height` int(11) unsigned NOT NULL DEFAULT '0',
+  `eth_client_height` int(11) unsigned NOT NULL DEFAULT '0',
+  `ckb_height` int(11) unsigned NOT NULL DEFAULT '0',
+  `ckb_client_height` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+LOCK TABLES `cross_chain_height_info` WRITE;
+/*!40000 ALTER TABLE `cross_chain_height_info` DISABLE KEYS */;
+
+INSERT INTO `cross_chain_height_info` (`id`, `eth_height`, `eth_client_height`, `ckb_height`, `ckb_client_height`)
+VALUES
+	(1,0,0,0,0);
+
+/*!40000 ALTER TABLE `cross_chain_height_info` ENABLE KEYS */;
+UNLOCK TABLES;
+
+
+# Dump of table eth_to_ckb
+# ------------------------------------------------------------
 
 DROP TABLE IF EXISTS `eth_to_ckb`;
 
@@ -40,5 +69,5 @@ CREATE TABLE `eth_to_ckb` (
   PRIMARY KEY (`id`),
   KEY `eth_lock_tx_hash` (`eth_lock_tx_hash`),
   KEY `replay_resist_outpoint` (`replay_resist_outpoint`),
-  KEY `status` (`status`,`block_number`)
+  KEY `block_number` (`block_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

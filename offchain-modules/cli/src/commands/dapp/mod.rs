@@ -1,7 +1,8 @@
 use anyhow::Result;
-use force_eth_lib::dapp::indexer::ckb_indexer::CkbIndexer;
-use force_eth_lib::dapp::indexer::eth_indexer::EthIndexer;
 use force_eth_lib::dapp::relayer::ckb_relayer::CkbTxRelay;
+use force_eth_lib::dapp::CkbIndexer;
+use force_eth_lib::dapp::EthIndexer;
+use force_eth_lib::dapp::EthTxRelayer;
 use types::*;
 
 pub mod types;
@@ -22,7 +23,13 @@ async fn server(_args: ServerArgs) -> Result<()> {
 }
 
 async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
-    let mut eth_indexer = EthIndexer::new(args.config_path, args.network, args.db_path).await?;
+    let mut eth_indexer = EthIndexer::new(
+        args.config_path,
+        args.network,
+        args.db_path,
+        args.ckb_indexer_url,
+    )
+    .await?;
     loop {
         let res = eth_indexer.start().await;
         if let Err(err) = res {
@@ -38,6 +45,7 @@ async fn ckb_indexer(args: CkbIndexerArgs) -> Result<()> {
         args.db_path,
         args.ckb_rpc_url,
         args.ckb_indexer_url,
+        args.network,
     )
     .await?;
     loop {
@@ -60,7 +68,15 @@ async fn ckb_tx_relay(args: CkbTxRelayerArgs) -> Result<()> {
     ckb_tx_relay.start().await
 }
 
-async fn eth_tx_relay(_args: EthTxRelayerArgs) -> Result<()> {
-    // TODO
-    Ok(())
+async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
+    let eth_tx_relayer = EthTxRelayer::new(
+        args.config_path,
+        args.network,
+        args.private_key_path,
+        args.mint_concurrency,
+        args.minimum_cell_capacity,
+        args.db_url,
+    )
+    .await?;
+    eth_tx_relayer.start().await
 }
