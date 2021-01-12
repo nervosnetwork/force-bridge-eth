@@ -106,6 +106,7 @@ impl EthIndexer {
             if block.is_err() {
                 log::info!("waiting for new block.");
                 tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                continue;
             }
             let block = block.unwrap();
             let txs = block.transactions;
@@ -124,7 +125,7 @@ impl EthIndexer {
                     }
                 }
             }
-
+            height_info = get_height_info(&self.db).await?;
             let mut db_tx = self.db.begin().await?;
             if !lock_records.is_empty() {
                 create_eth_to_ckb_record(&mut db_tx, &lock_records).await?;

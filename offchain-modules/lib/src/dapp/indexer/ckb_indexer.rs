@@ -60,7 +60,7 @@ impl CkbIndexer {
         let eth_contract_addr = force_config
             .deployed_contracts
             .ok_or_else(|| anyhow!("the deployed_contracts is not exist"))?
-            .eth_token_locker_addr;
+            .eth_ckb_chain_addr;
         let contract_addr = convert_eth_address(&eth_contract_addr)?;
         let mut height_info = get_height_info(&self.db).await?;
         if height_info.ckb_client_height == 0 {
@@ -98,6 +98,7 @@ impl CkbIndexer {
                         }
                     }
                 }
+                height_info = get_height_info(&self.db).await?;
                 let mut db_tx = self.db.begin().await?;
                 if !burn_records.is_empty() {
                     create_ckb_to_eth_record(&mut db_tx, &burn_records).await?;
@@ -115,6 +116,7 @@ impl CkbIndexer {
                 update_cross_chain_height_info(&mut db_tx, &height_info).await?;
                 db_tx.commit().await?;
                 start_block_number += 1;
+                dbg!(height_info.clone());
             } else {
                 info!("waiting for new block.");
                 tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
