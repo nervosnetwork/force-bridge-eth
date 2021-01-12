@@ -158,17 +158,16 @@ pub async fn update_ckb_to_eth_status(pool: &MySqlPool, record: &CkbToEthRecord)
     let rows_affected = sqlx::query(
         r#"
 UPDATE ckb_to_eth SET
-    status = ?2,
-    recipient_addr = ?3,
-    token_addr = ?4,
-    token_amount = ?5,
-    fee = ?6,
-    eth_tx_hash = ?7,
-    err_msg = ?8
-WHERE id = ?1
+    status = ?,
+    recipient_addr = ?,
+    token_addr = ?,
+    token_amount = ?,
+    fee = ?,
+    eth_tx_hash = ?,
+    err_msg = ?
+WHERE id = ?
         "#,
     )
-    .bind(record.id)
     .bind(record.status.clone())
     .bind(record.recipient_addr.as_ref())
     .bind(record.token_addr.as_ref())
@@ -176,6 +175,7 @@ WHERE id = ?1
     .bind(record.fee.as_ref())
     .bind(record.eth_tx_hash.as_ref())
     .bind(record.err_msg.as_ref())
+    .bind(record.id)
     .execute(pool)
     .await?
     .rows_affected();
