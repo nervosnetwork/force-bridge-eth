@@ -69,6 +69,8 @@ pub struct CreateBridgeCellArgs {
     pub bridge_fee: u128,
     #[clap(short = 's', long)]
     pub simple_typescript: bool,
+    #[clap(long)]
+    pub force_create: bool,
 }
 
 #[derive(Clap, Clone, Debug)]

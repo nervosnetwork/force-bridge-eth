@@ -54,6 +54,7 @@ pub async fn get_or_create_bridge_cell(
         args.bridge_fee.into(),
         false,
         args.cell_num.unwrap_or(5),
+        args.force_create.unwrap_or(false),
     )
     .await?;
     data.ckb_key_channel.0.clone().send(private_key_path)?;

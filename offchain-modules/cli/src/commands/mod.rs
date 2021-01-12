@@ -127,6 +127,7 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.bridge_fee,
         args.simple_typescript,
         1,
+        args.force_create,
     )
     .await?;
     info!(

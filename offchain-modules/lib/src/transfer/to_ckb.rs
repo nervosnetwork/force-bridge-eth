@@ -523,6 +523,7 @@ pub async fn get_or_create_bridge_cell(
     bridge_fee: u128,
     simple_typescript: bool,
     cell_num: usize,
+    force_create: bool,
 ) -> Result<Vec<String>> {
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
@@ -590,19 +591,20 @@ pub async fn get_or_create_bridge_cell(
                 .build()
         }
     };
-
-    let cells = collect_bridge_cells(
-        &mut generator.indexer_client,
-        bridge_lockscript.clone(),
-        bridge_typescript.clone(),
-        cell_num,
-    )
-    .map_err(|e| anyhow!("failed to collect bridge cells {}", e))?;
-    if cells.len() >= cell_num {
-        return Ok(cells
-            .into_iter()
-            .map(|cell| hex::encode(OutPoint::from(cell.out_point).as_slice()))
-            .collect());
+    if !force_create {
+        let cells = collect_bridge_cells(
+            &mut generator.indexer_client,
+            bridge_lockscript.clone(),
+            bridge_typescript.clone(),
+            cell_num,
+        )
+        .map_err(|e| anyhow!("failed to collect bridge cells {}", e))?;
+        if cells.len() >= cell_num {
+            return Ok(cells
+                .into_iter()
+                .map(|cell| hex::encode(OutPoint::from(cell.out_point).as_slice()))
+                .collect());
+        }
     }
     let unsigned_tx = generator
         .create_bridge_cell(
