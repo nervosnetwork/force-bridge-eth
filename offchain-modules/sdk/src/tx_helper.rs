@@ -520,8 +520,10 @@ impl TxHelper {
             from_capacity += cells.iter().map(|c| c.output.capacity.value()).sum::<u64>();
             if to_capacity + tx_fee > from_capacity {
                 return Err(format!(
-                    "Capacity(mature) not enough: {:?} => {}",
-                    lockscript, from_capacity,
+                    "Capacity(mature) not enough: {:?}, need capacity: {}, get: {}",
+                    lockscript,
+                    to_capacity + tx_fee,
+                    from_capacity,
                 ));
             }
             cells
