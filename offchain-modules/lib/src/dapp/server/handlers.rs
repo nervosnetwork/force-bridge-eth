@@ -2,7 +2,7 @@ use super::error::RpcError;
 use super::state::DappState;
 use super::types::*;
 use crate::dapp::server::proof_relayer::db::{
-    update_eth_to_ckb_status, CkbToEthRecord, CrosschainHistory, EthToCkbRecord,
+    update_eth_to_ckb_status, CrosschainHistory, EthToCkbRecord,
 };
 use crate::dapp::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb;
@@ -267,13 +267,13 @@ pub async fn burn(
     );
     let ckb_tx_hash = hex::encode(tx.hash().as_slice());
     let create_db_res = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await;
-    let row_id;
+    let _row_id;
     if let Err(e) = &create_db_res {
         if e.to_string().contains("UNIQUE constraint failed") {
             let record = db::get_ckb_to_eth_status(&data.db, ckb_tx_hash.as_str())
                 .await?
                 .expect("CkbToEthRecord existed");
-            row_id = record.id;
+            _row_id = record.id;
             if record.status == "success" || !data.add_relaying_tx(ckb_tx_hash.clone()).await {
                 return Ok(HttpResponse::Ok().json(json!({
                     "message": "tx proof relay processing/processed"
@@ -288,60 +288,60 @@ pub async fn burn(
             .into());
         };
     } else {
-        row_id = create_db_res.unwrap();
+        _row_id = create_db_res.unwrap();
     }
-    tokio::spawn(async move {
-        let eth_privkey_path = data
-            .eth_key_channel
-            .1
-            .clone()
-            .recv_timeout(Duration::from_secs(600))
-            .map_err(|e| anyhow!("crossbeam channel recv ckb key path error: {:?}", e))?;
-        let mut record = CkbToEthRecord {
-            id: row_id,
-            ckb_burn_tx_hash: format!("0x{}", &ckb_tx_hash),
-            status: "pending".to_string(),
-            recipient_addr: Some(args.recipient_address.clone()),
-            token_addr: Some(args.token_address.clone()),
-            token_amount: Some(args.amount.to_string()),
-            fee: Some(args.unlock_fee.to_string()),
-            ..Default::default()
-        };
-        let mut err_msg = String::new();
-        for i in 0u8..10 {
-            let res = handler::relay_ckb_to_eth_proof(
-                record.clone(),
-                &data.db,
-                data.config_path.clone(),
-                eth_privkey_path.clone(),
-                data.network.clone(),
-                tx.clone(),
-            )
-            .await;
-            match res {
-                Ok(_) => {
-                    log::info!("ckb to eth relay successfully for tx {}", &ckb_tx_hash);
-                    err_msg = String::new();
-                    break;
-                }
-                Err(e) => {
-                    err_msg = format!("unlock failed. index: {}, err: {}", i, e);
-                    tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
-                }
-            }
-        }
-        if !err_msg.is_empty() {
-            record.err_msg = Some(err_msg);
-            record.status = "error".to_string();
-            db::update_ckb_to_eth_status(&data.db, &record).await?;
-        }
-        data.remove_relaying_tx(ckb_tx_hash).await;
-        data.eth_key_channel
-            .0
-            .clone()
-            .send(eth_privkey_path)
-            .map_err(|e| anyhow!("crossbeam channel send ckb key path error: {:?}", e))
-    });
+    // tokio::spawn(async move {
+    //     let eth_privkey_path = data
+    //         .eth_key_channel
+    //         .1
+    //         .clone()
+    //         .recv_timeout(Duration::from_secs(600))
+    //         .map_err(|e| anyhow!("crossbeam channel recv ckb key path error: {:?}", e))?;
+    //     let mut record = CkbToEthRecord {
+    //         id: row_id,
+    //         ckb_burn_tx_hash: format!("0x{}", &ckb_tx_hash),
+    //         status: "pending".to_string(),
+    //         recipient_addr: Some(args.recipient_address.clone()),
+    //         token_addr: Some(args.token_address.clone()),
+    //         token_amount: Some(args.amount.to_string()),
+    //         fee: Some(args.unlock_fee.to_string()),
+    //         ..Default::default()
+    //     };
+    //     let mut err_msg = String::new();
+    //     for i in 0u8..10 {
+    //         let res = handler::relay_ckb_to_eth_proof(
+    //             record.clone(),
+    //             &data.db,
+    //             data.config_path.clone(),
+    //             eth_privkey_path.clone(),
+    //             data.network.clone(),
+    //             tx.clone(),
+    //         )
+    //         .await;
+    //         match res {
+    //             Ok(_) => {
+    //                 log::info!("ckb to eth relay successfully for tx {}", &ckb_tx_hash);
+    //                 err_msg = String::new();
+    //                 break;
+    //             }
+    //             Err(e) => {
+    //                 err_msg = format!("unlock failed. index: {}, err: {}", i, e);
+    //                 tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
+    //             }
+    //         }
+    //     }
+    //     if !err_msg.is_empty() {
+    //         record.err_msg = Some(err_msg);
+    //         record.status = "error".to_string();
+    //         db::update_ckb_to_eth_status(&data.db, &record).await?;
+    //     }
+    //     data.remove_relaying_tx(ckb_tx_hash).await;
+    //     data.eth_key_channel
+    //         .0
+    //         .clone()
+    //         .send(eth_privkey_path)
+    //         .map_err(|e| anyhow!("crossbeam channel send ckb key path error: {:?}", e))
+    // });
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
 

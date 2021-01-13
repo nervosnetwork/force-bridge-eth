@@ -88,7 +88,8 @@ pub async fn approve(
             eth_private_key,
             input_data,
             U256::from(gas_price),
-            U256::from(0),
+            U256::zero(),
+            U256::zero(),
             wait,
         )
         .await?;
@@ -136,7 +137,8 @@ pub async fn lock_token(
             parse_private_key(key_path.as_str(), &force_config, &network)?,
             input_data,
             U256::from(gas_price),
-            U256::from(0),
+            U256::zero(),
+            U256::zero(),
             wait,
         )
         .await?;
@@ -179,6 +181,7 @@ pub async fn lock_eth(
             input_data,
             U256::from(gas_price),
             U256::from(amount),
+            U256::zero(),
             wait,
         )
         .await?;

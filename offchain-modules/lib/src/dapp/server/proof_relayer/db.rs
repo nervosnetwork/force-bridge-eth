@@ -22,7 +22,7 @@ pub async fn create_eth_to_ckb_status_record(pool: &MySqlPool, tx_hash: String) 
     let id = sqlx::query(
         r#"
 INSERT INTO eth_to_ckb ( eth_lock_tx_hash )
-VALUES ( ?1 )
+VALUES ( ? )
         "#,
     )
     .bind(tx_hash)
@@ -101,7 +101,7 @@ pub async fn get_ckb_to_eth_crosschain_history(
         r#"
 SELECT id, eth_tx_hash, ckb_burn_tx_hash as ckb_tx_hash, status, 'ckb_to_eth' as sort, token_amount as amount, token_addr
 FROM ckb_to_eth
-where recipient_addr = ?1
+where recipient_addr = ?
         "#,
     )
         .bind(eth_recipient_address)
@@ -117,7 +117,7 @@ pub async fn get_eth_to_ckb_crosschain_history(
         r#"
 SELECT id, eth_lock_tx_hash as eth_tx_hash, ckb_tx_hash, status, 'eth_to_ckb' as sort, locked_amount as amount, token_addr
 FROM eth_to_ckb
-where ckb_recipient_lockscript = ?1
+where ckb_recipient_lockscript = ?
         "#,
     )
     .bind(ckb_recipient_lockscript)
@@ -142,7 +142,7 @@ pub async fn create_ckb_to_eth_status_record(pool: &MySqlPool, tx_hash: String) 
     let id = sqlx::query(
         r#"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash )
-VALUES ( ?1 )
+VALUES ( ? )
         "#,
     )
     .bind(tx_hash)
@@ -158,17 +158,16 @@ pub async fn update_ckb_to_eth_status(pool: &MySqlPool, record: &CkbToEthRecord)
     let rows_affected = sqlx::query(
         r#"
 UPDATE ckb_to_eth SET
-    status = ?2,
-    recipient_addr = ?3,
-    token_addr = ?4,
-    token_amount = ?5,
-    fee = ?6,
-    eth_tx_hash = ?7,
-    err_msg = ?8
-WHERE id = ?1
+    status = ?,
+    recipient_addr = ?,
+    token_addr = ?,
+    token_amount = ?,
+    fee = ?,
+    eth_tx_hash = ?,
+    err_msg = ?
+WHERE id = ?
         "#,
     )
-    .bind(record.id)
     .bind(record.status.clone())
     .bind(record.recipient_addr.as_ref())
     .bind(record.token_addr.as_ref())
@@ -176,6 +175,7 @@ WHERE id = ?1
     .bind(record.fee.as_ref())
     .bind(record.eth_tx_hash.as_ref())
     .bind(record.err_msg.as_ref())
+    .bind(record.id)
     .execute(pool)
     .await?
     .rows_affected();
