@@ -18,6 +18,7 @@ pub struct UnlockTask {
     pub ckb_spv_proof: String,
     pub ckb_raw_tx: String,
 }
+
 pub struct CkbTxRelay {
     eth_token_locker_addr: String,
     ethereum_rpc_url: String,
@@ -74,7 +75,7 @@ impl CkbTxRelay {
             .get_contract_height("latestBlockNumber", self.contract_addr)
             .await?;
         let unlock_tasks =
-            get_unlock_tasks(&self.db, self.confirm_num.add(client_block_number)).await?;
+            get_unlock_tasks(&self.db, self.confirm_num, client_block_number).await?;
         let mut unlock_futures = vec![];
         let nonce = self
             .web3_client
@@ -118,13 +119,18 @@ impl CkbTxRelay {
     }
 }
 
-pub async fn get_unlock_tasks(pool: &MySqlPool, height: u64) -> Result<Vec<UnlockTask>> {
+pub async fn get_unlock_tasks(
+    pool: &MySqlPool,
+    confirm: u64,
+    height: u64,
+) -> Result<Vec<UnlockTask>> {
     let sql = r#"
 SELECT id, ckb_burn_tx_hash, ckb_spv_proof, ckb_raw_tx
 FROM ckb_to_eth
-WHERE status = 'pending' AND block_number < ?
+WHERE status = 'pending' AND block_number + ? < ?
     "#;
     let tasks = sqlx::query_as::<_, UnlockTask>(sql)
+        .bind(confirm)
         .bind(height)
         .fetch_all(pool)
         .await?;
