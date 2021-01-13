@@ -4,6 +4,7 @@ use force_eth_lib::dapp::CkbTxRelay;
 use force_eth_lib::dapp::EthIndexer;
 use force_eth_lib::dapp::EthTxRelayer;
 use types::*;
+use force_eth_lib::dapp::server::start;
 
 pub mod types;
 
@@ -17,9 +18,15 @@ pub async fn dapp_handle(command: DappCommand) -> Result<()> {
     }
 }
 
-async fn server(_args: ServerArgs) -> Result<()> {
-    // TODO
-    Ok(())
+async fn server(args: ServerArgs) -> Result<()> {
+    Ok(start(
+        args.config_path,
+        args.network,
+        args.ckb_private_key_path,
+        args.listen_url,
+        args.db_path,
+    )
+        .await?)
 }
 
 async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
