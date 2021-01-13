@@ -21,7 +21,7 @@ pub struct ServerArgs {
     pub eth_private_key_path: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
-    #[clap(long, default_value = "~/.force-bridge/force.db")]
+    #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/serverdb")]
     pub db_path: String,
 }
 
@@ -57,6 +57,10 @@ pub struct CkbTxRelayerArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
+    pub db_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -71,10 +75,6 @@ pub struct EthTxRelayerArgs {
     pub mint_concurrency: u64,
     #[clap(long, default_value = "1000")]
     pub minimum_cell_capacity: u64,
-    #[clap(
-        short = 'd',
-        long,
-        default_value = "mysql://root:@127.0.0.1:3306/forcedb"
-    )]
-    pub db_url: String,
+    #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
+    pub db_path: String,
 }
