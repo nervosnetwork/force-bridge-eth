@@ -348,6 +348,7 @@ pub fn clear_0x(s: &str) -> &str {
 pub struct EthWitness {
     pub cell_dep_index_list: Vec<u8>,
     pub spv_proof: ETHSPVProofJson,
+    pub compiled_merkle_proof: Vec<u8>,
 }
 
 impl EthWitness {
@@ -361,6 +362,7 @@ impl EthWitness {
         let witness_data = witness::MintTokenWitness::new_builder()
             .spv_proof(spv_proof.into())
             .cell_dep_index_list(self.cell_dep_index_list.clone().into())
+            .merkle_proof(self.compiled_merkle_proof.clone().into())
             .build();
         let witness = WitnessArgs::new_builder()
             .lock(Some(witness_data.as_bytes()).pack())

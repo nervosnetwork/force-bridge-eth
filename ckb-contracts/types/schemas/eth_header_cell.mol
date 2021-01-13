@@ -1,7 +1,40 @@
 import basic;
 
-struct ETHHeaderCellData {
+struct ETHHeaderCellMerkleData {
     merkle_root: Byte32,
     start_height: Uint64,
     latest_height: Uint64,
+}
+
+table ETHHeaderInfo {
+    header: Bytes,
+    total_difficulty: Uint64,
+    hash: Byte32,
+}
+
+table ETHChain {
+    main: BytesVec,
+    uncle: BytesVec,
+}
+
+vector MerkleProof <Bytes>;
+vector MerkleProofVec <MerkleProof>;
+
+table ETHHeaderCellData {
+    headers: ETHChain,
+    merkle_proofs: MerkleProofVec,
+}
+
+table DagsMerkleRoots {
+    dags_merkle_roots: BytesVec,
+}
+
+table DoubleNodeWithMerkleProof {
+    dag_nodes: BytesVec,
+    proof: BytesVec,
+}
+
+table ETHLightClientWitness {
+    headers: BytesVec,
+    cell_dep_index_list: Bytes,
 }

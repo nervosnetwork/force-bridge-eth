@@ -107,6 +107,8 @@ pub struct InitConfigArgs {
     pub ckb_indexer_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub ethereum_rpc_url: String,
+    #[clap(long, default_value = "~/.force-bridge/rocksdb")]
+    pub rocksdb_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]

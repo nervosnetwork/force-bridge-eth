@@ -1921,14 +1921,10 @@ version = "0.1.0"
 dependencies = [
  "blake2b-ref",
  "cfg-if 0.1.10",
- "ckb-rocksdb",
  "eth-spv-lib",
  "ethereum-types",
  "molecule",
  "no-std-compat",
- "serde 1.0.118",
- "serde_derive",
- "serde_json",
  "sparse-merkle-tree",
 ]
 

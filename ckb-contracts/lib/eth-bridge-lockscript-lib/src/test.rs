@@ -7,7 +7,7 @@ use contracts_helper::data_loader::MockDataLoader;
 use force_eth_types::config::{SUDT_CODE_HASH, SUDT_HASH_TYPE};
 use force_eth_types::eth_recipient_cell::ETHAddress;
 use force_eth_types::generated::{
-    basic, eth_bridge_lock_cell::ETHBridgeLockArgs, eth_header_cell::ETHHeaderCellData,
+    basic, eth_bridge_lock_cell::ETHBridgeLockArgs, eth_header_cell::ETHHeaderCellMerkleData,
     witness::MintTokenWitness,
 };
 use force_eth_types::hasher::Blake2bHasher;
@@ -125,7 +125,7 @@ fn generate_light_client_data() -> Bytes {
 
     let merkle_root = smt_tree.root();
 
-    let data = ETHHeaderCellData::new_builder()
+    let data = ETHHeaderCellMerkleData::new_builder()
         .merkle_root(basic::Byte32::from_slice(merkle_root.as_slice()).unwrap())
         .latest_height(100u64.into())
         .build();

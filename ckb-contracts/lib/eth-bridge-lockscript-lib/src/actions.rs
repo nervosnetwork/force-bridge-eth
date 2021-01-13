@@ -7,7 +7,7 @@ use eth_spv_lib::ethspv;
 use force_eth_types::config::CONFIRM;
 use force_eth_types::eth_lock_event::ETHLockEvent;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use force_eth_types::generated::eth_header_cell::ETHHeaderCellDataReader;
+use force_eth_types::generated::eth_header_cell::ETHHeaderCellMerkleDataReader;
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
 use force_eth_types::hasher::Blake2bHasher;
 use molecule::prelude::*;
@@ -86,11 +86,11 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
         .expect("load cell dep data failed");
     debug!("dep data is {:?}", &dep_data);
 
-    if ETHHeaderCellDataReader::verify(&dep_data, false).is_err() {
+    if ETHHeaderCellMerkleDataReader::verify(&dep_data, false).is_err() {
         panic!("eth cell data invalid");
     }
 
-    let eth_cell_data_reader = ETHHeaderCellDataReader::new_unchecked(&dep_data);
+    let eth_cell_data_reader = ETHHeaderCellMerkleDataReader::new_unchecked(&dep_data);
     debug!("eth_cell_data_reader: {:?}", eth_cell_data_reader);
 
     let mut light_client_latest_height = [0u8; 8];
