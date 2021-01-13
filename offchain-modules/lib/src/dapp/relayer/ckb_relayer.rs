@@ -64,7 +64,7 @@ impl CkbTxRelay {
     pub async fn start(&mut self) -> Result<()> {
         loop {
             self.relay().await?;
-            tokio::time::delay_for(Duration::from_secs(180)).await
+            tokio::time::delay_for(Duration::from_secs(60)).await
         }
     }
 
@@ -81,6 +81,7 @@ impl CkbTxRelay {
             .get_eth_nonce(&self.eth_private_key)
             .await?;
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
+            info!("burn tx wait to unlock: {:?} ", tx_record.ckb_burn_tx_hash);
             unlock_futures.push(unlock(
                 self.eth_private_key,
                 self.ethereum_rpc_url.clone(),
@@ -96,14 +97,14 @@ impl CkbTxRelay {
             let now = Instant::now();
             let unlock_count = unlock_futures.len();
 
-            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(600));
+            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
             let task_future = join_all(unlock_futures);
             tokio::select! {
                 v = task_future => {
                     for res in v.iter() {
                        match res {
-                          Ok(hash) => info!("hash : {}", hash),
-                          Err(error) => error!("error {:?}", error),
+                          Ok(hash) => info!("unlock hash : {}", hash),
+                          Err(error) => error!("unlock error : {:?}", error),
                     }
                   }
                   info!("unlock {} txs elapsed {:?}", unlock_count, now.elapsed());
