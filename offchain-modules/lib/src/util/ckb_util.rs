@@ -1,4 +1,4 @@
-use crate::util::ckb_tx_generator::CONFIRM;
+use crate::util::ckb_tx_generator::{Generator, CONFIRM};
 use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::{DoubleNodeWithMerkleProofJson, Witness};
 use crate::util::eth_util::{convert_to_header_rlp, decode_block_header};
@@ -21,6 +21,7 @@ use force_eth_types::generated::eth_header_cell::{
     MerkleProof,
 };
 use force_eth_types::generated::{basic, witness};
+use force_sdk::cell_collector::get_live_cell_by_typescript;
 use rlp::Rlp;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
@@ -173,6 +174,27 @@ pub fn build_outpoint(outpoint_conf: OutpointConf) -> Result<OutPoint> {
     Ok(outpoint)
 }
 
+pub fn get_eth_client_tip_number(
+    generator: &mut Generator,
+    client_cell_script: String,
+) -> Result<u64> {
+    let script = parse_cell(client_cell_script.as_str())
+        .map_err(|e| anyhow!("get typescript fail {:?}", e))?;
+    let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
+        .map_err(|e| anyhow!("get live cell fail: {}", e))?
+        .ok_or_else(|| anyhow!("eth header cell not exist"))?;
+    let (un_confirmed_headers, _) = parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
+        .map_err(|e| anyhow!("parse header data fail: {}", e))?;
+    let best_header = un_confirmed_headers
+        .last()
+        .ok_or_else(|| anyhow!("header is none"))?;
+    let best_number = best_header
+        .number
+        .ok_or_else(|| anyhow!("header number is none"))?
+        .as_u64();
+    Ok(best_number)
+}
+
 pub fn parse_cell(cell: &str) -> Result<Script> {
     let cell_bytes =
         hex::decode(cell).map_err(|e| anyhow!("cell shoule be hex format, err: {}", e))?;
@@ -301,7 +323,7 @@ fn to_u64(data: &[u8]) -> u64 {
     u64::from_le_bytes(res)
 }
 
-#[derive(Default, Debug, Clone, Deserialize, Serialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ETHSPVProofJson {
     pub log_index: u64,
     pub log_entry_data: String,

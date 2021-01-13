@@ -1,4 +1,4 @@
-use crate::dapp::indexer::db::{
+use crate::dapp::db::indexer::{
     create_ckb_to_eth_record, get_eth_to_ckb_record_by_outpoint, get_height_info,
     is_ckb_to_eth_record_exist, update_cross_chain_height_info, update_eth_to_ckb_status,
     CkbToEthRecord, EthToCkbRecord,
