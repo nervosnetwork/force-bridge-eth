@@ -7,7 +7,7 @@ use crate::server::proof_relayer::db::{
 use crate::server::proof_relayer::{db, handler};
 use crate::transfer::to_ckb;
 use crate::util::ckb_util::{
-    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
+    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_merkle_cell_data,
     parse_privkey_path,
 };
 use crate::util::config::ForceConfig;
@@ -507,13 +507,11 @@ pub async fn get_best_block_height(
                 .map_err(|e| format!("get live cell fail: {}", e))?
                 .ok_or("eth header cell not exist")?;
 
-            let (un_confirmed_headers, _) =
-                parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
+            let (_, best_block_number, _) =
+                parse_merkle_cell_data(cell.output_data.as_bytes().to_vec())
                     .map_err(|e| format!("parse header data fail: {}", e))?;
 
-            let best_header = un_confirmed_headers.last().ok_or("header is none")?;
-            let best_block_number = best_header.number.ok_or("header number is none")?;
-            Ok(HttpResponse::Ok().json(Uint64::from(best_block_number.as_u64())))
+            Ok(HttpResponse::Ok().json(Uint64::from(best_block_number)))
         }
         _ => {
             return Err("unknown chain type, only support eth and ckb"

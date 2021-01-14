@@ -1,5 +1,7 @@
 use crate::util::ckb_tx_generator::{Generator, CONFIRM};
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path};
+use crate::util::ckb_util::{
+    parse_cell, parse_main_chain_headers, parse_merkle_cell_data, parse_privkey_path,
+};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::Web3Client;
 use crate::util::rocksdb;
@@ -201,20 +203,9 @@ impl ETHRelayer {
                 )
             }
             _ => {
-                let eth_cell_data_reader =
-                    ETHHeaderCellMerkleDataReader::new_unchecked(last_cell_output_data);
-                let mut merkle_root = [0u8; 32];
-                merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
-
-                let mut last_cell_latest_height_raw = [0u8; 8];
-                last_cell_latest_height_raw
-                    .copy_from_slice(eth_cell_data_reader.latest_height().raw_data());
-                last_cell_latest_height = u64::from_le_bytes(last_cell_latest_height_raw);
-
-                let mut start_height_raw = [0u8; 8];
-                start_height_raw.copy_from_slice(eth_cell_data_reader.start_height().raw_data());
-                let start_height = u64::from_le_bytes(start_height_raw);
-
+                let (start_height, latest_height, merkle_root) =
+                    parse_merkle_cell_data(last_cell_output_data.to_vec())?;
+                last_cell_latest_height = latest_height;
                 let rocksdb_store = rocksdb::RocksDBStore::open(db_path.clone());
                 (
                     start_height,

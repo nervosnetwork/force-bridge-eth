@@ -17,8 +17,8 @@ use force_eth_types::eth_recipient_cell::ETHAddress;
 use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_header_cell::{
-    DoubleNodeWithMerkleProof, ETHHeaderCellDataReader, ETHHeaderInfo, ETHHeaderInfoReader,
-    MerkleProof,
+    DoubleNodeWithMerkleProof, ETHHeaderCellDataReader, ETHHeaderCellMerkleDataReader,
+    ETHHeaderInfo, ETHHeaderInfoReader, MerkleProof,
 };
 use force_eth_types::generated::{basic, witness};
 use rlp::Rlp;
@@ -241,6 +241,24 @@ pub fn parse_main_chain_headers(data: Vec<u8>) -> Result<(Vec<BlockHeader>, Vec<
     }
     un_confirmed.reverse();
     Ok((un_confirmed, confirmed))
+}
+
+pub fn parse_merkle_cell_data(data: Vec<u8>) -> Result<(u64, u64, [u8; 32])> {
+    ETHHeaderCellMerkleDataReader::verify(&data, false).map_err(|err| anyhow!(err))?;
+    let eth_cell_data_reader = ETHHeaderCellMerkleDataReader::new_unchecked(&data);
+
+    let mut merkle_root = [0u8; 32];
+    merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
+
+    let mut last_cell_latest_height_raw = [0u8; 8];
+    last_cell_latest_height_raw.copy_from_slice(eth_cell_data_reader.latest_height().raw_data());
+    let last_cell_latest_height = u64::from_le_bytes(last_cell_latest_height_raw);
+
+    let mut start_height_raw = [0u8; 8];
+    start_height_raw.copy_from_slice(eth_cell_data_reader.start_height().raw_data());
+    let start_height = u64::from_le_bytes(start_height_raw);
+
+    Ok((start_height, last_cell_latest_height, merkle_root))
 }
 
 pub fn create_bridge_lockscript(
