@@ -276,6 +276,8 @@ impl ETHRelayer {
                 e
             );
         } else {
+            let rocksdb_store = smt_tree.store_mut();
+            rocksdb_store.commit();
             info!(
                 "Successfully relayed the headers from {} to {}",
                 last_cell_latest_height, tip_header_number

@@ -1,24 +1,28 @@
-use core::marker::PhantomData;
 use force_eth_types::hasher::Blake2bHasher;
-use rocksdb::ops::{Delete, Get, Open, Put};
-use rocksdb::DB;
+use rocksdb::ops::{Delete, Get, Open, WriteOps};
+use rocksdb::{WriteBatch, DB};
 use serde::export::{Clone, Into};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sparse_merkle_tree::error::Error;
 use sparse_merkle_tree::traits::{Store, Value};
 use sparse_merkle_tree::tree::{BranchNode, LeafNode};
 use sparse_merkle_tree::H256;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
+
+pub const BRANCH_PREFIX: &[u8] = b"branch";
+pub const LEAF_PREFIX: &[u8] = b"leaf";
 
 pub type SMT =
     sparse_merkle_tree::SparseMerkleTree<Blake2bHasher, RocksDBValue, RocksDBStore<RocksDBValue>>;
 
+type Map<K, V> = std::collections::HashMap<K, V>;
+
 #[derive(Clone)]
 pub struct RocksDBStore<V> {
-    pub branch_db: Arc<DB>,
-    pub leaves_db: Arc<DB>,
-    pub phantom: PhantomData<V>,
+    pub db: Arc<DB>,
+    pub branch_map: Map<H256, BranchNode>,
+    pub leaves_map: Map<H256, LeafNode<V>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
@@ -35,57 +39,80 @@ pub struct DBLeafNode<V> {
     pub value: V,
 }
 
-impl<V> RocksDBStore<V> {
+impl<V: Clone + Serialize> RocksDBStore<V> {
     pub fn open(path: String) -> Self {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
-        let branch_db_path = Path::new(db_dir.as_str()).join("branch");
-        let leaves_db_path = Path::new(db_dir.as_str()).join("leaves");
+        let db_path = Path::new(db_dir.as_str());
 
-        fn create_db(db_path: &PathBuf) -> Arc<DB> {
-            if !db_path.exists() {
-                panic!("rocksdb path should exist when opening db");
-            }
-            let db = DB::open_default(db_path).expect("open rocksdb");
-            Arc::new(db)
+        if !db_path.exists() {
+            panic!("rocksdb path should exist when opening db");
         }
-        let branch_db = create_db(&branch_db_path);
-        let leaves_db = create_db(&leaves_db_path);
+        let db = DB::open_default(db_path).expect("open rocksdb");
+        let db = Arc::new(db);
 
         RocksDBStore {
-            branch_db,
-            leaves_db,
-            phantom: PhantomData::default(),
+            db,
+            branch_map: Map::default(),
+            leaves_map: Map::default(),
         }
     }
     pub fn new(path: String) -> Self {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
-        let branch_db_path = Path::new(db_dir.as_str()).join("branch");
-        let leaves_db_path = Path::new(db_dir.as_str()).join("leaves");
+        let db_path = Path::new(db_dir.as_str());
 
-        fn create_db(db_path: &PathBuf) -> Arc<DB> {
-            if !db_path.exists() {
-                std::fs::create_dir_all(&db_path).expect("create db path dir");
-            } else {
-                panic!("rocksdb path should not exist when creating db");
-            }
-            let db = DB::open_default(db_path).expect("open rocksdb");
-            Arc::new(db)
+        if !db_path.exists() {
+            std::fs::create_dir_all(db_path).expect("create db path dir");
+        } else {
+            panic!("rocksdb path should not exist when creating db");
         }
-        let branch_db = create_db(&branch_db_path);
-        let leaves_db = create_db(&leaves_db_path);
+        let db = DB::open_default(db_path).expect("open rocksdb");
+        let db = Arc::new(db);
 
         RocksDBStore {
-            branch_db,
-            leaves_db,
-            phantom: PhantomData::default(),
+            db,
+            branch_map: Map::default(),
+            leaves_map: Map::default(),
         }
+    }
+
+    pub fn commit(&mut self) {
+        let mut batch = WriteBatch::default();
+        for (key, branch) in &self.branch_map {
+            let db_branch_node = DBBranchNode {
+                fork_height: branch.fork_height,
+                key: branch.key.into(),
+                node: branch.node.into(),
+                sibling: branch.sibling.into(),
+            };
+            let db_branch_node_raw = serde_json::to_vec(&db_branch_node).unwrap();
+            batch
+                .put(get_db_key_for_branch(key.as_slice()), db_branch_node_raw)
+                .expect("put branch");
+        }
+        for (key, leaf) in &self.leaves_map {
+            let db_leaf_node = DBLeafNode {
+                key: leaf.key.into(),
+                value: leaf.value.clone(),
+            };
+            let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node).unwrap();
+            batch
+                .put(get_db_key_for_leaf(key.as_slice()), db_leaf_node_raw)
+                .expect("put leaf");
+        }
+        self.db.write(&batch).expect("write batch rocksdb");
     }
 }
 
 impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
+    // search key from cache first, if key not exists in cache, then search it from rocksdb.
     fn get_branch(&self, node: &H256) -> Result<Option<BranchNode>, Error> {
-        let value = self.branch_db.get(node.as_slice()).unwrap();
-        match value {
+        let cache_value = self.branch_map.get(node).map(Clone::clone);
+        if cache_value.is_some() {
+            return Ok(cache_value);
+        }
+
+        let db_value = self.db.get(get_db_key_for_branch(node.as_slice())).unwrap();
+        match db_value {
             Some(v) => {
                 let n: DBBranchNode = serde_json::from_slice(v.as_ref()).unwrap();
                 let branch_node = BranchNode {
@@ -100,7 +127,16 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
         }
     }
     fn get_leaf(&self, leaf_hash: &H256) -> Result<Option<LeafNode<V>>, Error> {
-        let value = self.leaves_db.get(leaf_hash.as_slice()).unwrap();
+        let cache_value = self.leaves_map.get(leaf_hash).map(Clone::clone);
+        if cache_value.is_some() {
+            return Ok(cache_value);
+        }
+
+        let value = self
+            .db
+            .get(get_db_key_for_leaf(leaf_hash.as_slice()))
+            .unwrap();
+
         match value {
             Some(v) => {
                 let n: DBLeafNode<V> = serde_json::from_slice(v.as_ref()).unwrap();
@@ -114,35 +150,25 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
         }
     }
     fn insert_branch(&mut self, node: H256, branch: BranchNode) -> Result<(), Error> {
-        let db_branch_node = DBBranchNode {
-            fork_height: branch.fork_height,
-            key: branch.key.into(),
-            node: branch.node.into(),
-            sibling: branch.sibling.into(),
-        };
-        let db_branch_node_raw = serde_json::to_vec(&db_branch_node).unwrap();
-        self.branch_db
-            .put(node.as_slice(), db_branch_node_raw)
-            .unwrap();
+        self.branch_map.insert(node, branch);
         Ok(())
     }
     fn insert_leaf(&mut self, leaf_hash: H256, leaf: LeafNode<V>) -> Result<(), Error> {
-        let db_leaf_node = DBLeafNode {
-            key: leaf.key.into(),
-            value: leaf.value,
-        };
-        let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node).unwrap();
-        self.leaves_db
-            .put(leaf_hash.as_slice(), db_leaf_node_raw)
-            .unwrap();
+        self.leaves_map.insert(leaf_hash, leaf);
         Ok(())
     }
     fn remove_branch(&mut self, node: &H256) -> Result<(), Error> {
-        self.branch_db.delete(node.as_slice()).unwrap();
+        self.branch_map.remove(node);
+        self.db
+            .delete(get_db_key_for_branch(node.as_slice()))
+            .unwrap();
         Ok(())
     }
     fn remove_leaf(&mut self, leaf_hash: &H256) -> Result<(), Error> {
-        self.leaves_db.delete(leaf_hash.as_slice()).unwrap();
+        self.leaves_map.remove(leaf_hash);
+        self.db
+            .delete(get_db_key_for_leaf(leaf_hash.as_slice()))
+            .unwrap();
         Ok(())
     }
 }
@@ -170,3 +196,49 @@ impl Into<[u8; 32]> for RocksDBValue {
         self.0
     }
 }
+
+fn get_db_key_for_branch(key: &[u8]) -> Vec<u8> {
+    let mut db_key = vec![];
+    db_key.extend_from_slice(BRANCH_PREFIX.as_ref());
+    db_key.extend_from_slice(key);
+    db_key
+}
+
+fn get_db_key_for_leaf(key: &[u8]) -> Vec<u8> {
+    let mut db_key = vec![];
+    db_key.extend_from_slice(LEAF_PREFIX.as_ref());
+    db_key.extend_from_slice(key);
+    db_key
+}
+
+// #[test]
+// fn test_rocksdb() {
+//     let mut db = RocksDBStore::new("~/.force-bridge/test-rocksdb".to_string());
+//     for i in 1..100 {
+//         let branch = BranchNode {
+//             fork_height: i,
+//             key: [i; 32].into(),
+//             node: [i; 32].into(),
+//             sibling: [i; 32].into(),
+//         };
+//
+//         let leaf_value: RocksDBValue = [i; 32].into();
+//         let leaf = LeafNode {
+//             key: [i; 32].into(),
+//             value: leaf_value,
+//         };
+//         db.insert_branch([i; 32].into(), branch).unwrap();
+//         db.insert_leaf([i; 32].into(), leaf).unwrap();
+//     }
+//     db.commit();
+//
+//     db.remove_leaf(&[1u8; 32].into()).unwrap();
+//     db.remove_leaf(&[200u8; 32].into()).unwrap();
+//
+//     let v1 = db.get_leaf(&[1u8; 32].into()).unwrap();
+//     let v2 = db.get_leaf(&[200u8; 32].into()).unwrap();
+//     let v3 = db.get_leaf(&[2u8; 32].into()).unwrap();
+//     assert!(v1.is_none());
+//     assert!(v2.is_none());
+//     assert!(v3.is_some());
+// }
