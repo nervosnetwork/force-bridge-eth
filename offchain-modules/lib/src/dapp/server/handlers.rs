@@ -1,9 +1,10 @@
 use super::error::RpcError;
-use super::DappState;
+use super::{DappState, ReplayResistTask};
 use super::types::*;
 use crate::dapp::db::server::{
-    self as db, update_eth_to_ckb_status, CrosschainHistory, EthToCkbRecord,
+    self as db, CrosschainHistory, use_replay_resist_cell,
 };
+use crate::dapp::db::indexer::EthToCkbRecord;
 use crate::transfer::to_ckb;
 use crate::util::ckb_util::{
     build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
@@ -26,6 +27,7 @@ use serde_json::{json, Value};
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{CallRequest, U256};
+use tokio::sync::oneshot;
 
 #[post("/lock")]
 pub async fn lock(
@@ -35,7 +37,7 @@ pub async fn lock(
     let args: LockArgs =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
     log::info!("lock args: {:?}", args);
-    let sender = convert_eth_address(args.sender.as_str())
+    let lock_sender = convert_eth_address(args.sender.as_str())
         .map_err(|e| format!("sender address parse fail: {}", e))?;
     let to = convert_eth_address(data.deployed_contracts.eth_token_locker_addr.as_str())
         .map_err(|e| format!("lock contract address parse fail: {}", e))?;
@@ -48,7 +50,14 @@ pub async fn lock(
     let recipient_lockscript = build_lockscript_from_address(&args.ckb_recipient_address)
         .map_err(|e| format!("ckb recipient address parse fail: {}", e))?;
     let web3_client = data.get_web3_client().client().clone();
-    let replay_resist_outpoint = get_replay_resist_outpoint().await.unwrap();
+
+    let (sender, receiver) = oneshot::channel();
+    let replay_resist_task = ReplayResistTask {
+        token: args.token_address.clone(),
+        resp: sender
+    };
+    data.replay_resist_sender.clone().send(replay_resist_task).await;
+    let replay_resist_outpoint = receiver.await.unwrap();
 
     let data = [
         Token::Address(token_addr),
@@ -80,7 +89,7 @@ pub async fn lock(
         .eth()
         .estimate_gas(
             CallRequest {
-                from: Some(sender),
+                from: Some(lock_sender),
                 to: Some(to),
                 gas: None,
                 gas_price: None,
@@ -103,23 +112,6 @@ pub async fn lock(
         raw: rlp_transaction(&raw_transaction),
     };
     Ok(HttpResponse::Ok().json(result))
-}
-
-async fn get_replay_resist_outpoint() -> Result<String> {
-    unimplemented!()
-    // let outpoints = to_ckb::get_or_create_bridge_cell(
-    //     data.config_path.clone(),
-    //     data.network.clone(),
-    //     private_key_path.clone(),
-    //     tx_fee,
-    //     capacity,
-    //     args.eth_token_address.clone(),
-    //     args.recipient_address.clone(),
-    //     args.bridge_fee.into(),
-    //     false,
-    //     args.cell_num.unwrap_or(5),
-    // )
-    //     .await?;
 }
 
 #[post("/burn")]
