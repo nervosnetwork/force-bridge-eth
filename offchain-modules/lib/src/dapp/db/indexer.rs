@@ -16,8 +16,9 @@ pub struct EthToCkbRecord {
     pub sudt_extra_data: Option<String>,
     pub ckb_tx_hash: Option<String>,
     pub eth_spv_proof: Option<String>,
-    pub block_number: u64,
+    pub eth_block_number: u64,
     pub replay_resist_outpoint: Option<String>,
+    pub ckb_block_number: u64,
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -27,6 +28,176 @@ pub struct CrossChainHeightInfo {
     pub eth_client_height: u64,
     pub ckb_height: u64,
     pub ckb_client_height: u64,
+}
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct EthUnConfirmedBlock {
+    pub id: u64,
+    pub number: u64,
+    pub hash: String,
+}
+
+pub async fn get_eth_unconfirmed_block(
+    pool: &MySqlPool,
+    id: u64,
+) -> Result<Option<EthUnConfirmedBlock>> {
+    let sql = r#"select * from eth_unconfirmed_block where id = ?"#;
+    let ret = sqlx::query_as::<_, EthUnConfirmedBlock>(sql)
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(ret)
+}
+
+pub async fn get_max_eth_unconfirmed_block(
+    pool: &MySqlPool,
+) -> Result<Option<EthUnConfirmedBlock>> {
+    let sql = r#"select * from eth_unconfirmed_block order by number desc limit 1"#;
+    let ret = sqlx::query_as::<_, EthUnConfirmedBlock>(sql)
+        .fetch_optional(pool)
+        .await?;
+    Ok(ret)
+}
+
+pub async fn get_eth_unconfirmed_blocks(pool: &MySqlPool) -> Result<Vec<EthUnConfirmedBlock>> {
+    let sql = r#"select * from eth_unconfirmed_block"#;
+    let ret = sqlx::query_as::<_, EthUnConfirmedBlock>(sql)
+        .fetch_all(pool)
+        .await?;
+    Ok(ret)
+}
+
+pub async fn insert_eth_unconfirmed_block(
+    pool: &MySqlPool,
+    records: &[EthUnConfirmedBlock],
+) -> Result<()> {
+    let mut sql = String::from(
+        r"
+INSERT INTO eth_unconfirmed_block (id, number, hash)
+VALUES ",
+    );
+    for _ in records {
+        sql = format!("{}{}", sql, "(?,?,?),");
+    }
+    let len = sql.len() - 1;
+    let mut ret = sqlx::query(&sql[..len]);
+    for record in records {
+        ret = ret
+            .bind(record.id)
+            .bind(record.number)
+            .bind(record.hash.clone())
+    }
+    ret.execute(pool).await?;
+    Ok(())
+}
+
+pub async fn update_eth_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    record: &EthUnConfirmedBlock,
+) -> Result<()> {
+    let sql = r#"update eth_unconfirmed_block set
+    number = ?, hash = ? WHERE id = ?"#;
+    sqlx::query(sql)
+        .bind(record.number)
+        .bind(record.hash.clone())
+        .bind(record.id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CkbUnConfirmedBlock {
+    pub id: u64,
+    pub number: u64,
+    pub hash: String,
+}
+
+pub async fn get_ckb_unconfirmed_block(
+    pool: &MySqlPool,
+    id: u64,
+) -> Result<Option<CkbUnConfirmedBlock>> {
+    let sql = r#"select * from ckb_unconfirmed_block where id = ?"#;
+    let ret = sqlx::query_as::<_, CkbUnConfirmedBlock>(sql)
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(ret)
+}
+
+pub async fn get_max_ckb_unconfirmed_block(
+    pool: &MySqlPool,
+) -> Result<Option<CkbUnConfirmedBlock>> {
+    let sql = r#"select * from ckb_unconfirmed_block order by number desc limit 1"#;
+    let ret = sqlx::query_as::<_, CkbUnConfirmedBlock>(sql)
+        .fetch_optional(pool)
+        .await?;
+    Ok(ret)
+}
+
+pub async fn get_ckb_unconfirmed_blocks(pool: &MySqlPool) -> Result<Vec<CkbUnConfirmedBlock>> {
+    let sql = r#"select * from ckb_unconfirmed_block"#;
+    let ret = sqlx::query_as::<_, CkbUnConfirmedBlock>(sql)
+        .fetch_all(pool)
+        .await?;
+    Ok(ret)
+}
+
+pub async fn insert_ckb_unconfirmed_block(
+    pool: &MySqlPool,
+    records: &[CkbUnConfirmedBlock],
+) -> Result<()> {
+    let mut sql = String::from(
+        r"
+INSERT INTO ckb_unconfirmed_block (id, number, hash)
+VALUES ",
+    );
+    for _ in records {
+        sql = format!("{}{}", sql, "(?,?,?),");
+    }
+    let len = sql.len() - 1;
+    let mut ret = sqlx::query(&sql[..len]);
+    for record in records {
+        ret = ret
+            .bind(record.id)
+            .bind(record.number)
+            .bind(record.hash.clone())
+    }
+    ret.execute(pool).await?;
+    Ok(())
+}
+
+pub async fn update_ckb_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    record: &CkbUnConfirmedBlock,
+) -> Result<()> {
+    let sql = r#"update ckb_unconfirmed_block set
+    number = ?, hash = ? WHERE id = ?"#;
+    sqlx::query(sql)
+        .bind(record.number)
+        .bind(record.hash.clone())
+        .bind(record.id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn delete_ckb_to_eth_records(
+    pool: &mut Transaction<'_, MySql>,
+    number: u64,
+) -> Result<()> {
+    let sql = r"delete from ckb_to_eth where ckb_block_number >= ?";
+    sqlx::query(sql).bind(number).execute(pool).await?;
+    Ok(())
+}
+
+pub async fn reset_eth_to_ckb_record_status(
+    pool: &mut Transaction<'_, MySql>,
+    number: u64,
+) -> Result<()> {
+    let sql = r#"update eth_to_ckb set status = 'pending' where ckb_block_number >= ? and status = 'success'"#;
+    sqlx::query(sql).bind(number).execute(pool).await?;
+    Ok(())
 }
 
 pub async fn get_height_info(pool: &MySqlPool) -> Result<CrossChainHeightInfo> {
@@ -98,12 +269,22 @@ pub async fn update_eth_to_ckb_status(
     pool: &mut Transaction<'_, MySql>,
     record: &EthToCkbRecord,
 ) -> Result<()> {
-    let sql = r#"UPDATE eth_to_ckb SET status = ? WHERE id = ?"#;
+    let sql = r#"UPDATE eth_to_ckb SET status = ?, ckb_block_number = ? WHERE id = ?"#;
     sqlx::query(sql)
         .bind(record.status.clone())
+        .bind(record.ckb_block_number)
         .bind(record.id)
         .execute(pool)
         .await?;
+    Ok(())
+}
+
+pub async fn delete_eth_to_ckb_records(
+    pool: &mut Transaction<'_, MySql>,
+    number: u64,
+) -> Result<()> {
+    let sql = r"delete from eth_to_ckb where eth_block_number >= ?";
+    sqlx::query(sql).bind(number).execute(pool).await?;
     Ok(())
 }
 
@@ -114,7 +295,7 @@ pub async fn create_eth_to_ckb_record(
     let mut sql = String::from(
         r"
 INSERT INTO eth_to_ckb ( eth_lock_tx_hash, status, token_addr, sender_addr, locked_amount, bridge_fee, 
-ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, eth_spv_proof, block_number, replay_resist_outpoint)
+ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, eth_spv_proof, eth_block_number, replay_resist_outpoint)
 VALUES ",
     );
     for _ in records {
@@ -134,7 +315,7 @@ VALUES ",
             .bind(record.sudt_extra_data.as_ref())
             .bind(record.ckb_tx_hash.as_ref())
             .bind(record.eth_spv_proof.as_ref())
-            .bind(record.block_number)
+            .bind(record.eth_block_number)
             .bind(record.replay_resist_outpoint.as_ref());
     }
     ret.execute(pool).await?;
@@ -152,8 +333,9 @@ pub struct CkbToEthRecord {
     pub fee: Option<String>,
     pub eth_tx_hash: Option<String>,
     pub ckb_spv_proof: Option<String>,
-    pub block_number: u64,
+    pub ckb_block_number: u64,
     pub ckb_raw_tx: Option<String>,
+    pub eth_block_number: u64,
 }
 
 pub async fn get_latest_ckb_to_eth_record(pool: &MySqlPool) -> Result<Option<CkbToEthRecord>> {
@@ -175,7 +357,7 @@ pub async fn create_ckb_to_eth_record(
     let mut sql = String::from(
         r"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
-eth_tx_hash, ckb_spv_proof, block_number, ckb_raw_tx)
+eth_tx_hash, ckb_spv_proof, ckb_block_number, ckb_raw_tx)
 VALUES ",
     );
     for _ in records {
@@ -193,7 +375,7 @@ VALUES ",
             .bind(record.fee.as_ref())
             .bind(record.eth_tx_hash.as_ref())
             .bind(record.ckb_spv_proof.as_ref())
-            .bind(record.block_number)
+            .bind(record.ckb_block_number)
             .bind(record.ckb_raw_tx.as_ref())
     }
     ret.execute(pool).await?;
@@ -228,21 +410,33 @@ FROM ckb_to_eth where eth_tx_hash = ?
         .await?)
 }
 
+pub async fn reset_ckb_to_eth_record_status(
+    pool: &mut Transaction<'_, MySql>,
+    number: u64,
+) -> Result<()> {
+    let sql = r#"update ckb_to_eth set status = 'pending' where eth_block_number >= ? and status = 'success'"#;
+    sqlx::query(sql).bind(number).execute(pool).await?;
+    Ok(())
+}
+
 pub async fn update_ckb_to_eth_record_status(
     pool: &mut Transaction<'_, MySql>,
     ckb_tx_hash: String,
     eth_tx_hash: String,
     status: &str,
+    eth_block_number: u64,
 ) -> Result<()> {
     let sql = r#"
 UPDATE ckb_to_eth SET
     status = ?,
-    eth_tx_hash = ?
+    eth_tx_hash = ?,
+    eth_block_number = ? 
 WHERE  ckb_burn_tx_hash = ?
         "#;
     sqlx::query(sql)
         .bind(status)
         .bind(eth_tx_hash)
+        .bind(eth_block_number)
         .bind(ckb_tx_hash)
         .execute(pool)
         .await?;
