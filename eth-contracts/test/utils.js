@@ -1,6 +1,7 @@
 const { ecsign, toRpcSig } = require('ethereumjs-util');
 const { blake2b, PERSONAL } = require('@nervosnetwork/ckb-sdk-utils');
 const { keccak256, defaultAbiCoder, solidityPack } = ethers.utils;
+const BN = require('bn.js');
 
 async function sleep(seconds) {
   // console.log(`waiting for block confirmations, about ${seconds}s`)

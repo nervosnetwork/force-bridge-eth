@@ -18,6 +18,7 @@ async function main() {
 }
 
 async function deploy() {
+
   // get force config
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   const network = process.env.FORCE_NETWORK;
@@ -45,13 +46,14 @@ async function deploy() {
   let lightClientTypescriptHash = ckbBlake2b(
     deployedContracts.light_client_cell_script.cell_script
   );
+  console.error(`lightClientTypescriptHash: `, lightClientTypescriptHash);
 
   const wallet = new ethers.Wallet(
     '0x' + network_config.ethereum_private_keys[0],
     provider
   );
   const adminAddress = wallet.address;
-  console.log(`wallet.getBalance() : `, await wallet.getBalance());
+  console.error(`adminAddress : `, adminAddress);
 
   // deploy ckbChainV2
   const validators = network_config.ethereum_private_keys
@@ -66,7 +68,6 @@ async function deploy() {
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
 
-  // deploy CKBChainV2
   const canonicalGcThreshold = 40000;
   let factory = await ethers.getContractFactory(
     'contracts/CKBChainV2-openzeppelin.sol:CKBChainV2'
