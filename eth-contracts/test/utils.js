@@ -147,6 +147,20 @@ const runErrorCase = async (txPromise, expectErrorMsg) => {
   }
 };
 
+const retryPromise = async (txPromise, times) => {
+  let res = null;
+  for (let i = 0; i < times; i++) {
+    try {
+      res = await txPromise;
+      return res;
+    } catch (e) {
+      log(`send tx failed, retry ${i}`, e);
+      await sleep(2);
+    }
+  }
+  return res;
+};
+
 const getMsgHashForSetNewCkbSpv = (
   DOMAIN_SEPARATOR,
   typeHash,
@@ -198,6 +212,37 @@ const ckbBlake2b = (hexStr) => {
   return '0x' + instance.digest('hex');
 };
 
+const fixedLengthLe = (str, targetLen = 8) => {
+  const len = str.length;
+  return str + '0'.repeat(targetLen - len);
+};
+
+const clear0x = (hexStr) => {
+  return hexStr.startsWith('0x') ? hexStr.slice(2) : hexStr;
+};
+
+const getMockTinyHeaderParam = (
+  blockNumber,
+  blockHash,
+  txRoot = 'f'.repeat(64)
+) => {
+  let tinyHeaderHex = '0x';
+
+  // 1. number
+  const numberBN = new BN(blockNumber);
+  const buf = numberBN.toBuffer();
+  const leHexNumber = buf.reverse().toString('hex');
+  tinyHeaderHex += fixedLengthLe(leHexNumber, 16);
+
+  // 2. blockHash
+  tinyHeaderHex += clear0x(blockHash);
+
+  // 3. txRoot
+  tinyHeaderHex += clear0x(txRoot);
+
+  return [tinyHeaderHex];
+};
+
 const { log } = console;
 
 module.exports = {
@@ -215,4 +260,8 @@ module.exports = {
   getMsgHashForSetNewCkbSpv,
   getMsgHashForAddHeaders,
   ckbBlake2b,
+  retryPromise,
+  fixedLengthLe,
+  getMockTinyHeaderParam,
+  clear0x,
 };
