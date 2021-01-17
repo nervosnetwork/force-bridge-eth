@@ -25,6 +25,7 @@ use force_eth_types::generated::eth_header_cell::{
     ETHChain, ETHHeaderCellData, ETHHeaderCellMerkleData, ETHHeaderCellMerkleDataReader,
     ETHHeaderInfo, ETHHeaderInfoReader,
 };
+use force_eth_types::hasher::Blake2bHasher;
 use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
@@ -537,7 +538,7 @@ impl Generator {
             height.copy_from_slice(header.number.to_le_bytes().as_ref());
             key[..8].clone_from_slice(&height);
 
-            let rocksdb_store = rocksdb::RocksDBStore::open(db_path);
+            let rocksdb_store = rocksdb::RocksDBStore::open_readonly(db_path);
             let smt_tree = rocksdb::SMT::new(cell_merkle_root.into(), rocksdb_store);
 
             let block_hash: [u8; 32] = smt_tree.get(&key.into()).unwrap().into();
@@ -545,6 +546,24 @@ impl Generator {
             let compiled_merkle_proof = merkle_proof
                 .compile(vec![(key.into(), block_hash.into())])
                 .unwrap();
+
+            {
+                let mut compiled_leaves = vec![];
+
+                let mut leaf_index = [0u8; 32];
+                leaf_index[..8].copy_from_slice(header.number.to_le_bytes().as_ref());
+
+                let mut leaf_value = [0u8; 32];
+                leaf_value.copy_from_slice(header.hash.expect("header hash is none").0.as_bytes());
+
+                compiled_leaves.push((leaf_index.into(), leaf_value.into()));
+                if !compiled_merkle_proof
+                    .verify::<Blake2bHasher>(&cell_merkle_root.into(), compiled_leaves)
+                    .expect("verify")
+                {
+                    return Err(anyhow!("pre merkle proof verify fail"));
+                }
+            }
 
             let witness = EthWitness {
                 cell_dep_index_list: vec![0],
