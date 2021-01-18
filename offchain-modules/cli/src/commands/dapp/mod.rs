@@ -1,10 +1,10 @@
 use anyhow::Result;
+use force_eth_lib::dapp::server::start;
 use force_eth_lib::dapp::CkbIndexer;
 use force_eth_lib::dapp::CkbTxRelay;
 use force_eth_lib::dapp::EthIndexer;
 use force_eth_lib::dapp::EthTxRelayer;
 use types::*;
-use force_eth_lib::dapp::server::start;
 
 pub mod types;
 
@@ -26,7 +26,7 @@ async fn server(args: ServerArgs) -> Result<()> {
         args.listen_url,
         args.db_path,
     )
-        .await?)
+    .await?)
 }
 
 async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {

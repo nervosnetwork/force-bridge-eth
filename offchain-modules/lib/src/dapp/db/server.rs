@@ -1,8 +1,7 @@
-use anyhow::Result;
+use super::indexer::{CkbToEthRecord, EthToCkbRecord};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::mysql::MySqlPool;
-use sqlx::Done;
-use super::indexer::{EthToCkbRecord, CkbToEthRecord};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CrosschainHistory {
@@ -18,26 +17,68 @@ pub struct CrosschainHistory {
 #[derive(sqlx::FromRow, Serialize, Deserialize, Clone)]
 pub struct ReplayResistCell {
     pub id: u64,
-    pub outpoint: String
+    pub outpoint: String,
+    pub token: String,
 }
 
-pub async fn get_replay_resist_cells(pool: &MySqlPool, token: &String) -> Result<Vec<ReplayResistCell>> {
+pub async fn delete_replay_resist_cells(pool: &MySqlPool, cells: &[u64]) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    let sql = r#"
+DELETE FROM replay_resist_cells
+WHERE id = ?
+    "#;
+    for id in cells.iter() {
+        sqlx::query(sql).bind(id).execute(&mut tx).await?;
+    }
+    tx.commit()
+        .await
+        .map_err(|e| anyhow!("commit batch delete cells error: {:?}", e))
+}
+
+pub async fn add_replay_resist_cells(
+    pool: &MySqlPool,
+    cells: &[String],
+    token: &str,
+) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    let sql = r#"
+INSERT INTO replay_resist_cells (token, outpoint, status)
+VALUES (?,?,?)
+    "#;
+    for outpoint in cells.iter() {
+        sqlx::query(sql)
+            .bind(token.to_string())
+            .bind(outpoint.clone())
+            .bind("available")
+            .execute(&mut tx)
+            .await?;
+    }
+    tx.commit()
+        .await
+        .map_err(|e| anyhow!("commit batch insert replay resist cells error: {:?}", e))
+}
+
+pub async fn get_replay_resist_cells(
+    pool: &MySqlPool,
+    token: &str,
+    status: &str,
+) -> Result<Vec<ReplayResistCell>> {
     let sql = r#"
 SELECT id, outpoint FROM replay_resist_cells
 WHERE token = ? AND status = ?
     "#;
     let cells = sqlx::query_as::<_, ReplayResistCell>(sql)
         .bind(token)
-        .bind("available")
+        .bind(status)
         .fetch_all(pool)
         .await?;
     Ok(cells)
 }
 
-pub async fn use_replay_resist_cell(pool: &MySqlPool, token: &String) -> Result<(usize, String)> {
-    let outpoints = get_replay_resist_cells(pool, token).await?;
-    if outpoints.len() == 0 {
-        return Ok((0, "".to_string()))
+pub async fn use_replay_resist_cell(pool: &MySqlPool, token: &str) -> Result<(usize, String)> {
+    let outpoints = get_replay_resist_cells(pool, token, "available").await?;
+    if outpoints.is_empty() {
+        return Ok((0, "".to_string()));
     }
 
     let sql = r#"
@@ -65,9 +106,9 @@ FROM eth_to_ckb
 where eth_lock_tx_hash = ?
         "#,
     )
-        .bind(eth_lock_tx_hash)
-        .fetch_optional(pool)
-        .await?)
+    .bind(eth_lock_tx_hash)
+    .fetch_optional(pool)
+    .await?)
 }
 
 pub async fn get_ckb_to_eth_crosschain_history(
@@ -113,7 +154,7 @@ FROM ckb_to_eth
 where ckb_burn_tx_hash = ?
         "#,
     )
-        .bind(ckb_burn_tx_hash)
-        .fetch_optional(pool)
-        .await?)
+    .bind(ckb_burn_tx_hash)
+    .fetch_optional(pool)
+    .await?)
 }

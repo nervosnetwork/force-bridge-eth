@@ -1,22 +1,16 @@
 use super::error::RpcError;
-use super::{DappState, ReplayResistTask};
 use super::types::*;
-use crate::dapp::db::server::{
-    self as db, CrosschainHistory, use_replay_resist_cell,
-};
-use crate::dapp::db::indexer::EthToCkbRecord;
-use crate::transfer::to_ckb;
+use super::{DappState, ReplayResistTask};
+use crate::dapp::db::server::{self as db, CrosschainHistory};
 use crate::util::ckb_util::{
     build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
-    parse_privkey_path,
 };
-use crate::util::config::ForceConfig;
 use crate::util::eth_util::{
-    build_lock_eth_payload, build_lock_token_payload, convert_eth_address, convert_hex_to_h256,
-    make_transaction, rlp_transaction, Web3Client,
+    build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
+    rlp_transaction, Web3Client,
 };
 use actix_web::{get, post, web, HttpResponse, Responder};
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 use ckb_jsonrpc_types::{Script as ScriptJson, Uint128, Uint64};
 use ckb_sdk::{Address, HumanCapacity};
 use ckb_types::packed::{Script, ScriptReader};
@@ -25,9 +19,8 @@ use force_sdk::cell_collector::get_live_cell_by_typescript;
 use molecule::prelude::{Entity, Reader, ToOwned};
 use serde_json::{json, Value};
 use std::str::FromStr;
-use std::time::Duration;
-use web3::types::{CallRequest, U256};
 use tokio::sync::oneshot;
+use web3::types::{CallRequest, U256};
 
 #[post("/lock")]
 pub async fn lock(
@@ -54,10 +47,14 @@ pub async fn lock(
     let (sender, receiver) = oneshot::channel();
     let replay_resist_task = ReplayResistTask {
         token: args.token_address.clone(),
-        resp: sender
+        resp: sender,
     };
-    data.replay_resist_sender.clone().send(replay_resist_task).await;
-    let replay_resist_outpoint = receiver.await.unwrap();
+    let _ = data
+        .replay_resist_sender
+        .clone()
+        .send(replay_resist_task)
+        .await;
+    let replay_resist_outpoint = receiver.await.unwrap()?;
 
     let data = [
         Token::Address(token_addr),
@@ -144,7 +141,7 @@ pub async fn burn(
         lock_contract_address,
         recipient_address,
     )?;
-    let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx.clone());
+    let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
     log::info!(
         "burn args: {} tx: {}",
         serde_json::to_string_pretty(&args).unwrap(),
