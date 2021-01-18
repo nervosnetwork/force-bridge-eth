@@ -14,6 +14,9 @@ const {
 // 2. require contract address
 const contractFactoryPath = 'contracts/CKBChainV2-openzeppelin.sol:CKBChainV2'
 const contractAddress = '0xe9B447cA594cB87B8d912040c8981B9696541B82'
+const targetBlockNumber = 992353
+const targetBlockHash = 'fe5a70bdf770a0c644b5f6fc9ea78a159c2447ed7bd56ae00f0a184a0245dcb3'
+
 
 const main = async () => {
     log(`contractFactoryPath: `, contractFactoryPath)
@@ -22,7 +25,10 @@ const main = async () => {
     const retryTimes = 1;
     for (let i = 0; i < retryTimes; i++) {
         try {
-            await setSpecificTinyHeader();
+            await setSpecificTinyHeader(
+                targetBlockNumber,
+                targetBlockHash
+            );
             log(`setSpecificTinyHeader success!`);
             break;
         } catch (e) {
@@ -32,7 +38,7 @@ const main = async () => {
     }
 }
 
-const setSpecificTinyHeader = async () => {
+const setSpecificTinyHeader = async (blockNumber, blockHash) => {
     // get wallet of validators from force config
     const forceConfigPath = process.env.FORCE_CONFIG_PATH;
     const network = process.env.FORCE_NETWORK;
@@ -71,8 +77,8 @@ const setSpecificTinyHeader = async () => {
 
     // 1. get mockTinyHeaders param
     const mockTinyHeaders = getMockTinyHeaderParam(
-        992353,
-        'fe5a70bdf770a0c644b5f6fc9ea78a159c2447ed7bd56ae00f0a184a0245dcb3'
+        blockNumber,
+        blockHash
     )
     const name = 'Force Bridge CKBChain';
     const DOMAIN_SEPARATOR = keccak256(

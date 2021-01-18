@@ -30,13 +30,6 @@ contract TokenLocker {
     // txHash -> Used
     mapping(bytes32 => bool) public usedTx_;
 
-    // test openzeppelin upgrade
-    mapping(bytes32 => bytes32) testMap1;
-
-    function testUpgrade1(bytes32 key, bytes32 value) external {
-        testMap1[key] = value;
-    }
-
     event Locked(
         address indexed token,
         address indexed sender,
@@ -166,5 +159,9 @@ contract TokenLocker {
         recipientCellData.tokenAddress(),
         recipientCellData.recipientAddress()
         );
+    }
+
+    function setLightClientTypescriptHash() public {
+        lightClientTypescriptHash_ = 0xbb867b58869bdcd636c2c1d0256dd087630ac88619dda33537f887889ddaa233;
     }
 }
