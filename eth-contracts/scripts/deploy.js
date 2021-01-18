@@ -18,7 +18,6 @@ async function main() {
 }
 
 async function deploy() {
-
   // get force config
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   const network = process.env.FORCE_NETWORK;
