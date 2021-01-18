@@ -1,16 +1,16 @@
-const { upgrades } = require('hardhat');
+const { ethers, upgrades } = require('hardhat');
 const { expect } = require('chai');
-const { getTinyHeaders } = require('../../scripts/benchmark/generateData');
+const { getTinyHeaders } = require('../benchmark/generateData');
 const { keccak256, defaultAbiCoder, toUtf8Bytes } = ethers.utils;
 const {
   log,
   sleep,
   generateSignatures,
   generateWallets,
-  runErrorCase,
+  retryPromise,
   getMsgHashForAddHeaders,
-} = require('../utils');
-
+} = require('../../test/utils');
+const retryTimes = 20;
 contract('CKBChainV2 openzeppelin upgradeable', () => {
   let ckbChain,
     adminAddress,
@@ -40,14 +40,18 @@ contract('CKBChainV2 openzeppelin upgradeable', () => {
     factory = await ethers.getContractFactory(
       'contracts/CKBChainV2-openzeppelin.sol:CKBChainV2'
     );
-    ckbChain = await upgrades.deployProxy(
-      factory,
-      [canonicalGcThreshold, validators, multisigThreshold],
-      {
-        initializer: 'initialize',
-        unsafeAllowCustomTypes: true,
-        unsafeAllowLinkedLibraries: true,
-      }
+
+    ckbChain = await retryPromise(
+      upgrades.deployProxy(
+        factory,
+        [canonicalGcThreshold, validators, multisigThreshold],
+        {
+          initializer: 'initialize',
+          unsafeAllowCustomTypes: true,
+          unsafeAllowLinkedLibraries: true,
+        }
+      ),
+      retryTimes
     );
     contractAddress = ckbChain.address;
     provider = ckbChain.provider;
@@ -129,10 +133,14 @@ contract('CKBChainV2 openzeppelin upgradeable', () => {
       factory = await ethers.getContractFactory(
         'contracts/CKBChainV2-openzeppelin-v2.sol:CKBChainV2'
       );
-      const contract = await upgrades.upgradeProxy(contractAddress, factory, {
-        unsafeAllowLinkedLibraries: true,
-        unsafeAllowCustomTypes: true,
-      });
+
+      const contract = await retryPromise(
+        upgrades.upgradeProxy(contractAddress, factory, {
+          unsafeAllowLinkedLibraries: true,
+          unsafeAllowCustomTypes: true,
+        }),
+        retryTimes
+      );
 
       log(`CKBChainV2 upgrade v2 upgraded`);
 

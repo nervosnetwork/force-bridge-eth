@@ -1,10 +1,15 @@
 const { upgrades } = require('hardhat');
 const { expect } = require('chai');
-const { getTinyHeaders } = require('../../scripts/benchmark/generateData');
+const { getTinyHeaders } = require('../benchmark/generateData');
 const { keccak256, defaultAbiCoder, toUtf8Bytes } = ethers.utils;
-const { log, sleep, waitingForReceipt } = require('../utils');
+const {
+  log,
+  sleep,
+  waitingForReceipt,
+  retryPromise,
+} = require('../../test/utils');
 
-const testJson = require('../data/testTokenLocker.json');
+const testJson = require('../../test/data/testTokenLocker.json');
 const recipientCellTypescript = testJson.recipientCellTypescript;
 const lightClientTypescriptHash = testJson.lightClientTypescriptHash;
 const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash;
@@ -12,7 +17,7 @@ const decodeBurnTxTestCases = testJson.decodeBurnTxTestCases;
 const lockETHTestCases = testJson.lockETHTestCases;
 const lockTokenTestCases = testJson.lockTokenTestCases;
 let tokenLocker, provider, user;
-
+const retryTimes = 20;
 contract('TokenLocker openzeppelin upgradeable', () => {
   let adminAddress, contractAddress, initHeaderIndex, endHeaderIndex, factory;
   let wallets, validators;
@@ -32,21 +37,24 @@ contract('TokenLocker openzeppelin upgradeable', () => {
     factory = await ethers.getContractFactory(
       'contracts/TokenLocker-openzeppelin.sol:TokenLocker'
     );
-    tokenLocker = await upgrades.deployProxy(
-      factory,
-      [
-        mockSpv.address,
-        123,
-        recipientCellTypescript.codeHash,
-        recipientCellTypescript.hashType,
-        lightClientTypescriptHash,
-        bridgeCellLockscriptCodeHash,
-      ],
-      {
-        initializer: 'initialize',
-        unsafeAllowCustomTypes: true,
-        unsafeAllowLinkedLibraries: true,
-      }
+    tokenLocker = await retryPromise(
+      upgrades.deployProxy(
+        factory,
+        [
+          mockSpv.address,
+          123,
+          recipientCellTypescript.codeHash,
+          recipientCellTypescript.hashType,
+          lightClientTypescriptHash,
+          bridgeCellLockscriptCodeHash,
+        ],
+        {
+          initializer: 'initialize',
+          unsafeAllowCustomTypes: true,
+          unsafeAllowLinkedLibraries: true,
+        }
+      ),
+      retryTimes
     );
     contractAddress = tokenLocker.address;
     provider = tokenLocker.provider;
@@ -74,10 +82,13 @@ contract('TokenLocker openzeppelin upgradeable', () => {
         'contracts/TokenLocker-openzeppelin-v2.sol:TokenLocker'
       );
 
-      tokenLocker = await upgrades.upgradeProxy(contractAddress, factory, {
-        unsafeAllowLinkedLibraries: true,
-        unsafeAllowCustomTypes: true,
-      });
+      tokenLocker = await retryPromise(
+        upgrades.upgradeProxy(contractAddress, factory, {
+          unsafeAllowLinkedLibraries: true,
+          unsafeAllowCustomTypes: true,
+        }),
+        retryTimes
+      );
 
       await sleep(10);
     });

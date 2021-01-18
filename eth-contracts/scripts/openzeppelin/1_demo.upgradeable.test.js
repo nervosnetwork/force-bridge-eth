@@ -1,6 +1,6 @@
-const { upgrades } = require('hardhat');
+const { ethers, upgrades } = require('hardhat');
 const { expect } = require('chai');
-const { log, sleep } = require('../utils');
+const { log, sleep, retryPromise } = require('../../test/utils');
 
 contract('Box', () => {
   let contractAddress, provider;
@@ -19,7 +19,14 @@ contract('Box', () => {
     factory = await ethers.getContractFactory(
       'contracts/test/openzeppelin/Box.sol:Box'
     );
-    box = await upgrades.deployProxy(factory, [42], { initializer: 'store' });
+
+    const retryTimes = 10;
+    box = await retryPromise(
+      upgrades.deployProxy(factory, [42], { initializer: 'store' }),
+      retryTimes
+    );
+
+    await sleep(10);
     contractAddress = box.address;
     provider = box.provider;
   });
