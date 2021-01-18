@@ -26,7 +26,14 @@ const getCiNetwork = () => {
             url: `http://127.0.0.1:8545`,
             // address [`0x17c4b5CE0605F63732bfd175feCe7aC6b4620FD2`, `0x46beaC96B726a51C5703f99eC787ce12793Dae11`]
             // Mnemonic [`dignity vehicle fuel siren cool machine video spice oppose olympic polar discover`, ``]
-            accounts: [`0xc4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a`, `0xd00c06bfd800d27397002dca6fb0993d5ba6399b4238b2f29ee9deb97593d2bc`],
+            accounts: [
+                "c4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a",
+                "719e94ec5d2ecef67b5878503ffd6e1e0e2fe7a52ddd55c436878cb4d52d376d",
+                "627ed509aa9ef55858d01453c62f44287f639a4fa5a444af150f333b6010a3b6",
+                "49e7074797d83cbb93b23877f99a8cecd6f79181f1236f095671017b2edc64c2",
+                "6e51216cbb2fe170368da49e82b22f02b999204730c858482d0e84a9083005ac",
+                "ca2e37b4f2e4a122cc86c401e3d1da3841c525f01b5b249dcdcd69e2f086d576"
+            ],
         }
     }
     const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
