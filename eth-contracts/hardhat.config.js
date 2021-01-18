@@ -21,7 +21,8 @@ const getCiNetwork = () => {
     const forceConfigPath = process.env.FORCE_CONFIG_PATH;
     const network = process.env.FORCE_NETWORK;
     if (!forceConfigPath) {
-        throw 'FORCE_CONFIG_PATH not set';
+        console.log('FORCE_CONFIG_PATH not set');
+        return {}
     }
     const forceConfig = TOML.parse(fs.readFileSync(forceConfigPath));
     let network_config;
