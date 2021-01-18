@@ -12,12 +12,27 @@ CREATE TABLE `ckb_to_eth` (
   `fee` varchar(20) DEFAULT NULL,
   `eth_tx_hash` varchar(64) DEFAULT NULL,
   `ckb_spv_proof` varchar(2048) DEFAULT NULL,
-  `block_number` int(11) unsigned DEFAULT NULL,
+  `ckb_block_number` int(11) unsigned DEFAULT NULL,
   `ckb_raw_tx` varchar(4096) DEFAULT NULL,
+  `eth_block_number` int(11) unsigned DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `ckb_burn_tx_hash` (`ckb_burn_tx_hash`),
   KEY `eth_tx_hash` (`eth_tx_hash`),
-  KEY `block_number` (`block_number`)
+  KEY `block_number` (`ckb_block_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+# Dump of table ckb_unconfirmed_block
+# ------------------------------------------------------------
+
+DROP TABLE IF EXISTS `ckb_unconfirmed_block`;
+
+CREATE TABLE `ckb_unconfirmed_block` (
+  `id` int(11) unsigned NOT NULL,
+  `number` int(11) unsigned DEFAULT NULL,
+  `hash` varchar(64) DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -64,10 +79,25 @@ CREATE TABLE `eth_to_ckb` (
   `sudt_extra_data` varchar(256) DEFAULT NULL,
   `ckb_tx_hash` varchar(64) DEFAULT NULL,
   `eth_spv_proof` varchar(8192) DEFAULT NULL,
-  `block_number` int(11) unsigned DEFAULT NULL,
+  `eth_block_number` int(11) unsigned DEFAULT NULL,
   `replay_resist_outpoint` varchar(128) DEFAULT NULL,
+  `ckb_block_number` int(11) unsigned DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `eth_lock_tx_hash` (`eth_lock_tx_hash`),
   KEY `replay_resist_outpoint` (`replay_resist_outpoint`),
-  KEY `block_number` (`block_number`)
+  KEY `block_number` (`eth_block_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+# Dump of table eth_unconfirmed_block
+# ------------------------------------------------------------
+
+DROP TABLE IF EXISTS `eth_unconfirmed_block`;
+
+CREATE TABLE `eth_unconfirmed_block` (
+  `id` int(11) unsigned NOT NULL,
+  `number` int(10) unsigned DEFAULT NULL,
+  `hash` varchar(64) DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
