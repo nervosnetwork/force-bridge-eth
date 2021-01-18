@@ -27,6 +27,7 @@ async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
         args.network,
         args.db_path,
         args.ckb_indexer_url,
+        args.recipient_lockscript_code_hash,
     )
     .await?;
     loop {

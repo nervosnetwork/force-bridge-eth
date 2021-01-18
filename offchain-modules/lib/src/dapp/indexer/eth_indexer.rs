@@ -6,6 +6,7 @@ use crate::dapp::db::indexer::{
     update_cross_chain_height_info, update_eth_unconfirmed_block, EthToCkbRecord,
     EthUnConfirmedBlock,
 };
+use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
 use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
 use crate::util::config::ForceConfig;
@@ -13,6 +14,7 @@ use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types::Uint128;
+use ckb_types::prelude::Entity;
 use ethabi::{Function, Param, ParamType};
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
@@ -24,12 +26,14 @@ use sqlx::MySqlPool;
 use web3::types::{Block, H256, U64};
 
 pub const ETH_CHAIN_CONFIRMED: usize = 15;
+pub const DEX_RECIPIENT_LOCKSCRIPT_CODE_HASH: &str = "";
 
 pub struct EthIndexer {
     pub config_path: String,
     pub eth_client: Web3Client,
     pub db: MySqlPool,
     pub indexer_client: IndexerRpcClient,
+    pub recipient_lockscript_code_hash: String,
 }
 
 impl EthIndexer {
@@ -38,6 +42,7 @@ impl EthIndexer {
         network: Option<String>,
         db_path: String,
         indexer_url: String,
+        recipient_lockscript_code_hash: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -50,6 +55,7 @@ impl EthIndexer {
             eth_client,
             db,
             indexer_client,
+            recipient_lockscript_code_hash,
         })
     }
 
@@ -283,11 +289,19 @@ impl EthIndexer {
             )
             .await?;
             let proof_json = serde_json::to_string(&eth_proof_json)?;
+            let recipient_lockscript = hex::encode(eth_proof_json.recipient_lockscript);
+            let lock_tx: DexLockTx = DexLockTx {
+                recipient_lockscript: recipient_lockscript.clone(),
+                expect_code_hash: self.recipient_lockscript_code_hash.clone(),
+            };
+            if !lock_tx.filter() {
+                return Ok(false);
+            }
             let record = EthToCkbRecord {
                 eth_lock_tx_hash: hash.clone(),
                 status: "pending".to_string(),
                 token_addr: Some(hex::encode(eth_spv_proof.token.as_bytes())),
-                ckb_recipient_lockscript: Some(hex::encode(eth_proof_json.recipient_lockscript)),
+                ckb_recipient_lockscript: Some(recipient_lockscript),
                 locked_amount: Some(Uint128::from(eth_spv_proof.lock_amount).to_string()),
                 eth_spv_proof: Some(proof_json),
                 replay_resist_outpoint: Some(hex::encode(
@@ -409,6 +423,27 @@ impl EthIndexer {
             hash.as_str(),
             max_retry_times
         ))
+    }
+}
+
+pub struct DexLockTx {
+    pub recipient_lockscript: String,
+    pub expect_code_hash: String,
+}
+
+impl IndexerFilter for DexLockTx {
+    fn filter(&self) -> bool {
+        let recipient_lockscript_res = parse_cell(self.recipient_lockscript.as_str());
+        if let Ok(recipient_lockscript) = recipient_lockscript_res {
+            log::info!(
+                "code hash: {:?}",
+                hex::encode(recipient_lockscript.code_hash().as_slice())
+            );
+            if hex::encode(recipient_lockscript.code_hash().as_slice()) == self.expect_code_hash {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
