@@ -10,6 +10,7 @@ pub struct CreateBridgeCellArgs {
     pub eth_token_address: String,
     pub bridge_fee: Uint128,
     pub cell_num: Option<usize>,
+    pub force_create: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

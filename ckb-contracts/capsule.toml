@@ -23,3 +23,7 @@ template_type = "Rust"
 [[contracts]]
 name = "eth-light-client-typescript"
 template_type = "Rust"
+
+[[contracts]]
+name = "simple-eth-bridge-typescript"
+template_type = "Rust"
