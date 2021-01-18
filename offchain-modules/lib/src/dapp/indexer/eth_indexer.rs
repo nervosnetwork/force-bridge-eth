@@ -443,7 +443,7 @@ impl IndexerFilter for DexLockTx {
                 return true;
             }
         }
-        return false;
+        false
     }
 }
 
