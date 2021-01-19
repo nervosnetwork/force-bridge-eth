@@ -12,6 +12,7 @@ async function main() {
       log(`deploy success!`);
       break;
     } catch (e) {
+      log(e)
       log('retry deploy times: ', i);
     }
   }
