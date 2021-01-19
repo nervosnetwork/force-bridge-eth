@@ -2,8 +2,8 @@ DROP TABLE IF EXISTS `ckb_to_eth`;
 
 CREATE TABLE `ckb_to_eth` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `ckb_burn_tx_hash` varchar(64) NOT NULL DEFAULT '',
-  `status` varchar(40) NOT NULL DEFAULT 'pending',
+  `ckb_burn_tx_hash` varchar(64) NOT NULL DEFAULT '''',
+  `status` varchar(40) NOT NULL DEFAULT ''pending'',
   `recipient_addr` varchar(40) DEFAULT NULL,
   `token_addr` varchar(40) DEFAULT NULL,
   `lock_contract_addr` varchar(40) DEFAULT NULL,
@@ -14,11 +14,12 @@ CREATE TABLE `ckb_to_eth` (
   `ckb_spv_proof` varchar(2048) DEFAULT NULL,
   `ckb_block_number` int(11) unsigned DEFAULT NULL,
   `ckb_raw_tx` varchar(4096) DEFAULT NULL,
-  `eth_block_number` int(11) unsigned DEFAULT '0',
+  `eth_block_number` int(11) unsigned DEFAULT ''0'',
   PRIMARY KEY (`id`),
   KEY `ckb_burn_tx_hash` (`ckb_burn_tx_hash`),
   KEY `eth_tx_hash` (`eth_tx_hash`),
-  KEY `block_number` (`ckb_block_number`)
+  KEY `block_number` (`ckb_block_number`),
+  KEY `recipient_addr` (`recipient_addr`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -44,10 +45,10 @@ DROP TABLE IF EXISTS `cross_chain_height_info`;
 
 CREATE TABLE `cross_chain_height_info` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `eth_height` int(11) unsigned NOT NULL DEFAULT '0',
-  `eth_client_height` int(11) unsigned NOT NULL DEFAULT '0',
-  `ckb_height` int(11) unsigned NOT NULL DEFAULT '0',
-  `ckb_client_height` int(11) unsigned NOT NULL DEFAULT '0',
+  `eth_height` int(11) unsigned NOT NULL DEFAULT ''0'',
+  `eth_client_height` int(11) unsigned NOT NULL DEFAULT ''0'',
+  `ckb_height` int(11) unsigned NOT NULL DEFAULT ''0'',
+  `ckb_client_height` int(11) unsigned NOT NULL DEFAULT ''0'',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -69,9 +70,9 @@ DROP TABLE IF EXISTS `eth_to_ckb`;
 
 CREATE TABLE `eth_to_ckb` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `eth_lock_tx_hash` varchar(64) NOT NULL DEFAULT '',
-  `status` varchar(40) NOT NULL DEFAULT '',
-  `token_addr` varchar(40) DEFAULT '',
+  `eth_lock_tx_hash` varchar(64) NOT NULL DEFAULT '''',
+  `status` varchar(40) NOT NULL DEFAULT '''',
+  `token_addr` varchar(40) DEFAULT '''',
   `sender_addr` varchar(40) DEFAULT NULL,
   `locked_amount` varchar(20) DEFAULT NULL,
   `bridge_fee` varchar(20) DEFAULT NULL,
@@ -81,11 +82,12 @@ CREATE TABLE `eth_to_ckb` (
   `eth_spv_proof` varchar(8192) DEFAULT NULL,
   `eth_block_number` int(11) unsigned DEFAULT NULL,
   `replay_resist_outpoint` varchar(128) DEFAULT NULL,
-  `ckb_block_number` int(11) unsigned DEFAULT '0',
+  `ckb_block_number` int(11) unsigned DEFAULT ''0'',
   PRIMARY KEY (`id`),
   KEY `eth_lock_tx_hash` (`eth_lock_tx_hash`),
   KEY `replay_resist_outpoint` (`replay_resist_outpoint`),
-  KEY `block_number` (`eth_block_number`)
+  KEY `block_number` (`eth_block_number`),
+  KEY `ckb_recipient_lockscript` (`ckb_recipient_lockscript`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
