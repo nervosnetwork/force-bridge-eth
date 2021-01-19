@@ -165,6 +165,52 @@ pub async fn start(
     .await
     .expect("init dapp server succeed");
     let dapp_state_for_receiver = dapp_state.clone();
+
+    tokio::spawn(async move {
+        log::info!("start repaly resist cell channel receiver");
+        let is_refreshing_replay_resist_cell = Arc::new(Mutex::new(false));
+        while let Some(task) = receiver.recv().await {
+            let mut is_refreshing = is_refreshing_replay_resist_cell.lock().await;
+            let result = use_replay_resist_cell(&dapp_state_for_receiver.db, &task.token).await;
+            if let Err(e) = result {
+                log::error!("use replay resist cell error: {:?}", e);
+                task.resp
+                    .send(Err(e))
+                    .expect("send response to lock handler succeed");
+                continue;
+            }
+            let (cell_count, replay_resist_cell) = result.unwrap();
+            if replay_resist_cell == "" {
+                task.resp
+                    .send(Err(anyhow!("replay resist cell is exhausted, please wait")))
+                    .expect("send response to lock handler succeed");
+            } else {
+                task.resp
+                    .send(Ok(replay_resist_cell))
+                    .expect("send response to lock handler succeed");
+            }
+
+            log::info!("cell count: {:?}", cell_count);
+            if cell_count < REPLAY_RESIST_CELL_NUMBER * REFRESH_RATE / 100 && !(*is_refreshing) {
+                log::info!("start refresh replay resist cells");
+                *is_refreshing = true;
+                let is_refreshing_replay_resist_cell = is_refreshing_replay_resist_cell.clone();
+                let dapp_state_for_refresh = dapp_state_for_receiver.clone();
+                let token = task.token.clone();
+                tokio::spawn(async move {
+                    let ret = dapp_state_for_refresh
+                        .refresh_replay_resist_cells(&token, is_refreshing_replay_resist_cell)
+                        .await;
+                    if ret.is_err() {
+                        log::error!("refresh replay resist cells error: {:?}", ret.unwrap_err());
+                    } else {
+                        log::info!("refresh replay resist cells succeed");
+                    }
+                });
+            }
+        }
+    });
+
     let local = tokio::task::LocalSet::new();
     let sys = actix_web::rt::System::run_in_tokio("server", &local);
     let _server_res = HttpServer::new(move || {
@@ -185,47 +231,6 @@ pub async fn start(
     .bind(&listen_url)?
     .run()
     .await?;
-
-    tokio::spawn(async move {
-        let is_refreshing_replay_resist_cell = Arc::new(Mutex::new(false));
-        while let Some(task) = receiver.recv().await {
-            let mut is_refreshing = is_refreshing_replay_resist_cell.lock().await;
-            let result = use_replay_resist_cell(&dapp_state_for_receiver.db, &task.token).await;
-            if let Err(e) = result {
-                task.resp
-                    .send(Err(e))
-                    .expect("send response to lock handler succeed");
-                return;
-            }
-            let (cell_count, replay_resist_cell) = result.unwrap();
-            if replay_resist_cell == "" {
-                task.resp
-                    .send(Err(anyhow!("replay resist cell is exhausted, please wait")))
-                    .expect("send response to lock handler succeed");
-                return;
-            }
-            task.resp
-                .send(Ok(replay_resist_cell))
-                .expect("send response to lock handler succeed");
-
-            if cell_count < REPLAY_RESIST_CELL_NUMBER * REFRESH_RATE / 100 && !*is_refreshing {
-                *is_refreshing = true;
-                let is_refreshing_replay_resist_cell = is_refreshing_replay_resist_cell.clone();
-                let dapp_state_for_refresh = dapp_state_for_receiver.clone();
-                let token = task.token.clone();
-                tokio::spawn(async move {
-                    let ret = dapp_state_for_refresh
-                        .refresh_replay_resist_cells(&token, is_refreshing_replay_resist_cell)
-                        .await;
-                    if ret.is_err() {
-                        log::error!("refresh replay resist cells error: {:?}", ret.unwrap_err());
-                    } else {
-                        log::info!("refresh replay resist cells succeed");
-                    }
-                });
-            }
-        }
-    });
     sys.await?;
     Ok(())
 }
