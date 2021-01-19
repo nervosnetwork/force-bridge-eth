@@ -21,6 +21,12 @@ pub struct ReplayResistCell {
     pub token: String,
 }
 
+#[derive(sqlx::FromRow, Serialize, Deserialize, Debug)]
+pub struct RelayStatus {
+    pub status: String,
+    pub err_msg: String,
+}
+
 pub async fn delete_replay_resist_cells(pool: &MySqlPool, cells: &[u64]) -> Result<()> {
     let mut tx = pool.begin().await?;
     let sql = r#"
@@ -95,11 +101,11 @@ WHERE id = ?
     Ok((outpoints.len(), outpoint.outpoint))
 }
 
-pub async fn get_eth_to_ckb_status(
+pub async fn get_eth_to_ckb_indexer_status(
     pool: &MySqlPool,
     eth_lock_tx_hash: &str,
 ) -> Result<Option<EthToCkbRecord>> {
-    Ok(sqlx::query_as::<_, EthToCkbRecord>(
+    let ret = sqlx::query_as::<_, EthToCkbRecord>(
         r#"
 SELECT *
 FROM eth_to_ckb
@@ -108,7 +114,25 @@ where eth_lock_tx_hash = ?
     )
     .bind(eth_lock_tx_hash)
     .fetch_optional(pool)
-    .await?)
+    .await?;
+    Ok(ret)
+}
+
+pub async fn get_eth_to_ckb_relay_status(
+    pool: &MySqlPool,
+    eth_lock_tx_hash: &str,
+) -> Result<Option<RelayStatus>> {
+    let ret = sqlx::query_as::<_, RelayStatus>(
+        r#"
+SELECT status, err_msg
+FROM eth_tx_relayer
+where lock_tx_hash = ?
+        "#,
+    )
+    .bind(eth_lock_tx_hash)
+    .fetch_optional(pool)
+    .await?;
+    Ok(ret)
 }
 
 pub async fn get_ckb_to_eth_crosschain_history(

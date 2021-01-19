@@ -1,4 +1,4 @@
-use super::error::RpcError;
+use super::errors::RpcError;
 use super::types::*;
 use super::{DappState, ReplayResistTask};
 use crate::dapp::db::server::{self as db, CrosschainHistory};
@@ -49,12 +49,12 @@ pub async fn lock(
         token: args.token_address.clone(),
         resp: sender,
     };
-    let _ = data
-        .replay_resist_sender
+    data.replay_resist_sender
         .clone()
-        .send(replay_resist_task)
-        .await;
-    let replay_resist_outpoint = receiver.await.unwrap()?;
+        .try_send(replay_resist_task)?;
+    let replay_resist_outpoint = receiver
+        .await
+        .map_err(|e| format!("receive replay resist cell error: {:?}", e))??;
 
     let data = [
         Token::Address(token_addr),
@@ -157,10 +157,35 @@ pub async fn get_eth_to_ckb_status(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: EthLockTxHash =
         serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
-    let status = db::get_eth_to_ckb_status(&data.db, &args.eth_lock_tx_hash)
+    let indexer_status = db::get_eth_to_ckb_indexer_status(&data.db, &args.eth_lock_tx_hash)
         .await?
         .ok_or(format!("eth lock tx {} not found", &args.eth_lock_tx_hash))?;
-    Ok(HttpResponse::Ok().json(status))
+    let mut res = GetEthToCkbStatusResponse {
+        eth_lock_tx_hash: indexer_status.eth_lock_tx_hash,
+        status: indexer_status.status.clone(),
+        err_msg: "".to_string(),
+        token_addr: indexer_status.token_addr,
+        sender_addr: indexer_status.sender_addr,
+        locked_amount: indexer_status.locked_amount,
+        bridge_fee: indexer_status.bridge_fee,
+        ckb_recipient_lockscript: indexer_status.ckb_recipient_lockscript,
+        sudt_extra_data: indexer_status.sudt_extra_data,
+        ckb_tx_hash: indexer_status.ckb_tx_hash,
+        block_number: indexer_status.block_number,
+        replay_resist_outpoint: indexer_status.replay_resist_outpoint,
+    };
+    if indexer_status.status == "success" {
+        return Ok(HttpResponse::Ok().json(res));
+    }
+    let relay_status = db::get_eth_to_ckb_relay_status(&data.db, &args.eth_lock_tx_hash)
+        .await?
+        .ok_or(format!("eth lock tx {} not found", &args.eth_lock_tx_hash))?;
+    if relay_status.status == "retryable" {
+        return Ok(HttpResponse::Ok().json(res));
+    }
+    res.status = relay_status.status;
+    res.err_msg = relay_status.err_msg;
+    Ok(HttpResponse::Ok().json(res))
 }
 
 #[post("/get_ckb_to_eth_status")]

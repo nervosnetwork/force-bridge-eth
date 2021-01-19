@@ -1,7 +1,9 @@
+use super::ReplayResistTask;
 use actix_web::dev::HttpResponseBuilder;
 use actix_web::http::{header, StatusCode};
 use actix_web::{error, HttpResponse};
 use derive_more::Display;
+use tokio::sync::mpsc::error::TrySendError;
 
 // TODO: split user params error and server error
 #[derive(Debug, Display)]
@@ -25,6 +27,11 @@ impl From<&str> for RpcError {
 impl From<String> for RpcError {
     fn from(e: String) -> Self {
         Self::BadRequest(e)
+    }
+}
+impl From<TrySendError<ReplayResistTask>> for RpcError {
+    fn from(e: TrySendError<ReplayResistTask>) -> Self {
+        Self::BadRequest(e.to_string())
     }
 }
 

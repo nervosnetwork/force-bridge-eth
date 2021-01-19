@@ -1,4 +1,4 @@
-pub mod error;
+pub mod errors;
 pub mod handlers;
 pub mod types;
 
@@ -189,17 +189,21 @@ pub async fn start(
         while let Some(task) = receiver.recv().await {
             let result = use_replay_resist_cell(&dapp_state_for_receiver.db, &task.token).await;
             if let Err(e) = result {
-                task.resp.send(Err(e)).unwrap();
+                task.resp
+                    .send(Err(e))
+                    .expect("send response to lock handler succeed");
                 return;
             }
             let (cell_count, replay_resist_cell) = result.unwrap();
             if replay_resist_cell == "" {
                 task.resp
                     .send(Err(anyhow!("replay resist cell is exhausted, please wait")))
-                    .unwrap();
+                    .expect("send response to lock handler succeed");
                 return;
             }
-            task.resp.send(Ok(replay_resist_cell)).unwrap();
+            task.resp
+                .send(Ok(replay_resist_cell))
+                .expect("send response to lock handler succeed");
 
             if cell_count < REPLAY_RESIST_CELL_NUMBER * REFRESH_RATE / 100 {
                 let mut is_refreshing = is_refreshing_replay_resist_cell.lock().await;
@@ -211,10 +215,14 @@ pub async fn start(
                 let dapp_state_for_refresh = dapp_state_for_receiver.clone();
                 let token = task.token.clone();
                 tokio::spawn(async move {
-                    dapp_state_for_refresh
+                    let ret = dapp_state_for_refresh
                         .refresh_replay_resist_cells(&token, is_refreshing_replay_resist_cell)
-                        .await
-                        .unwrap();
+                        .await;
+                    if ret.is_err() {
+                        log::error!("refresh replay resist cells error: {:?}", ret.unwrap_err());
+                    } else {
+                        log::info!("refresh replay resist cells succeed");
+                    }
                 });
             }
         }
