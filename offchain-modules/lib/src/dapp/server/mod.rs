@@ -21,7 +21,7 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 
 const REPLAY_RESIST_CHANNEL_BOUND: usize = 2000;
 const REPLAY_RESIST_CELL_NUMBER: usize = 500;
-const REFRESH_RATE: usize = 30; // 30/100
+const REFRESH_RATE: usize = 50; // 50/100
 
 #[derive(Clone)]
 pub struct DappState {
@@ -105,12 +105,12 @@ impl DappState {
             REPLAY_RESIST_CELL_NUMBER,
         )
         .await?;
+        let mut is_refreshing = is_refreshing.lock().await;
         let (delete_cells, add_cells) = self
             .prepare_cell_modification(fresh_cells, token.to_string())
             .await?;
         add_replay_resist_cells(&self.db, &add_cells, &token).await?;
         delete_replay_resist_cells(&self.db, &delete_cells).await?;
-        let mut is_refreshing = is_refreshing.lock().await;
         *is_refreshing = false;
         Ok(())
     }
@@ -187,6 +187,7 @@ pub async fn start(
     tokio::spawn(async move {
         let is_refreshing_replay_resist_cell = Arc::new(Mutex::new(false));
         while let Some(task) = receiver.recv().await {
+            let mut is_refreshing = is_refreshing_replay_resist_cell.lock().await;
             let result = use_replay_resist_cell(&dapp_state_for_receiver.db, &task.token).await;
             if let Err(e) = result {
                 task.resp
@@ -205,11 +206,7 @@ pub async fn start(
                 .send(Ok(replay_resist_cell))
                 .expect("send response to lock handler succeed");
 
-            if cell_count < REPLAY_RESIST_CELL_NUMBER * REFRESH_RATE / 100 {
-                let mut is_refreshing = is_refreshing_replay_resist_cell.lock().await;
-                if *is_refreshing {
-                    continue;
-                }
+            if cell_count < REPLAY_RESIST_CELL_NUMBER * REFRESH_RATE / 100 && !*is_refreshing {
                 *is_refreshing = true;
                 let is_refreshing_replay_resist_cell = is_refreshing_replay_resist_cell.clone();
                 let dapp_state_for_refresh = dapp_state_for_receiver.clone();
