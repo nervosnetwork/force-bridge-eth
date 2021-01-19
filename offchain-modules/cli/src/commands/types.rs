@@ -10,7 +10,6 @@ pub struct Opts {
 
 #[derive(Clap, Clone, Debug)]
 pub enum SubCommand {
-    Server(ServerArgs),
     InitCkbLightContract(InitCkbLightContractArgs),
     InitConfig(InitConfigArgs),
     InitMultiSignAddress(InitMultiSignAddressArgs),
@@ -33,22 +32,6 @@ pub enum SubCommand {
     CkbRelay(CkbRelayArgs),
     RelayerMonitor(RelayerMonitorArgs),
     Dapp(DappCommand),
-}
-
-#[derive(Clap, Clone, Debug)]
-pub struct ServerArgs {
-    #[clap(long, default_value = "~/.force-bridge/config.toml")]
-    pub config_path: String,
-    #[clap(long)]
-    pub network: Option<String>,
-    #[clap(short = 'c', long)]
-    pub ckb_private_key_path: String,
-    #[clap(short = 'e', long)]
-    pub eth_private_key_path: String,
-    #[clap(short, long, default_value = "127.0.0.1:3030")]
-    pub listen_url: String,
-    #[clap(long, default_value = "~/.force-bridge/force.db")]
-    pub db_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]

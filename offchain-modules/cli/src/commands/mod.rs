@@ -23,12 +23,10 @@ use types::*;
 use web3::types::{H256, U256};
 
 pub mod dapp;
-pub mod server;
 pub mod types;
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
-        SubCommand::Server(args) => server::server_handler(args).await,
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::InitConfig(args) => init_config(args).await,
         SubCommand::InitMultiSignAddress(args) => init_multisig_address_handler(args).await,

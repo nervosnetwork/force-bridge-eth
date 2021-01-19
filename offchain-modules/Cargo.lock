@@ -1817,7 +1817,6 @@ dependencies = [
  "ckb-types",
  "cmd_lib",
  "config",
- "crossbeam-channel 0.4.4",
  "derive_more",
  "eth-spv-lib",
  "ethabi",
