@@ -47,6 +47,8 @@ pub struct ServerArgs {
     pub listen_url: String,
     #[clap(long, default_value = "~/.force-bridge/force.db")]
     pub db_path: String,
+    #[clap(long)]
+    pub alarm_url: String,
 }
 
 #[derive(Clap, Clone, Debug)]

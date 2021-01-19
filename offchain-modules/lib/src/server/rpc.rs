@@ -8,6 +8,7 @@ pub async fn start(
     eth_private_key_path: String,
     listen_url: String,
     db_path: String,
+    alarm_url: String,
 ) -> std::io::Result<()> {
     let dapp_state = DappState::new(
         config_path,
@@ -15,6 +16,7 @@ pub async fn start(
         ckb_private_key_path,
         eth_private_key_path,
         db_path,
+        alarm_url,
     )
     .await
     .expect("init dapp server error");

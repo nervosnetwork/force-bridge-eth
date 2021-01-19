@@ -125,6 +125,18 @@ where ckb_recipient_lockscript = ?1
     .await?)
 }
 
+pub async fn get_eth_to_ckb_failed_records(pool: &SqlitePool) -> Result<Vec<EthToCkbRecord>> {
+    Ok(sqlx::query_as::<_, EthToCkbRecord>(
+        r#"
+select *
+FROM eth_to_ckb
+where status != 'success'
+        "#,
+    )
+    .fetch_all(pool)
+    .await?)
+}
+
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CkbToEthRecord {
     pub id: i64,

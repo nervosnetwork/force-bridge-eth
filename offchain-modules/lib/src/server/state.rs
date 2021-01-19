@@ -6,8 +6,9 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 use force_sdk::util::ensure_indexer_sync;
 use shellexpand::tilde;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::SqlitePool;
+use sqlx::sqlite::SqlitePool;
 use std::collections::hash_set::HashSet;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -34,6 +35,7 @@ impl DappState {
         ckb_private_key_path: String,
         eth_private_key_path: String,
         db_path: String,
+        alarm_url: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -73,6 +75,8 @@ impl DappState {
         let db_options =
             SqliteConnectOptions::from_str(&db_path)?.busy_timeout(Duration::from_secs(300));
         let db = SqlitePool::connect_with(db_options).await?;
+        let db2 = db.clone();
+        tokio::spawn(db_monitor(db2, alarm_url));
         Ok(Self {
             ckb_key_channel: (ckb_key_sender, ckb_key_receiver),
             eth_key_channel: (eth_key_sender, eth_key_receiver),
@@ -120,4 +124,37 @@ impl DappState {
         let mut relaying_txs = self.relaying_txs.clone().lock_owned().await;
         relaying_txs.remove(&tx_hash);
     }
+}
+
+/// monitor db, send alarm when there are not successful records
+async fn db_monitor(pool: SqlitePool, alarm_url: String) {
+    loop {
+        let res = db_monitor_inner(&pool, &alarm_url).await;
+        if let Err(e) = res {
+            log::error!("fail to check db monitor: {}", e);
+        } else {
+            log::info!("no failed records in db");
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(300)).await;
+    }
+}
+
+async fn db_monitor_inner(pool: &SqlitePool, alarm_url: &str) -> Result<()> {
+    let records = super::proof_relayer::db::get_eth_to_ckb_failed_records(&pool).await?;
+    let counter = records.iter().fold(HashMap::new(), |mut acc, c| {
+        *acc.entry(c.status.clone()).or_insert(0) += 1u64;
+        acc
+    });
+    let msg = format!("db records stat: {:?}", &counter);
+    log::info!(
+        "db records stat: {:?}, not successful records: {:?}",
+        &counter,
+        &records
+    );
+    let res = reqwest::get(format!("{}{}", &alarm_url, msg).as_str())
+        .await?
+        .text()
+        .await?;
+    log::info!("{:?}", res);
+    Ok(())
 }
