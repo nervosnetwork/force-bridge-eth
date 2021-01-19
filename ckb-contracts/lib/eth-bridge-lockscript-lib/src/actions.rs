@@ -7,8 +7,9 @@ use eth_spv_lib::ethspv;
 use force_eth_types::config::CONFIRM;
 use force_eth_types::eth_lock_event::ETHLockEvent;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use force_eth_types::generated::eth_header_cell::{ETHHeaderCellDataReader, ETHHeaderInfoReader};
+use force_eth_types::generated::eth_header_cell::ETHHeaderCellMerkleDataReader;
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
+use force_eth_types::hasher::Blake2bHasher;
 use molecule::prelude::*;
 use std::convert::TryInto;
 
@@ -41,7 +42,8 @@ fn verify_witness<T: Adapter>(
     let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
     assert_eq!(cell_dep_index_list.len(), 1);
 
-    let lock_event = verify_eth_spv_proof(data_loader, proof, cell_dep_index_list);
+    let merkle_proof = witness.merkle_proof().raw_data();
+    let lock_event = verify_eth_spv_proof(data_loader, proof, cell_dep_index_list, merkle_proof);
     (cell_dep_index_list[0], lock_event)
 }
 
@@ -56,6 +58,7 @@ fn verify_eth_spv_proof<T: Adapter>(
     data_loader: &T,
     proof: &[u8],
     cell_dep_index_list: &[u8],
+    merkle_proof: &[u8],
 ) -> ETHLockEvent {
     if ETHSPVProofReader::verify(proof, false).is_err() {
         panic!("eth spv proof is invalid")
@@ -66,7 +69,7 @@ fn verify_eth_spv_proof<T: Adapter>(
     // debug!("the spv proof header data: {:?}", header);
 
     //verify the header is on main chain.
-    verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list);
+    verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list, merkle_proof);
 
     get_eth_receipt_info(proof_reader, header)
 }
@@ -75,6 +78,7 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
     data_loader: &T,
     header: &BlockHeader,
     cell_dep_index_list: &[u8],
+    merkle_proof: &[u8],
 ) {
     debug!("cell_dep_index_list: {:?}", cell_dep_index_list);
     let dep_data = data_loader
@@ -82,47 +86,44 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
         .expect("load cell dep data failed");
     debug!("dep data is {:?}", &dep_data);
 
-    if ETHHeaderCellDataReader::verify(&dep_data, false).is_err() {
+    if ETHHeaderCellMerkleDataReader::verify(&dep_data, false).is_err() {
         panic!("eth cell data invalid");
     }
 
-    let eth_cell_data_reader = ETHHeaderCellDataReader::new_unchecked(&dep_data);
+    let eth_cell_data_reader = ETHHeaderCellMerkleDataReader::new_unchecked(&dep_data);
     debug!("eth_cell_data_reader: {:?}", eth_cell_data_reader);
-    let tail_raw = eth_cell_data_reader
-        .headers()
-        .main()
-        .get_unchecked(eth_cell_data_reader.headers().main().len() - 1)
-        .raw_data();
-    if ETHHeaderInfoReader::verify(&tail_raw, false).is_err() {
-        panic!("header info invalid");
-    }
-    let tail_info_reader = ETHHeaderInfoReader::new_unchecked(&tail_raw);
-    let tail_info_raw = tail_info_reader.header().raw_data();
-    let tail: BlockHeader =
-        rlp::decode(tail_info_raw.to_vec().as_slice()).expect("invalid tail info.");
-    if header.number > tail.number {
+
+    let mut light_client_latest_height = [0u8; 8];
+    light_client_latest_height.copy_from_slice(eth_cell_data_reader.latest_height().raw_data());
+    let light_client_latest_height: u64 = u64::from_le_bytes(light_client_latest_height);
+
+    if header.number > light_client_latest_height {
         panic!("header is not on mainchain, header number too big");
     }
-    let offset = (tail.number - header.number) as usize;
+    let offset = (light_client_latest_height - header.number) as usize;
 
     if offset < CONFIRM {
         panic!("header is not confirmed");
     }
-    if offset > eth_cell_data_reader.headers().main().len() - 1 {
-        panic!("header is not on mainchain, header number is too small");
-    }
 
-    //confirmed headers only store header hash
-    let header_hash = eth_cell_data_reader
-        .headers()
-        .main()
-        .get_unchecked(eth_cell_data_reader.headers().main().len() - 1 - offset)
-        .raw_data()
-        .as_ref();
+    let mut merkle_root = [0u8; 32];
+    merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
 
-    if header_hash != header.hash.expect("invalid hash").0.as_bytes() {
-        panic!("header is not on mainchain, target not in eth data");
-    }
+    let compiled_merkle_proof = sparse_merkle_tree::CompiledMerkleProof(merkle_proof.to_vec());
+
+    let mut compiled_leaves = vec![];
+
+    let mut leaf_index = [0u8; 32];
+    leaf_index[..8].copy_from_slice(header.number.to_le_bytes().as_ref());
+
+    let mut leaf_value = [0u8; 32];
+    leaf_value.copy_from_slice(header.hash.expect("header hash is none").0.as_bytes());
+
+    compiled_leaves.push((leaf_index.into(), leaf_value.into()));
+
+    assert!(compiled_merkle_proof
+        .verify::<Blake2bHasher>(&merkle_root.into(), compiled_leaves)
+        .expect("verify compiled proof"));
 }
 
 fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) -> ETHLockEvent {

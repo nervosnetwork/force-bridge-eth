@@ -29,6 +29,7 @@ impl ::core::fmt::Display for MintTokenWitness {
             "cell_dep_index_list",
             self.cell_dep_index_list()
         )?;
+        write!(f, ", {}: {}", "merkle_proof", self.merkle_proof())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -39,13 +40,14 @@ impl ::core::fmt::Display for MintTokenWitness {
 impl ::core::default::Default for MintTokenWitness {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            25, 0, 0, 0, 16, 0, 0, 0, 17, 0, 0, 0, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            33, 0, 0, 0, 20, 0, 0, 0, 21, 0, 0, 0, 25, 0, 0, 0, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
         ];
         MintTokenWitness::new_unchecked(v.into())
     }
 }
 impl MintTokenWitness {
-    pub const FIELD_COUNT: usize = 3;
+    pub const FIELD_COUNT: usize = 4;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -77,8 +79,14 @@ impl MintTokenWitness {
     pub fn cell_dep_index_list(&self) -> Bytes {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[12..]) as usize;
+        let end = molecule::unpack_number(&slice[16..]) as usize;
+        Bytes::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn merkle_proof(&self) -> Bytes {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[16..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[16..]) as usize;
+            let end = molecule::unpack_number(&slice[20..]) as usize;
             Bytes::new_unchecked(self.0.slice(start..end))
         } else {
             Bytes::new_unchecked(self.0.slice(start..))
@@ -114,6 +122,7 @@ impl molecule::prelude::Entity for MintTokenWitness {
             .mode(self.mode())
             .spv_proof(self.spv_proof())
             .cell_dep_index_list(self.cell_dep_index_list())
+            .merkle_proof(self.merkle_proof())
     }
 }
 #[derive(Clone, Copy)]
@@ -143,6 +152,7 @@ impl<'r> ::core::fmt::Display for MintTokenWitnessReader<'r> {
             "cell_dep_index_list",
             self.cell_dep_index_list()
         )?;
+        write!(f, ", {}: {}", "merkle_proof", self.merkle_proof())?;
         let extra_count = self.count_extra_fields();
         if extra_count != 0 {
             write!(f, ", .. ({} fields)", extra_count)?;
@@ -151,7 +161,7 @@ impl<'r> ::core::fmt::Display for MintTokenWitnessReader<'r> {
     }
 }
 impl<'r> MintTokenWitnessReader<'r> {
-    pub const FIELD_COUNT: usize = 3;
+    pub const FIELD_COUNT: usize = 4;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -183,8 +193,14 @@ impl<'r> MintTokenWitnessReader<'r> {
     pub fn cell_dep_index_list(&self) -> BytesReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[12..]) as usize;
+        let end = molecule::unpack_number(&slice[16..]) as usize;
+        BytesReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn merkle_proof(&self) -> BytesReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[16..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[16..]) as usize;
+            let end = molecule::unpack_number(&slice[20..]) as usize;
             BytesReader::new_unchecked(&self.as_slice()[start..end])
         } else {
             BytesReader::new_unchecked(&self.as_slice()[start..])
@@ -245,6 +261,7 @@ impl<'r> molecule::prelude::Reader<'r> for MintTokenWitnessReader<'r> {
         ByteReader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
         BytesReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
         BytesReader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
+        BytesReader::verify(&slice[offsets[3]..offsets[4]], compatible)?;
         Ok(())
     }
 }
@@ -253,9 +270,10 @@ pub struct MintTokenWitnessBuilder {
     pub(crate) mode: Byte,
     pub(crate) spv_proof: Bytes,
     pub(crate) cell_dep_index_list: Bytes,
+    pub(crate) merkle_proof: Bytes,
 }
 impl MintTokenWitnessBuilder {
-    pub const FIELD_COUNT: usize = 3;
+    pub const FIELD_COUNT: usize = 4;
     pub fn mode(mut self, v: Byte) -> Self {
         self.mode = v;
         self
@@ -268,6 +286,10 @@ impl MintTokenWitnessBuilder {
         self.cell_dep_index_list = v;
         self
     }
+    pub fn merkle_proof(mut self, v: Bytes) -> Self {
+        self.merkle_proof = v;
+        self
+    }
 }
 impl molecule::prelude::Builder for MintTokenWitnessBuilder {
     type Entity = MintTokenWitness;
@@ -277,6 +299,7 @@ impl molecule::prelude::Builder for MintTokenWitnessBuilder {
             + self.mode.as_slice().len()
             + self.spv_proof.as_slice().len()
             + self.cell_dep_index_list.as_slice().len()
+            + self.merkle_proof.as_slice().len()
     }
     fn write<W: ::molecule::io::Write>(&self, writer: &mut W) -> ::molecule::io::Result<()> {
         let mut total_size = molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1);
@@ -287,6 +310,8 @@ impl molecule::prelude::Builder for MintTokenWitnessBuilder {
         total_size += self.spv_proof.as_slice().len();
         offsets.push(total_size);
         total_size += self.cell_dep_index_list.as_slice().len();
+        offsets.push(total_size);
+        total_size += self.merkle_proof.as_slice().len();
         writer.write_all(&molecule::pack_number(total_size as molecule::Number))?;
         for offset in offsets.into_iter() {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
@@ -294,6 +319,7 @@ impl molecule::prelude::Builder for MintTokenWitnessBuilder {
         writer.write_all(self.mode.as_slice())?;
         writer.write_all(self.spv_proof.as_slice())?;
         writer.write_all(self.cell_dep_index_list.as_slice())?;
+        writer.write_all(self.merkle_proof.as_slice())?;
         Ok(())
     }
     fn build(&self) -> Self::Entity {

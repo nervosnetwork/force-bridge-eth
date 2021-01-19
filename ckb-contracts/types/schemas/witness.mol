@@ -8,6 +8,7 @@ table MintTokenWitness {
     mode: byte,
     spv_proof: Bytes,
     cell_dep_index_list: Bytes,
+    merkle_proof: Bytes,
 }
 
 table ETHSPVProof {
@@ -18,3 +19,4 @@ table ETHSPVProof {
     header_data: Bytes,
     proof: BytesVec,
 }
+

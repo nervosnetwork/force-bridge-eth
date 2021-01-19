@@ -83,6 +83,7 @@ pub async fn init_config(args: InitConfigArgs) -> Result<()> {
         args.ckb_rpc_url,
         args.ckb_indexer_url,
         args.ethereum_rpc_url,
+        args.rocksdb_path,
     )
     .await
 }
