@@ -17,8 +17,6 @@ pub struct ServerArgs {
     pub network: Option<String>,
     #[clap(short = 'c', long)]
     pub ckb_private_key_path: String,
-    #[clap(short = 'e', long)]
-    pub eth_private_key_path: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/serverdb")]

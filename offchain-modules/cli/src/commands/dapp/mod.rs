@@ -1,5 +1,6 @@
 use anyhow::Result;
 use force_eth_lib::dapp::indexer::DexFilter;
+use force_eth_lib::dapp::server::start;
 use force_eth_lib::dapp::CkbIndexer;
 use force_eth_lib::dapp::CkbTxRelay;
 use force_eth_lib::dapp::EthIndexer;
@@ -18,9 +19,15 @@ pub async fn dapp_handle(command: DappCommand) -> Result<()> {
     }
 }
 
-async fn server(_args: ServerArgs) -> Result<()> {
-    // TODO
-    Ok(())
+async fn server(args: ServerArgs) -> Result<()> {
+    Ok(start(
+        args.config_path,
+        args.network,
+        args.ckb_private_key_path,
+        args.listen_url,
+        args.db_path,
+    )
+    .await?)
 }
 
 async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
