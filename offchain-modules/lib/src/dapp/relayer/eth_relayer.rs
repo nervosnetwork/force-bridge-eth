@@ -92,7 +92,7 @@ impl EthTxRelayer {
 
         let capacity_cells = self.capacity_cells_for_mint().await;
         if let Err(e) = capacity_cells {
-            log::error!("wait for capacity cells generated: {:?}", e);
+            log::info!("wait for capacity cells generated: {:?}", e);
             return Ok(client_confirmed_number);
         }
 
