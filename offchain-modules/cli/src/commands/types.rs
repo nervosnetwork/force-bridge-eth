@@ -47,7 +47,7 @@ pub struct ServerArgs {
     pub eth_private_key_path: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
-    #[clap(long, default_value = "~/.force-bridge/force.db")]
+    #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/server_db")]
     pub db_path: String,
 }
 

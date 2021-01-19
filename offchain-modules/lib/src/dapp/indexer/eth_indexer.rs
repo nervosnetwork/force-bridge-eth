@@ -14,7 +14,6 @@ use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types::Uint128;
-use ckb_types::prelude::Entity;
 use ethabi::{Function, Param, ParamType};
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
@@ -26,23 +25,22 @@ use sqlx::MySqlPool;
 use web3::types::{Block, H256, U64};
 
 pub const ETH_CHAIN_CONFIRMED: usize = 15;
-pub const DEX_RECIPIENT_LOCKSCRIPT_CODE_HASH: &str = "";
 
-pub struct EthIndexer {
+pub struct EthIndexer<T> {
     pub config_path: String,
     pub eth_client: Web3Client,
     pub db: MySqlPool,
     pub indexer_client: IndexerRpcClient,
-    pub recipient_lockscript_code_hash: String,
+    pub indexer_filter: T,
 }
 
-impl EthIndexer {
+impl<T: IndexerFilter> EthIndexer<T> {
     pub async fn new(
         config_path: String,
         network: Option<String>,
         db_path: String,
         indexer_url: String,
-        recipient_lockscript_code_hash: String,
+        indexer_filter: T,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -55,7 +53,7 @@ impl EthIndexer {
             eth_client,
             db,
             indexer_client,
-            recipient_lockscript_code_hash,
+            indexer_filter,
         })
     }
 
@@ -290,11 +288,7 @@ impl EthIndexer {
             .await?;
             let proof_json = serde_json::to_string(&eth_proof_json)?;
             let recipient_lockscript = hex::encode(eth_proof_json.recipient_lockscript);
-            let lock_tx: DexLockTx = DexLockTx {
-                recipient_lockscript: recipient_lockscript.clone(),
-                expect_code_hash: self.recipient_lockscript_code_hash.clone(),
-            };
-            if !lock_tx.filter() {
+            if !self.indexer_filter.filter(recipient_lockscript.clone()) {
                 return Ok(false);
             }
             let record = EthToCkbRecord {
@@ -423,27 +417,6 @@ impl EthIndexer {
             hash.as_str(),
             max_retry_times
         ))
-    }
-}
-
-pub struct DexLockTx {
-    pub recipient_lockscript: String,
-    pub expect_code_hash: String,
-}
-
-impl IndexerFilter for DexLockTx {
-    fn filter(&self) -> bool {
-        let recipient_lockscript_res = parse_cell(self.recipient_lockscript.as_str());
-        if let Ok(recipient_lockscript) = recipient_lockscript_res {
-            log::info!(
-                "code hash: {:?}",
-                hex::encode(recipient_lockscript.code_hash().as_slice())
-            );
-            if hex::encode(recipient_lockscript.code_hash().as_slice()) == self.expect_code_hash {
-                return true;
-            }
-        }
-        false
     }
 }
 
