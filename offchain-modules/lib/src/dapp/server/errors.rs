@@ -1,8 +1,9 @@
+use super::ReplayResistTask;
 use actix_web::dev::HttpResponseBuilder;
 use actix_web::http::{header, StatusCode};
 use actix_web::{error, HttpResponse};
-use crossbeam_channel::{RecvTimeoutError, SendError};
 use derive_more::Display;
+use tokio::sync::mpsc::error::TrySendError;
 
 // TODO: split user params error and server error
 #[derive(Debug, Display)]
@@ -17,18 +18,6 @@ impl From<anyhow::Error> for RpcError {
     }
 }
 
-impl From<SendError<String>> for RpcError {
-    fn from(e: SendError<String>) -> Self {
-        Self::BadRequest(e.to_string())
-    }
-}
-
-impl From<RecvTimeoutError> for RpcError {
-    fn from(e: RecvTimeoutError) -> Self {
-        Self::BadRequest(e.to_string())
-    }
-}
-
 impl From<&str> for RpcError {
     fn from(e: &str) -> Self {
         Self::BadRequest(e.to_string())
@@ -38,6 +27,11 @@ impl From<&str> for RpcError {
 impl From<String> for RpcError {
     fn from(e: String) -> Self {
         Self::BadRequest(e)
+    }
+}
+impl From<TrySendError<ReplayResistTask>> for RpcError {
+    fn from(e: TrySendError<ReplayResistTask>) -> Self {
+        Self::BadRequest(e.to_string())
     }
 }
 

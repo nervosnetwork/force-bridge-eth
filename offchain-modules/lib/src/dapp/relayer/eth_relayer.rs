@@ -76,7 +76,7 @@ impl EthTxRelayer {
     async fn relay(&self, last_relayed_number: u64) -> Result<u64> {
         let client_confirmed_number = self.client_confirmed_number().await?;
         log::info!(
-            "eth relayer start relay round: last relayed number: {}, client tip number: {}",
+            "eth relayer start relay round: last relayed number: {}, client confirmed number: {}",
             last_relayed_number,
             client_confirmed_number
         );
