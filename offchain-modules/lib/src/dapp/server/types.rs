@@ -1,16 +1,8 @@
-use crate::dapp::server::proof_relayer::db::CrosschainHistory;
+use crate::dapp::db::server::CrosschainHistory;
 use ckb_jsonrpc_types::TransactionView;
 use ckb_jsonrpc_types::Uint128;
 use serde::{Deserialize, Serialize};
 use web3::types::{H160, U256};
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CreateBridgeCellArgs {
-    pub recipient_address: String,
-    pub eth_token_address: String,
-    pub bridge_fee: Uint128,
-    pub cell_num: Option<usize>,
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EthLockTxHash {
@@ -46,8 +38,19 @@ pub struct GetCkbToEthStatusArgs {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CreateBridgeCellResponse {
-    pub outpoints: Vec<String>,
+pub struct GetEthToCkbStatusResponse {
+    pub eth_lock_tx_hash: String,
+    pub status: String,
+    pub err_msg: String,
+    pub token_addr: Option<String>,
+    pub sender_addr: Option<String>,
+    pub locked_amount: Option<String>,
+    pub bridge_fee: Option<String>,
+    pub ckb_recipient_lockscript: Option<String>,
+    pub sudt_extra_data: Option<String>,
+    pub ckb_tx_hash: Option<String>,
+    pub block_number: u64,
+    pub replay_resist_outpoint: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

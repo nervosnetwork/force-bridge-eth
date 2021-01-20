@@ -20,15 +20,13 @@ use log::{debug, error, info};
 use serde_json::json;
 use shellexpand::tilde;
 use types::*;
-use web3::types::H256;
+use web3::types::{H256, U256};
 
 pub mod dapp;
-pub mod server;
 pub mod types;
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
-        SubCommand::Server(args) => server::server_handler(args).await,
         SubCommand::InitCkbLightContract(args) => init_ckb_light_contract_handler(args).await,
         SubCommand::InitConfig(args) => init_config(args).await,
         SubCommand::InitMultiSignAddress(args) => init_multisig_address_handler(args).await,
@@ -273,15 +271,18 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
 }
 
 pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
+    let force_config = ForceConfig::new(&args.config_path)?;
+    let eth_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let eth_private_key = parse_private_key(&args.private_key_path, &force_config, &args.network)?;
     debug!("unlock_handler args: {:?}", &args);
     let result = unlock(
-        args.config_path,
-        args.network,
-        args.private_key_path,
+        eth_private_key,
+        eth_url,
         args.to,
         args.tx_proof,
         args.tx_info,
         args.gas_price,
+        U256::zero(),
         args.wait,
     )
     .await?;
@@ -298,6 +299,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let eth_private_key = parse_private_key(&args.eth_privkey_path, &force_config, &args.network)?;
 
     let ckb_tx_hash = burn(
         args.config_path.clone(),
@@ -324,13 +326,13 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     )
     .await?;
     let result = unlock(
-        args.config_path.clone(),
-        args.network,
-        args.eth_privkey_path,
+        eth_private_key,
+        ethereum_rpc_url,
         deployed_contracts.eth_token_locker_addr.clone(),
         tx_proof,
         tx_info,
         args.gas_price,
+        U256::zero(),
         args.wait,
     )
     .await?;

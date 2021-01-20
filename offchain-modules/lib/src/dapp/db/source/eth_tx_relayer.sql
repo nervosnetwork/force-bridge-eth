@@ -10,6 +10,6 @@ CREATE TABLE `eth_tx_relayer` (
   `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `status` (`status`),
+  KEY `lock_tx_hash` (`lock_tx_hash`),
   KEY `block_number` (`block_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

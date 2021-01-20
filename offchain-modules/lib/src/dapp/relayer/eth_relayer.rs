@@ -76,7 +76,7 @@ impl EthTxRelayer {
     async fn relay(&self, last_relayed_number: u64) -> Result<u64> {
         let client_confirmed_number = self.client_confirmed_number().await?;
         log::info!(
-            "eth relayer start relay round: last relayed number: {}, client tip number: {}",
+            "eth relayer start relay round: last relayed number: {}, client confirmed number: {}",
             last_relayed_number,
             client_confirmed_number
         );
@@ -92,7 +92,7 @@ impl EthTxRelayer {
 
         let capacity_cells = self.capacity_cells_for_mint().await;
         if let Err(e) = capacity_cells {
-            log::error!("wait for capacity cells generated: {:?}", e);
+            log::info!("wait for capacity cells generated: {:?}", e);
             return Ok(client_confirmed_number);
         }
 

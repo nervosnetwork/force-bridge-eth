@@ -43,6 +43,7 @@ impl Web3Client {
         &mut self.client
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn send_transaction(
         &mut self,
         to: H160,
@@ -50,6 +51,7 @@ impl Web3Client {
         data: Vec<u8>,
         gas_price: U256,
         eth_value: U256,
+        asec_nonce: U256,
         wait: bool,
     ) -> Result<H256> {
         let signed_tx = self
@@ -60,7 +62,7 @@ impl Web3Client {
                 gas_price,
                 None,
                 eth_value,
-                U256::from(0),
+                asec_nonce,
             )
             .await?;
         let tx_hash = if wait {

@@ -88,7 +88,8 @@ pub async fn approve(
             eth_private_key,
             input_data,
             U256::from(gas_price),
-            U256::from(0),
+            U256::zero(),
+            U256::zero(),
             wait,
         )
         .await?;
@@ -136,7 +137,8 @@ pub async fn lock_token(
             parse_private_key(key_path.as_str(), &force_config, &network)?,
             input_data,
             U256::from(gas_price),
-            U256::from(0),
+            U256::zero(),
+            U256::zero(),
             wait,
         )
         .await?;
@@ -179,6 +181,7 @@ pub async fn lock_eth(
             input_data,
             U256::from(gas_price),
             U256::from(amount),
+            U256::zero(),
             wait,
         )
         .await?;
@@ -580,11 +583,6 @@ pub async fn get_or_create_bridge_cell(
     let eth_contract_address =
         convert_eth_address(deployed_contracts.eth_token_locker_addr.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
-    let recipient_lockscript = Script::from(
-        Address::from_str(&recipient_address)
-            .map_err(|err| anyhow!("invalid recipient address: {}", err))?
-            .payload(),
-    );
     let bridge_lockscript = create_bridge_lockscript(
         &deployed_contracts,
         &eth_token_address,
@@ -603,6 +601,11 @@ pub async fn get_or_create_bridge_cell(
                 .build()
         }
         false => {
+            let recipient_lockscript = Script::from(
+                Address::from_str(&recipient_address)
+                    .map_err(|err| anyhow!("invalid recipient address: {}", err))?
+                    .payload(),
+            );
             let bridge_typescript_args = ETHBridgeTypeArgs::new_builder()
                 .bridge_lock_hash(
                     basic::Byte32::from_slice(bridge_lockscript.calc_script_hash().as_slice())
