@@ -177,12 +177,12 @@ pub async fn get_eth_to_ckb_status(
     if indexer_status.status == "success" {
         return Ok(HttpResponse::Ok().json(res));
     }
-    let relay_status = db::get_eth_to_ckb_relay_status(&data.db, &args.eth_lock_tx_hash)
-        .await?
-        .ok_or(format!("eth lock tx {} not found", &args.eth_lock_tx_hash))?;
-    if relay_status.status == "retryable" {
+    let relay_status_opt =
+        db::get_eth_to_ckb_relay_status(&data.db, &args.eth_lock_tx_hash).await?;
+    if relay_status_opt.is_none() || relay_status_opt.clone().unwrap().status == "retryable" {
         return Ok(HttpResponse::Ok().json(res));
     }
+    let relay_status = relay_status_opt.unwrap();
     res.status = relay_status.status;
     res.err_msg = relay_status.err_msg;
     Ok(HttpResponse::Ok().json(res))
