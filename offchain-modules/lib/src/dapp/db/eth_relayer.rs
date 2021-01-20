@@ -30,9 +30,9 @@ pub async fn get_mint_tasks(
     end_block: u64,
 ) -> Result<Vec<MintTask>> {
     let sql = r#"
-SELECT eth_lock_tx_hash as lock_tx_hash, eth_spv_proof as lock_tx_proof, block_number
+SELECT eth_lock_tx_hash as lock_tx_hash, eth_spv_proof as lock_tx_proof, eth_block_number as block_number
 FROM eth_to_ckb
-WHERE status = ? AND block_number > ? AND block_number <= ?
+WHERE status = ? AND eth_block_number > ? AND eth_block_number <= ?
     "#;
     let tasks = sqlx::query_as::<_, MintTask>(sql)
         .bind("pending")

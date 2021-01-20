@@ -18,10 +18,9 @@ pub struct CrosschainHistory {
 pub struct ReplayResistCell {
     pub id: u64,
     pub outpoint: String,
-    pub token: String,
 }
 
-#[derive(sqlx::FromRow, Serialize, Deserialize, Debug)]
+#[derive(sqlx::FromRow, Serialize, Deserialize, Debug, Clone)]
 pub struct RelayStatus {
     pub status: String,
     pub err_msg: String,
