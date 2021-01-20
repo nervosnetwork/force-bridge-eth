@@ -261,7 +261,7 @@ pub async fn burn(
         serde_json::to_string_pretty(&args).unwrap(),
         serde_json::to_string_pretty(&rpc_tx).unwrap()
     );
-    let ckb_tx_hash = hex::encode(tx.hash().as_slice());
+    let ckb_tx_hash = "0x".to_string() + &hex::encode(tx.hash().as_slice());
     let create_db_res = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await;
     if let Err(e) = &create_db_res {
         if e.to_string().contains("UNIQUE constraint failed") {
