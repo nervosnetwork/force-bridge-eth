@@ -38,7 +38,7 @@ pub async fn start(
             .service(relay_eth_to_ckb_proof)
             .service(get_crosschain_history)
     })
-    .workers(80)
+    .workers(200)
     .bind(&listen_url)?
     .run()
     .await?;

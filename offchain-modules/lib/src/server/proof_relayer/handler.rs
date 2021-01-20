@@ -117,12 +117,33 @@ pub async fn relay_eth_to_ckb_proof(
     }
 
     // generate proof and send tx
-    let eth_proof = generate_eth_spv_proof_json(
-        record.eth_lock_tx_hash.clone(),
-        ethereum_rpc_url.clone(),
-        eth_token_locker_addr.clone(),
-    )
-    .await?;
+    let eth_proof_retry = |max_retry_times: u64, eth_lock_tx_hash: String| async move {
+        for retry in 0..max_retry_times {
+            let ret = generate_eth_spv_proof_json(
+                eth_lock_tx_hash.to_string(),
+                ethereum_rpc_url.clone(),
+                eth_token_locker_addr.clone(),
+            )
+            .await;
+            match ret {
+                Ok(proof) => return Ok(proof),
+                Err(e) => {
+                    log::info!(
+                        "generate_eth_spv_proof_json failed, tx_hash: {}, retried {} times, err: {}",
+                        eth_lock_tx_hash,
+                        retry,
+                        e
+                    );
+                }
+            }
+        }
+        Err(anyhow!(
+            "Failed to generate_eth_spv_proof_json for record: {:?}, after retry {} times",
+            eth_lock_tx_hash,
+            max_retry_times
+        ))
+    };
+    let eth_proof = eth_proof_retry(5, record.eth_lock_tx_hash.clone()).await?;
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
         .deployed_contracts
