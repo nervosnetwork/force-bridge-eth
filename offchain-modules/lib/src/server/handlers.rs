@@ -139,7 +139,7 @@ pub async fn relay_eth_to_ckb_proof(
     let create_db_res =
         db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await;
     if let Err(e) = &create_db_res {
-        if e.to_string().contains("UNIQUE constraint failed") {
+        if e.to_string().contains("Duplicate entry") {
             let record = db::get_eth_to_ckb_status(&data.db, eth_lock_tx_hash.as_str())
                 .await?
                 .expect("EthToCkbRecord existed");
