@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS `replay_resist_cells`;
+
+CREATE TABLE `replay_resist_cells` (
+	`id` INT ( 11 ) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`outpoint` VARCHAR ( 1024 ) NOT NULL,
+	`token` VARCHAR ( 64 ) NOT NULL,
+	`status` VARCHAR ( 40 ) NOT NULL DEFAULT 'available',
+	`create_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+	`update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	PRIMARY KEY ( `id` ),
+KEY `token` ( `token` )
+) ENGINE = INNODB DEFAULT CHARSET = utf8;
