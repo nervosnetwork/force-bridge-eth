@@ -20,7 +20,7 @@ pub struct ReplayResistCell {
     pub outpoint: String,
 }
 
-#[derive(sqlx::FromRow, Serialize, Deserialize, Debug)]
+#[derive(sqlx::FromRow, Serialize, Deserialize, Debug, Clone)]
 pub struct RelayStatus {
     pub status: String,
     pub err_msg: String,

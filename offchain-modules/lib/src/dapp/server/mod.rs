@@ -104,7 +104,7 @@ impl DappState {
             "".to_string(),
             0,
             true,
-            REPLAY_RESIST_CELL_NUMBER,
+            REPLAY_RESIST_CELL_NUMBER * 2,
         )
         .await?;
         let mut is_refreshing = is_refreshing.lock().await;
@@ -112,7 +112,9 @@ impl DappState {
             .prepare_cell_modification(fresh_cells, token.to_string())
             .await?;
         add_replay_resist_cells(&self.db, &add_cells, &token).await?;
+        log::info!("refresh cells, add number: {:?}", add_cells.len());
         delete_replay_resist_cells(&self.db, &delete_cells).await?;
+        log::info!("refresh cells, delete number: {:?}", delete_cells.len());
         *is_refreshing = false;
         Ok(())
     }
@@ -190,7 +192,7 @@ pub async fn start(
                     .expect("send response to lock handler succeed");
             }
 
-            log::info!("cell count: {:?}", cell_count);
+            log::info!("remaining replay resist cells count: {:?}", cell_count);
             if cell_count < REPLAY_RESIST_CELL_NUMBER * REFRESH_RATE / 100 && !(*is_refreshing) {
                 log::info!("start refresh replay resist cells");
                 *is_refreshing = true;
