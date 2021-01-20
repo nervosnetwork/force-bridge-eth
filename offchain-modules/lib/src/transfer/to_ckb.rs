@@ -634,6 +634,7 @@ pub async fn get_or_create_bridge_cell(
     )
     .map_err(|e| anyhow!("failed to collect bridge cells {}", e))?;
     if cells.len() >= cell_num {
+        log::info!("get enough live bridge cells from ckb chain");
         return Ok(cells
             .into_iter()
             .map(|cell| hex::encode(OutPoint::from(cell.out_point).as_slice()))
