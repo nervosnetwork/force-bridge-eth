@@ -1,8 +1,12 @@
 use crate::dapp::db::indexer::{
-    create_eth_to_ckb_record, get_ckb_to_eth_record_by_eth_hash, get_height_info,
-    is_eth_to_ckb_record_exist, update_ckb_to_eth_record_status, update_cross_chain_height_info,
-    EthToCkbRecord,
+    create_eth_to_ckb_record, delete_eth_to_ckb_records, get_ckb_to_eth_record_by_eth_hash,
+    get_eth_unconfirmed_block, get_eth_unconfirmed_blocks, get_height_info,
+    get_max_eth_unconfirmed_block, insert_eth_unconfirmed_block, is_eth_to_ckb_record_exist,
+    reset_ckb_to_eth_record_status, update_ckb_to_eth_record_status,
+    update_cross_chain_height_info, update_eth_unconfirmed_block, EthToCkbRecord,
+    EthUnConfirmedBlock,
 };
+use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
 use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
 use crate::util::config::ForceConfig;
@@ -18,21 +22,25 @@ use rusty_receipt_proof_maker::types::UnlockEvent;
 use rusty_receipt_proof_maker::{generate_eth_proof, parse_unlock_event, types::EthSpvProof};
 use shellexpand::tilde;
 use sqlx::MySqlPool;
-use web3::types::U64;
+use web3::types::{Block, H256, U64};
 
-pub struct EthIndexer {
+pub const ETH_CHAIN_CONFIRMED: usize = 15;
+
+pub struct EthIndexer<T> {
     pub config_path: String,
     pub eth_client: Web3Client,
     pub db: MySqlPool,
     pub indexer_client: IndexerRpcClient,
+    pub indexer_filter: T,
 }
 
-impl EthIndexer {
+impl<T: IndexerFilter> EthIndexer<T> {
     pub async fn new(
         config_path: String,
         network: Option<String>,
         db_path: String,
         indexer_url: String,
+        indexer_filter: T,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -45,6 +53,7 @@ impl EthIndexer {
             eth_client,
             db,
             indexer_client,
+            indexer_filter,
         })
     }
 
@@ -97,7 +106,41 @@ impl EthIndexer {
             // height info init.
             height_info.eth_height = self.get_light_client_height_with_loop().await;
         }
-        let mut start_block_number = height_info.eth_height;
+        let mut start_block_number = height_info.eth_height + 1;
+        let mut unconfirmed_blocks = get_eth_unconfirmed_blocks(&self.db).await?;
+        if unconfirmed_blocks.is_empty() {
+            // init unconfirmed_blocks
+            let blocks = self
+                .eth_client
+                .get_blocks(
+                    start_block_number - ETH_CHAIN_CONFIRMED as u64,
+                    start_block_number,
+                )
+                .await?;
+            for item in blocks {
+                let number = item
+                    .number
+                    .ok_or_else(|| anyhow!("the number is not exist."))?
+                    .as_u64();
+                let record = EthUnConfirmedBlock {
+                    id: number % ETH_CHAIN_CONFIRMED as u64,
+                    number,
+                    hash: hex::encode(item.hash.ok_or_else(|| anyhow!("the hash is not exist."))?),
+                };
+                unconfirmed_blocks.push(record);
+            }
+            insert_eth_unconfirmed_block(&self.db, &unconfirmed_blocks).await?;
+        }
+
+        let mut tail = get_max_eth_unconfirmed_block(&self.db)
+            .await?
+            .ok_or_else(|| anyhow!("the tail is not exist"))?;
+        if unconfirmed_blocks.len() != ETH_CHAIN_CONFIRMED || tail.number + 1 != start_block_number
+        {
+            anyhow::bail!("system error! the unconfirmed_blocks is invalid.")
+        }
+        let mut re_org = false;
+
         loop {
             let block = self
                 .eth_client
@@ -108,7 +151,24 @@ impl EthIndexer {
                 tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
                 continue;
             }
-            let block = block.unwrap();
+            let mut block = block.unwrap();
+            let left = hex::encode(block.parent_hash);
+            if left != tail.hash {
+                // the chain is re_organized.
+                log::info!("the chain is re_organized");
+                re_org = true;
+                block = self
+                    .lookup_common_ancestor_in_eth(
+                        &unconfirmed_blocks,
+                        (ETH_CHAIN_CONFIRMED - 1) as isize,
+                    )
+                    .await?;
+                start_block_number = block
+                    .number
+                    .ok_or_else(|| anyhow!("invalid block number"))?
+                    .as_u64()
+                    + 1;
+            }
             let txs = block.transactions;
             let mut lock_records = vec![];
             let mut unlock_records = vec![];
@@ -126,23 +186,79 @@ impl EthIndexer {
                 }
             }
             height_info = get_height_info(&self.db).await?;
+            let mut unconfirmed_block = get_eth_unconfirmed_block(
+                &self.db,
+                start_block_number % ETH_CHAIN_CONFIRMED as u64,
+            )
+            .await?
+            .ok_or_else(|| anyhow!("the block is not exist"))?;
             let mut db_tx = self.db.begin().await?;
+            if re_org {
+                // delete eth to ckb record while the block number > start_block_number
+                delete_eth_to_ckb_records(&mut db_tx, start_block_number).await?;
+                reset_ckb_to_eth_record_status(&mut db_tx, start_block_number).await?;
+            }
             if !lock_records.is_empty() {
                 create_eth_to_ckb_record(&mut db_tx, &lock_records).await?;
             }
             if !unlock_records.is_empty() {
                 for item in unlock_records {
-                    update_ckb_to_eth_record_status(&mut db_tx, item.0, item.1, "success").await?;
+                    update_ckb_to_eth_record_status(
+                        &mut db_tx,
+                        item.0,
+                        item.1,
+                        "success",
+                        start_block_number,
+                    )
+                    .await?;
                 }
             }
             let light_client_height = self.get_light_client_height_with_loop().await;
+            // let eth_height = self.eth_client.client().eth().block_number().await?;
             height_info.eth_height = start_block_number;
             height_info.eth_client_height = light_client_height;
             update_cross_chain_height_info(&mut db_tx, &height_info).await?;
+
+            unconfirmed_block.number = start_block_number;
+            unconfirmed_block.hash = hex::encode(
+                block
+                    .hash
+                    .ok_or_else(|| anyhow!("the block is not exist"))?,
+            );
+            update_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
             db_tx.commit().await?;
+            tail = unconfirmed_block;
             start_block_number += 1;
-            // tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
         }
+    }
+
+    // Find the common ancestor of the latest header and main chain
+    pub async fn lookup_common_ancestor_in_eth(
+        &mut self,
+        blocks: &[EthUnConfirmedBlock],
+        mut index: isize,
+    ) -> Result<Block<H256>> {
+        while index >= 0 {
+            let latest_block = &blocks[index as usize];
+            let block = self
+                .eth_client
+                .get_block(U64::from(latest_block.number).into())
+                .await;
+            if block.is_ok() {
+                let block = block.unwrap();
+                if hex::encode(
+                    block
+                        .hash
+                        .ok_or_else(|| anyhow!("the block hash is not exist."))?,
+                ) == latest_block.hash
+                {
+                    return Ok(block);
+                }
+            }
+            // The latest header on ckb is not on the Ethereum main chain and needs to be backtracked
+            index -= 1;
+        }
+        anyhow::bail!("system error! can not find the common ancestor with main chain.")
     }
 
     pub async fn handle_lock_event(
@@ -171,17 +287,21 @@ impl EthIndexer {
             )
             .await?;
             let proof_json = serde_json::to_string(&eth_proof_json)?;
+            let recipient_lockscript = hex::encode(eth_proof_json.recipient_lockscript);
+            if !self.indexer_filter.filter(recipient_lockscript.clone()) {
+                return Ok(false);
+            }
             let record = EthToCkbRecord {
                 eth_lock_tx_hash: hash.clone(),
                 status: "pending".to_string(),
                 token_addr: Some(hex::encode(eth_spv_proof.token.as_bytes())),
-                ckb_recipient_lockscript: Some(hex::encode(eth_proof_json.recipient_lockscript)),
+                ckb_recipient_lockscript: Some(recipient_lockscript),
                 locked_amount: Some(Uint128::from(eth_spv_proof.lock_amount).to_string()),
                 eth_spv_proof: Some(proof_json),
                 replay_resist_outpoint: Some(hex::encode(
                     eth_spv_proof.replay_resist_outpoint.as_slice(),
                 )),
-                block_number,
+                eth_block_number: block_number,
                 ..Default::default()
             };
             records.push(record);
