@@ -138,13 +138,11 @@ pub async fn relay_eth_to_ckb_proof(
     let eth_lock_tx_hash = args.eth_lock_tx_hash.clone();
     let create_db_res =
         db::create_eth_to_ckb_status_record(&data.db, eth_lock_tx_hash.clone()).await;
-    let row_id;
     if let Err(e) = &create_db_res {
         if e.to_string().contains("UNIQUE constraint failed") {
             let record = db::get_eth_to_ckb_status(&data.db, eth_lock_tx_hash.as_str())
                 .await?
                 .expect("EthToCkbRecord existed");
-            row_id = record.id;
             if record.status != "timeout" || !data.add_relaying_tx(eth_lock_tx_hash.clone()).await {
                 return Ok(HttpResponse::Ok().json(json!({
                     "message": "tx proof relay processing/processed"
@@ -158,13 +156,10 @@ pub async fn relay_eth_to_ckb_proof(
             )
             .into());
         };
-    } else {
-        row_id = create_db_res.unwrap();
     }
     let generator = data.get_generator().await?;
     tokio::spawn(async move {
         let mut record = EthToCkbRecord {
-            id: row_id,
             eth_lock_tx_hash: eth_lock_tx_hash.clone(),
             status: "pending".to_string(),
             ..Default::default()
@@ -268,13 +263,11 @@ pub async fn burn(
     );
     let ckb_tx_hash = hex::encode(tx.hash().as_slice());
     let create_db_res = db::create_ckb_to_eth_status_record(&data.db, ckb_tx_hash.clone()).await;
-    let row_id;
     if let Err(e) = &create_db_res {
         if e.to_string().contains("UNIQUE constraint failed") {
             let record = db::get_ckb_to_eth_status(&data.db, ckb_tx_hash.as_str())
                 .await?
                 .expect("CkbToEthRecord existed");
-            row_id = record.id;
             if record.status == "success" || !data.add_relaying_tx(ckb_tx_hash.clone()).await {
                 return Ok(HttpResponse::Ok().json(json!({
                     "message": "tx proof relay processing/processed"
@@ -288,8 +281,6 @@ pub async fn burn(
             )
             .into());
         };
-    } else {
-        row_id = create_db_res.unwrap();
     }
     tokio::spawn(async move {
         let eth_privkey_path = data
@@ -299,7 +290,6 @@ pub async fn burn(
             .recv_timeout(Duration::from_secs(600))
             .map_err(|e| anyhow!("crossbeam channel recv ckb key path error: {:?}", e))?;
         let mut record = CkbToEthRecord {
-            id: row_id,
             ckb_burn_tx_hash: format!("0x{}", &ckb_tx_hash),
             status: "pending".to_string(),
             recipient_addr: Some(args.recipient_address.clone()),

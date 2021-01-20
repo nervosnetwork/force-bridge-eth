@@ -1,11 +1,11 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use sqlx::sqlite::SqlitePool;
+use sqlx::mysql::MySqlPool;
 use sqlx::Done;
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct EthToCkbRecord {
-    pub id: i64,
+    pub id: u64,
     pub eth_lock_tx_hash: String,
     pub status: String,
     pub token_addr: Option<String>,
@@ -18,39 +18,36 @@ pub struct EthToCkbRecord {
     pub err_msg: Option<String>,
 }
 
-pub async fn create_eth_to_ckb_status_record(pool: &SqlitePool, tx_hash: String) -> Result<i64> {
-    let id = sqlx::query(
+pub async fn create_eth_to_ckb_status_record(pool: &MySqlPool, tx_hash: String) -> Result<()> {
+    sqlx::query(
         r#"
 INSERT INTO eth_to_ckb ( eth_lock_tx_hash )
-VALUES ( ?1 )
+VALUES ( ? )
         "#,
     )
     .bind(tx_hash)
     .execute(pool)
-    .await?
-    .last_insert_rowid();
-
-    Ok(id)
+    .await?;
+    Ok(())
 }
 
-pub async fn update_eth_to_ckb_status(pool: &SqlitePool, record: &EthToCkbRecord) -> Result<bool> {
+pub async fn update_eth_to_ckb_status(pool: &MySqlPool, record: &EthToCkbRecord) -> Result<bool> {
     log::info!("update_eth_to_ckb_status, record: {:?}", record);
     let rows_affected = sqlx::query(
         r#"
 UPDATE eth_to_ckb SET
-    status = ?2,
-    token_addr = ?3,
-    sender_addr = ?4,
-    locked_amount = ?5,
-    bridge_fee = ?6,
-    ckb_recipient_lockscript = ?7,
-    sudt_extra_data = ?8,
-    ckb_tx_hash = ?9,
-    err_msg = ?10
-WHERE id = ?1
+    status = ?,
+    token_addr = ?,
+    sender_addr = ?,
+    locked_amount = ?,
+    bridge_fee = ?,
+    ckb_recipient_lockscript = ?,
+    sudt_extra_data = ?,
+    ckb_tx_hash = ?,
+    err_msg = ?
+WHERE eth_lock_tx_hash = ?
         "#,
     )
-    .bind(record.id)
     .bind(record.status.clone())
     .bind(record.token_addr.as_ref())
     .bind(record.sender_addr.as_ref())
@@ -60,6 +57,7 @@ WHERE id = ?1
     .bind(record.sudt_extra_data.as_ref())
     .bind(record.ckb_tx_hash.as_ref())
     .bind(record.err_msg.as_ref())
+    .bind(record.eth_lock_tx_hash.clone())
     .execute(pool)
     .await?
     .rows_affected();
@@ -67,7 +65,7 @@ WHERE id = ?1
 }
 
 pub async fn get_eth_to_ckb_status(
-    pool: &SqlitePool,
+    pool: &MySqlPool,
     eth_lock_tx_hash: &str,
 ) -> Result<Option<EthToCkbRecord>> {
     Ok(sqlx::query_as::<_, EthToCkbRecord>(
@@ -84,7 +82,7 @@ where eth_lock_tx_hash = ?
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CrosschainHistory {
-    pub id: i64,
+    pub id: u64,
     pub eth_tx_hash: Option<String>,
     pub ckb_tx_hash: Option<String>,
     pub status: String,
@@ -94,14 +92,14 @@ pub struct CrosschainHistory {
 }
 
 pub async fn get_ckb_to_eth_crosschain_history(
-    pool: &SqlitePool,
+    pool: &MySqlPool,
     eth_recipient_address: &str,
 ) -> Result<Vec<CrosschainHistory>> {
     Ok(sqlx::query_as::<_, CrosschainHistory>(
         r#"
 SELECT id, eth_tx_hash, ckb_burn_tx_hash as ckb_tx_hash, status, 'ckb_to_eth' as sort, token_amount as amount, token_addr
 FROM ckb_to_eth
-where recipient_addr = ?1
+where recipient_addr = ?
         "#,
     )
         .bind(eth_recipient_address)
@@ -110,14 +108,14 @@ where recipient_addr = ?1
 }
 
 pub async fn get_eth_to_ckb_crosschain_history(
-    pool: &SqlitePool,
+    pool: &MySqlPool,
     ckb_recipient_lockscript: &str,
 ) -> Result<Vec<CrosschainHistory>> {
     Ok(sqlx::query_as::<_, CrosschainHistory>(
         r#"
 SELECT id, eth_lock_tx_hash as eth_tx_hash, ckb_tx_hash, status, 'eth_to_ckb' as sort, locked_amount as amount, token_addr
 FROM eth_to_ckb
-where ckb_recipient_lockscript = ?1
+where ckb_recipient_lockscript = ?
         "#,
     )
     .bind(ckb_recipient_lockscript)
@@ -125,11 +123,12 @@ where ckb_recipient_lockscript = ?1
     .await?)
 }
 
-pub async fn get_eth_to_ckb_failed_records(pool: &SqlitePool) -> Result<Vec<EthToCkbRecord>> {
+pub async fn get_eth_to_ckb_failed_records(pool: &MySqlPool) -> Result<Vec<EthToCkbRecord>> {
     Ok(sqlx::query_as::<_, EthToCkbRecord>(
         r#"
 select *
 FROM eth_to_ckb
+where status != 'success'
         "#,
     )
     .fetch_all(pool)
@@ -138,7 +137,7 @@ FROM eth_to_ckb
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CkbToEthRecord {
-    pub id: i64,
+    pub id: u64,
     pub ckb_burn_tx_hash: String,
     pub status: String,
     pub recipient_addr: Option<String>,
@@ -149,37 +148,34 @@ pub struct CkbToEthRecord {
     pub err_msg: Option<String>,
 }
 
-pub async fn create_ckb_to_eth_status_record(pool: &SqlitePool, tx_hash: String) -> Result<i64> {
-    let id = sqlx::query(
+pub async fn create_ckb_to_eth_status_record(pool: &MySqlPool, tx_hash: String) -> Result<()> {
+    sqlx::query(
         r#"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash )
-VALUES ( ?1 )
+VALUES ( ? )
         "#,
     )
     .bind(tx_hash)
     .execute(pool)
-    .await?
-    .last_insert_rowid();
-
-    Ok(id)
+    .await?;
+    Ok(())
 }
 
-pub async fn update_ckb_to_eth_status(pool: &SqlitePool, record: &CkbToEthRecord) -> Result<bool> {
+pub async fn update_ckb_to_eth_status(pool: &MySqlPool, record: &CkbToEthRecord) -> Result<bool> {
     log::info!("update_ckb_to_eth_status, record: {:?}", record);
     let rows_affected = sqlx::query(
         r#"
 UPDATE ckb_to_eth SET
-    status = ?2,
-    recipient_addr = ?3,
-    token_addr = ?4,
-    token_amount = ?5,
-    fee = ?6,
-    eth_tx_hash = ?7,
-    err_msg = ?8
-WHERE id = ?1
+    status = ?,
+    recipient_addr = ?,
+    token_addr = ?,
+    token_amount = ?,
+    fee = ?,
+    eth_tx_hash = ?,
+    err_msg = ?
+WHERE ckb_burn_tx_hash = ?
         "#,
     )
-    .bind(record.id)
     .bind(record.status.clone())
     .bind(record.recipient_addr.as_ref())
     .bind(record.token_addr.as_ref())
@@ -187,6 +183,7 @@ WHERE id = ?1
     .bind(record.fee.as_ref())
     .bind(record.eth_tx_hash.as_ref())
     .bind(record.err_msg.as_ref())
+    .bind(record.ckb_burn_tx_hash.clone())
     .execute(pool)
     .await?
     .rows_affected();
@@ -194,7 +191,7 @@ WHERE id = ?1
 }
 
 pub async fn get_ckb_to_eth_status(
-    pool: &SqlitePool,
+    pool: &MySqlPool,
     ckb_burn_tx_hash: &str,
 ) -> Result<Option<CkbToEthRecord>> {
     Ok(sqlx::query_as::<_, CkbToEthRecord>(

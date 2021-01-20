@@ -5,8 +5,7 @@ use anyhow::{anyhow, Result};
 use crossbeam_channel::{bounded, Receiver, Sender};
 use force_sdk::util::ensure_indexer_sync;
 use shellexpand::tilde;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::sqlite::SqlitePool;
+use sqlx::mysql::MySqlPool;
 use std::collections::hash_set::HashSet;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -24,7 +23,7 @@ pub struct DappState {
     pub indexer_url: String,
     pub ckb_rpc_url: String,
     pub eth_rpc_url: String,
-    pub db: SqlitePool,
+    pub db: MySqlPool,
     pub relaying_txs: Arc<Mutex<HashSet<String>>>,
 }
 
@@ -71,44 +70,7 @@ impl DappState {
 
         // let from_privkey =
         //     parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
-        let _db_path = tilde(db_path.as_str()).into_owned();
-        let db_options = SqliteConnectOptions::from_str("sqlite::memory:")?;
-        let db = SqlitePool::connect_with(db_options).await?;
-        sqlx::query(
-            r#"
-CREATE TABLE IF NOT EXISTS eth_to_ckb
-(
-    id                       INTEGER PRIMARY KEY NOT NULL,
-    eth_lock_tx_hash         VARCHAR UNIQUE      NOT NULL,
-    status                   VARCHAR             NOT NULL DEFAULT 'pending',
-    token_addr               VARCHAR                      DEFAULT NULL,
-    sender_addr              VARCHAR                      DEFAULT NULL,
-    locked_amount            VARCHAR                      DEFAULT NULL,
-    bridge_fee               VARCHAR                      DEFAULT NULL,
-    ckb_recipient_lockscript VARCHAR                      DEFAULT NULL,
-    sudt_extra_data          VARCHAR                      DEFAULT NULL,
-    ckb_tx_hash              VARCHAR                      DEFAULT NULL,
-    err_msg                  VARCHAR                      DEFAULT NULL
-);
-
-CREATE TABLE IF NOT EXISTS ckb_to_eth
-(
-    id                 INTEGER PRIMARY KEY NOT NULL,
-    ckb_burn_tx_hash   VARCHAR UNIQUE      NOT NULL,
-    status             VARCHAR             NOT NULL DEFAULT 'pending',
-    recipient_addr     VARCHAR                      DEFAULT NULL,
-    token_addr         VARCHAR                      DEFAULT NULL,
-    lock_contract_addr VARCHAR                      DEFAULT NULL,
-    bridge_lock_hash   VARCHAR                      DEFAULT NULL,
-    token_amount       VARCHAR                      DEFAULT NULL,
-    fee                VARCHAR                      DEFAULT NULL,
-    eth_tx_hash        VARCHAR                      DEFAULT NULL,
-    err_msg            VARCHAR                      DEFAULT NULL
-);
-        "#,
-        )
-        .execute(&db)
-        .await?;
+        let db = MySqlPool::connect(&db_path).await?;
         let db2 = db.clone();
         tokio::spawn(db_monitor(db2, alarm_url));
         Ok(Self {
@@ -161,7 +123,7 @@ CREATE TABLE IF NOT EXISTS ckb_to_eth
 }
 
 /// monitor db, send alarm when there are not successful records
-async fn db_monitor(pool: SqlitePool, alarm_url: String) {
+async fn db_monitor(pool: MySqlPool, alarm_url: String) {
     loop {
         let res = db_monitor_inner(&pool, &alarm_url).await;
         if let Err(e) = res {
@@ -173,7 +135,7 @@ async fn db_monitor(pool: SqlitePool, alarm_url: String) {
     }
 }
 
-async fn db_monitor_inner(pool: &SqlitePool, alarm_url: &str) -> Result<()> {
+async fn db_monitor_inner(pool: &MySqlPool, alarm_url: &str) -> Result<()> {
     let records = super::proof_relayer::db::get_eth_to_ckb_failed_records(&pool).await?;
     let counter = records.iter().fold(HashMap::new(), |mut acc, c| {
         *acc.entry(c.status.clone()).or_insert(0) += 1u64;
