@@ -127,7 +127,7 @@ pub async fn get_unlock_tasks(
     let sql = r#"
 SELECT id, ckb_burn_tx_hash, ckb_spv_proof, ckb_raw_tx
 FROM ckb_to_eth
-WHERE status = 'pending' AND block_number + ? < ?
+WHERE status = 'pending' AND ckb_block_number + ? < ?
     "#;
     let tasks = sqlx::query_as::<_, UnlockTask>(sql)
         .bind(confirm)
