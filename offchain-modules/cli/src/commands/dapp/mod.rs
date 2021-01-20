@@ -1,4 +1,5 @@
 use anyhow::Result;
+use force_eth_lib::dapp::indexer::DexFilter;
 use force_eth_lib::dapp::server::start;
 use force_eth_lib::dapp::CkbIndexer;
 use force_eth_lib::dapp::CkbTxRelay;
@@ -30,11 +31,15 @@ async fn server(args: ServerArgs) -> Result<()> {
 }
 
 async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
+    let filter = DexFilter {
+        code_hash: args.recipient_lockscript_code_hash,
+    };
     let mut eth_indexer = EthIndexer::new(
         args.config_path,
         args.network,
         args.db_path,
         args.ckb_indexer_url,
+        filter,
     )
     .await?;
     loop {

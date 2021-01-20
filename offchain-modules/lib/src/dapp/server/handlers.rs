@@ -171,7 +171,7 @@ pub async fn get_eth_to_ckb_status(
         ckb_recipient_lockscript: indexer_status.ckb_recipient_lockscript,
         sudt_extra_data: indexer_status.sudt_extra_data,
         ckb_tx_hash: indexer_status.ckb_tx_hash,
-        block_number: indexer_status.block_number,
+        block_number: indexer_status.eth_block_number,
         replay_resist_outpoint: indexer_status.replay_resist_outpoint,
     };
     if indexer_status.status == "success" {
