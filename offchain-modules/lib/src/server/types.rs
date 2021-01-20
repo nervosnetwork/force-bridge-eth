@@ -16,6 +16,7 @@ pub struct CreateBridgeCellArgs {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EthLockTxHash {
     pub eth_lock_tx_hash: String,
+    pub force: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

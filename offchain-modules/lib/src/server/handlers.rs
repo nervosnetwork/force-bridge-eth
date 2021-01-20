@@ -143,7 +143,9 @@ pub async fn relay_eth_to_ckb_proof(
             let record = db::get_eth_to_ckb_status(&data.db, eth_lock_tx_hash.as_str())
                 .await?
                 .expect("EthToCkbRecord existed");
-            if record.status != "timeout" || !data.add_relaying_tx(eth_lock_tx_hash.clone()).await {
+            if (record.status != "timeout" || !data.add_relaying_tx(eth_lock_tx_hash.clone()).await)
+                && !args.force.unwrap_or_default()
+            {
                 return Ok(HttpResponse::Ok().json(json!({
                     "message": "tx proof relay processing/processed"
                 })));
