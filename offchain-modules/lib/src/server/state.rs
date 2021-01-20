@@ -8,9 +8,7 @@ use shellexpand::tilde;
 use sqlx::mysql::MySqlPool;
 use std::collections::hash_set::HashSet;
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::Mutex;
 
 #[derive(Clone)]

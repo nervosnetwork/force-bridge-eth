@@ -220,9 +220,8 @@ pub async fn generate_eth_spv_proof_json(
     let log_index = eth_spv_proof.log_index;
     let eth_rpc_url = ethereum_rpc_url.clone();
     let proof_hex = run_fun! {
-    node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --url ${eth_rpc_url}}
-    .unwrap();
-    let proof_json: Value = serde_json::from_str(&proof_hex).unwrap();
+    node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --url ${eth_rpc_url}}?;
+    let proof_json: Value = serde_json::from_str(&proof_hex)?;
     info!("tx: {:?}, generate proof json: {:?}", hash, proof_json);
     // TODO: refactor to parse with static struct instead of dynamic parsing
     let mut proof_vec = vec![];
