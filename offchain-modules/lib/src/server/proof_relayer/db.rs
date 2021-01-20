@@ -130,7 +130,6 @@ pub async fn get_eth_to_ckb_failed_records(pool: &SqlitePool) -> Result<Vec<EthT
         r#"
 select *
 FROM eth_to_ckb
-where status != 'success'
         "#,
     )
     .fetch_all(pool)

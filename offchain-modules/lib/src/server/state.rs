@@ -71,10 +71,44 @@ impl DappState {
 
         // let from_privkey =
         //     parse_privkey_path(ckb_private_key_path.as_str(), &force_config, &network)?;
-        let db_path = tilde(db_path.as_str()).into_owned();
-        let db_options =
-            SqliteConnectOptions::from_str(&db_path)?.busy_timeout(Duration::from_secs(300));
+        let _db_path = tilde(db_path.as_str()).into_owned();
+        let db_options = SqliteConnectOptions::from_str("sqlite::memory:")?;
         let db = SqlitePool::connect_with(db_options).await?;
+        sqlx::query(
+            r#"
+CREATE TABLE IF NOT EXISTS eth_to_ckb
+(
+    id                       INTEGER PRIMARY KEY NOT NULL,
+    eth_lock_tx_hash         VARCHAR UNIQUE      NOT NULL,
+    status                   VARCHAR             NOT NULL DEFAULT 'pending',
+    token_addr               VARCHAR                      DEFAULT NULL,
+    sender_addr              VARCHAR                      DEFAULT NULL,
+    locked_amount            VARCHAR                      DEFAULT NULL,
+    bridge_fee               VARCHAR                      DEFAULT NULL,
+    ckb_recipient_lockscript VARCHAR                      DEFAULT NULL,
+    sudt_extra_data          VARCHAR                      DEFAULT NULL,
+    ckb_tx_hash              VARCHAR                      DEFAULT NULL,
+    err_msg                  VARCHAR                      DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ckb_to_eth
+(
+    id                 INTEGER PRIMARY KEY NOT NULL,
+    ckb_burn_tx_hash   VARCHAR UNIQUE      NOT NULL,
+    status             VARCHAR             NOT NULL DEFAULT 'pending',
+    recipient_addr     VARCHAR                      DEFAULT NULL,
+    token_addr         VARCHAR                      DEFAULT NULL,
+    lock_contract_addr VARCHAR                      DEFAULT NULL,
+    bridge_lock_hash   VARCHAR                      DEFAULT NULL,
+    token_amount       VARCHAR                      DEFAULT NULL,
+    fee                VARCHAR                      DEFAULT NULL,
+    eth_tx_hash        VARCHAR                      DEFAULT NULL,
+    err_msg            VARCHAR                      DEFAULT NULL
+);
+        "#,
+        )
+        .execute(&db)
+        .await?;
         let db2 = db.clone();
         tokio::spawn(db_monitor(db2, alarm_url));
         Ok(Self {
@@ -147,7 +181,7 @@ async fn db_monitor_inner(pool: &SqlitePool, alarm_url: &str) -> Result<()> {
     });
     let msg = format!("db records stat: {:?}", &counter);
     log::info!(
-        "db records stat: {:?}, not successful records: {:?}",
+        "db records stat: {:?}\nnot successful records: {:?}",
         &counter,
         &records
     );
