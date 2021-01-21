@@ -43,15 +43,15 @@ impl DataLoader for Chain {
         load_cell_lock(index, source)
     }
 
-    fn load_script(&self) -> Result<Script, SysError> {
-        load_script()
-    }
-
     fn load_cell_type_hash(
         &self,
         index: usize,
         source: Source,
     ) -> Result<Option<[u8; 32]>, SysError> {
         load_cell_type_hash(index, source)
+    }
+
+    fn load_script(&self) -> Result<Script, SysError> {
+        load_script()
     }
 }

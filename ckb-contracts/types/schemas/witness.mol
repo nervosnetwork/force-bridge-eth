@@ -13,7 +13,6 @@ table MintTokenWitness {
 
 table ETHSPVProof {
     log_index: Uint64,
-    log_entry_data: Bytes,
     receipt_index: Uint64,
     receipt_data: Bytes,
     header_data: Bytes,
