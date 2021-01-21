@@ -1,6 +1,6 @@
 use crate::dapp::db::eth_relayer::{
-    delete_relayed_tx, get_mint_tasks, get_retry_tasks, last_relayed_number, store_mint_tasks,
-    update_relayed_tx, MintTask,
+    delete_relayed_tx, get_mint_tasks, get_retry_tasks, last_relayed_number, latest_index_number,
+    store_mint_tasks, update_relayed_tx, MintTask,
 };
 use crate::transfer::to_ckb::send_eth_spv_proof_tx;
 use crate::util::ckb_tx_generator::{Generator, CONFIRM};
@@ -75,16 +75,19 @@ impl EthTxRelayer {
 
     async fn relay(&self, last_relayed_number: u64) -> Result<u64> {
         let client_confirmed_number = self.client_confirmed_number().await?;
+        let latest_index_number = latest_index_number(&self.db_pool).await?;
         log::info!(
-            "eth relayer start relay round: last relayed number: {}, client confirmed number: {}",
+            "eth relayer start relay round: last relayed number: {}, client confirmed number: {}, latest index number: {}",
             last_relayed_number,
-            client_confirmed_number
+            client_confirmed_number,
+            latest_index_number
         );
+        let relay_to_number = std::cmp::min(client_confirmed_number, latest_index_number);
         let retry_tasks = get_retry_tasks(&self.db_pool).await?;
         log::debug!("get retry tasks: {:?}", &retry_tasks);
         log::info!("total retry tasks: {}", retry_tasks.len());
         let mut mint_tasks =
-            get_mint_tasks(&self.db_pool, last_relayed_number, client_confirmed_number).await?;
+            get_mint_tasks(&self.db_pool, last_relayed_number, relay_to_number).await?;
         log::debug!("get mint tasks: {:?}", &mint_tasks);
         log::info!("total mint tasks: {}", mint_tasks.len());
         store_mint_tasks(&self.db_pool, &mint_tasks).await?;
@@ -92,8 +95,8 @@ impl EthTxRelayer {
 
         let capacity_cells = self.capacity_cells_for_mint().await;
         if let Err(e) = capacity_cells {
-            log::info!("wait for capacity cells generated: {:?}", e);
-            return Ok(client_confirmed_number);
+            log::info!("get capacity cells for mint error: {:?}", e);
+            return Ok(relay_to_number);
         }
 
         let capacity_cells = capacity_cells.expect("succeed");
@@ -108,7 +111,7 @@ impl EthTxRelayer {
             join_all(mint_futures).await;
             log::info!("mint {} txs elapsed {:?}", mint_count, now.elapsed());
         }
-        Ok(client_confirmed_number)
+        Ok(relay_to_number)
     }
 
     async fn mint(&self, task: &MintTask, capacity_cell: &OutPoint) -> Result<()> {
@@ -174,9 +177,13 @@ impl EthTxRelayer {
         )
         .map_err(|e| anyhow!("get capacity cell error when mint: {:?}", e))?;
         if (capacity_cells.len() as u64) < self.mint_concurrency {
+            log::info!("capacity cells for this round not enough");
             self.generate_capacity_cells(&mut generator, from_lockscript.clone())
                 .await?;
-            Err(anyhow!("capacity cells for this round not enough"))
+            log::info!("generate capacity cells for mint success");
+            Err(anyhow!(
+                "capacity cells for this round not enough, next round will be ok"
+            ))
         } else {
             let ret = capacity_cells
                 .into_iter()
