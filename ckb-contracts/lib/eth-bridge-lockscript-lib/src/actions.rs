@@ -144,6 +144,7 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
     }
     debug!("proof: {:?}", hex::encode(proof[0].clone()));
 
+    // it will panic inside the function if the proof is invalid
     let receipt = ethspv::verify_log_entry(
         u64::from_le_bytes(receipt_index),
         receipt_data,
