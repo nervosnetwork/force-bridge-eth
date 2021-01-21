@@ -108,7 +108,12 @@ impl EthTxRelayer {
         if !mint_futures.is_empty() {
             log::info!("start send {} mint txs", mint_count);
             let now = Instant::now();
-            join_all(mint_futures).await;
+            let res_all = join_all(mint_futures).await;
+            for res in res_all.iter() {
+                if let Err(error) = res {
+                    log::error!("mint error : {:?}", error);
+                }
+            }
             log::info!("mint {} txs elapsed {:?}", mint_count, now.elapsed());
         }
         Ok(relay_to_number)
