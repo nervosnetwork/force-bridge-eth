@@ -349,7 +349,6 @@ impl ::core::fmt::Display for ETHSPVProof {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "log_index", self.log_index())?;
-        write!(f, ", {}: {}", "log_entry_data", self.log_entry_data())?;
         write!(f, ", {}: {}", "receipt_index", self.receipt_index())?;
         write!(f, ", {}: {}", "receipt_data", self.receipt_data())?;
         write!(f, ", {}: {}", "header_data", self.header_data())?;
@@ -364,15 +363,14 @@ impl ::core::fmt::Display for ETHSPVProof {
 impl ::core::default::Default for ETHSPVProof {
     fn default() -> Self {
         let v: Vec<u8> = vec![
-            60, 0, 0, 0, 28, 0, 0, 0, 36, 0, 0, 0, 40, 0, 0, 0, 48, 0, 0, 0, 52, 0, 0, 0, 56, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            4, 0, 0, 0,
+            52, 0, 0, 0, 24, 0, 0, 0, 32, 0, 0, 0, 40, 0, 0, 0, 44, 0, 0, 0, 48, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0,
         ];
         ETHSPVProof::new_unchecked(v.into())
     }
 }
 impl ETHSPVProof {
-    pub const FIELD_COUNT: usize = 6;
+    pub const FIELD_COUNT: usize = 5;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -395,35 +393,29 @@ impl ETHSPVProof {
         let end = molecule::unpack_number(&slice[8..]) as usize;
         Uint64::new_unchecked(self.0.slice(start..end))
     }
-    pub fn log_entry_data(&self) -> Bytes {
+    pub fn receipt_index(&self) -> Uint64 {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[8..]) as usize;
         let end = molecule::unpack_number(&slice[12..]) as usize;
-        Bytes::new_unchecked(self.0.slice(start..end))
-    }
-    pub fn receipt_index(&self) -> Uint64 {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[12..]) as usize;
-        let end = molecule::unpack_number(&slice[16..]) as usize;
         Uint64::new_unchecked(self.0.slice(start..end))
     }
     pub fn receipt_data(&self) -> Bytes {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        let end = molecule::unpack_number(&slice[16..]) as usize;
+        Bytes::new_unchecked(self.0.slice(start..end))
+    }
+    pub fn header_data(&self) -> Bytes {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[16..]) as usize;
         let end = molecule::unpack_number(&slice[20..]) as usize;
         Bytes::new_unchecked(self.0.slice(start..end))
     }
-    pub fn header_data(&self) -> Bytes {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[20..]) as usize;
-        let end = molecule::unpack_number(&slice[24..]) as usize;
-        Bytes::new_unchecked(self.0.slice(start..end))
-    }
     pub fn proof(&self) -> BytesVec {
         let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[24..]) as usize;
+        let start = molecule::unpack_number(&slice[20..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[28..]) as usize;
+            let end = molecule::unpack_number(&slice[24..]) as usize;
             BytesVec::new_unchecked(self.0.slice(start..end))
         } else {
             BytesVec::new_unchecked(self.0.slice(start..))
@@ -457,7 +449,6 @@ impl molecule::prelude::Entity for ETHSPVProof {
     fn as_builder(self) -> Self::Builder {
         Self::new_builder()
             .log_index(self.log_index())
-            .log_entry_data(self.log_entry_data())
             .receipt_index(self.receipt_index())
             .receipt_data(self.receipt_data())
             .header_data(self.header_data())
@@ -484,7 +475,6 @@ impl<'r> ::core::fmt::Display for ETHSPVProofReader<'r> {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "{} {{ ", Self::NAME)?;
         write!(f, "{}: {}", "log_index", self.log_index())?;
-        write!(f, ", {}: {}", "log_entry_data", self.log_entry_data())?;
         write!(f, ", {}: {}", "receipt_index", self.receipt_index())?;
         write!(f, ", {}: {}", "receipt_data", self.receipt_data())?;
         write!(f, ", {}: {}", "header_data", self.header_data())?;
@@ -497,7 +487,7 @@ impl<'r> ::core::fmt::Display for ETHSPVProofReader<'r> {
     }
 }
 impl<'r> ETHSPVProofReader<'r> {
-    pub const FIELD_COUNT: usize = 6;
+    pub const FIELD_COUNT: usize = 5;
     pub fn total_size(&self) -> usize {
         molecule::unpack_number(self.as_slice()) as usize
     }
@@ -520,35 +510,29 @@ impl<'r> ETHSPVProofReader<'r> {
         let end = molecule::unpack_number(&slice[8..]) as usize;
         Uint64Reader::new_unchecked(&self.as_slice()[start..end])
     }
-    pub fn log_entry_data(&self) -> BytesReader<'r> {
+    pub fn receipt_index(&self) -> Uint64Reader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[8..]) as usize;
         let end = molecule::unpack_number(&slice[12..]) as usize;
-        BytesReader::new_unchecked(&self.as_slice()[start..end])
-    }
-    pub fn receipt_index(&self) -> Uint64Reader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[12..]) as usize;
-        let end = molecule::unpack_number(&slice[16..]) as usize;
         Uint64Reader::new_unchecked(&self.as_slice()[start..end])
     }
     pub fn receipt_data(&self) -> BytesReader<'r> {
+        let slice = self.as_slice();
+        let start = molecule::unpack_number(&slice[12..]) as usize;
+        let end = molecule::unpack_number(&slice[16..]) as usize;
+        BytesReader::new_unchecked(&self.as_slice()[start..end])
+    }
+    pub fn header_data(&self) -> BytesReader<'r> {
         let slice = self.as_slice();
         let start = molecule::unpack_number(&slice[16..]) as usize;
         let end = molecule::unpack_number(&slice[20..]) as usize;
         BytesReader::new_unchecked(&self.as_slice()[start..end])
     }
-    pub fn header_data(&self) -> BytesReader<'r> {
-        let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[20..]) as usize;
-        let end = molecule::unpack_number(&slice[24..]) as usize;
-        BytesReader::new_unchecked(&self.as_slice()[start..end])
-    }
     pub fn proof(&self) -> BytesVecReader<'r> {
         let slice = self.as_slice();
-        let start = molecule::unpack_number(&slice[24..]) as usize;
+        let start = molecule::unpack_number(&slice[20..]) as usize;
         if self.has_extra_fields() {
-            let end = molecule::unpack_number(&slice[28..]) as usize;
+            let end = molecule::unpack_number(&slice[24..]) as usize;
             BytesVecReader::new_unchecked(&self.as_slice()[start..end])
         } else {
             BytesVecReader::new_unchecked(&self.as_slice()[start..])
@@ -607,31 +591,25 @@ impl<'r> molecule::prelude::Reader<'r> for ETHSPVProofReader<'r> {
             return ve!(Self, OffsetsNotMatch);
         }
         Uint64Reader::verify(&slice[offsets[0]..offsets[1]], compatible)?;
-        BytesReader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
-        Uint64Reader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
+        Uint64Reader::verify(&slice[offsets[1]..offsets[2]], compatible)?;
+        BytesReader::verify(&slice[offsets[2]..offsets[3]], compatible)?;
         BytesReader::verify(&slice[offsets[3]..offsets[4]], compatible)?;
-        BytesReader::verify(&slice[offsets[4]..offsets[5]], compatible)?;
-        BytesVecReader::verify(&slice[offsets[5]..offsets[6]], compatible)?;
+        BytesVecReader::verify(&slice[offsets[4]..offsets[5]], compatible)?;
         Ok(())
     }
 }
 #[derive(Debug, Default)]
 pub struct ETHSPVProofBuilder {
     pub(crate) log_index: Uint64,
-    pub(crate) log_entry_data: Bytes,
     pub(crate) receipt_index: Uint64,
     pub(crate) receipt_data: Bytes,
     pub(crate) header_data: Bytes,
     pub(crate) proof: BytesVec,
 }
 impl ETHSPVProofBuilder {
-    pub const FIELD_COUNT: usize = 6;
+    pub const FIELD_COUNT: usize = 5;
     pub fn log_index(mut self, v: Uint64) -> Self {
         self.log_index = v;
-        self
-    }
-    pub fn log_entry_data(mut self, v: Bytes) -> Self {
-        self.log_entry_data = v;
         self
     }
     pub fn receipt_index(mut self, v: Uint64) -> Self {
@@ -657,7 +635,6 @@ impl molecule::prelude::Builder for ETHSPVProofBuilder {
     fn expected_length(&self) -> usize {
         molecule::NUMBER_SIZE * (Self::FIELD_COUNT + 1)
             + self.log_index.as_slice().len()
-            + self.log_entry_data.as_slice().len()
             + self.receipt_index.as_slice().len()
             + self.receipt_data.as_slice().len()
             + self.header_data.as_slice().len()
@@ -668,8 +645,6 @@ impl molecule::prelude::Builder for ETHSPVProofBuilder {
         let mut offsets = Vec::with_capacity(Self::FIELD_COUNT);
         offsets.push(total_size);
         total_size += self.log_index.as_slice().len();
-        offsets.push(total_size);
-        total_size += self.log_entry_data.as_slice().len();
         offsets.push(total_size);
         total_size += self.receipt_index.as_slice().len();
         offsets.push(total_size);
@@ -683,7 +658,6 @@ impl molecule::prelude::Builder for ETHSPVProofBuilder {
             writer.write_all(&molecule::pack_number(offset as molecule::Number))?;
         }
         writer.write_all(self.log_index.as_slice())?;
-        writer.write_all(self.log_entry_data.as_slice())?;
         writer.write_all(self.receipt_index.as_slice())?;
         writer.write_all(self.receipt_data.as_slice())?;
         writer.write_all(self.header_data.as_slice())?;

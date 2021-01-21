@@ -345,7 +345,6 @@ impl TryFrom<ETHSPVProofJson> for witness::ETHSPVProof {
         }
         Ok(witness::ETHSPVProof::new_builder()
             .log_index(proof.log_index.into())
-            .log_entry_data(hex::decode(clear_0x(&proof.log_entry_data))?.into())
             .receipt_index(proof.receipt_index.into())
             .receipt_data(hex::decode(clear_0x(&proof.receipt_data))?.into())
             .header_data(hex::decode(clear_0x(&proof.header_data))?.into())
