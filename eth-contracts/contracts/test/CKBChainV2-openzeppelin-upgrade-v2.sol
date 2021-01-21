@@ -2,19 +2,19 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import {TypedMemView} from "./libraries/TypedMemView.sol";
-import {Blake2b} from "./libraries/Blake2b.sol";
-import {SafeMath} from "./libraries/SafeMath.sol";
-import {ViewCKB} from "./libraries/ViewCKB.sol";
-import {ViewSpv} from "./libraries/ViewSpv.sol";
-import {ICKBChainV2} from "./interfaces/ICKBChainV2.sol";
-import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
-import {MultisigUtils} from "./libraries/MultisigUtils.sol";
+import {TypedMemView} from "../libraries/TypedMemView.sol";
+import {Blake2b} from "../libraries/Blake2b.sol";
+import {SafeMath} from "../libraries/SafeMath.sol";
+import {ViewCKB} from "../libraries/ViewCKB.sol";
+import {ViewSpv} from "../libraries/ViewSpv.sol";
+import {ICKBChainV2} from "../interfaces/ICKBChainV2.sol";
+import {ICKBSpv} from "../interfaces/ICKBSpv.sol";
+import {MultisigUtils} from "../libraries/MultisigUtils.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
-contract CKBChainV2 is ICKBChainV2, ICKBSpv {
+contract CKBChainV2UpgradeV2 is ICKBChainV2, ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
