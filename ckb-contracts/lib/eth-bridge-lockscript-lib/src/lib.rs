@@ -6,8 +6,6 @@ extern crate no_std_compat as std;
 
 pub mod actions;
 pub mod adapter;
-#[cfg(test)]
-mod test;
 
 use adapter::Adapter;
 use force_eth_types::generated::witness::MintTokenWitnessReader;
