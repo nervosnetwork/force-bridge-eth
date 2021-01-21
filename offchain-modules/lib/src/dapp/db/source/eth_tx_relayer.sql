@@ -5,7 +5,7 @@ CREATE TABLE `eth_tx_relayer` (
   `block_number` bigint(11) unsigned NOT NULL,
   `lock_tx_hash` varchar(64) NOT NULL DEFAULT '',
   `status` varchar(40) NOT NULL DEFAULT 'pending',
-  `err_msg` varchar(256) DEFAULT '',
+  `err_msg` varchar(5120) DEFAULT '',
   `lock_tx_proof` varchar(10240) DEFAULT NULL,
   `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
