@@ -489,18 +489,14 @@ impl TxHelper {
             get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
-        let mut from_capacity: u64 = self
-            .transaction
-            .inputs()
-            .into_iter()
-            .map(|input| {
-                let cap: u64 = get_live_cell_fn(input.previous_output(), false)
-                    .expect("input not exist")
-                    .capacity()
-                    .unpack();
-                cap
-            })
-            .sum();
+        let mut from_capacity: u64 = 0;
+        for input in self.transaction.inputs() {
+            let cap: u64 = get_live_cell_fn(input.previous_output(), false)
+                .map_err(|err| format!("input not exist by {:?}", err))?
+                .capacity()
+                .unpack();
+            from_capacity += cap;
+        }
         let to_capacity: u64 = self
             .transaction
             .outputs()
