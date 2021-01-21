@@ -11,7 +11,7 @@ import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {Address} from "./libraries/Address.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
-contract TokenLocker {
+contract TokenLockerRaw {
     using SafeMath for uint256;
     using Address for address;
     using TypedMemView for bytes;

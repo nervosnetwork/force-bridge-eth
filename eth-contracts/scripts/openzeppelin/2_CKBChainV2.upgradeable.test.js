@@ -131,7 +131,7 @@ contract('CKBChainV2 openzeppelin upgradeable', () => {
 
     it('upgrade to v2, use v2 contract', async function () {
       factory = await ethers.getContractFactory(
-        'contracts/CKBChainV2-openzeppelin-v2.sol:CKBChainV2'
+        'contracts/CKBChainV2-openzeppelin-upgrade-v2.sol:CKBChainV2'
       );
 
       const contract = await retryPromise(
