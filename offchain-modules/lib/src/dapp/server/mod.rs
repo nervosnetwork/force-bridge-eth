@@ -246,6 +246,7 @@ pub async fn start(
         App::new()
             .wrap(cors)
             .data(dapp_state.clone())
+            .service(init_token)
             .service(lock)
             .service(burn)
             .service(get_eth_to_ckb_status)
