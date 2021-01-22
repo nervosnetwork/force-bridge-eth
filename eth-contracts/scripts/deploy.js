@@ -122,9 +122,9 @@ async function deploy() {
   fs.writeFileSync(forceConfigPath, new_config);
   console.error('write eth addr into config successfully');
 
-  const tokenLockerJson = require('../artifacts/contracts/TokenLocker.sol/TokenLocker.json');
+  const tokenLockerJson = require('../artifacts/contracts/TokenLocker-openzeppelin-v2.sol/TokenLocker.json');
   const lockerABI = tokenLockerJson.abi;
-  const ckbChainJSON = require('../artifacts/contracts/CKBChain.sol/CKBChain.json');
+  const ckbChainJSON = require('../artifacts/contracts/CKBChainV2-openzeppelin.sol/CKBChainV2.json');
   const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
     '../offchain-modules/lib/src/util/token_locker_abi.json',
