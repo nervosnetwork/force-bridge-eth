@@ -1,10 +1,10 @@
 use crate::dapp::db::indexer::{
-    create_eth_to_ckb_record, delete_eth_to_ckb_records, get_ckb_to_eth_record_by_eth_hash,
-    get_eth_unconfirmed_block, get_eth_unconfirmed_blocks, get_height_info,
-    get_max_eth_unconfirmed_block, insert_eth_unconfirmed_block, is_eth_to_ckb_record_exist,
-    reset_ckb_to_eth_record_status, update_ckb_to_eth_record_status,
-    update_cross_chain_height_info, update_eth_unconfirmed_block, EthToCkbRecord,
-    EthUnConfirmedBlock,
+    create_eth_to_ckb_record, delete_eth_to_ckb_records, delete_eth_unconfirmed_block,
+    get_ckb_to_eth_record_by_eth_hash, get_eth_unconfirmed_block, get_eth_unconfirmed_blocks,
+    get_height_info, get_max_eth_unconfirmed_block, insert_eth_unconfirmed_block,
+    insert_eth_unconfirmed_blocks, is_eth_to_ckb_record_exist, reset_ckb_to_eth_record_status,
+    update_ckb_to_eth_record_status, update_cross_chain_height_info, update_eth_unconfirmed_block,
+    EthToCkbRecord, EthUnConfirmedBlock,
 };
 use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
@@ -110,12 +110,13 @@ impl<T: IndexerFilter> EthIndexer<T> {
         let mut unconfirmed_blocks = get_eth_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
+            let mut start = 0;
+            if start_block_number > ETH_CHAIN_CONFIRMED as u64 {
+                start = start_block_number - ETH_CHAIN_CONFIRMED as u64;
+            }
             let blocks = self
                 .eth_client
-                .get_blocks(
-                    start_block_number - ETH_CHAIN_CONFIRMED as u64,
-                    start_block_number,
-                )
+                .get_blocks(start, start_block_number)
                 .await?;
             for item in blocks {
                 let number = item
@@ -129,19 +130,27 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 };
                 unconfirmed_blocks.push(record);
             }
-            insert_eth_unconfirmed_block(&self.db, &unconfirmed_blocks).await?;
+            insert_eth_unconfirmed_blocks(&self.db, &unconfirmed_blocks).await?;
         }
 
         let mut tail = get_max_eth_unconfirmed_block(&self.db)
             .await?
             .ok_or_else(|| anyhow!("the tail is not exist"))?;
-        if unconfirmed_blocks.len() != ETH_CHAIN_CONFIRMED || tail.number + 1 != start_block_number
+        // if unconfirmed_blocks.len() != ETH_CHAIN_CONFIRMED || tail.number + 1 != start_block_number
+        log::info!(
+            "tail number: {:?}, start number: {:?}",
+            tail.number,
+            start_block_number
+        );
+        if unconfirmed_blocks[unconfirmed_blocks.len() - 1].hash != tail.hash
+            || tail.number + 1 != start_block_number
         {
             anyhow::bail!("system error! the unconfirmed_blocks is invalid.")
         }
         let mut re_org = false;
 
         loop {
+            log::info!("handle block number: {:?}", start_block_number);
             let block = self
                 .eth_client
                 .get_block(U64::from(start_block_number).into())
@@ -160,7 +169,8 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 block = self
                     .lookup_common_ancestor_in_eth(
                         &unconfirmed_blocks,
-                        (ETH_CHAIN_CONFIRMED - 1) as isize,
+                        // (ETH_CHAIN_CONFIRMED - 1) as isize,
+                        (unconfirmed_blocks.len() - 1) as isize,
                     )
                     .await?;
                 start_block_number = block
@@ -168,6 +178,15 @@ impl<T: IndexerFilter> EthIndexer<T> {
                     .ok_or_else(|| anyhow!("invalid block number"))?
                     .as_u64()
                     + 1;
+                unconfirmed_blocks = unconfirmed_blocks
+                    .into_iter()
+                    .filter(|s| s.number < start_block_number)
+                    .collect();
+                block = self
+                    .eth_client
+                    .get_block(U64::from(start_block_number).into())
+                    .await
+                    .map_err(|err| anyhow!(err))?;
             }
             let txs = block.transactions;
             let mut lock_records = vec![];
@@ -186,17 +205,34 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 }
             }
             height_info = get_height_info(&self.db).await?;
-            let mut unconfirmed_block = get_eth_unconfirmed_block(
-                &self.db,
-                start_block_number % ETH_CHAIN_CONFIRMED as u64,
-            )
-            .await?
-            .ok_or_else(|| anyhow!("the block is not exist"))?;
+            let mut unconfirmed_block;
+            let hash_str = hex::encode(
+                block
+                    .hash
+                    .ok_or_else(|| anyhow!("the block is not exist"))?,
+            );
+            if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
+                unconfirmed_block = EthUnConfirmedBlock {
+                    id: start_block_number % ETH_CHAIN_CONFIRMED as u64,
+                    number: start_block_number,
+                    hash: hash_str,
+                };
+            } else {
+                unconfirmed_block = get_eth_unconfirmed_block(
+                    &self.db,
+                    start_block_number % ETH_CHAIN_CONFIRMED as u64,
+                )
+                .await?
+                .ok_or_else(|| anyhow!("the block is not exist"))?;
+                unconfirmed_block.number = start_block_number;
+                unconfirmed_block.hash = hash_str;
+            }
             let mut db_tx = self.db.begin().await?;
             if re_org {
                 // delete eth to ckb record while the block number > start_block_number
                 delete_eth_to_ckb_records(&mut db_tx, start_block_number).await?;
                 reset_ckb_to_eth_record_status(&mut db_tx, start_block_number).await?;
+                delete_eth_unconfirmed_block(&mut db_tx, start_block_number).await?;
             }
             if !lock_records.is_empty() {
                 create_eth_to_ckb_record(&mut db_tx, &lock_records).await?;
@@ -218,17 +254,16 @@ impl<T: IndexerFilter> EthIndexer<T> {
             height_info.eth_height = start_block_number;
             height_info.eth_client_height = light_client_height;
             update_cross_chain_height_info(&mut db_tx, &height_info).await?;
-
-            unconfirmed_block.number = start_block_number;
-            unconfirmed_block.hash = hex::encode(
-                block
-                    .hash
-                    .ok_or_else(|| anyhow!("the block is not exist"))?,
-            );
-            update_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+            if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
+                insert_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
+            } else {
+                update_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+                unconfirmed_blocks.remove(0);
+            }
             db_tx.commit().await?;
-            tail = unconfirmed_block;
             start_block_number += 1;
+            tail = unconfirmed_block.clone();
+            unconfirmed_blocks.push(unconfirmed_block);
         }
     }
 

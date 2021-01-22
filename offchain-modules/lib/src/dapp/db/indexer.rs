@@ -60,14 +60,14 @@ pub async fn get_max_eth_unconfirmed_block(
 }
 
 pub async fn get_eth_unconfirmed_blocks(pool: &MySqlPool) -> Result<Vec<EthUnConfirmedBlock>> {
-    let sql = r#"select * from eth_unconfirmed_block"#;
+    let sql = r#"select * from eth_unconfirmed_block order by number"#;
     let ret = sqlx::query_as::<_, EthUnConfirmedBlock>(sql)
         .fetch_all(pool)
         .await?;
     Ok(ret)
 }
 
-pub async fn insert_eth_unconfirmed_block(
+pub async fn insert_eth_unconfirmed_blocks(
     pool: &MySqlPool,
     records: &[EthUnConfirmedBlock],
 ) -> Result<()> {
@@ -91,6 +91,21 @@ VALUES ",
     Ok(())
 }
 
+pub async fn insert_eth_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    record: &EthUnConfirmedBlock,
+) -> Result<()> {
+    let sql = r#"insert into eth_unconfirmed_block(id, number, hash)
+    values(?,?,?)"#;
+    sqlx::query(sql)
+        .bind(record.id)
+        .bind(record.number)
+        .bind(record.hash.clone())
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn update_eth_unconfirmed_block(
     pool: &mut Transaction<'_, MySql>,
     record: &EthUnConfirmedBlock,
@@ -103,6 +118,15 @@ pub async fn update_eth_unconfirmed_block(
         .bind(record.id)
         .execute(pool)
         .await?;
+    Ok(())
+}
+
+pub async fn delete_eth_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    number: u64,
+) -> Result<()> {
+    let sql = r"delete from eth_unconfirmed_block where number >= ?";
+    sqlx::query(sql).bind(number).execute(pool).await?;
     Ok(())
 }
 
@@ -143,7 +167,7 @@ pub async fn get_ckb_unconfirmed_blocks(pool: &MySqlPool) -> Result<Vec<CkbUnCon
     Ok(ret)
 }
 
-pub async fn insert_ckb_unconfirmed_block(
+pub async fn insert_ckb_unconfirmed_blocks(
     pool: &MySqlPool,
     records: &[CkbUnConfirmedBlock],
 ) -> Result<()> {
@@ -167,6 +191,15 @@ VALUES ",
     Ok(())
 }
 
+pub async fn delete_ckb_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    number: u64,
+) -> Result<()> {
+    let sql = r"delete from ckb_unconfirmed_block where number >= ?";
+    sqlx::query(sql).bind(number).execute(pool).await?;
+    Ok(())
+}
+
 pub async fn update_ckb_unconfirmed_block(
     pool: &mut Transaction<'_, MySql>,
     record: &CkbUnConfirmedBlock,
@@ -177,6 +210,21 @@ pub async fn update_ckb_unconfirmed_block(
         .bind(record.number)
         .bind(record.hash.clone())
         .bind(record.id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn insert_ckb_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    record: &CkbUnConfirmedBlock,
+) -> Result<()> {
+    let sql = r#"insert into ckb_unconfirmed_block(id, number, hash)
+    values(?,?,?)"#;
+    sqlx::query(sql)
+        .bind(record.id)
+        .bind(record.number)
+        .bind(record.hash.clone())
         .execute(pool)
         .await?;
     Ok(())
