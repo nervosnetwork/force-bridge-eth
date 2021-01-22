@@ -246,9 +246,8 @@ contract CKBChainV2 is ICKBChainV2, ICKBSpv {
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
 
-        // TODO use safeMath for blockNumber + numConfirmations calc
         require(
-            blockNumber + numConfirmations <= latestBlockNumber,
+            uint256(blockNumber) + uint256(numConfirmations) <= uint256(latestBlockNumber),
             "blockNumber from txProofData is too ahead of the latestBlockNumber"
         );
         require(

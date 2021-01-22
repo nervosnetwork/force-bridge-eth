@@ -2,13 +2,14 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "./interfaces/IERC20.sol";
 import {CKBCrypto} from "./libraries/CKBCrypto.sol";
 import {TypedMemView} from "./libraries/TypedMemView.sol";
 import {SafeMath} from "./libraries/SafeMath.sol";
 import {CKBTxView} from "./libraries/CKBTxView.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {Address} from "./libraries/Address.sol";
+import {SafeERC20} from "./libraries/SafeERC20.sol";
+import {IERC20} from "./interfaces/IERC20.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
 contract TokenLocker {
@@ -18,6 +19,7 @@ contract TokenLocker {
     using TypedMemView for bytes29;
     using CKBTxView for bytes29;
     using ViewSpv for bytes29;
+    using SafeERC20 for IERC20;
 
     bool public initialized;
     uint8 public recipientCellTypescriptHashType_;
@@ -95,8 +97,7 @@ contract TokenLocker {
         bytes memory sudtExtraData
     ) public {
         require(amount > bridgeFee, "fee should not exceed bridge amount");
-        // TODO modify `transferFrom` to `safeTransferFrom`
-        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         emit Locked(
             token,
             msg.sender,
@@ -121,20 +122,17 @@ contract TokenLocker {
         require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
         uint256 receivedAmount = bridgeAmount - bridgeFee;
 
-        // TODO modify `transfer` to `safeTransfer`
         // if token == ETH
         if (tokenAddress == address(0)) {
-            recipientAddress.toPayable().transfer(receivedAmount);
+            payable(recipientAddress).transfer(receivedAmount);
             payable(msg.sender).transfer(bridgeFee);
         } else {
-            IERC20(tokenAddress).transfer(recipientAddress, receivedAmount);
-            IERC20(tokenAddress).transfer(msg.sender, bridgeFee);
+            IERC20(tokenAddress).safeTransfer(recipientAddress, receivedAmount);
+            IERC20(tokenAddress).safeTransfer(msg.sender, bridgeFee);
         }
 
         emit Unlocked(tokenAddress, recipientAddress, msg.sender, receivedAmount, bridgeFee);
     }
-
-    // TODO refund function
 
     function decodeBurnResult(bytes memory ckbTx) public view returns (
         uint256 bridgeAmount,
