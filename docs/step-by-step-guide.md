@@ -1,5 +1,22 @@
 # A Step-by-step Guide of Force Bridge Crosschain Process
 
+- [A Step-by-step Guide of Force Bridge Crosschain Process](#a-step-by-step-guide-of-force-bridge-crosschain-process)
+  - [transfer from Ethereum Chain to CKB Chain](#transfer-from-ethereum-chain-to-ckb-chain)
+    - [lock ETH on Ethereum](#lock-eth-on-ethereum)
+    - [mint ckETH on CKB Chain](#mint-cketh-on-ckb-chain)
+      - [Ethereum light client cell](#ethereum-light-client-cell)
+      - [bridge cell typescript](#bridge-cell-typescript)
+      - [bridge cell lockscript](#bridge-cell-lockscript)
+      - [bridge cell witness](#bridge-cell-witness)
+      - [outputs](#outputs)
+  - [transfer CKB mirror token back to Ethereum](#transfer-ckb-mirror-token-back-to-ethereum)
+    - [burn CKB mirror token](#burn-ckb-mirror-token)
+    - [unlock on Ethereum](#unlock-on-ethereum)
+  - [run the whole process locally](#run-the-whole-process-locally)
+  - [bridge cell governance](#bridge-cell-governance)
+    - [simple eth bridge typescript](#simple-eth-bridge-typescript)
+    - [eth bridge typescript](#eth-bridge-typescript)
+
 This is a step by step guide to understand the crosschain process of force bridge.
 
 This doc is based on commit [f34dac2146bb5ea1facd353c32b2fea0010e01f3](https://github.com/nervosnetwork/force-bridge-eth/tree/f34dac2146bb5ea1facd353c32b2fea0010e01f3).
@@ -53,9 +70,9 @@ Let's talk about the parameters here.
 - replayResistOutpoint. This is a parameter to resist replay attack on CKB, we'll talk about it later.
 - sudtExtraData. [SUDT](https://github.com/nervosnetwork/ckb-miscellaneous-scripts/blob/master/c/simple_udt.c) is a user defined token standard on CKB. It uses the first 16 bytes of cell data as u128 to represent amount. Users can extend it with data after that. So you can specify sudtExtraData when you lock asset. For DApps which use lockscript and sudt extended data, you can interact with them in one step, e.g. you can get an dex order  instead of a normal sudt cell when you crosschain. For normal asset transfer, you can just use an empty bytes.
 
-When the lock ETH transaction is confirmed on Ethereum. The first step is finished. 
+When the lock ETH transaction is confirmed on Ethereum. The first step is finished.
 
-We can compose the merkle-patricia-proof as long as we get the transaction receipt. 
+We can compose the merkle-patricia-proof as long as we get the transaction receipt.
 
 The ideas here is:
 - We maintained an Ethereum light client on CKB. We can verify that a block hash in valid.
@@ -85,9 +102,9 @@ Here are some additional description.
 
 This cell maintains the Ethereum light client. We refer it in cell deps to verify the proof in witness.
 
-The typescript of the cell is [eth-light-client-typescript](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/lib/eth-light-client-typescript-lib/src/lib.rs). 
+The typescript of the cell is [eth-light-client-typescript](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/lib/eth-light-client-typescript-lib/src/lib.rs).
 
-The typescript itself ensures there will be at most one live cell on CKB Chain with the same typescript hash. So we can use it in bridge cell lockscript args to prevent someone use fake light client to compose fake proof and mint token. 
+The typescript itself ensures there will be at most one live cell on CKB Chain with the same typescript hash. So we can use it in bridge cell lockscript args to prevent someone use fake light client to compose fake proof and mint token.
 
 The lockscript of the cell is [multi-sig script](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0024-ckb-system-script-list/0024-ckb-system-script-list.md#secp256k1multisig) in CKB system script. So the committee who maintains the light client cell can update this cell data with their signatures.
 
@@ -115,7 +132,7 @@ It is an extended gov script. We can leave it null here. But the risk here is th
 
 This is the most important script in this tx. It verifies most of the crosschain logics.
 
-The args is a byte array serialized with [molecule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0008-serialization/0008-serialization.md). The structure is defined [here](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/eth_bridge_lock_cell.mol). 
+The args is a byte array serialized with [molecule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0008-serialization/0008-serialization.md). The structure is defined [here](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/eth_bridge_lock_cell.mol).
 
 ```
 struct ETHBridgeLockArgs {
@@ -128,13 +145,13 @@ struct ETHBridgeLockArgs {
 There are 3 fields in args:
 - eth_contract_address. It is the bridge contract address on CKB. We will check it in the contract to prevent that someone uses fake contract to compose spv proof.
 - eth_token_address. It is the asset address on Ethereum. For ETH, it is 0x0000000000000000000000000000000000000000, for ERC20, it is the ERC20 contract address.
-- light_client_typescript_hash. This is the unique identity of Ethereum light client cell. 
+- light_client_typescript_hash. This is the unique identity of Ethereum light client cell.
 
 As long as we deployed all the contracts and set up the Ethereum light client, eth_contract_address and light_client_typescript_hash will be fixed. But the eth_token_address differs when you transfer different asset. The bridge cell lockscript hash will be used as the [sudt owner hash](https://github.com/nervosnetwork/ckb-miscellaneous-scripts/blob/master/c/simple_udt.c). The owner hash is the identity of an sudt on CKB Chain(just like ERC20 address on Ethereum). For different eth_token_address here, we'll have the associated sudt in the outputs. This is how we support ETH and all ERC20s crosschain without deploy new contracts.
 
 #### bridge cell witness
 
-The witness structure is defined at [witness.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/witness.mol). 
+The witness structure is defined at [witness.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/witness.mol).
 
 ```
 table MintTokenWitness {
