@@ -226,7 +226,6 @@ pub async fn start(
                         .try_refresh_replay_resist_cells(&token, is_refreshing_replay_resist_cell)
                         .await;
                     if ret.is_err() {
-
                         log::error!(
                             "refresh replay resist cells error: {:?} {:?}",
                             &token,
