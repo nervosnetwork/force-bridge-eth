@@ -69,19 +69,7 @@ fn get_correct_case() -> TestCase {
         cell_deps: vec![CellDepView::ETHBridgeLockCellDep(ETHBridgeLockDep {
             start_height: 0,
             latest_height: 100,
-            merkle_root: [175u8,
-                67,
-                243,
-                141,
-                58,
-                48,
-                69,
-                47,
-                119,
-                171,
-                231,
-                65,
-                46, 177, 226, 106, 51, 80, 177, 154, 197, 96, 93, 198, 1, 140, 58, 88, 207, 8, 99, 82,],
+            merkle_root: [175u8, 67, 243, 141, 58, 48, 69, 47, 119, 171, 231, 65, 46, 177, 226, 106, 51, 80, 177, 154, 197, 96, 93, 198, 1, 140, 58, 88, 207, 8, 99, 82,],
         })],
         script_cells: CustomCells {
             inputs: vec![CustomCell::ETHBridgeCustomCell(ETHBridgeCell {
