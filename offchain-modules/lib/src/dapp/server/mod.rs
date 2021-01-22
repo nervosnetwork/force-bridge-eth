@@ -109,7 +109,7 @@ impl DappState {
         .await
     }
 
-    pub async fn refresh_replay_resist_cells(
+    pub async fn try_refresh_replay_resist_cells(
         &self,
         token: &str,
         is_refreshing: Arc<Mutex<bool>>,
@@ -118,6 +118,7 @@ impl DappState {
             .get_or_create_bridge_cell(token, REPLAY_RESIST_CELL_NUMBER * 2)
             .await?;
         let mut is_refreshing = is_refreshing.lock().await;
+        *is_refreshing = false;
         let (delete_cells, add_cells) = self
             .prepare_cell_modification(fresh_cells, token.to_string())
             .await?;
@@ -133,7 +134,6 @@ impl DappState {
             token,
             delete_cells.len()
         );
-        *is_refreshing = false;
         Ok(())
     }
 
@@ -223,7 +223,7 @@ pub async fn start(
                 let token = task.token.clone();
                 tokio::spawn(async move {
                     let ret = dapp_state_for_refresh
-                        .refresh_replay_resist_cells(&token, is_refreshing_replay_resist_cell)
+                        .try_refresh_replay_resist_cells(&token, is_refreshing_replay_resist_cell)
                         .await;
                     if ret.is_err() {
                         log::error!(
