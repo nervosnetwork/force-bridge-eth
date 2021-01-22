@@ -14,12 +14,13 @@ pub struct DexFilter {
 
 impl IndexerFilter for DexFilter {
     fn filter(&self, data: String) -> bool {
-        let recipient_lockscript_res = parse_cell(data.as_str());
-        if let Ok(recipient_lockscript) = recipient_lockscript_res {
-            if hex::encode(recipient_lockscript.code_hash().as_slice()) == self.code_hash {
-                return true;
-            }
-        }
-        false
+        true
+        // let recipient_lockscript_res = parse_cell(data.as_str());
+        // if let Ok(recipient_lockscript) = recipient_lockscript_res {
+        //     if hex::encode(recipient_lockscript.code_hash().as_slice()) == self.code_hash {
+        //         return true;
+        //     }
+        // }
+        // false
     }
 }

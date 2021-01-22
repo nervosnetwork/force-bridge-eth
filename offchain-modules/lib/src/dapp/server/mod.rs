@@ -257,7 +257,7 @@ pub async fn start(
             .service(settings)
             .service(index)
     })
-    .workers(80)
+    .workers(100)
     .bind(&listen_url)?
     .run()
     .await?;
