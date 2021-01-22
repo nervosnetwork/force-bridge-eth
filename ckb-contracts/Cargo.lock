@@ -3487,6 +3487,7 @@ dependencies = [
  "rlp",
  "serde",
  "serde_json",
+ "sparse-merkle-tree",
 ]
 
 [[package]]
