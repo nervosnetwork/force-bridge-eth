@@ -6,7 +6,7 @@ CREATE TABLE `eth_tx_relayer` (
   `lock_tx_hash` varchar(64) NOT NULL DEFAULT '',
   `status` varchar(40) NOT NULL DEFAULT 'pending',
   `err_msg` varchar(5120) DEFAULT '',
-  `lock_tx_proof` varchar(10240) DEFAULT NULL,
+  `lock_tx_proof` varchar(20480) DEFAULT NULL,
   `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

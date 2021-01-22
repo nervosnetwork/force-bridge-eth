@@ -26,6 +26,16 @@ pub struct RelayStatus {
     pub err_msg: String,
 }
 
+pub async fn is_token_replay_resist_init(pool: &MySqlPool) -> Result<bool> {
+    let sql = r#"
+SELECT id, outpoint FROM replay_resist_cells order by id desc limit 1
+    "#;
+    let block_number = sqlx::query_as::<_, ReplayResistCell>(sql)
+        .fetch_optional(pool)
+        .await?;
+    Ok(block_number.map_or(false, |_| true))
+}
+
 pub async fn delete_replay_resist_cells(pool: &MySqlPool, cells: &[u64]) -> Result<()> {
     let mut tx = pool.begin().await?;
     let sql = r#"

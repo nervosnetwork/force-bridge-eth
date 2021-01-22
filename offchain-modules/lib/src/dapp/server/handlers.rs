@@ -2,7 +2,9 @@ use super::errors::RpcError;
 use super::types::*;
 use super::REPLAY_RESIST_CELL_NUMBER;
 use super::{DappState, ReplayResistTask};
-use crate::dapp::db::server::{self as db, add_replay_resist_cells, CrosschainHistory};
+use crate::dapp::db::server::{
+    self as db, add_replay_resist_cells, is_token_replay_resist_init, CrosschainHistory,
+};
 use crate::util::ckb_util::{
     build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
 };
@@ -30,6 +32,12 @@ pub async fn init_token(
     let args: InitTokenArgs = serde_json::from_value(args.into_inner())
         .map_err(|e| RpcError::BadRequest(format!("invalid args: {}", e)))?;
     log::info!("init token args: {:?}", args);
+    let is_token_init = is_token_replay_resist_init(&data.db).await.map_err(|e| {
+        RpcError::ServerError(format!("get is_token_replay_resist_init error: {}", e))
+    })?;
+    if is_token_init {
+        return Err(RpcError::BadRequest("token already inited".to_string()));
+    }
     let cells = data
         .get_or_create_bridge_cell(args.token_address.as_str(), REPLAY_RESIST_CELL_NUMBER)
         .await
