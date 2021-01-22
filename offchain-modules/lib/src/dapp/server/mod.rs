@@ -19,8 +19,8 @@ use sqlx::mysql::MySqlPool;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-const REPLAY_RESIST_CHANNEL_BOUND: usize = 2000;
-const REPLAY_RESIST_CELL_NUMBER: usize = 500;
+const REPLAY_RESIST_CHANNEL_BOUND: usize = 5000;
+pub const REPLAY_RESIST_CELL_NUMBER: usize = 500;
 const REFRESH_RATE: usize = 50; // 50/100
 const REPLAY_RESIST_CELL_CAPACITY: &str = "315";
 const CREATE_REPLAY_RESIST_CELL_FEE: &str = "0.9";
@@ -89,12 +89,12 @@ impl DappState {
         Web3Client::new(self.eth_rpc_url.clone())
     }
 
-    pub async fn refresh_replay_resist_cells(
+    pub async fn get_or_create_bridge_cell(
         &self,
         token: &str,
-        is_refreshing: Arc<Mutex<bool>>,
-    ) -> Result<()> {
-        let fresh_cells = to_ckb::get_or_create_bridge_cell(
+        cell_num: usize,
+    ) -> Result<Vec<String>> {
+        to_ckb::get_or_create_bridge_cell(
             self.config_path.clone(),
             self.network.clone(),
             self.ckb_privkey_path.clone(),
@@ -104,17 +104,35 @@ impl DappState {
             "".to_string(),
             0,
             true,
-            REPLAY_RESIST_CELL_NUMBER * 2,
+            cell_num,
         )
-        .await?;
+        .await
+    }
+
+    pub async fn refresh_replay_resist_cells(
+        &self,
+        token: &str,
+        is_refreshing: Arc<Mutex<bool>>,
+    ) -> Result<()> {
+        let fresh_cells = self
+            .get_or_create_bridge_cell(token, REPLAY_RESIST_CELL_NUMBER * 2)
+            .await?;
         let mut is_refreshing = is_refreshing.lock().await;
         let (delete_cells, add_cells) = self
             .prepare_cell_modification(fresh_cells, token.to_string())
             .await?;
         add_replay_resist_cells(&self.db, &add_cells, &token).await?;
-        log::info!("refresh cells, add number: {:?}", add_cells.len());
+        log::info!(
+            "refresh cells, token {:?}, add number: {:?}",
+            token,
+            add_cells.len()
+        );
         delete_replay_resist_cells(&self.db, &delete_cells).await?;
-        log::info!("refresh cells, delete number: {:?}", delete_cells.len());
+        log::info!(
+            "refresh cells, token {:?}, delete number: {:?}",
+            token,
+            delete_cells.len()
+        );
         *is_refreshing = false;
         Ok(())
     }
@@ -192,9 +210,13 @@ pub async fn start(
                     .expect("send response to lock handler succeed");
             }
 
-            log::info!("remaining replay resist cells count: {:?}", cell_count);
+            log::info!(
+                "remaining replay resist cells count: {:?} {:?}",
+                &task.token,
+                cell_count
+            );
             if cell_count < REPLAY_RESIST_CELL_NUMBER * REFRESH_RATE / 100 && !(*is_refreshing) {
-                log::info!("start refresh replay resist cells");
+                log::info!("start refresh replay resist cells: {:?}", &task.token);
                 *is_refreshing = true;
                 let is_refreshing_replay_resist_cell = is_refreshing_replay_resist_cell.clone();
                 let dapp_state_for_refresh = dapp_state_for_receiver.clone();
@@ -204,9 +226,13 @@ pub async fn start(
                         .refresh_replay_resist_cells(&token, is_refreshing_replay_resist_cell)
                         .await;
                     if ret.is_err() {
-                        log::error!("refresh replay resist cells error: {:?}", ret.unwrap_err());
+                        log::error!(
+                            "refresh replay resist cells error: {:?} {:?}",
+                            &token,
+                            ret.unwrap_err()
+                        );
                     } else {
-                        log::info!("refresh replay resist cells succeed");
+                        log::info!("refresh replay resist cells succeed: {:?}", &token);
                     }
                 });
             }
@@ -220,14 +246,15 @@ pub async fn start(
         App::new()
             .wrap(cors)
             .data(dapp_state.clone())
-            .service(index)
-            .service(settings)
-            .service(burn)
             .service(lock)
-            .service(get_best_block_height)
-            .service(get_sudt_balance)
+            .service(burn)
             .service(get_eth_to_ckb_status)
+            .service(get_ckb_to_eth_status)
             .service(get_crosschain_history)
+            .service(get_sudt_balance)
+            .service(get_best_block_height)
+            .service(settings)
+            .service(index)
     })
     .workers(80)
     .bind(&listen_url)?

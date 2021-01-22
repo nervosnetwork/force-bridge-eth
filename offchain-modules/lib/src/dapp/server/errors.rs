@@ -5,33 +5,19 @@ use actix_web::{error, HttpResponse};
 use derive_more::Display;
 use tokio::sync::mpsc::error::TrySendError;
 
-// TODO: split user params error and server error
 #[derive(Debug, Display)]
 pub enum RpcError {
     #[display(fmt = "bad request data: {}", _0)]
     BadRequest(String),
+    #[display(fmt = "too many request: {}", _0)]
+    TooManyRequest(String),
+    #[display(fmt = "server error: {}", _0)]
+    ServerError(String),
 }
 
-impl From<anyhow::Error> for RpcError {
-    fn from(e: anyhow::Error) -> Self {
-        Self::BadRequest(e.to_string())
-    }
-}
-
-impl From<&str> for RpcError {
-    fn from(e: &str) -> Self {
-        Self::BadRequest(e.to_string())
-    }
-}
-
-impl From<String> for RpcError {
-    fn from(e: String) -> Self {
-        Self::BadRequest(e)
-    }
-}
 impl From<TrySendError<ReplayResistTask>> for RpcError {
     fn from(e: TrySendError<ReplayResistTask>) -> Self {
-        Self::BadRequest(e.to_string())
+        Self::TooManyRequest(e.to_string())
     }
 }
 
@@ -46,7 +32,9 @@ impl error::ResponseError for RpcError {
 
     fn status_code(&self) -> StatusCode {
         match &*self {
-            Self::BadRequest(_e) => StatusCode::BAD_REQUEST,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::TooManyRequest(_) => StatusCode::TOO_MANY_REQUESTS,
+            Self::ServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
