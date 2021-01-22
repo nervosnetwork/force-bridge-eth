@@ -217,7 +217,10 @@ impl CkbIndexer {
             start_block_number += 1;
             tail = unconfirmed_block.clone();
             unconfirmed_blocks.push(unconfirmed_block);
+<<<<<<< HEAD
             tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
+=======
+>>>>>>> upstream/dapp-lib
         }
     }
 
