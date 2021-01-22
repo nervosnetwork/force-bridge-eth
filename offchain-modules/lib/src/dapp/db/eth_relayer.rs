@@ -24,6 +24,19 @@ SELECT block_number FROM eth_tx_relayer order by block_number desc limit 1
     Ok(block_number.map_or(0, |v| v.block_number))
 }
 
+pub async fn latest_index_number(pool: &MySqlPool) -> Result<u64> {
+    let block_number = sqlx::query_as::<_, BlockNumber>(
+        r#"
+SELECT eth_block_number as block_number
+FROM eth_to_ckb
+order by eth_block_number desc limit 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(block_number.map_or(0, |v| v.block_number))
+}
+
 pub async fn get_mint_tasks(
     pool: &MySqlPool,
     start_block: u64,
@@ -47,9 +60,10 @@ pub async fn get_retry_tasks(pool: &MySqlPool) -> Result<Vec<MintTask>> {
     let sql = r#"
 SELECT block_number, lock_tx_hash, lock_tx_proof
 FROM eth_tx_relayer
-WHERE status = ?
+WHERE status = ? or status = ?
     "#;
     let tasks = sqlx::query_as::<_, MintTask>(sql)
+        .bind("pending")
         .bind("retryable")
         .fetch_all(pool)
         .await?;
