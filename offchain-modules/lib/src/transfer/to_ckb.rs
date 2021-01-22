@@ -1,7 +1,7 @@
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
-    build_lockscript_from_address, create_bridge_lockscript, parse_privkey, parse_privkey_path,
-    ETHSPVProofJson,
+    build_lockscript_from_address, clear_0x, create_bridge_lockscript, parse_privkey,
+    parse_privkey_path, ETHSPVProofJson,
 };
 use crate::util::config::{
     CellScript, DeployedContracts, ForceConfig, MultisigConf, OutpointConf, ScriptConf,
@@ -200,7 +200,11 @@ pub async fn generate_eth_spv_proof_json(
 ) -> Result<ETHSPVProofJson> {
     let eth_spv_proof_retry = |max_retry_times| {
         for retry in 0..max_retry_times {
-            let ret = generate_eth_proof(hash.clone(), ethereum_rpc_url.clone());
+            let ret = generate_eth_proof(
+                hash.clone(),
+                ethereum_rpc_url.clone(),
+                String::from(clear_0x(eth_token_locker_addr.as_str())),
+            );
             match ret {
                 Ok(proof) => return Ok(proof),
                 Err(e) => {
@@ -262,6 +266,7 @@ pub async fn to_eth_spv_proof_json(
         bridge_fee: eth_spv_proof.bridge_fee,
         replay_resist_outpoint: eth_spv_proof.replay_resist_outpoint,
         eth_address: convert_eth_address(&eth_token_locker_addr)?,
+        sender: eth_spv_proof.sender,
     })
 }
 
