@@ -337,11 +337,12 @@ impl<T: IndexerFilter> EthIndexer<T> {
                     eth_spv_proof.replay_resist_outpoint.as_slice(),
                 )),
                 eth_block_number: block_number,
+                sender_addr: Some(hex::encode(eth_spv_proof.sender.as_bytes())),
+                sudt_extra_data: Some(hex::encode(eth_spv_proof.sudt_extra_data.as_slice())),
+                bridge_fee: Some(Uint128::from(eth_spv_proof.bridge_fee).to_string()),
                 ..Default::default()
             };
             records.push(record);
-            // create_eth_to_ckb_record(&self.db, vec![&record, &record]).await?;
-            // info!("create eth_to_ckb record success. tx_hash: {}", hash,);
         }
         Ok(is_lock_tx)
     }

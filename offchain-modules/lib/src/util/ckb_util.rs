@@ -338,6 +338,7 @@ pub struct ETHSPVProofJson {
     pub replay_resist_outpoint: Vec<u8>,
     pub sudt_extra_data: Vec<u8>,
     pub eth_address: H160,
+    pub sender: H160,
 }
 
 impl TryFrom<ETHSPVProofJson> for witness::ETHSPVProof {

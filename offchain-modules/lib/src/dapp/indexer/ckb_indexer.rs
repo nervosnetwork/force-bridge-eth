@@ -267,6 +267,8 @@ impl CkbIndexer {
                 let typescript = tx.outputs[0].type_.as_ref().unwrap();
                 if typescript.code_hash.as_bytes().to_vec() == recipient_typescript_code_hash {
                     // the tx is burn tx.
+                    let locker_addr: ETHAddress =
+                        eth_recipient.eth_lock_contract_address.get_address().into();
                     let token_addr: ETHAddress =
                         eth_recipient.eth_token_address.get_address().into();
                     let recipient_addr: ETHAddress =
@@ -290,6 +292,13 @@ impl CkbIndexer {
                         ckb_spv_proof: Some(proof_str),
                         ckb_block_number: block_number,
                         ckb_raw_tx: Some(mol_hex_tx),
+                        fee: Some(Uint128::from(eth_recipient.fee).to_string()),
+                        bridge_lock_hash: Some(hex::encode(
+                            eth_recipient.eth_bridge_lock_hash.as_slice(),
+                        )),
+                        lock_contract_addr: Some(hex::encode(
+                            locker_addr.raw_data().to_vec().as_slice(),
+                        )),
                         ..Default::default()
                     };
                     burn_records.push(record);

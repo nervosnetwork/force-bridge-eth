@@ -262,6 +262,7 @@ pub async fn to_eth_spv_proof_json(
         bridge_fee: eth_spv_proof.bridge_fee,
         replay_resist_outpoint: eth_spv_proof.replay_resist_outpoint,
         eth_address: convert_eth_address(&eth_token_locker_addr)?,
+        sender: eth_spv_proof.sender,
     })
 }
 

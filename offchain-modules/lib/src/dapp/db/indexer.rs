@@ -384,6 +384,8 @@ pub struct CkbToEthRecord {
     pub ckb_block_number: u64,
     pub ckb_raw_tx: Option<String>,
     pub eth_block_number: u64,
+    pub bridge_lock_hash: Option<String>,
+    pub lock_contract_addr: Option<String>,
 }
 
 pub async fn get_latest_ckb_to_eth_record(pool: &MySqlPool) -> Result<Option<CkbToEthRecord>> {
@@ -405,11 +407,11 @@ pub async fn create_ckb_to_eth_record(
     let mut sql = String::from(
         r"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
-eth_tx_hash, ckb_spv_proof, ckb_block_number, ckb_raw_tx)
+eth_tx_hash, ckb_spv_proof, ckb_block_number, ckb_raw_tx, lock_contract_addr, bridge_lock_hash)
 VALUES ",
     );
     for _ in records {
-        sql = format!("{}{}", sql, "( ?,?,?,?,?,?,?,?,?,?),");
+        sql = format!("{}{}", sql, "( ?,?,?,?,?,?,?,?,?,?,?,?),");
     }
     let len = sql.len() - 1;
     let mut ret = sqlx::query(&sql[..len]);
@@ -425,6 +427,8 @@ VALUES ",
             .bind(record.ckb_spv_proof.as_ref())
             .bind(record.ckb_block_number)
             .bind(record.ckb_raw_tx.as_ref())
+            .bind(record.lock_contract_addr.as_ref())
+            .bind(record.bridge_lock_hash.as_ref())
     }
     ret.execute(pool).await?;
     Ok(())
