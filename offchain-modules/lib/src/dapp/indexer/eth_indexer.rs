@@ -279,6 +279,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             start_block_number += 1;
             tail = unconfirmed_block.clone();
             unconfirmed_blocks.push(unconfirmed_block);
+            tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         }
     }
 
@@ -319,14 +320,14 @@ impl<T: IndexerFilter> EthIndexer<T> {
         contract_addr: String,
     ) -> Result<bool> {
         let hash_with_0x = format!("{}{}", "0x", hash.clone());
-        let config_path = tilde(self.config_path.as_str()).into_owned();
-        let force_config = ForceConfig::new(config_path.as_str())?;
-        let lock_contract_address = force_config
-            .deployed_contracts
-            .as_ref()
-            .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
-            .eth_token_locker_addr
-            .clone();
+        // let config_path = tilde(self.config_path.as_str()).into_owned();
+        // let force_config = ForceConfig::new(config_path.as_str())?;
+        // let lock_contract_address = force_config
+        //     .deployed_contracts
+        //     .as_ref()
+        //     .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
+        //     .eth_token_locker_addr
+        //     .clone();
         let (eth_spv_proof, is_lock_tx) = self.get_eth_spv_proof_with_retry(
             hash_with_0x.clone(),
             3,
@@ -344,7 +345,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             let eth_proof_json = to_eth_spv_proof_json(
                 hash_with_0x,
                 eth_spv_proof.clone(),
-                lock_contract_address,
+                contract_addr,
                 String::from(self.eth_client.url()),
             )
             .await?;
@@ -421,8 +422,11 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 return Ok(());
             }
         }
-        let (_event, exist) =
-            self.parse_unlock_event_with_retry(hash_with_0x.clone(), 3, contract_addr)?;
+        let (_event, exist) = self.parse_unlock_event_with_retry(
+            hash_with_0x.clone(),
+            3,
+            String::from(clear_0x(contract_addr.as_str())),
+        )?;
         if exist {
             let tx_hash = convert_hex_to_h256(&hash)?;
             let tx = self
