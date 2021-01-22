@@ -1,5 +1,5 @@
-use crate::util::ckb_util::parse_cell;
-use ckb_types::prelude::Entity;
+// use crate::util::ckb_util::parse_cell;
+// use ckb_types::prelude::Entity;
 
 pub mod ckb_indexer;
 pub mod eth_indexer;
@@ -13,7 +13,7 @@ pub struct DexFilter {
 }
 
 impl IndexerFilter for DexFilter {
-    fn filter(&self, data: String) -> bool {
+    fn filter(&self, _data: String) -> bool {
         true
         // let recipient_lockscript_res = parse_cell(data.as_str());
         // if let Ok(recipient_lockscript) = recipient_lockscript_res {
