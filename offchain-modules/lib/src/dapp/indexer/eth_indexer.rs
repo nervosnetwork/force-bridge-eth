@@ -8,7 +8,7 @@ use crate::dapp::db::indexer::{
 };
 use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
+use crate::util::ckb_util::{clear_0x, parse_cell, parse_main_chain_headers};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
@@ -132,11 +132,17 @@ impl<T: IndexerFilter> EthIndexer<T> {
             }
             insert_eth_unconfirmed_blocks(&self.db, &unconfirmed_blocks).await?;
         }
-
+        let config_path = tilde(self.config_path.as_str()).into_owned();
+        let force_config = ForceConfig::new(config_path.as_str())?;
+        let lock_contract_address = force_config
+            .deployed_contracts
+            .as_ref()
+            .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
+            .eth_token_locker_addr
+            .clone();
         let mut tail = get_max_eth_unconfirmed_block(&self.db)
             .await?
             .ok_or_else(|| anyhow!("the tail is not exist"))?;
-        // if unconfirmed_blocks.len() != ETH_CHAIN_CONFIRMED || tail.number + 1 != start_block_number
         log::info!(
             "tail number: {:?}, start number: {:?}",
             tail.number,
@@ -195,12 +201,21 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 let hash = hex::encode(tx_hash);
                 if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
                     let is_lock_tx = self
-                        .handle_lock_event(hash.clone(), start_block_number, &mut lock_records)
+                        .handle_lock_event(
+                            hash.clone(),
+                            start_block_number,
+                            &mut lock_records,
+                            lock_contract_address.clone(),
+                        )
                         .await?;
                     // if the tx is not lock tx, check if unlock tx.
                     if !is_lock_tx {
-                        self.handle_unlock_event(hash.clone(), &mut unlock_records)
-                            .await?;
+                        self.handle_unlock_event(
+                            hash.clone(),
+                            &mut unlock_records,
+                            lock_contract_address.clone(),
+                        )
+                        .await?;
                     }
                 }
             }
@@ -301,19 +316,31 @@ impl<T: IndexerFilter> EthIndexer<T> {
         hash: String,
         block_number: u64,
         records: &mut Vec<EthToCkbRecord>,
+        contract_addr: String,
     ) -> Result<bool> {
         let hash_with_0x = format!("{}{}", "0x", hash.clone());
-        let (eth_spv_proof, is_lock_tx) =
-            self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
+        let config_path = tilde(self.config_path.as_str()).into_owned();
+        let force_config = ForceConfig::new(config_path.as_str())?;
+        let lock_contract_address = force_config
+            .deployed_contracts
+            .as_ref()
+            .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
+            .eth_token_locker_addr
+            .clone();
+        let (eth_spv_proof, is_lock_tx) = self.get_eth_spv_proof_with_retry(
+            hash_with_0x.clone(),
+            3,
+            String::from(clear_0x(contract_addr.as_str())),
+        )?;
         if is_lock_tx {
-            let config_path = tilde(self.config_path.as_str()).into_owned();
-            let force_config = ForceConfig::new(config_path.as_str())?;
-            let lock_contract_address = force_config
-                .deployed_contracts
-                .as_ref()
-                .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
-                .eth_token_locker_addr
-                .clone();
+            // let config_path = tilde(self.config_path.as_str()).into_owned();
+            // let force_config = ForceConfig::new(config_path.as_str())?;
+            // let lock_contract_address = force_config
+            //     .deployed_contracts
+            //     .as_ref()
+            //     .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
+            //     .eth_token_locker_addr
+            //     .clone();
             let eth_proof_json = to_eth_spv_proof_json(
                 hash_with_0x,
                 eth_spv_proof.clone(),
@@ -351,9 +378,14 @@ impl<T: IndexerFilter> EthIndexer<T> {
         &mut self,
         hash: String,
         max_retry_times: i32,
+        contract_addr: String,
     ) -> Result<(EthSpvProof, bool)> {
         for retry in 0..max_retry_times {
-            let ret = generate_eth_proof(hash.clone(), String::from(self.eth_client.url()).clone());
+            let ret = generate_eth_proof(
+                hash.clone(),
+                String::from(self.eth_client.url()).clone(),
+                contract_addr.clone(),
+            );
             match ret {
                 Ok(proof) => return Ok((proof, true)),
                 Err(e) => {
@@ -379,6 +411,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
         &mut self,
         hash: String,
         unlock_datas: &mut Vec<(String, String)>,
+        contract_addr: String,
     ) -> Result<()> {
         let hash_with_0x = format!("{}{}", "0x", hash.clone());
         let record_op = get_ckb_to_eth_record_by_eth_hash(&self.db, hash.clone()).await?;
@@ -388,7 +421,8 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 return Ok(());
             }
         }
-        let (_event, exist) = self.parse_unlock_event_with_retry(hash_with_0x.clone(), 3)?;
+        let (_event, exist) =
+            self.parse_unlock_event_with_retry(hash_with_0x.clone(), 3, contract_addr)?;
         if exist {
             let tx_hash = convert_hex_to_h256(&hash)?;
             let tx = self
@@ -431,9 +465,14 @@ impl<T: IndexerFilter> EthIndexer<T> {
         &mut self,
         hash: String,
         max_retry_times: i32,
+        contract_addr: String,
     ) -> Result<(UnlockEvent, bool)> {
         for retry in 0..max_retry_times {
-            let ret = parse_unlock_event(hash.clone(), String::from(self.eth_client.url()).clone());
+            let ret = parse_unlock_event(
+                hash.clone(),
+                String::from(self.eth_client.url()).clone(),
+                contract_addr.clone(),
+            );
             match ret {
                 Ok(event) => return Ok((event, true)),
                 Err(e) => {
