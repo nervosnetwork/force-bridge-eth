@@ -74,6 +74,20 @@ pub struct GetCkbToEthStatusArgs {
     pub ckb_burn_tx_hash: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct GetCkbToEthStatusResponse {
+    pub id: u64,
+    pub ckb_burn_tx_hash: String,
+    pub status: String,
+    pub recipient_addr: Option<String>,
+    pub token_addr: Option<String>,
+    pub token_amount: Option<String>,
+    pub fee: Option<String>,
+    pub eth_tx_hash: Option<String>,
+    pub ckb_block_number: u64,
+    pub eth_block_number: u64,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetCrosschainHistoryArgs {
     pub ckb_recipient_lockscript_addr: Option<String>,
