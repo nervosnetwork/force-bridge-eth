@@ -74,6 +74,11 @@ pub async fn lock(
     let gas_price = U256::from(u128::from(args.gas_price));
     let amount = U256::from(u128::from(args.amount));
     let bridge_fee = U256::from(u128::from(args.bridge_fee));
+    if args.token_address.len() != 40 {
+        return Err(RpcError::BadRequest(
+            "invalid args: token address string length should be 40".to_string(),
+        ));
+    }
     let token_addr = convert_eth_address(&args.token_address)
         .map_err(|e| RpcError::BadRequest(format!("token address parse fail: {}", e)))?;
 
