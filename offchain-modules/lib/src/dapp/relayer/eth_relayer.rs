@@ -209,7 +209,7 @@ impl EthTxRelayer {
         let mut tx_helper = TxHelper::default();
         for _ in 0..self.mint_concurrency {
             let cell_output = CellOutput::new_builder()
-                .capacity(Capacity::shannons(100 * self.minimum_cell_capacity).pack())
+                .capacity(Capacity::shannons(10 * self.minimum_cell_capacity).pack())
                 .lock(lockscript.clone())
                 .build();
             tx_helper.add_output(cell_output, Default::default());
