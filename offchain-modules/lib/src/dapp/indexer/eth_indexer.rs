@@ -379,10 +379,10 @@ impl<T: IndexerFilter> EthIndexer<T> {
         max_retry_times: i32,
         contract_addr: String,
     ) -> Result<(Vec<EthSpvProof>, Vec<UnlockEvent>)> {
-        let hash_with_0x = format!("{}{}", "0x", hash.clone());
+        let hash_with_0x = format!("{}{}", "0x", hash);
         for retry in 0..max_retry_times {
             let ret = parse_event(
-                self.eth_client.url().clone(),
+                self.eth_client.url(),
                 contract_addr.clone().as_str(),
                 hash_with_0x.clone().as_str(),
             );
