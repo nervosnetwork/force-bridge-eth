@@ -258,7 +258,7 @@ impl EthTxRelayer {
             .clone()
             .expect("force contracts deployed");
         let mut generator_opt = None;
-        for i in 0..4 {
+        for i in 0..10 {
             let generator_res = Generator::new(
                 self.ckb_rpc_url.clone(),
                 self.ckb_indexer_url.clone(),
@@ -270,7 +270,7 @@ impl EthTxRelayer {
                     break;
                 }
                 Err(e) => {
-                    if i < 3 {
+                    if i < 9 {
                         log::error!("new geneartor fail {}, err: {}", i, e);
                         continue;
                     }

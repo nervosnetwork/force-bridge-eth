@@ -11,7 +11,7 @@ use crate::util::ckb_tx_generator::Generator;
 use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::Web3Client;
 use actix_web::{App, HttpServer};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use force_sdk::util::ensure_indexer_sync;
 use handlers::*;
 use shellexpand::tilde;
@@ -73,12 +73,28 @@ impl DappState {
     }
 
     pub async fn get_generator(&self) -> Result<Generator> {
-        let mut generator = Generator::new(
-            self.ckb_rpc_url.clone(),
-            self.indexer_url.clone(),
-            self.deployed_contracts.clone(),
-        )
-        .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
+        let mut generator_opt = None;
+        for i in 0..10 {
+            let generator_res = Generator::new(
+                self.ckb_rpc_url.clone(),
+                self.indexer_url.clone(),
+                self.deployed_contracts.clone(),
+            );
+            match generator_res {
+                Ok(g) => {
+                    generator_opt = Some(g);
+                    break;
+                }
+                Err(e) => {
+                    if i < 9 {
+                        log::error!("new geneartor fail {}, err: {}", i, e);
+                        continue;
+                    }
+                    bail!("new geneartor fail after retry, err: {}", e);
+                }
+            }
+        }
+        let mut generator = generator_opt.unwrap();
         ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
             .await
             .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
@@ -94,19 +110,31 @@ impl DappState {
         token: &str,
         cell_num: usize,
     ) -> Result<Vec<String>> {
-        to_ckb::get_or_create_bridge_cell(
-            self.config_path.clone(),
-            self.network.clone(),
-            self.ckb_privkey_path.clone(),
-            CREATE_REPLAY_RESIST_CELL_FEE.to_string(),
-            REPLAY_RESIST_CELL_CAPACITY.to_string(),
-            token.to_string(),
-            "".to_string(),
-            0,
-            true,
-            cell_num,
-        )
-        .await
+        for i in 0..10 {
+            let res = to_ckb::get_or_create_bridge_cell(
+                self.config_path.clone(),
+                self.network.clone(),
+                self.ckb_privkey_path.clone(),
+                CREATE_REPLAY_RESIST_CELL_FEE.to_string(),
+                REPLAY_RESIST_CELL_CAPACITY.to_string(),
+                token.to_string(),
+                "".to_string(),
+                0,
+                true,
+                cell_num,
+            )
+            .await;
+            match res {
+                Ok(r) => return Ok(r),
+                Err(e) => {
+                    log::error!("try get_or_create_bridge_cell fail {}, err: {}", i, e);
+                    if !e.to_string().contains("timed out") {
+                        break;
+                    }
+                }
+            };
+        }
+        bail!("try get_or_create_bridge_cell fail");
     }
 
     pub async fn try_refresh_replay_resist_cells(&self, token: &str) -> Result<()> {
