@@ -6,7 +6,7 @@ use crate::transfer::to_ckb::send_eth_spv_proof_tx;
 use crate::util::ckb_tx_generator::{Generator, CONFIRM};
 use crate::util::ckb_util::{get_eth_client_tip_number, parse_privkey_path, ETHSPVProofJson};
 use crate::util::config::ForceConfig;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::AddressPayload;
 use ckb_sdk::{HumanCapacity, SECP256K1};
@@ -257,12 +257,28 @@ impl EthTxRelayer {
             .deployed_contracts
             .clone()
             .expect("force contracts deployed");
-        let mut generator = Generator::new(
-            self.ckb_rpc_url.clone(),
-            self.ckb_indexer_url.clone(),
-            force_contracts,
-        )
-        .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
+        let mut generator_opt = None;
+        for i in 0..4 {
+            let generator_res = Generator::new(
+                self.ckb_rpc_url.clone(),
+                self.ckb_indexer_url.clone(),
+                force_contracts.clone(),
+            );
+            match generator_res {
+                Ok(g) => {
+                    generator_opt = Some(g);
+                    break;
+                }
+                Err(e) => {
+                    if i < 3 {
+                        log::error!("new geneartor fail {}, err: {}", i, e);
+                        continue;
+                    }
+                    bail!("new geneartor fail after retry, err: {}", e);
+                }
+            }
+        }
+        let mut generator = generator_opt.unwrap();
         ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
             .await
             .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
