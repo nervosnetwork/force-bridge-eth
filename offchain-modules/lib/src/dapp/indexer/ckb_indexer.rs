@@ -174,7 +174,6 @@ impl CkbIndexer {
                     hash: hash_str,
                 };
             } else {
-                tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
                 unconfirmed_block = get_ckb_unconfirmed_block(
                     &self.db,
                     start_block_number % CKB_CHAIN_CONFIRMED as u64,
@@ -218,6 +217,7 @@ impl CkbIndexer {
             start_block_number += 1;
             tail = unconfirmed_block.clone();
             unconfirmed_blocks.push(unconfirmed_block);
+            tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         }
     }
 
