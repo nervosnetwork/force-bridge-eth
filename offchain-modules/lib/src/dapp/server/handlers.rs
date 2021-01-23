@@ -32,9 +32,16 @@ pub async fn init_token(
     let args: InitTokenArgs = serde_json::from_value(args.into_inner())
         .map_err(|e| RpcError::BadRequest(format!("invalid args: {}", e)))?;
     log::info!("init token args: {:?}", args);
-    let is_token_init = is_token_replay_resist_init(&data.db).await.map_err(|e| {
-        RpcError::ServerError(format!("get is_token_replay_resist_init error: {}", e))
-    })?;
+    if args.token_address.len() != 40 {
+        return Err(RpcError::BadRequest(
+            "invalid args: token address string length should be 40".to_string(),
+        ));
+    }
+    let is_token_init = is_token_replay_resist_init(&data.db, args.token_address.as_str())
+        .await
+        .map_err(|e| {
+            RpcError::ServerError(format!("get is_token_replay_resist_init error: {}", e))
+        })?;
     if is_token_init {
         return Err(RpcError::BadRequest("token already inited".to_string()));
     }
@@ -67,6 +74,11 @@ pub async fn lock(
     let gas_price = U256::from(u128::from(args.gas_price));
     let amount = U256::from(u128::from(args.amount));
     let bridge_fee = U256::from(u128::from(args.bridge_fee));
+    if args.token_address.len() != 40 {
+        return Err(RpcError::BadRequest(
+            "invalid args: token address string length should be 40".to_string(),
+        ));
+    }
     let token_addr = convert_eth_address(&args.token_address)
         .map_err(|e| RpcError::BadRequest(format!("token address parse fail: {}", e)))?;
 
