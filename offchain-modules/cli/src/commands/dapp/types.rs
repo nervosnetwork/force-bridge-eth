@@ -31,6 +31,7 @@ pub struct EthIndexerArgs {
     pub network: Option<String>,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
     pub db_path: String,
+    // #[clap(long, default_value = "https://testnet.ckbapp.dev/indexer")]
     #[clap(long, default_value = "http://127.0.0.1:8116")]
     pub ckb_indexer_url: String,
     #[clap(
