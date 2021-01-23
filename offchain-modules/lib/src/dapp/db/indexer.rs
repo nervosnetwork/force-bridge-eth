@@ -160,7 +160,7 @@ pub async fn get_max_ckb_unconfirmed_block(
 }
 
 pub async fn get_ckb_unconfirmed_blocks(pool: &MySqlPool) -> Result<Vec<CkbUnConfirmedBlock>> {
-    let sql = r#"select * from ckb_unconfirmed_block"#;
+    let sql = r#"select * from ckb_unconfirmed_block order by number"#;
     let ret = sqlx::query_as::<_, CkbUnConfirmedBlock>(sql)
         .fetch_all(pool)
         .await?;
