@@ -150,10 +150,15 @@ impl CkbIndexer {
                 let exist = is_ckb_to_eth_record_exist(&self.db, tx_hash.as_str()).await?;
                 if !exist {
                     let is_burn_tx = self
-                        .handle_burn_tx(tx.clone(), tx_hash, start_block_number, &mut burn_records)
+                        .handle_burn_tx(
+                            tx.clone(),
+                            tx_hash.clone(),
+                            start_block_number,
+                            &mut burn_records,
+                        )
                         .await?;
                     if !is_burn_tx {
-                        self.handle_mint_tx(tx, &mut mint_records, start_block_number)
+                        self.handle_mint_tx(tx, tx_hash, &mut mint_records, start_block_number)
                             .await?;
                     }
                 }
@@ -342,6 +347,7 @@ impl CkbIndexer {
     pub async fn handle_mint_tx(
         &mut self,
         tx: Transaction,
+        tx_hash_str: String,
         unlock_datas: &mut Vec<EthToCkbRecord>,
         number: u64,
     ) -> Result<()> {
@@ -365,6 +371,7 @@ impl CkbIndexer {
                 if success {
                     eth_to_ckb_record.status = String::from("success");
                     eth_to_ckb_record.ckb_block_number = number;
+                    eth_to_ckb_record.ckb_tx_hash = Some(tx_hash_str);
                     unlock_datas.push(eth_to_ckb_record);
                 }
             }

@@ -472,7 +472,10 @@ impl<T: IndexerFilter> EthIndexer<T> {
             if tx_raw.is_some() {
                 let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
                 let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
-                unlock_datas.push((ckb_tx_hash_str, tx_hash_str.clone()));
+                unlock_datas.push((
+                    ckb_tx_hash_str,
+                    String::from(clear_0x(tx_hash_str.clone().as_str())),
+                ));
             }
         }
         Ok(())

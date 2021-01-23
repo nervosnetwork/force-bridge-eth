@@ -317,10 +317,12 @@ pub async fn update_eth_to_ckb_status(
     pool: &mut Transaction<'_, MySql>,
     record: &EthToCkbRecord,
 ) -> Result<()> {
-    let sql = r#"UPDATE eth_to_ckb SET status = ?, ckb_block_number = ? WHERE id = ?"#;
+    let sql =
+        r#"UPDATE eth_to_ckb SET status = ?, ckb_block_number = ?, ckb_tx_hash = ? WHERE id = ?"#;
     sqlx::query(sql)
         .bind(record.status.clone())
         .bind(record.ckb_block_number)
+        .bind(record.ckb_tx_hash.clone())
         .bind(record.id)
         .execute(pool)
         .await?;
