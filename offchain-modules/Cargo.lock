@@ -3844,7 +3844,7 @@ dependencies = [
 [[package]]
 name = "rusty-receipt-proof-maker"
 version = "0.1.0"
-source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=5286d68#5286d68720ccd0b43db428ed08524b82bae7720a"
+source = "git+https://github.com/LeonLi000/ethereum-receipt-proof-maker.git?rev=cc072ee#cc072eedfb5eb8e6502715d0a2bb58e8d335a453"
 dependencies = [
  "chrono",
  "docopt",
