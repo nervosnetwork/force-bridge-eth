@@ -247,7 +247,7 @@ pub async fn to_eth_spv_proof_json(
         eth_spv_proof.tx_hash, eth_spv_proof
     );
     let hash_str = eth_spv_proof.tx_hash;
-    let log_index = 0;
+    let log_index = eth_spv_proof.log_index;
     let eth_rpc_url = ethereum_rpc_url.clone();
     let proof_hex = run_fun! {
     node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --url ${eth_rpc_url}}
