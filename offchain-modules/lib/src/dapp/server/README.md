@@ -5,25 +5,11 @@
     - [settings](#settings)
     - [init_token](#init_token)
     - [lock](#lock)
-      - [输入参数说明](#输入参数说明-1)
-      - [结果说明](#结果说明-1)
-      - [前端自行组装交易指南](#前端自行组装交易指南)
     - [burn](#burn)
-      - [输入参数说明](#输入参数说明-3)
-      - [结果说明](#结果说明-3)
-    - [get_sudt_balance](#get_sudt_balance)
-      - [输入参数说明](#输入参数说明-4)
-      - [结果说明](#结果说明-4)
-    - [get_crosschain_history](#get_crosschain_history)
-      - [输入参数说明](#输入参数说明-5)
-      - [结果说明](#结果说明-5)
-    - [get_eth_to_ckb_status](#get_eth_to_ckb_status)
-      - [输入参数说明](#输入参数说明-6)
-      - [结果说明](#结果说明-6)    
+    - [get_eth_to_ckb_status](#get_eth_to_ckb_status) 
     - [get_ckb_to_eth_status](#get_ckb_to_eth_status)
-      - [输入参数说明](#输入参数说明-6)
-      - [结果说明](#结果说明-6)
-
+    - [get_crosschain_history](#get_crosschain_history)
+    - [get_sudt_balance](#get_sudt_balance)
 
 ## API 接口文档
 
@@ -34,83 +20,82 @@
 
 > 后文中的标题即为 path，方法默认为 post
 
-用户连接到 dex 时，获取 force bridge settings。前端可以保存该配置备用。
+获取 force bridge settings。前端可以保存该配置备用。
 
 ```json
 {
+    "eth_token_locker_addr": "0xcD62E77cFE0386343c15C13528675aae9925D7Ae",
+    "eth_ckb_chain_addr": "0x8326e1d621Cd32752920ed2A44B49bB1a96c7391",
     "bridge_lockscript": {
-        "code_hash": "fd9515dc15ce2385aab85af21a6c89d7c003eac115dcbd195a8f29ad916ab316",
-        "hash_type": 1,
+        "code_hash": "da6d3ad483fb11a5619e65035c3139acdb17c26e73647b7f0ac62a4036ca4e72",
+        "hash_type": 0,
         "outpoint": {
-            "dep_type": 0,
+            "tx_hash": "49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
             "index": 0,
-            "tx_hash": "23f30b8479415e5813e019b6b1783464f9c45dc5af333decda9650f90b0e3107"
+            "dep_type": 0
         }
     },
     "bridge_typescript": {
-        "code_hash": "a878bee27cf7fae49a028cf3e506af946dd2ea86f19586d68db3029ab3f20dd3",
-        "hash_type": 1,
+        "code_hash": "5b6cc072f1a36ddc5dc2bfe76cb806fb886e9b22a5d4f389e865dd34d8c0d957",
+        "hash_type": 0,
         "outpoint": {
-            "dep_type": 0,
+            "tx_hash": "49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
             "index": 1,
-            "tx_hash": "23f30b8479415e5813e019b6b1783464f9c45dc5af333decda9650f90b0e3107"
+            "dep_type": 0
         }
-    },
-    "ckb_relay_mutlisig_threshold": {
-        "threshold": 0
-    },
-    "eth_ckb_chain_addr": "0xb01e8fd9657cCf5c4BE4fb4b1D665E1a3a491c1E",
-    "eth_token_locker_addr": "0xF264A2Adf7D5c683855828B5bE39c25CEe0a13df",
-    "light_client_cell_script": {
-        "cell_script": "590000001000000030000000310000003130dc7bbf8b9e00ca9f7e9040bb59d242ee48375a322621be36e1f502a227ed0124000000ce121a960ca47b8cea3a9b3ddc75cb03e07c894c10d5557f865b50ddc6d68c8d01000000"
     },
     "light_client_typescript": {
-        "code_hash": "3130dc7bbf8b9e00ca9f7e9040bb59d242ee48375a322621be36e1f502a227ed",
-        "hash_type": 1,
+        "code_hash": "2e8ca901a6283b8d51a2c083c6756bea2e15a5b78a408b8f3544fad402cc6980",
+        "hash_type": 0,
         "outpoint": {
-            "dep_type": 0,
+            "tx_hash": "49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
             "index": 3,
-            "tx_hash": "23f30b8479415e5813e019b6b1783464f9c45dc5af333decda9650f90b0e3107"
+            "dep_type": 0
         }
     },
-    "multisig_address": {
-        "addresses": [
-            "ckt1qyqyr27ps67cwn9cldgzvvmsa0lvry2wu5us4g430u"
-        ],
-        "require_first_n": 0,
-        "threshold": 1
-    },
-    "pw_locks": {
-        "inner": [
-            {
-                "dep_type": 0,
-                "index": 0,
-                "tx_hash": "57a62003daeab9d54aa29b944fc3b451213a5ebdf2e232216a3cfed0dde61b38"
-            },
-            {
-                "dep_type": 1,
-                "index": 0,
-                "tx_hash": "f8de3bb47d055cdf460d93a2a6e1b05f7432f9777c8c474abf4eec1d4aee5d37"
-            }
-        ]
-    },
     "recipient_typescript": {
-        "code_hash": "ceb3993bd660eec67ab045f7853dd60b4b9d4e006db7069f7aae0e2e7a5037a5",
-        "hash_type": 1,
+        "code_hash": "ed0df97ea89ce848b20479194c9eb50cda612837f2db516b828ffeea61473ff3",
+        "hash_type": 0,
         "outpoint": {
-            "dep_type": 0,
+            "tx_hash": "49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
             "index": 2,
-            "tx_hash": "23f30b8479415e5813e019b6b1783464f9c45dc5af333decda9650f90b0e3107"
+            "dep_type": 0
+        }
+    },
+    "simple_bridge_typescript": {
+        "code_hash": "b093c89a824a4ec3492b59db4fdd25296e2e15e0e89813cf4c29c2ff1173ba8c",
+        "hash_type": 0,
+        "outpoint": {
+            "tx_hash": "49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
+            "index": 4,
+            "dep_type": 0
         }
     },
     "sudt": {
-        "code_hash": "c5e5dcf215925f7ef4dfaf5f4b4f105bc321c02776d6e7d52a1db3fcd9d011a4",
-        "hash_type": 1,
+        "code_hash": "e1e354d6d643ad42724d40967e334984534e0367405c5ae42a9d7d63d77df419",
+        "hash_type": 0,
         "outpoint": {
-            "dep_type": 0,
-            "index": 0,
-            "tx_hash": "e12877ebd2c3c364dc46c5c992bcfaf4fee33fa13eebdf82c591fc9825aab769"
+            "tx_hash": "49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
+            "index": 5,
+            "dep_type": 0
         }
+    },
+    "light_client_cell_script": {
+        "cell_script": "590000001000000030000000310000002e8ca901a6283b8d51a2c083c6756bea2e15a5b78a408b8f3544fad402cc698000240000005edca2d744b6eaa347de7ff0edcd2e6e88ab8f2836bcbd0df0940026956e5f8107000000"
+    },
+    "multisig_address": {
+        "addresses": [
+            "ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk",
+            "ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37"
+        ],
+        "require_first_n": 0,
+        "threshold": 2
+    },
+    "ckb_relay_mutlisig_threshold": {
+        "threshold": 1
+    },
+    "pw_locks": {
+        "inner": []
     }
 }
 ```
@@ -133,7 +118,7 @@ Dapp 在支持某种 token 跨链前，需调用该接口传入 token_address，
 ```
 
 #### 输入参数说明
-- eth_token_address：跨链 erc20 token 地址。eth 为 0000000000000000000000000000000000000000。
+- eth_token_address：跨链 erc20 token 地址(去除 0x)。eth 为 0000000000000000000000000000000000000000。
 
 
 #### 结果说明
@@ -147,14 +132,15 @@ bad request data: token already inited
 
 ### lock
 
-用户锁定资产到以太坊跨链合约。
+获取用户锁定资产到以太坊跨链合约的交易。
 
+输入参数：
 ```json
 {
-  "token_address": "0x3E35617a629EEaD5a6767dC69D238831a7Bc391c",
+  "token_address": "0000000000000000000000000000000000000000",
   "amount": "0x100",
-  "bridge_fee": "0x1",
-  "sender": "0x7ad9ec46a9c2910b446148728aced0c7e2b50048",
+  "bridge_fee": "0x0",
+  "sender": "0x42e8763917A72e07369AD54B158b0FA839f060bc",
   "ckb_recipient_address": "ckt1qyqdtmf8yy3agyarxpwre60ydrl8082n5hysd4nn86",
   "sudt_extra_data": "bbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d4200000000",
   "gas_price": "0x1",
@@ -163,124 +149,35 @@ bad request data: token already inited
 ```
 
 #### 输入参数说明
-- token_address：要跨链的 token 地址。以太坊为 0x0000000000000000000000000000000000000000。
+- token_address：要跨链的 token 地址（去除 0x）。eth 为 0000000000000000000000000000000000000000。
 - amount：要跨链的数量，最大为 u128，hex 格式。
 - bridge_fee：跨链手续费，从要跨的币中扣除。最大不超过 amount, hex 格式。
+- sender: 发送该交易的地址，用来估计 gas 费。为用户钱包的以太坊地址。
 - ckb_recipient_address：ckb 接收跨链资产地址。
 - sudt_extra_data：生成的 sudt 中的额外数据，hex bytes。
 - gas_price：发送 lock 交易的 gas 费用， hex 格式。
 - nonce：交易发起地址的 nonce，hex 格式。
-- sender: 发送该交易的地址，用来估计 gas 费。为用户钱包的以太坊地址。
 
 #### 结果说明
 
 ```json
 {
-    "data": "04a56b310000000000000000000000003e35617a629eead5a6767dc69d238831a7bc391c0000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000049490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000d5ed272123d413a3305c3ce9e468fe779d53a5c900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024bbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d4200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024bbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d420000000000000000000000000000000000000000000000000000000000000000",
-    "gas": "0x2dc6c0",
-    "gas_price": "0x1",
     "nonce": "0x1",
-    "raw": "0101832dc6c0940592aa9fd1ce50636c501e1e2db8688466acc1ea80b9020404a56b310000000000000000000000003e35617a629eead5a6767dc69d238831a7bc391c0000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000049490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000d5ed272123d413a3305c3ce9e468fe779d53a5c900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024bbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d4200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024bbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d420000000000000000000000000000000000000000000000000000000000000000",
-    "to": "0x0592aa9fd1ce50636c501e1e2db8688466acc1ea",
-    "value": "0x0"
+    "to": "0xcd62e77cfe0386343c15c13528675aae9925d7ae",
+    "value": "0x100",
+    "gas_price": "0x1",
+    "gas": "0xbd49",
+    "data": "10b214ec00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000049490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000d5ed272123d413a3305c3ce9e468fe779d53a5c90000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002485ffef8b066255fb2942f78afeda09643b0b1cfde1be0acfc1dc3421236b85c404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024bbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d420000000000000000000000000000000000000000000000000000000000000000",
+    "raw": "010182bd4994cd62e77cfe0386343c15c13528675aae9925d7ae820100b901c410b214ec00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000049490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000d5ed272123d413a3305c3ce9e468fe779d53a5c90000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002485ffef8b066255fb2942f78afeda09643b0b1cfde1be0acfc1dc3421236b85c404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024bbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d420000000000000000000000000000000000000000000000000000000000000000"
 }
 ```
 
 - raw 为以太坊未签名原始交易
 - 其它字段为人类可读的以太坊交易字段
 
-#### 前端自行组装交易指南
-
-```javascript
-let lockTokenABI = {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "name": "bridgeFee",
-        "type": "uint256"
-      },
-      {
-        "name": "recipientLockscript",
-        "type": "bytes"
-      },
-      {
-        "name": "replayResistOutpoint",
-        "type": "bytes"
-      },
-      {
-        "name": "sudtExtraData",
-        "type": "bytes"
-      }
-    ],
-    "name": "lockToken",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  };
-let lockEthABI = {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "bridgeFee",
-        "type": "uint256"
-      },
-      {
-        "name": "recipientLockscript",
-        "type": "bytes"
-      },
-      {
-        "name": "replayResistOutpoint",
-        "type": "bytes"
-      },
-      {
-        "name": "sudtExtraData",
-        "type": "bytes"
-      }
-    ],
-    "name": "lockETH",
-    "outputs": [],
-    "payable": true,
-    "stateMutability": "payable",
-    "type": "function"
-  };
-
-let lockTokenData = web3.eth.abi.encodeFunctionCall(lockTokenABI, ['0x3E35617a629EEaD5a6767dC69D238831a7Bc391c', '0x100', '0x1', '0x490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000d5ed272123d413a3305c3ce9e468fe779d53a5c9', '0xbbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d4200000000', '0xbbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d4200000000'])
-
-// lockToken 的 6 个参数分别为:
-// - erc20 token address
-// - amount
-// - bridgeFee
-// - recipientLockscript: 这个与 API 中不同，API 中传入的是 address，自行组装需要把 Address decode 成 Script，传入 Script 的 hex 格式
-// - replayResistOutpoint
-// - sudtExtraData
-
-
-let LockEthData = web3.eth.abi.encodeFunctionCall(lockEthABI, ['0x1', '0x490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000d5ed272123d413a3305c3ce9e468fe779d53a5c9', '0xbbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d4200000000', '0xbbc62a3943831e918f864a0306bc794b9e2724afc141b69d47e070f1f5686d4200000000'])
-
-// lockETH 的 4 个参数分别为：
-// - bridgeFee
-// - recipientLockscript
-// - replayResistOutpoint
-// - sudtExtraData
-
-// 另外，lockETH 的 amount 参数需要在 tx.value 中体现
-```
-
-- 前端调试时，可以调用该接口，比对 data 和自行组装的 data 是否一致
-- 和以太坊交互时，`tx.to` 为 `/settings` 接口中返回的 `eth_token_locker_addr` 字段
-
 ### burn
 
-用户在 ckb 上 burn 掉 mirror token，跨链回 eth。
+用户在 ckb 上 burn 掉 mirror token，跨链回 eth。前端使用该接口获取未签名的 burn 交易。
 
 ```json
 {
@@ -304,161 +201,104 @@ let LockEthData = web3.eth.abi.encodeFunctionCall(lockEthABI, ['0x1', '0x4900000
 ```json
 {
     "raw_tx": {
+        "version": "0x0",
         "cell_deps": [
             {
-                "dep_type": "code",
                 "out_point": {
-                    "index": "0x0",
-                    "tx_hash": "0x54fec0286bda25ca198ac8a192a5463c03f862fe39e70e805eb57c5f199512d7"
-                }
+                    "tx_hash": "0x49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
+                    "index": "0x0"
+                },
+                "dep_type": "code"
             },
             {
-                "dep_type": "code",
                 "out_point": {
-                    "index": "0x4",
-                    "tx_hash": "0x54fec0286bda25ca198ac8a192a5463c03f862fe39e70e805eb57c5f199512d7"
-                }
+                    "tx_hash": "0x49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
+                    "index": "0x2"
+                },
+                "dep_type": "code"
             },
             {
-                "dep_type": "code",
                 "out_point": {
-                    "index": "0x5",
-                    "tx_hash": "0x54fec0286bda25ca198ac8a192a5463c03f862fe39e70e805eb57c5f199512d7"
-                }
+                    "tx_hash": "0x49188fdc4c2185bed57f2aeaf2fac480444d58e395de7eb6db33e69acacdcd7d",
+                    "index": "0x5"
+                },
+                "dep_type": "code"
             },
             {
-                "dep_type": "dep_group",
                 "out_point": {
-                    "index": "0x0",
-                    "tx_hash": "0xace5ea83c478bb866edf122ff862085789158f5cbff155b7bb5f13058555b708"
-                }
+                    "tx_hash": "0xa777fd1964ffa98a7b0b6c09ff71691705d84d5ed1badfb14271a3a870bdd06b",
+                    "index": "0x0"
+                },
+                "dep_type": "dep_group"
             }
         ],
-        "hash": "0x6e455e0cfc51cce120169f830696460ef15805a5d601e59d72139753d114a286",
         "header_deps": [],
         "inputs": [
             {
+                "since": "0x0",
                 "previous_output": {
-                    "index": "0x8",
-                    "tx_hash": "0xa563884b3686078ec7e7677a5f86449b15cf2693f3c1241766c6996f206cc541"
-                },
-                "since": "0x0"
+                    "tx_hash": "0x31900669ba31ab2f14931eb35d9e74a024dcdff8c7a06c521cd6f7c1516cf838",
+                    "index": "0x1"
+                }
+            },
+            {
+                "since": "0x0",
+                "previous_output": {
+                    "tx_hash": "0x0727e4a50e70f44ab3392787430d5150939ee91577a245558407bc2ad6433f2d",
+                    "index": "0x1"
+                }
             }
         ],
         "outputs": [
             {
-                "capacity": "0x513619a00",
+                "capacity": "0x5d21dba00",
                 "lock": {
-                    "args": "0x470dcdc5e44064909650113a274b3b36aecb6dc7",
                     "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-                    "hash_type": "type"
+                    "hash_type": "type",
+                    "args": "0xa4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c"
                 },
                 "type": {
-                    "args": "0x",
-                    "code_hash": "0xa170baee8a38fcc33a83a51db412a51b74101e931f7f90586de1971b11154ad4",
-                    "hash_type": "data"
+                    "code_hash": "0xed0df97ea89ce848b20479194c9eb50cda612837f2db516b828ffeea61473ff3",
+                    "hash_type": "data",
+                    "args": "0x"
                 }
             },
             {
-                "capacity": "0x736f62d68bc40c0",
+                "capacity": "0x4a817c800",
                 "lock": {
-                    "args": "0x470dcdc5e44064909650113a274b3b36aecb6dc7",
                     "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
-                    "hash_type": "type"
+                    "hash_type": "type",
+                    "args": "0xa4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c"
+                },
+                "type": {
+                    "code_hash": "0xe1e354d6d643ad42724d40967e334984534e0367405c5ae42a9d7d63d77df419",
+                    "hash_type": "data",
+                    "args": "0xb5ff94e85f04396cf5b852446eb75d8880cad4d94a1c17d0e5cd70470e6c2ba8"
+                }
+            },
+            {
+                "capacity": "0xe3027813c0",
+                "lock": {
+                    "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+                    "hash_type": "type",
+                    "args": "0xa4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c"
                 },
                 "type": null
             }
         ],
         "outputs_data": [
-            "0x728060ab319e06ac6b5d5c0c74009f7d1f5730db00000000000000000000000000000000000000000592aa9fd1ce50636c501e1e2db8688466acc1eaf063a61a307ef090ff41f649ba1975860a24f0a500d0ad7cbf576d2d5ce202b80000000000000000000000000000000000000000000000000000000000000000",
+            "0x728060ab319e06ac6b5d5c0c74009f7d1f5730db0000000000000000000000000000000000000000cd62e77cfe0386343c15c13528675aae9925d7ae88d9ffc645fef37c2097140cdc2923726d4efe16131e76e85757b446138e39ceda6d3ad483fb11a5619e65035c3139acdb17c26e73647b7f0ac62a4036ca4e721000000000000000000000000000000000000000000000000000000000000000",
+            "0x52000000000000000000000000000000",
             "0x"
         ],
-        "version": "0x0",
-        "witnesses": []
+        "witnesses": [],
+        "hash": "0x9202af33f0a242c54603e7d4e977b74b9ac6b25a3c69dd4661123b8882670a1f"
     }
 }
 ```
 
 #### 结果说明
 - raw_tx: ckb 原始交易。格式与 ckb rpc 接口一致。用户签名后可以自行发交易。
-
-### get_sudt_balance
-
-获取 sudt 余额
-
-```json
-{
-  "address": "ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4",
-  "token_address": "0x0000000000000000000000000000000000000000"
-}
-```
-
-#### 输入参数说明
-- token_address：erc20 地址
-- address：ckb 地址
-
-```json
-{
-    "balance": "0x0"
-}
-```
-
-#### 结果说明
-- balance：用户 token_address erc20 在 ckb 上的 mirror token 余额
-
-### get_crosschain_history
-
-
-#### 输入参数说明
-
-```json
-{
-    "eth_recipient_addr": "0x53ed257c0be400230ffec1121b14ff4b843ea3ec",
-    "ckb_recipient_lockscript_addr": "ckt1q3vvtay34wndv9nckl8hah6fzzcltcqwcrx79apwp2a5lkd07fdxx7kea3r2ns53pdzxzjrj3t8dp3lzk5qysh9z9we"
-}
-```
-
-- ckb_recipient_lockscript_addr: ckb 接收者的 lockscript address 地址
-- eth_recipient_addr: 以太坊接收地址
-
-#### 结果说明
-
-```json
-{
-    "eth_to_ckb": [
-        {
-            "id": 2,
-            "eth_tx_hash": "0x6a643547b65df16edddba6a785d4f28481e70b96e41b0b7e140fa4a0a84cd4d5",
-            "ckb_tx_hash": "0x1c3162b980fdc20fe3e9c7211c3b56c5f6991789c526678eacdc05c10b953463",
-            "status": "success",
-            "sort": "eth_to_ckb",
-            "amount": "0x174e4905ba000",
-            "token_addr": "0x0000000000000000000000000000000000000000"
-        }
-    ],
-    "ckb_to_eth": [
-        {
-            "id": 1,
-            "eth_tx_hash": "0x54b7479a0fafcef3ca72d35a2e26e0e46db8a2f78c24de1d13b8b3c049587bdd",
-            "ckb_tx_hash": "0x435af82bfcf6b3e445db2e0c2da9d08e61e7371390da0a357c98d72128fdf489",
-            "status": "success",
-            "sort": "ckb_to_eth",
-            "amount": "0x17e5ea8c1a800",
-            "token_addr": "0x0000000000000000000000000000000000000000"
-        }
-    ]
-}
-```
-
-- token_addr: 跨链涉及的币种
-- sort: 类型为 ckb_to_eth 或者 eth_to_ckb
-- status:
-    - success
-    - error
-    - pending
-- amount: 跨链金额，hex 格式
-- eth_tx_hash: 跨链挂单的以太坊锁定资产交易 hash
-- ckb_tx_hash: 跨链挂单的 ckb 交易 hash
 
 ### get_eth_to_ckb_status
 
@@ -468,34 +308,35 @@ let LockEthData = web3.eth.abi.encodeFunctionCall(lockEthABI, ['0x1', '0x4900000
 
 ```json
 {
-    "eth_lock_tx_hash": "0x85479dfc42878b74436f4ebe630be41ecf06f219d3e3dad92de48c89eb369758"
+    "eth_lock_tx_hash": "afc74282409140b853b3cbb74d772bc835e7ea5643704d35db77b8c306ed5fe0"
 }
 ```
 
-- eth_lock_tx_hash: 以太坊锁定交易的签名
+- eth_lock_tx_hash: 以太坊 lock 交易的哈希（去除 0x)
 
 #### 结果说明
 
 ```json
 {
-    "id": 176,
-    "eth_lock_tx_hash": "0x85479dfc42878b74436f4ebe630be41ecf06f219d3e3dad92de48c89eb369758",
-    "status": "error",
-    "token_addr": null,
-    "sender_addr": null,
-    "locked_amount": null,
-    "bridge_fee": null,
-    "ckb_recipient_lockscript": null,
-    "sudt_extra_data": null,
+    "eth_lock_tx_hash": "afc74282409140b853b3cbb74d772bc835e7ea5643704d35db77b8c306ed5fe0",
+    "status": "pending",
+    "err_msg": "",
+    "token_addr": "0000000000000000000000000000000000000000",
+    "sender_addr": "17c4b5ce0605f63732bfd175fece7ac6b4620fd2",
+    "locked_amount": "0x64",
+    "bridge_fee": "0x0",
+    "ckb_recipient_lockscript": "490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000a4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c",
+    "sudt_extra_data": "737564745f65787472615f64617461",
     "ckb_tx_hash": null,
-    "err_msg": "Failed to generate eth proof for lock tx:0x85479dfc42878b74436f4ebe630be41ecf06f219d3e3dad92de48c89eb369758, after retry 3 times"
+    "block_number": 607,
+    "replay_resist_outpoint": "85ffef8b066255fb2942f78afeda09643b0b1cfde1be0acfc1dc3421236b85c407000000"
 }
 ```
 
 - status:
     - success
-    - irreparable error
     - pending
+    - irreparable error
 - err_msg: 报错信息
 
 ### get_ckb_to_eth_status
@@ -506,32 +347,110 @@ let LockEthData = web3.eth.abi.encodeFunctionCall(lockEthABI, ['0x1', '0x4900000
 
 ```json
 {
-    "ckb_burn_tx_hash": "85479dfc42878b74436f4ebe630be41ecf06f219d3e3dad92de48c89eb369758"
+    "ckb_burn_tx_hash": "31900669ba31ab2f14931eb35d9e74a024dcdff8c7a06c521cd6f7c1516cf838"
 }
 ```
 
-- ckb_burn_tx_hash: ckb burn 交易的签名
+- ckb_burn_tx_hash: ckb burn 交易的哈希（去除 0x）
 
 #### 结果说明
 
 ```json
 {
-    "id": 176,
-    "eth_lock_tx_hash": "0x85479dfc42878b74436f4ebe630be41ecf06f219d3e3dad92de48c89eb369758",
-    "status": "error",
-    "token_addr": null,
-    "sender_addr": null,
-    "locked_amount": null,
-    "bridge_fee": null,
-    "ckb_recipient_lockscript": null,
-    "sudt_extra_data": null,
-    "ckb_tx_hash": null,
-    "err_msg": ""
+    "id": 1,
+    "ckb_burn_tx_hash": "31900669ba31ab2f14931eb35d9e74a024dcdff8c7a06c521cd6f7c1516cf838",
+    "status": "success",
+    "recipient_addr": "403a53a7dfa7a4ab022e53feff11232b3140407d",
+    "token_addr": "0000000000000000000000000000000000000000",
+    "token_amount": "0x2",
+    "fee": "0x1",
+    "eth_tx_hash": "6302e20bf9b1ed24a9044d82b97c583477cd9a8aa8ae4e2ee27d0bf43e97613a",
+    "ckb_block_number": 720,
+    "eth_block_number": 830
 }
 ```
 
 - status:
     - success
     - pending
-- err_msg: ""
 
+### get_crosschain_history
+
+#### 输入参数说明
+
+```json
+{
+    "eth_recipient_addr": "403A53A7Dfa7a4AB022e53FeFf11232b3140407d",
+    "ckb_recipient_lockscript_addr": "ckt1qyq2f0uwf3lk7e0nthfucvxgl3zu36v6zuwq6mlzps"
+}
+```
+
+- eth_recipient_addr: 以太坊接收地址(去除 0x)
+- ckb_recipient_lockscript_addr: ckb 接收者的 lockscript address 地址
+
+#### 结果说明
+
+```json
+{
+    "eth_to_ckb": [
+        {
+            "id": 1,
+            "eth_tx_hash": "0xafc74282409140b853b3cbb74d772bc835e7ea5643704d35db77b8c306ed5fe0",
+            "ckb_tx_hash": null,
+            "status": "success",
+            "sort": "eth_to_ckb",
+            "amount": "0x64",
+            "token_addr": "0x0000000000000000000000000000000000000000"
+        }
+    ],
+    "ckb_to_eth": [
+        {
+            "id": 1,
+            "eth_tx_hash": "0x6302e20bf9b1ed24a9044d82b97c583477cd9a8aa8ae4e2ee27d0bf43e97613a",
+            "ckb_tx_hash": "0x31900669ba31ab2f14931eb35d9e74a024dcdff8c7a06c521cd6f7c1516cf838",
+            "status": "success",
+            "sort": "ckb_to_eth",
+            "amount": "0x2",
+            "token_addr": "0x0000000000000000000000000000000000000000"
+        }
+    ]
+}
+```
+
+- eth_tx_hash: 跨链挂单的以太坊锁定资产交易 hash
+- ckb_tx_hash: 跨链挂单的 ckb 交易 hash
+- status:
+    - success
+    - pending
+- sort: 类型为 ckb_to_eth 或者 eth_to_ckb
+- amount: 跨链金额，hex 格式
+- token_addr: 跨链涉及的币种
+
+### get_sudt_balance
+
+获取 sudt 余额
+
+```json
+{
+  "address": "ckt1qyq2f0uwf3lk7e0nthfucvxgl3zu36v6zuwq6mlzps",
+  "token_address": "0x0000000000000000000000000000000000000000"
+}
+```
+
+#### 输入参数说明
+- token_address：erc20 地址
+- address：ckb 地址
+
+```json
+{
+    "balance": "0x62",
+    "sudt_script": {
+        "args": "0xb5ff94e85f04396cf5b852446eb75d8880cad4d94a1c17d0e5cd70470e6c2ba8",
+        "code_hash": "0xe1e354d6d643ad42724d40967e334984534e0367405c5ae42a9d7d63d77df419",
+        "hash_type": "data"
+    }
+}
+```
+
+#### 结果说明
+- balance：用户 token_address erc20 在 ckb 上的 mirror token 余额
