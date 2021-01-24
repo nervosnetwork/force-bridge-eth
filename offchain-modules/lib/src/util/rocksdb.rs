@@ -105,7 +105,8 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
                 node: branch.node.into(),
                 sibling: branch.sibling.into(),
             };
-            let db_branch_node_raw = serde_json::to_vec(&db_branch_node).unwrap();
+            let db_branch_node_raw =
+                serde_json::to_vec(&db_branch_node).expect("encode db_branch_node");
             batch
                 .put(get_db_key_for_branch(key.as_slice()), db_branch_node_raw)
                 .expect("put branch");
@@ -115,7 +116,7 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
                 key: leaf.key.into(),
                 value: leaf.value.clone(),
             };
-            let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node).unwrap();
+            let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node).expect("encode db_leaf_node");
             batch
                 .put(get_db_key_for_leaf(key.as_slice()), db_leaf_node_raw)
                 .expect("put leaf");
@@ -137,20 +138,21 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             true => self
                 .db
                 .as_ref()
-                .unwrap()
+                .expect("should be read db")
                 .get(get_db_key_for_branch(node.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(e.into_string()))?,
             false => self
                 .read_only_db
                 .as_ref()
                 .expect("should be read only db when db is none")
                 .get(get_db_key_for_branch(node.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(e.into_string()))?,
         };
 
         match db_value {
             Some(v) => {
-                let n: DBBranchNode = serde_json::from_slice(v.as_ref()).unwrap();
+                let n: DBBranchNode =
+                    serde_json::from_slice(v.as_ref()).expect("decode branch node");
                 let branch_node = BranchNode {
                     fork_height: n.fork_height,
                     key: n.key.into(),
@@ -172,20 +174,21 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             true => self
                 .db
                 .as_ref()
-                .unwrap()
+                .expect("should be read db")
                 .get(get_db_key_for_leaf(leaf_hash.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(e.into_string()))?,
             false => self
                 .read_only_db
                 .as_ref()
                 .expect("should be read only db when db is none")
                 .get(get_db_key_for_leaf(leaf_hash.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(e.into_string()))?,
         };
 
         match db_value {
             Some(v) => {
-                let n: DBLeafNode<V> = serde_json::from_slice(v.as_ref()).unwrap();
+                let n: DBLeafNode<V> =
+                    serde_json::from_slice(v.as_ref()).expect("decode leaf node");
                 let node = LeafNode {
                     key: n.key.clone().into(),
                     value: n.value,
@@ -209,7 +212,7 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             .as_ref()
             .expect("only db can delete")
             .delete(get_db_key_for_branch(node.as_slice()))
-            .unwrap();
+            .map_err(|e| Error::Store(e.into_string()))?;
         Ok(())
     }
     fn remove_leaf(&mut self, leaf_hash: &H256) -> Result<(), Error> {
@@ -218,7 +221,7 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             .as_ref()
             .expect("only db can delete")
             .delete(get_db_key_for_leaf(leaf_hash.as_slice()))
-            .unwrap();
+            .map_err(|e| Error::Store(e.into_string()))?;
         Ok(())
     }
 }
@@ -260,35 +263,3 @@ fn get_db_key_for_leaf(key: &[u8]) -> Vec<u8> {
     db_key.extend_from_slice(key);
     db_key
 }
-
-// #[test]
-// fn test_rocksdb() {
-//     let mut db = RocksDBStore::new("~/.force-bridge/test-rocksdb".to_string());
-//     for i in 1..100 {
-//         let branch = BranchNode {
-//             fork_height: i,
-//             key: [i; 32].into(),
-//             node: [i; 32].into(),
-//             sibling: [i; 32].into(),
-//         };
-//
-//         let leaf_value: RocksDBValue = [i; 32].into();
-//         let leaf = LeafNode {
-//             key: [i; 32].into(),
-//             value: leaf_value,
-//         };
-//         db.insert_branch([i; 32].into(), branch).unwrap();
-//         db.insert_leaf([i; 32].into(), leaf).unwrap();
-//     }
-//     db.commit();
-//
-//     db.remove_leaf(&[1u8; 32].into()).unwrap();
-//     db.remove_leaf(&[200u8; 32].into()).unwrap();
-//
-//     let v1 = db.get_leaf(&[1u8; 32].into()).unwrap();
-//     let v2 = db.get_leaf(&[200u8; 32].into()).unwrap();
-//     let v3 = db.get_leaf(&[2u8; 32].into()).unwrap();
-//     assert!(v1.is_none());
-//     assert!(v2.is_none());
-//     assert!(v3.is_some());
-// }

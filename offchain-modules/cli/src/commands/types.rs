@@ -318,6 +318,8 @@ pub struct EthRelayArgs {
     pub private_key_path: String,
     #[clap(long)]
     pub multisig_privkeys: Vec<String>,
+    #[clap(long, default_value = "0")]
+    pub start_height: u64,
 }
 
 #[derive(Clap, Clone, Debug)]

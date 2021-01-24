@@ -381,6 +381,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         args.network,
         args.private_key_path,
         args.multisig_privkeys,
+        args.start_height,
     )?;
     loop {
         let res = eth_relayer.start().await;

@@ -34,6 +34,7 @@ pub struct ETHRelayer {
     pub multisig_config: MultisigConfig,
     pub multisig_privkeys: Vec<SecretKey>,
     pub secret_key: SecretKey,
+    pub start_height: u64,
 }
 
 impl ETHRelayer {
@@ -42,6 +43,7 @@ impl ETHRelayer {
         network: Option<String>,
         priv_key_path: String,
         multisig_privkeys: Vec<String>,
+        start_height: u64,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -86,6 +88,7 @@ impl ETHRelayer {
                 .map(|k| parse_privkey_path(&k, &force_config, &network))
                 .collect::<Result<Vec<SecretKey>>>()?,
             config: force_config,
+            start_height,
         })
     }
 
@@ -170,13 +173,28 @@ impl ETHRelayer {
         cell_script: Script,
         mut latest_submit_header_number: u64,
     ) -> Result<u64> {
-        let tip_header_number: u64 = self
-            .eth_client
-            .client()
-            .eth()
-            .block_number()
-            .await?
-            .as_u64();
+        // if start_height is specified, sync from start_height
+        let tip_header_number = match self.start_height {
+            0 => self
+                .eth_client
+                .client()
+                .eth()
+                .block_number()
+                .await?
+                .as_u64(),
+            _ => {
+                if latest_submit_header_number == 0 {
+                    self.start_height
+                } else {
+                    self.eth_client
+                        .client()
+                        .eth()
+                        .block_number()
+                        .await?
+                        .as_u64()
+                }
+            }
+        };
         if latest_submit_header_number >= tip_header_number {
             info!("waiting for new eth header. tip_header_number: {}, latest_submit_header_number: {}", tip_header_number, latest_submit_header_number);
             return Ok(latest_submit_header_number);
