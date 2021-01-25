@@ -22,8 +22,7 @@ jobs:
           restore-keys: |
             cargo-target-offchain-
       - name: install-tarpaulin
-        if: steps.cache-contract-target.outputs.cache-hit != 'true'
-        run: cargo install cargo-tarpaulin -f
+        run: which cargo-tarpaulin || cargo install cargo-tarpaulin -f
       - name: run coverage test
         run: |
           export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
