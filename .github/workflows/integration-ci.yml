@@ -21,19 +21,6 @@ jobs:
           key: cargo-target-offchain-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             cargo-target-offchain-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2020-10-22
-          override: true
-          components: rustfmt, clippy
-      - name: install-tarpaulin
-        run: which cargo-tarpaulin || cargo install cargo-tarpaulin -f
-      - name: run coverage test
-        run: |
-          export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
-          cd ckb-contracts && bash ckb_script_coverage.sh
-          cd eth-contracts && yarn install && bash eth_script_coverage.sh
       - name: install-capsule
         run: |
           wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.2.3/capsule_v0.2.3_x86_64-linux.tar.gz
