@@ -1,14 +1,14 @@
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
-    build_lockscript_from_address, create_bridge_lockscript, parse_privkey, parse_privkey_path,
-    ETHSPVProofJson,
+    build_lockscript_from_address, clear_0x, create_bridge_lockscript, parse_privkey,
+    parse_privkey_path, ETHSPVProofJson,
 };
 use crate::util::config::{
     CellScript, DeployedContracts, ForceConfig, MultisigConf, OutpointConf, ScriptConf,
 };
 use crate::util::eth_util::{
-    build_lock_eth_payload, build_lock_token_payload, convert_eth_address, parse_private_key,
-    Web3Client,
+    build_lock_eth_payload, build_lock_token_payload, convert_eth_address, convert_hex_to_h256,
+    parse_private_key, Web3Client,
 };
 use anyhow::{anyhow, Result};
 use ckb_hash::{blake2b_256, new_blake2b};
@@ -200,7 +200,11 @@ pub async fn generate_eth_spv_proof_json(
 ) -> Result<ETHSPVProofJson> {
     let eth_spv_proof_retry = |max_retry_times| {
         for retry in 0..max_retry_times {
-            let ret = generate_eth_proof(hash.clone(), ethereum_rpc_url.clone());
+            let ret = generate_eth_proof(
+                hash.clone(),
+                ethereum_rpc_url.clone(),
+                String::from(clear_0x(eth_token_locker_addr.as_str())),
+            );
             match ret {
                 Ok(proof) => return Ok(proof),
                 Err(e) => {
@@ -219,7 +223,7 @@ pub async fn generate_eth_spv_proof_json(
     };
     let eth_spv_proof = eth_spv_proof_retry(3)?;
     to_eth_spv_proof_json(
-        hash.clone(),
+        // hash.clone(),
         eth_spv_proof,
         eth_token_locker_addr,
         ethereum_rpc_url,
@@ -228,21 +232,27 @@ pub async fn generate_eth_spv_proof_json(
 }
 
 pub async fn to_eth_spv_proof_json(
-    hash: String,
+    // hash: String,
     eth_spv_proof: EthSpvProof,
     eth_token_locker_addr: String,
     ethereum_rpc_url: String,
 ) -> Result<ETHSPVProofJson> {
-    let header_rlp = get_header_rlp(ethereum_rpc_url.clone(), eth_spv_proof.block_hash).await?;
-    info!("tx: {:?}, eth_spv_proof: {:?}", hash, eth_spv_proof);
-    let hash_str = hash.clone();
+    let header_rlp = get_header_rlp(
+        ethereum_rpc_url.clone(),
+        convert_hex_to_h256(eth_spv_proof.block_hash.as_str())?,
+    )
+    .await?;
+    info!(
+        "tx: {:?}, eth_spv_proof: {:?}",
+        eth_spv_proof.tx_hash, eth_spv_proof
+    );
+    let hash_str = eth_spv_proof.tx_hash;
     let log_index = eth_spv_proof.log_index;
     let eth_rpc_url = ethereum_rpc_url.clone();
     let proof_hex = run_fun! {
     node eth-proof/index.js proof --hash ${hash_str} --index ${log_index} --url ${eth_rpc_url}}
     .unwrap();
     let proof_json: Value = serde_json::from_str(&proof_hex).unwrap();
-    info!("tx: {:?}, generate proof json: {:?}", hash, proof_json);
     // TODO: refactor to parse with static struct instead of dynamic parsing
     let mut proof_vec = vec![];
     for item in proof_json["proof"].as_array().unwrap() {
@@ -262,6 +272,7 @@ pub async fn to_eth_spv_proof_json(
         bridge_fee: eth_spv_proof.bridge_fee,
         replay_resist_outpoint: eth_spv_proof.replay_resist_outpoint,
         eth_address: convert_eth_address(&eth_token_locker_addr)?,
+        sender: eth_spv_proof.sender,
     })
 }
 

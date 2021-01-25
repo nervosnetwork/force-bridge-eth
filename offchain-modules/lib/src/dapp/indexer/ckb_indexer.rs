@@ -1,9 +1,10 @@
 use crate::dapp::db::indexer::{
-    create_ckb_to_eth_record, delete_ckb_to_eth_records, get_ckb_unconfirmed_block,
-    get_ckb_unconfirmed_blocks, get_eth_to_ckb_record_by_outpoint, get_height_info,
-    get_max_ckb_unconfirmed_block, insert_ckb_unconfirmed_block, is_ckb_to_eth_record_exist,
-    reset_eth_to_ckb_record_status, update_ckb_unconfirmed_block, update_cross_chain_height_info,
-    update_eth_to_ckb_status, CkbToEthRecord, CkbUnConfirmedBlock, EthToCkbRecord,
+    create_ckb_to_eth_record, delete_ckb_to_eth_records, delete_ckb_unconfirmed_block,
+    get_ckb_unconfirmed_block, get_ckb_unconfirmed_blocks, get_eth_to_ckb_record_by_outpoint,
+    get_height_info, get_max_ckb_unconfirmed_block, insert_ckb_unconfirmed_block,
+    insert_ckb_unconfirmed_blocks, is_ckb_to_eth_record_exist, reset_eth_to_ckb_record_status,
+    update_ckb_unconfirmed_block, update_cross_chain_height_info, update_eth_to_ckb_status,
+    CkbToEthRecord, CkbUnConfirmedBlock, EthToCkbRecord,
 };
 use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::{create_bridge_lockscript, parse_cell};
@@ -78,13 +79,15 @@ impl CkbIndexer {
         let mut unconfirmed_blocks = get_ckb_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
-            if start_block_number < CKB_CHAIN_CONFIRMED as u64 {
-                anyhow::bail!("waiting for the ckb chain init.")
+            //
+            let mut start = 0;
+            if start_block_number > CKB_CHAIN_CONFIRMED as u64 {
+                start = start_block_number - CKB_CHAIN_CONFIRMED as u64;
             }
-            for i in 1..CKB_CHAIN_CONFIRMED + 1 {
+            for i in start..start_block_number {
                 let block = self
                     .rpc_client
-                    .get_block_by_number(start_block_number - (i as u64))
+                    .get_block_by_number(i)
                     .map_err(|e| anyhow!("failed to get ckb block by hash : {}", e))?
                     .ok_or_else(|| anyhow!("the block is not exist"))?;
                 let number = block.header.inner.number;
@@ -95,12 +98,13 @@ impl CkbIndexer {
                 };
                 unconfirmed_blocks.push(record);
             }
-            insert_ckb_unconfirmed_block(&self.db, &unconfirmed_blocks).await?;
+            insert_ckb_unconfirmed_blocks(&self.db, &unconfirmed_blocks).await?;
         }
         let mut tail = get_max_ckb_unconfirmed_block(&self.db)
             .await?
             .ok_or_else(|| anyhow!("the tail is not exist"))?;
-        if unconfirmed_blocks.len() != CKB_CHAIN_CONFIRMED || tail.number + 1 != start_block_number
+        if unconfirmed_blocks[unconfirmed_blocks.len() - 1].hash != tail.hash
+            || tail.number + 1 != start_block_number
         {
             anyhow::bail!("system error! the unconfirmed_blocks is invalid.")
         }
@@ -123,10 +127,19 @@ impl CkbIndexer {
                 block = self
                     .lookup_common_ancestor_in_ckb(
                         &unconfirmed_blocks,
-                        (CKB_CHAIN_CONFIRMED - 1) as isize,
+                        (unconfirmed_blocks.len() - 1) as isize,
                     )
                     .await?;
                 start_block_number = block.header.inner.number + 1;
+                unconfirmed_blocks = unconfirmed_blocks
+                    .into_iter()
+                    .filter(|s| s.number < start_block_number)
+                    .collect();
+                block = self
+                    .rpc_client
+                    .get_block_by_number(start_block_number)
+                    .map_err(|e| anyhow!("failed to get ckb block by hash : {}", e))?
+                    .ok_or_else(|| anyhow!("the block is not exist."))?;
             }
             let txs = block.transactions;
             let mut burn_records = vec![];
@@ -137,26 +150,50 @@ impl CkbIndexer {
                 let exist = is_ckb_to_eth_record_exist(&self.db, tx_hash.as_str()).await?;
                 if !exist {
                     let is_burn_tx = self
-                        .handle_burn_tx(tx.clone(), tx_hash, start_block_number, &mut burn_records)
+                        .handle_burn_tx(
+                            tx.clone(),
+                            tx_hash.clone(),
+                            start_block_number,
+                            &mut burn_records,
+                        )
                         .await?;
                     if !is_burn_tx {
-                        self.handle_mint_tx(tx, &mut mint_records, start_block_number)
+                        self.handle_mint_tx(tx, tx_hash, &mut mint_records, start_block_number)
                             .await?;
                     }
                 }
             }
             height_info = get_height_info(&self.db).await?;
-            let mut unconfirmed_block = get_ckb_unconfirmed_block(
-                &self.db,
-                start_block_number % CKB_CHAIN_CONFIRMED as u64,
-            )
-            .await?
-            .ok_or_else(|| anyhow!("the block is not exist"))?;
+            // let mut unconfirmed_block = get_ckb_unconfirmed_block(
+            //     &self.db,
+            //     start_block_number % CKB_CHAIN_CONFIRMED as u64,
+            // )
+            // .await?
+            // .ok_or_else(|| anyhow!("the block is not exist"))?;
+            let mut unconfirmed_block;
+            let hash_str = hex::encode(block.header.hash);
+            if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
+                unconfirmed_block = CkbUnConfirmedBlock {
+                    id: start_block_number % CKB_CHAIN_CONFIRMED as u64,
+                    number: start_block_number,
+                    hash: hash_str,
+                };
+            } else {
+                unconfirmed_block = get_ckb_unconfirmed_block(
+                    &self.db,
+                    start_block_number % CKB_CHAIN_CONFIRMED as u64,
+                )
+                .await?
+                .ok_or_else(|| anyhow!("the block is not exist"))?;
+                unconfirmed_block.number = start_block_number;
+                unconfirmed_block.hash = hash_str;
+            }
             let mut db_tx = self.db.begin().await?;
             if re_org {
                 // delete eth to ckb record while the block number > start_block_number
                 delete_ckb_to_eth_records(&mut db_tx, start_block_number).await?;
                 reset_eth_to_ckb_record_status(&mut db_tx, start_block_number).await?;
+                delete_ckb_unconfirmed_block(&mut db_tx, start_block_number).await?;
             }
             if !burn_records.is_empty() {
                 create_ckb_to_eth_record(&mut db_tx, &burn_records).await?;
@@ -172,12 +209,20 @@ impl CkbIndexer {
                 .get_contract_height("latestBlockNumber", contract_addr)
                 .await?;
             update_cross_chain_height_info(&mut db_tx, &height_info).await?;
-            unconfirmed_block.number = start_block_number;
-            unconfirmed_block.hash = hex::encode(block.header.hash);
-            update_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+            // unconfirmed_block.number = start_block_number;
+            // unconfirmed_block.hash = hex::encode(block.header.hash);
+            // update_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+            if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
+                insert_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
+            } else {
+                update_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+                unconfirmed_blocks.remove(0);
+            }
             db_tx.commit().await?;
             start_block_number += 1;
-            tail = unconfirmed_block;
+            tail = unconfirmed_block.clone();
+            unconfirmed_blocks.push(unconfirmed_block);
+            tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         }
     }
 
@@ -227,6 +272,8 @@ impl CkbIndexer {
                 let typescript = tx.outputs[0].type_.as_ref().unwrap();
                 if typescript.code_hash.as_bytes().to_vec() == recipient_typescript_code_hash {
                     // the tx is burn tx.
+                    let locker_addr: ETHAddress =
+                        eth_recipient.eth_lock_contract_address.get_address().into();
                     let token_addr: ETHAddress =
                         eth_recipient.eth_token_address.get_address().into();
                     let recipient_addr: ETHAddress =
@@ -250,6 +297,13 @@ impl CkbIndexer {
                         ckb_spv_proof: Some(proof_str),
                         ckb_block_number: block_number,
                         ckb_raw_tx: Some(mol_hex_tx),
+                        fee: Some(Uint128::from(eth_recipient.fee).to_string()),
+                        bridge_lock_hash: Some(hex::encode(
+                            eth_recipient.eth_bridge_lock_hash.as_slice(),
+                        )),
+                        lock_contract_addr: Some(hex::encode(
+                            locker_addr.raw_data().to_vec().as_slice(),
+                        )),
                         ..Default::default()
                     };
                     burn_records.push(record);
@@ -293,6 +347,7 @@ impl CkbIndexer {
     pub async fn handle_mint_tx(
         &mut self,
         tx: Transaction,
+        tx_hash_str: String,
         unlock_datas: &mut Vec<EthToCkbRecord>,
         number: u64,
     ) -> Result<()> {
@@ -316,6 +371,7 @@ impl CkbIndexer {
                 if success {
                     eth_to_ckb_record.status = String::from("success");
                     eth_to_ckb_record.ckb_block_number = number;
+                    eth_to_ckb_record.ckb_tx_hash = Some(tx_hash_str);
                     unlock_datas.push(eth_to_ckb_record);
                 }
             }

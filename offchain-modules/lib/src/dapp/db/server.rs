@@ -1,4 +1,5 @@
-use super::indexer::{CkbToEthRecord, EthToCkbRecord};
+use super::indexer::EthToCkbRecord;
+use crate::dapp::server::types::GetCkbToEthStatusResponse;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::mysql::MySqlPool;
@@ -26,11 +27,12 @@ pub struct RelayStatus {
     pub err_msg: String,
 }
 
-pub async fn is_token_replay_resist_init(pool: &MySqlPool) -> Result<bool> {
+pub async fn is_token_replay_resist_init(pool: &MySqlPool, token: &str) -> Result<bool> {
     let sql = r#"
-SELECT id, outpoint FROM replay_resist_cells order by id desc limit 1
+SELECT id, outpoint FROM replay_resist_cells WHERE token = ? order by id desc limit 1
     "#;
     let block_number = sqlx::query_as::<_, ReplayResistCell>(sql)
+        .bind(token)
         .fetch_optional(pool)
         .await?;
     Ok(block_number.map_or(false, |_| true))
@@ -179,10 +181,10 @@ where ckb_recipient_lockscript = ?
 pub async fn get_ckb_to_eth_status(
     pool: &MySqlPool,
     ckb_burn_tx_hash: &str,
-) -> Result<Option<CkbToEthRecord>> {
-    Ok(sqlx::query_as::<_, CkbToEthRecord>(
+) -> Result<Option<GetCkbToEthStatusResponse>> {
+    Ok(sqlx::query_as::<_, GetCkbToEthStatusResponse>(
         r#"
-SELECT *
+SELECT id, ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, eth_tx_hash, ckb_block_number, eth_block_number
 FROM ckb_to_eth
 where ckb_burn_tx_hash = ?
         "#,
