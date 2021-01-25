@@ -124,4 +124,8 @@ fmt:
 	make -C offchain-modules fmt
 	make -C ckb-contracts fmt
 
+coverage-test:
+	cd ckb-contracts && bash ckb_script_coverage.sh
+	cd eth-contracts && yarn install && bash eth_script_coverage.sh
+
 .PHONY: demo
