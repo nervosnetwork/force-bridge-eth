@@ -1,14 +1,14 @@
 use crate::dapp::db::indexer::{
-    create_eth_to_ckb_record, delete_eth_to_ckb_records, get_ckb_to_eth_record_by_eth_hash,
+    create_eth_to_ckb_record, delete_eth_to_ckb_records, delete_eth_unconfirmed_block,
     get_eth_unconfirmed_block, get_eth_unconfirmed_blocks, get_height_info,
-    get_max_eth_unconfirmed_block, insert_eth_unconfirmed_block, is_eth_to_ckb_record_exist,
+    get_max_eth_unconfirmed_block, insert_eth_unconfirmed_block, insert_eth_unconfirmed_blocks,
     reset_ckb_to_eth_record_status, update_ckb_to_eth_record_status,
     update_cross_chain_height_info, update_eth_unconfirmed_block, EthToCkbRecord,
     EthUnConfirmedBlock,
 };
 use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
+use crate::util::ckb_util::{clear_0x, parse_cell, parse_main_chain_headers};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
@@ -19,7 +19,9 @@ use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use log::info;
 use rusty_receipt_proof_maker::types::UnlockEvent;
-use rusty_receipt_proof_maker::{generate_eth_proof, parse_unlock_event, types::EthSpvProof};
+use rusty_receipt_proof_maker::{
+    generate_eth_proof, parse_event, parse_unlock_event, types::EthSpvProof,
+};
 use shellexpand::tilde;
 use sqlx::MySqlPool;
 use web3::types::{Block, H256, U64};
@@ -110,12 +112,13 @@ impl<T: IndexerFilter> EthIndexer<T> {
         let mut unconfirmed_blocks = get_eth_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
+            let mut start = 0;
+            if start_block_number > ETH_CHAIN_CONFIRMED as u64 {
+                start = start_block_number - ETH_CHAIN_CONFIRMED as u64;
+            }
             let blocks = self
                 .eth_client
-                .get_blocks(
-                    start_block_number - ETH_CHAIN_CONFIRMED as u64,
-                    start_block_number,
-                )
+                .get_blocks(start, start_block_number)
                 .await?;
             for item in blocks {
                 let number = item
@@ -129,19 +132,33 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 };
                 unconfirmed_blocks.push(record);
             }
-            insert_eth_unconfirmed_block(&self.db, &unconfirmed_blocks).await?;
+            insert_eth_unconfirmed_blocks(&self.db, &unconfirmed_blocks).await?;
         }
-
+        let config_path = tilde(self.config_path.as_str()).into_owned();
+        let force_config = ForceConfig::new(config_path.as_str())?;
+        let lock_contract_address = force_config
+            .deployed_contracts
+            .as_ref()
+            .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
+            .eth_token_locker_addr
+            .clone();
         let mut tail = get_max_eth_unconfirmed_block(&self.db)
             .await?
             .ok_or_else(|| anyhow!("the tail is not exist"))?;
-        if unconfirmed_blocks.len() != ETH_CHAIN_CONFIRMED || tail.number + 1 != start_block_number
+        log::info!(
+            "tail number: {:?}, start number: {:?}",
+            tail.number,
+            start_block_number
+        );
+        if unconfirmed_blocks[unconfirmed_blocks.len() - 1].hash != tail.hash
+            || tail.number + 1 != start_block_number
         {
             anyhow::bail!("system error! the unconfirmed_blocks is invalid.")
         }
         let mut re_org = false;
 
         loop {
+            log::info!("handle block number: {:?}", start_block_number);
             let block = self
                 .eth_client
                 .get_block(U64::from(start_block_number).into())
@@ -160,7 +177,8 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 block = self
                     .lookup_common_ancestor_in_eth(
                         &unconfirmed_blocks,
-                        (ETH_CHAIN_CONFIRMED - 1) as isize,
+                        // (ETH_CHAIN_CONFIRMED - 1) as isize,
+                        (unconfirmed_blocks.len() - 1) as isize,
                     )
                     .await?;
                 start_block_number = block
@@ -168,35 +186,92 @@ impl<T: IndexerFilter> EthIndexer<T> {
                     .ok_or_else(|| anyhow!("invalid block number"))?
                     .as_u64()
                     + 1;
+                unconfirmed_blocks = unconfirmed_blocks
+                    .into_iter()
+                    .filter(|s| s.number < start_block_number)
+                    .collect();
+                block = self
+                    .eth_client
+                    .get_block(U64::from(start_block_number).into())
+                    .await
+                    .map_err(|err| anyhow!(err))?;
             }
-            let txs = block.transactions;
+            // let txs = block.transactions;
             let mut lock_records = vec![];
             let mut unlock_records = vec![];
-            for tx_hash in txs {
-                let hash = hex::encode(tx_hash);
-                if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
-                    let is_lock_tx = self
-                        .handle_lock_event(hash.clone(), start_block_number, &mut lock_records)
-                        .await?;
-                    // if the tx is not lock tx, check if unlock tx.
-                    if !is_lock_tx {
-                        self.handle_unlock_event(hash.clone(), &mut unlock_records)
-                            .await?;
-                    }
+            let (lock_vec, unlock_vec) = self.parse_event_with_retry(
+                hex::encode(block.hash.unwrap()),
+                5,
+                lock_contract_address.clone(),
+            )?;
+            if !lock_vec.is_empty() {
+                for item in lock_vec {
+                    self.handle_lock_event(
+                        &mut lock_records,
+                        lock_contract_address.clone(),
+                        &item,
+                        start_block_number,
+                    )
+                    .await?;
                 }
             }
+            if !unlock_vec.is_empty() {
+                for item in unlock_vec {
+                    self.handle_unlock_event(item.tx_hash, &mut unlock_records)
+                        .await?;
+                }
+            }
+            // for tx_hash in txs {
+            //     let hash = hex::encode(tx_hash);
+            //     if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
+            //         let is_lock_tx = self
+            //             .handle_lock_event(
+            //                 hash.clone(),
+            //                 start_block_number,
+            //                 &mut lock_records,
+            //                 lock_contract_address.clone(),
+            //             )
+            //             .await?;
+            //         // if the tx is not lock tx, check if unlock tx.
+            //         if !is_lock_tx {
+            //             self.handle_unlock_event(
+            //                 hash.clone(),
+            //                 &mut unlock_records,
+            //                 lock_contract_address.clone(),
+            //             )
+            //             .await?;
+            //         }
+            //     }
+            // }
             height_info = get_height_info(&self.db).await?;
-            let mut unconfirmed_block = get_eth_unconfirmed_block(
-                &self.db,
-                start_block_number % ETH_CHAIN_CONFIRMED as u64,
-            )
-            .await?
-            .ok_or_else(|| anyhow!("the block is not exist"))?;
+            let mut unconfirmed_block;
+            let hash_str = hex::encode(
+                block
+                    .hash
+                    .ok_or_else(|| anyhow!("the block is not exist"))?,
+            );
+            if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
+                unconfirmed_block = EthUnConfirmedBlock {
+                    id: start_block_number % ETH_CHAIN_CONFIRMED as u64,
+                    number: start_block_number,
+                    hash: hash_str,
+                };
+            } else {
+                unconfirmed_block = get_eth_unconfirmed_block(
+                    &self.db,
+                    start_block_number % ETH_CHAIN_CONFIRMED as u64,
+                )
+                .await?
+                .ok_or_else(|| anyhow!("the block is not exist"))?;
+                unconfirmed_block.number = start_block_number;
+                unconfirmed_block.hash = hash_str;
+            }
             let mut db_tx = self.db.begin().await?;
             if re_org {
                 // delete eth to ckb record while the block number > start_block_number
                 delete_eth_to_ckb_records(&mut db_tx, start_block_number).await?;
                 reset_ckb_to_eth_record_status(&mut db_tx, start_block_number).await?;
+                delete_eth_unconfirmed_block(&mut db_tx, start_block_number).await?;
             }
             if !lock_records.is_empty() {
                 create_eth_to_ckb_record(&mut db_tx, &lock_records).await?;
@@ -218,17 +293,17 @@ impl<T: IndexerFilter> EthIndexer<T> {
             height_info.eth_height = start_block_number;
             height_info.eth_client_height = light_client_height;
             update_cross_chain_height_info(&mut db_tx, &height_info).await?;
-
-            unconfirmed_block.number = start_block_number;
-            unconfirmed_block.hash = hex::encode(
-                block
-                    .hash
-                    .ok_or_else(|| anyhow!("the block is not exist"))?,
-            );
-            update_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+            if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
+                insert_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
+            } else {
+                update_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+                unconfirmed_blocks.remove(0);
+            }
             db_tx.commit().await?;
-            tail = unconfirmed_block;
             start_block_number += 1;
+            tail = unconfirmed_block.clone();
+            unconfirmed_blocks.push(unconfirmed_block);
+            tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         }
     }
 
@@ -263,36 +338,22 @@ impl<T: IndexerFilter> EthIndexer<T> {
 
     pub async fn handle_lock_event(
         &mut self,
-        hash: String,
-        block_number: u64,
         records: &mut Vec<EthToCkbRecord>,
-    ) -> Result<bool> {
-        let hash_with_0x = format!("{}{}", "0x", hash.clone());
-        let (eth_spv_proof, is_lock_tx) =
-            self.get_eth_spv_proof_with_retry(hash_with_0x.clone(), 3)?;
-        if is_lock_tx {
-            let config_path = tilde(self.config_path.as_str()).into_owned();
-            let force_config = ForceConfig::new(config_path.as_str())?;
-            let lock_contract_address = force_config
-                .deployed_contracts
-                .as_ref()
-                .ok_or_else(|| anyhow!("the deployed_contracts is not init"))?
-                .eth_token_locker_addr
-                .clone();
-            let eth_proof_json = to_eth_spv_proof_json(
-                hash_with_0x,
-                eth_spv_proof.clone(),
-                lock_contract_address,
-                String::from(self.eth_client.url()),
-            )
-            .await?;
-            let proof_json = serde_json::to_string(&eth_proof_json)?;
-            let recipient_lockscript = hex::encode(eth_proof_json.recipient_lockscript);
-            if !self.indexer_filter.filter(recipient_lockscript.clone()) {
-                return Ok(false);
-            }
+        contract_addr: String,
+        eth_spv_proof: &EthSpvProof,
+        block_number: u64,
+    ) -> Result<()> {
+        let eth_proof_json = to_eth_spv_proof_json(
+            eth_spv_proof.clone(),
+            contract_addr,
+            String::from(self.eth_client.url()),
+        )
+        .await?;
+        let proof_json = serde_json::to_string(&eth_proof_json)?;
+        let recipient_lockscript = hex::encode(eth_proof_json.recipient_lockscript);
+        if self.indexer_filter.filter(recipient_lockscript.clone()) {
             let record = EthToCkbRecord {
-                eth_lock_tx_hash: hash.clone(),
+                eth_lock_tx_hash: String::from(clear_0x(eth_spv_proof.tx_hash.clone().as_str())),
                 status: "pending".to_string(),
                 token_addr: Some(hex::encode(eth_spv_proof.token.as_bytes())),
                 ckb_recipient_lockscript: Some(recipient_lockscript),
@@ -302,22 +363,59 @@ impl<T: IndexerFilter> EthIndexer<T> {
                     eth_spv_proof.replay_resist_outpoint.as_slice(),
                 )),
                 eth_block_number: block_number,
+                sender_addr: Some(hex::encode(eth_spv_proof.sender.as_bytes())),
+                sudt_extra_data: Some(hex::encode(eth_spv_proof.sudt_extra_data.as_slice())),
+                bridge_fee: Some(Uint128::from(eth_spv_proof.bridge_fee).to_string()),
                 ..Default::default()
             };
             records.push(record);
-            // create_eth_to_ckb_record(&self.db, vec![&record, &record]).await?;
-            // info!("create eth_to_ckb record success. tx_hash: {}", hash,);
         }
-        Ok(is_lock_tx)
+        Ok(())
+    }
+
+    pub fn parse_event_with_retry(
+        &mut self,
+        hash: String,
+        max_retry_times: i32,
+        contract_addr: String,
+    ) -> Result<(Vec<EthSpvProof>, Vec<UnlockEvent>)> {
+        let hash_with_0x = format!("{}{}", "0x", hash);
+        for retry in 0..max_retry_times {
+            let ret = parse_event(
+                self.eth_client.url(),
+                contract_addr.clone().as_str(),
+                hash_with_0x.clone().as_str(),
+            );
+            match ret {
+                Ok(ret) => return Ok(ret),
+                Err(e) => {
+                    info!("parse event failed, retried {} times, err: {}", retry, e);
+                    if e.to_string().contains("the event is not exist") {
+                        info!("the event tx is not exist");
+                        return Ok(Default::default());
+                    }
+                }
+            }
+        }
+        Err(anyhow!(
+            "Failed to parse event for block hash:{}, after retry {} times",
+            hash.as_str(),
+            max_retry_times
+        ))
     }
 
     pub fn get_eth_spv_proof_with_retry(
         &mut self,
         hash: String,
         max_retry_times: i32,
+        contract_addr: String,
     ) -> Result<(EthSpvProof, bool)> {
         for retry in 0..max_retry_times {
-            let ret = generate_eth_proof(hash.clone(), String::from(self.eth_client.url()).clone());
+            let ret = generate_eth_proof(
+                hash.clone(),
+                String::from(self.eth_client.url()).clone(),
+                contract_addr.clone(),
+            );
             match ret {
                 Ok(proof) => return Ok((proof, true)),
                 Err(e) => {
@@ -341,51 +439,43 @@ impl<T: IndexerFilter> EthIndexer<T> {
 
     pub async fn handle_unlock_event(
         &mut self,
-        hash: String,
+        tx_hash_str: String,
         unlock_datas: &mut Vec<(String, String)>,
     ) -> Result<()> {
-        let hash_with_0x = format!("{}{}", "0x", hash.clone());
-        let record_op = get_ckb_to_eth_record_by_eth_hash(&self.db, hash.clone()).await?;
-        if record_op.is_some() {
-            let record = record_op.unwrap();
-            if record.status == "success" {
-                return Ok(());
-            }
-        }
-        let (_event, exist) = self.parse_unlock_event_with_retry(hash_with_0x.clone(), 3)?;
-        if exist {
-            let tx_hash = convert_hex_to_h256(&hash)?;
-            let tx = self
-                .eth_client
-                .client()
-                .eth()
-                .transaction(tx_hash.into())
-                .await?;
-            if tx.is_some() {
-                let input = tx.unwrap().input;
-                let function = Function {
-                    name: "unlockToken".to_owned(),
-                    inputs: vec![
-                        Param {
-                            name: "ckbTxProof".to_owned(),
-                            kind: ParamType::Bytes,
-                        },
-                        Param {
-                            name: "ckbTx".to_owned(),
-                            kind: ParamType::Bytes,
-                        },
-                    ],
-                    outputs: vec![],
-                    constant: false,
-                };
-                let input_data = function.decode_input(input.0[4..].as_ref())?;
-                let ckb_tx = input_data[1].clone();
-                let tx_raw = &ckb_tx.to_bytes();
-                if tx_raw.is_some() {
-                    let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
-                    let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
-                    unlock_datas.push((ckb_tx_hash_str, hash.clone()));
-                }
+        let tx_hash = convert_hex_to_h256(&tx_hash_str)?;
+        let tx = self
+            .eth_client
+            .client()
+            .eth()
+            .transaction(tx_hash.into())
+            .await?;
+        if tx.is_some() {
+            let input = tx.unwrap().input;
+            let function = Function {
+                name: "unlockToken".to_owned(),
+                inputs: vec![
+                    Param {
+                        name: "ckbTxProof".to_owned(),
+                        kind: ParamType::Bytes,
+                    },
+                    Param {
+                        name: "ckbTx".to_owned(),
+                        kind: ParamType::Bytes,
+                    },
+                ],
+                outputs: vec![],
+                constant: false,
+            };
+            let input_data = function.decode_input(input.0[4..].as_ref())?;
+            let ckb_tx = input_data[1].clone();
+            let tx_raw = &ckb_tx.to_bytes();
+            if tx_raw.is_some() {
+                let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
+                let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
+                unlock_datas.push((
+                    ckb_tx_hash_str,
+                    String::from(clear_0x(tx_hash_str.clone().as_str())),
+                ));
             }
         }
         Ok(())
@@ -395,9 +485,14 @@ impl<T: IndexerFilter> EthIndexer<T> {
         &mut self,
         hash: String,
         max_retry_times: i32,
+        contract_addr: String,
     ) -> Result<(UnlockEvent, bool)> {
         for retry in 0..max_retry_times {
-            let ret = parse_unlock_event(hash.clone(), String::from(self.eth_client.url()).clone());
+            let ret = parse_unlock_event(
+                hash.clone(),
+                String::from(self.eth_client.url()).clone(),
+                contract_addr.clone(),
+            );
             match ret {
                 Ok(event) => return Ok((event, true)),
                 Err(e) => {

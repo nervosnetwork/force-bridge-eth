@@ -60,14 +60,14 @@ pub async fn get_max_eth_unconfirmed_block(
 }
 
 pub async fn get_eth_unconfirmed_blocks(pool: &MySqlPool) -> Result<Vec<EthUnConfirmedBlock>> {
-    let sql = r#"select * from eth_unconfirmed_block"#;
+    let sql = r#"select * from eth_unconfirmed_block order by number"#;
     let ret = sqlx::query_as::<_, EthUnConfirmedBlock>(sql)
         .fetch_all(pool)
         .await?;
     Ok(ret)
 }
 
-pub async fn insert_eth_unconfirmed_block(
+pub async fn insert_eth_unconfirmed_blocks(
     pool: &MySqlPool,
     records: &[EthUnConfirmedBlock],
 ) -> Result<()> {
@@ -91,6 +91,21 @@ VALUES ",
     Ok(())
 }
 
+pub async fn insert_eth_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    record: &EthUnConfirmedBlock,
+) -> Result<()> {
+    let sql = r#"insert into eth_unconfirmed_block(id, number, hash)
+    values(?,?,?)"#;
+    sqlx::query(sql)
+        .bind(record.id)
+        .bind(record.number)
+        .bind(record.hash.clone())
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn update_eth_unconfirmed_block(
     pool: &mut Transaction<'_, MySql>,
     record: &EthUnConfirmedBlock,
@@ -103,6 +118,15 @@ pub async fn update_eth_unconfirmed_block(
         .bind(record.id)
         .execute(pool)
         .await?;
+    Ok(())
+}
+
+pub async fn delete_eth_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    number: u64,
+) -> Result<()> {
+    let sql = r"delete from eth_unconfirmed_block where number >= ?";
+    sqlx::query(sql).bind(number).execute(pool).await?;
     Ok(())
 }
 
@@ -136,14 +160,14 @@ pub async fn get_max_ckb_unconfirmed_block(
 }
 
 pub async fn get_ckb_unconfirmed_blocks(pool: &MySqlPool) -> Result<Vec<CkbUnConfirmedBlock>> {
-    let sql = r#"select * from ckb_unconfirmed_block"#;
+    let sql = r#"select * from ckb_unconfirmed_block order by number"#;
     let ret = sqlx::query_as::<_, CkbUnConfirmedBlock>(sql)
         .fetch_all(pool)
         .await?;
     Ok(ret)
 }
 
-pub async fn insert_ckb_unconfirmed_block(
+pub async fn insert_ckb_unconfirmed_blocks(
     pool: &MySqlPool,
     records: &[CkbUnConfirmedBlock],
 ) -> Result<()> {
@@ -167,6 +191,15 @@ VALUES ",
     Ok(())
 }
 
+pub async fn delete_ckb_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    number: u64,
+) -> Result<()> {
+    let sql = r"delete from ckb_unconfirmed_block where number >= ?";
+    sqlx::query(sql).bind(number).execute(pool).await?;
+    Ok(())
+}
+
 pub async fn update_ckb_unconfirmed_block(
     pool: &mut Transaction<'_, MySql>,
     record: &CkbUnConfirmedBlock,
@@ -177,6 +210,21 @@ pub async fn update_ckb_unconfirmed_block(
         .bind(record.number)
         .bind(record.hash.clone())
         .bind(record.id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn insert_ckb_unconfirmed_block(
+    pool: &mut Transaction<'_, MySql>,
+    record: &CkbUnConfirmedBlock,
+) -> Result<()> {
+    let sql = r#"insert into ckb_unconfirmed_block(id, number, hash)
+    values(?,?,?)"#;
+    sqlx::query(sql)
+        .bind(record.id)
+        .bind(record.number)
+        .bind(record.hash.clone())
         .execute(pool)
         .await?;
     Ok(())
@@ -269,10 +317,12 @@ pub async fn update_eth_to_ckb_status(
     pool: &mut Transaction<'_, MySql>,
     record: &EthToCkbRecord,
 ) -> Result<()> {
-    let sql = r#"UPDATE eth_to_ckb SET status = ?, ckb_block_number = ? WHERE id = ?"#;
+    let sql =
+        r#"UPDATE eth_to_ckb SET status = ?, ckb_block_number = ?, ckb_tx_hash = ? WHERE id = ?"#;
     sqlx::query(sql)
         .bind(record.status.clone())
         .bind(record.ckb_block_number)
+        .bind(record.ckb_tx_hash.clone())
         .bind(record.id)
         .execute(pool)
         .await?;
@@ -336,6 +386,8 @@ pub struct CkbToEthRecord {
     pub ckb_block_number: u64,
     pub ckb_raw_tx: Option<String>,
     pub eth_block_number: u64,
+    pub bridge_lock_hash: Option<String>,
+    pub lock_contract_addr: Option<String>,
 }
 
 pub async fn get_latest_ckb_to_eth_record(pool: &MySqlPool) -> Result<Option<CkbToEthRecord>> {
@@ -357,11 +409,11 @@ pub async fn create_ckb_to_eth_record(
     let mut sql = String::from(
         r"
 INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
-eth_tx_hash, ckb_spv_proof, ckb_block_number, ckb_raw_tx)
+eth_tx_hash, ckb_spv_proof, ckb_block_number, ckb_raw_tx, lock_contract_addr, bridge_lock_hash)
 VALUES ",
     );
     for _ in records {
-        sql = format!("{}{}", sql, "( ?,?,?,?,?,?,?,?,?,?),");
+        sql = format!("{}{}", sql, "( ?,?,?,?,?,?,?,?,?,?,?,?),");
     }
     let len = sql.len() - 1;
     let mut ret = sqlx::query(&sql[..len]);
@@ -377,6 +429,8 @@ VALUES ",
             .bind(record.ckb_spv_proof.as_ref())
             .bind(record.ckb_block_number)
             .bind(record.ckb_raw_tx.as_ref())
+            .bind(record.lock_contract_addr.as_ref())
+            .bind(record.bridge_lock_hash.as_ref())
     }
     ret.execute(pool).await?;
     Ok(())
