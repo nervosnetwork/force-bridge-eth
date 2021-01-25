@@ -126,6 +126,6 @@ fmt:
 
 coverage-test:
 	cd ckb-contracts && bash ckb_script_coverage.sh
-	cd eth-contracts && bash eth_script_coverage.sh
+	cd eth-contracts && yarn install && bash eth_script_coverage.sh
 
 .PHONY: demo
