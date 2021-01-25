@@ -44,20 +44,19 @@ CREATE TABLE `ckb_unconfirmed_block` (
 DROP TABLE IF EXISTS `cross_chain_height_info`;
 
 CREATE TABLE `cross_chain_height_info` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `eth_height` int(11) unsigned NOT NULL DEFAULT '0',
-  `eth_client_height` int(11) unsigned NOT NULL DEFAULT '0',
-  `ckb_height` int(11) unsigned NOT NULL DEFAULT '0',
-  `ckb_client_height` int(11) unsigned NOT NULL DEFAULT '0',
+  `id` tinyint(1) unsigned NOT NULL AUTO_INCREMENT,
+  `height` int(11) unsigned NOT NULL DEFAULT '0',
+  `client_height` int(11) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 LOCK TABLES `cross_chain_height_info` WRITE;
 /*!40000 ALTER TABLE `cross_chain_height_info` DISABLE KEYS */;
 
-INSERT INTO `cross_chain_height_info` (`id`, `eth_height`, `eth_client_height`, `ckb_height`, `ckb_client_height`)
+INSERT INTO `cross_chain_height_info` (`id`, `height`, `client_height`)
 VALUES
-	(1,0,0,0,0);
+	(1,0,0),
+	(2,0,0);
 
 /*!40000 ALTER TABLE `cross_chain_height_info` ENABLE KEYS */;
 UNLOCK TABLES;
