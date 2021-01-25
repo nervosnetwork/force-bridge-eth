@@ -385,4 +385,8 @@ pub struct RelayerMonitorArgs {
     pub alarm_url: String,
     #[clap(long, default_value = "5")]
     pub minute_interval: u64,
+    #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
+    pub db_path: Option<String>,
+    #[clap(long, default_value = "all")]
+    pub mode: String,
 }

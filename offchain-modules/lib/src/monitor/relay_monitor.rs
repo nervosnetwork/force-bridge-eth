@@ -1,0 +1,291 @@
+use crate::dapp::db::indexer::get_height_info;
+use crate::util::ckb_tx_generator::Generator;
+use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
+use crate::util::eth_util::{convert_eth_address, Web3Client};
+use anyhow::{anyhow, Result};
+use ckb_types::packed::Script;
+use ethereum_types::H160;
+use force_sdk::cell_collector::get_live_cell_by_typescript;
+use futures::future::err;
+use sqlx::MySqlPool;
+use std::ops::Sub;
+
+#[derive(Debug, Display)]
+struct RelayMonitor {
+    web3_client: Web3Client,
+    generator: Generator,
+    alarm_url: String,
+    mode: String,
+    ckb_alarm_number: u64,
+    eth_alarm_number: u64,
+    header_args: Option<HeaderMonitorArgs>,
+    indexer_args: Option<IndexerMonitorArgs>,
+}
+
+#[derive(Debug, Display)]
+struct HeaderMonitorArgs {
+    script: Script,
+    contract_addr: H160,
+    eth_header_conservator: Vec<String>,
+    ckb_header_conservator: Vec<String>,
+}
+
+#[derive(Debug, Display)]
+struct IndexerMonitorArgs {
+    eth_indexer_conservator: Vec<String>,
+    ckb_indexer_conservator: Vec<String>,
+    db: MySqlPool,
+}
+
+impl RelayMonitor {
+    pub async fn new(
+        ckb_rpc_url: String,
+        ckb_indexer_url: String,
+        eth_rpc_url: String,
+        ckb_alarm_number: u64,
+        eth_alarm_number: u64,
+        alarm_url: String,
+        cell: Option<String>,
+        eth_ckb_chain_addr: Option<String>,
+        eth_header_conservator: Option<Vec<String>>,
+        ckb_header_conservator: Option<Vec<String>>,
+        eth_indexer_conservator: Option<Vec<String>>,
+        ckb_indexer_conservator: Option<Vec<String>>,
+        db_path: Option<String>,
+    ) -> Result<RelayMonitor> {
+        let mut web3_client = Web3Client::new(eth_rpc_url);
+        let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
+            .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+
+        let mut header_args: Option<HeaderMonitorArgs> = None;
+        let mut indexer_args: Option<IndexerMonitorArgs> = None;
+        match mode {
+            "all".to_string() => {
+                header_args = Option::from(HeaderMonitorArgs {
+                    script: parse_cell(
+                        cell.ok_or(|err| {
+                            anyhow!("the eth light client cell can not be none {:?}", err)
+                        })?
+                        .as_str(),
+                    )
+                    .map_err(|e| anyhow!("get typescript fail {:?}", e))?,
+                    contract_addr: convert_eth_address(
+                        eth_ckb_chain_addr
+                            .ok_or(|err| {
+                                anyhow!("the ckb light client addr can not be none {:?}", err)
+                            })?
+                            .as_str(),
+                    )?,
+                    eth_header_conservator: eth_header_conservator.ok_or(|err| {
+                        anyhow!("the eth_header_conservator can not be none {:?}", err)
+                    })?,
+                    ckb_header_conservator: ckb_header_conservator.ok_or(|err| {
+                        anyhow!("the ckb_header_conservator can not be none {:?}", err)
+                    })?,
+                });
+                indexer_args = Option::from(IndexerMonitorArgs {
+                    eth_indexer_conservator: eth_indexer_conservator.ok_or(|err| {
+                        anyhow!("the eth_indexer_conservator can not be none {:?}", err)
+                    })?,
+                    ckb_indexer_conservator: ckb_indexer_conservator.ok_or(|err| {
+                        anyhow!("the ckb_indexer_conservator can not be none {:?}", err)
+                    })?,
+                    db: MySqlPool::connect(
+                        db_path
+                            .ok_or(|err| anyhow!("the db_path can not be none {:?}", err))?
+                            .as_str(),
+                    )
+                    .await?,
+                });
+            }
+            "header".to_string() => {
+                header_args = Option::from(HeaderMonitorArgs {
+                    script: parse_cell(
+                        cell.ok_or(|err| {
+                            anyhow!("the eth light client cell can not be none {:?}", err)
+                        })?
+                        .as_str(),
+                    )
+                    .map_err(|e| anyhow!("get typescript fail {:?}", e))?,
+                    contract_addr: convert_eth_address(
+                        eth_ckb_chain_addr
+                            .ok_or(|err| {
+                                anyhow!("the ckb light client addr can not be none {:?}", err)
+                            })?
+                            .as_str(),
+                    )?,
+                    eth_header_conservator: eth_header_conservator.ok_or(|err| {
+                        anyhow!("the eth_header_conservator can not be none {:?}", err)
+                    })?,
+                    ckb_header_conservator: ckb_header_conservator.ok_or(|err| {
+                        anyhow!("the ckb_header_conservator can not be none {:?}", err)
+                    })?,
+                });
+            }
+            "indexer".to_string() => {
+                indexer_args = Option::from(IndexerMonitorArgs {
+                    eth_indexer_conservator: eth_indexer_conservator.ok_or(|err| {
+                        anyhow!("the eth_indexer_conservator can not be none {:?}", err)
+                    })?,
+                    ckb_indexer_conservator: ckb_indexer_conservator.ok_or(|err| {
+                        anyhow!("the ckb_indexer_conservator can not be none {:?}", err)
+                    })?,
+                    db: MySqlPool::connect(
+                        db_path
+                            .ok_or(|err| anyhow!("the db_path can not be none {:?}", err))?
+                            .as_str(),
+                    )
+                    .await?,
+                });
+            }
+            _ => bail!("the mode arg is wrong "),
+        }
+
+        return Ok(RelayMonitor {
+            web3_client,
+            generator,
+            alarm_url,
+            mode: "".to_string(),
+            ckb_alarm_number,
+            eth_alarm_number,
+            header_args,
+            indexer_args,
+        });
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn start(&mut self, ) -> Result<()> {
+        let all_mode = "all".to_string();
+        let mut msg = "".to_string() ;
+        match self.mode {
+            "all".to_string() => {
+                if self.header_args.is_none() || self.indexer_args.is_none() {
+                    bail!("the header args and indexer args can not be none");
+                }
+                let Some(args) = self.indexer_args.clone(){
+                    let index_msg = await self.get_indexer_height(args);
+                    msg = format!("{} {} ", msg, index_msg);
+                }
+                let Some(args) = self.header_args.clone(){
+                    let height_msg = await self.get_header_height(args);
+                    msg = format!("{} {} ", msg, height_msg);
+                }
+            },
+            "header".to_string() => {
+                if self.header_args.is_none() {
+                    bail!("the header args can not be none");
+                }
+                let Some(args) = self.header_args.clone(){
+                    let height_msg = await self.get_header_height(args);
+                    msg = format!("{} {} ", msg, height_msg);
+                }
+
+            },
+            "indexer".to_string() => {
+                if  self.indexer_args.is_none() {
+                    bail!("the indexer args can not be none");
+                }
+                let Some(args) = self.indexer_args.clone(){
+                    let index_msg = await self.get_indexer_height(args);
+                    msg = format!("{} {} ", msg, index_msg);
+                }
+
+            },
+            _ => bail!("the mode arg is wrong "),
+        }
+
+        let res = reqwest::get(format!("{}{}", self.alarm_url, msg).as_str())
+            .await?
+            .text()
+            .await?;
+        log::info!("{:?}", res);
+        Ok(())
+    }
+
+    pub async fn get_header_height(
+        &mut self,
+        args : HeaderMonitorArgs
+    ) -> Result<String> {
+        let ckb_light_client_height = self
+            .web3_client
+            .get_contract_height("latestBlockNumber", args.contract_addr)
+            .await?;
+        let ckb_current_height = self
+            .generator
+            .rpc_client
+            .get_tip_block_number()
+            .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
+
+        let eth_current_height = self.web3_client.client().eth().block_number().await?;
+
+        let cell = get_live_cell_by_typescript(&mut generator.indexer_client, args.script)
+            .map_err(|e| anyhow!("get live cell fail: {}", e))?
+            .ok_or_else(|| anyhow!("eth header cell not exist"))?;
+
+        let (un_confirmed_headers, _) =
+            parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
+                .map_err(|e| anyhow!("parse header data fail: {}", e))?;
+
+        let best_header = un_confirmed_headers
+            .last()
+            .ok_or_else(|| anyhow!("header is none"))?;
+        let eth_light_client_height = best_header
+            .number
+            .ok_or_else(|| anyhow!("header number is none"))?;
+
+        let ckb_diff = ckb_current_height - ckb_light_client_height;
+        let eth_diff = eth_current_height.sub(eth_light_client_height).as_u64();
+
+        let mut msg = format!("ckb light client height : {:?}  %0A ckb current height : {:?}  %0A eth light client height : {:?}  %0A eth current height : {:?} %0A ckb height difference is {:?}, eth height difference is {:?} %0A ", ckb_light_client_height, ckb_current_height, eth_light_client_height, eth_current_height, ckb_diff, eth_diff);
+
+        if self.ckb_alarm_number < ckb_diff {
+            for conservator in args.eth_header_conservator.iter() {
+                msg = format!("{} @{} ", msg, conservator,);
+            }
+            msg = format!("{} %0A ", msg);
+        }
+
+        if self.eth_alarm_number < eth_diff {
+            for conservator in args.ckb_header_conservator.iter() {
+                msg = format!("{} @{} ", msg, conservator,);
+            }
+            msg = format!("{} %0A ", msg);
+        }
+
+        Ok(msg)
+    }
+    pub async fn get_indexer_height(
+        &mut self,
+        args: IndexerMonitorArgs
+    ) -> Result<String> {
+        let mut height_info = get_height_info(&args.db).await?;
+        let ckb_db_diff = if height_info.ckb_height > height_info.ckb_client_height {
+            height_info.ckb_height - height_info.ckb_client_height
+        } else {
+            height_info.ckb_client_height - height_info.ckb_height
+        };
+        let eth_db_diff = if height_info.eth_height > height_info.eth_client_height {
+            height_info.eth_height - height_info.eth_client_height
+        } else {
+            height_info.eth_client_height - height_info.eth_height
+        };
+
+        let mut msg = format!("ckb light client height in db record: {:?}  %0A ckb indexer height in db record : {:?}  %0A eth light client height in db record : {:?}  %0A eth indexer height in db record : {:?} %0A ckb height difference in db is {:?}, eth height difference in db is {:?} %0A ", height_info.ckb_client_height, height_info.ckb_height, height_info.eth_client_height, height_info.eth_height, ckb_db_diff, eth_db_diff);
+
+        if self.ckb_alarm_number < ckb_db_diff {
+            for conservator in args.ckb_indexer_conservator.iter() {
+                msg = format!("{} @{} ", msg, conservator,);
+            }
+            msg = format!("{} %0A ", msg);
+        }
+
+        if self.eth_alarm_number < eth_db_diff {
+            for conservator in args.eth_indexer_conservator.iter() {
+                msg = format!("{} @{} ", msg, conservator,);
+            }
+            msg = format!("{} %0A ", msg);
+        }
+
+        Ok(msg)
+    }
+}
