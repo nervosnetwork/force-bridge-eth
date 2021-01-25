@@ -12,7 +12,7 @@ import {SafeERC20} from "./libraries/SafeERC20.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 
-contract TokenLockerRaw {
+contract TokenLocker {
     using SafeMath for uint256;
     using Address for address;
     using TypedMemView for bytes;
@@ -21,6 +21,7 @@ contract TokenLockerRaw {
     using ViewSpv for bytes29;
     using SafeERC20 for IERC20;
 
+    bool public initialized;
     uint8 public recipientCellTypescriptHashType_;
     uint64 public numConfirmations_;
     ICKBSpv public ckbSpv_;
@@ -49,14 +50,17 @@ contract TokenLockerRaw {
         uint256 bridgeFee
     );
 
-    constructor(
+    function initialize(
         address ckbSpvAddress,
         uint64 numConfirmations,
         bytes32 recipientCellTypescriptCodeHash,
         uint8 typescriptHashType,
         bytes32 lightClientTypescriptHash,
         bytes32 bridgeCellLockscriptCodeHash
-    ) {
+    ) public {
+        require(!initialized, "Contract instance has already been initialized");
+        initialized = true;
+
         ckbSpv_ = ICKBSpv(ckbSpvAddress);
         numConfirmations_ = numConfirmations;
         recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
@@ -154,4 +158,10 @@ contract TokenLockerRaw {
         recipientCellData.recipientAddress()
         );
     }
+
+    function setLightClientTypescriptHash() public {
+        lightClientTypescriptHash_ = 0xbb867b58869bdcd636c2c1d0256dd087630ac88619dda33537f887889ddaa233;
+    }
 }
+
+

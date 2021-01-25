@@ -14,12 +14,13 @@ import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
-contract CKBChainV2Raw is ICKBChainV2, ICKBSpv {
+contract CKBChainV2 is ICKBChainV2, ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
 
+    bool public initialized;
     // We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
     // Events that happen past this threshold cannot be verified by the client.
     // It is desirable that this number is larger than 7 days worth of headers, which is roughly
@@ -29,7 +30,6 @@ contract CKBChainV2Raw is ICKBChainV2, ICKBSpv {
     uint64 public latestBlockNumber;
     uint64 public initBlockNumber;
 
-    // Todo will remove the governance when optimistic phase
     address public governance;
 
     // Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
@@ -124,11 +124,14 @@ contract CKBChainV2Raw is ICKBChainV2, ICKBSpv {
         require(verifiedNum >= threshold, "signatures not verified");
     }
 
-    constructor(
+    function initialize(
         uint64 canonicalGcThreshold,
         address[] memory validators,
         uint multisigThreshold
-    ) {
+    ) public {
+        require(!initialized, "Contract instance has already been initialized");
+        initialized = true;
+
         // set init threshold
         CanonicalGcThreshold = canonicalGcThreshold;
 
@@ -243,9 +246,8 @@ contract CKBChainV2Raw is ICKBChainV2, ICKBSpv {
         uint64 blockNumber = proofView.spvBlockNumber();
         bytes32 blockHash = proofView.blockHash();
 
-        // TODO use safeMath for blockNumber + numConfirmations calc
         require(
-            blockNumber + numConfirmations <= latestBlockNumber,
+            uint256(blockNumber) + uint256(numConfirmations) <= uint256(latestBlockNumber),
             "blockNumber from txProofData is too ahead of the latestBlockNumber"
         );
         require(

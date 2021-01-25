@@ -59,28 +59,6 @@ contract('TokenLocker', () => {
       }
     });
   });
-
-  describe('unlock token', async function () {
-    // disable timeout
-    this.timeout(0);
-    it('should decode burn tx verified', async () => {
-      for (const testcase of decodeBurnTxTestCases) {
-        let [
-          bridgeAmount,
-          bridgeFee,
-          tokenAddress,
-          recipientAddress,
-        ] = await tokenLocker.decodeBurnResult(testcase.txData);
-        expect(tokenAddress.toLowerCase()).to.equal(testcase.tokenAddress);
-        expect(recipientAddress.toLowerCase()).to.equal(
-          testcase.recipientAddress
-        );
-        expect(bridgeAmount).to.equal(testcase.bridgeAmount);
-        expect(bridgeFee).to.equal(testcase.bridgeFee);
-      }
-    });
-    // TODO test unlock
-  });
 });
 
 async function testLockETH(testcase) {

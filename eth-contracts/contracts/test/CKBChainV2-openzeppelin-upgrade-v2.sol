@@ -2,34 +2,58 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import {TypedMemView} from "./libraries/TypedMemView.sol";
-import {CKBCrypto} from "./libraries/CKBCrypto.sol";
-import {Blake2b} from "./libraries/Blake2b.sol";
-import {SafeMath} from "./libraries/SafeMath.sol";
-import {ViewCKB} from "./libraries/ViewCKB.sol";
-import {ViewSpv} from "./libraries/ViewSpv.sol";
-import {CKBPow} from "./libraries/CKBPow.sol";
-import {EaglesongLib} from "./libraries/EaglesongLib.sol";
-import {ICKBChainV2} from "./interfaces/ICKBChainV2.sol";
-import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
-import {MultisigUtils} from "./libraries/MultisigUtils.sol";
-import "./CKBChainV2Layout.sol";
-import "./CKBChainV2Library.sol";
-import "./proxy/Delegate.sol";
+import {TypedMemView} from "../libraries/TypedMemView.sol";
+import {Blake2b} from "../libraries/Blake2b.sol";
+import {SafeMath} from "../libraries/SafeMath.sol";
+import {ViewCKB} from "../libraries/ViewCKB.sol";
+import {ViewSpv} from "../libraries/ViewSpv.sol";
+import {ICKBChainV2} from "../interfaces/ICKBChainV2.sol";
+import {ICKBSpv} from "../interfaces/ICKBSpv.sol";
+import {MultisigUtils} from "../libraries/MultisigUtils.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
-contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
+contract CKBChainV2UpgradeV2 is ICKBChainV2, ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
 
-    event BlockHashAdded(
-        uint64 indexed blockNumber,
-        bytes32 blockHash
-    );
+    bool public initialized;
+    // We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
+    // Events that happen past this threshold cannot be verified by the client.
+    // It is desirable that this number is larger than 7 days worth of headers, which is roughly
+    // 40k ckb blocks. So this number should be 40k in production.
+    uint64 public CanonicalGcThreshold;
+
+    uint64 public latestBlockNumber;
+    uint64 public initBlockNumber;
+
+    address public governance;
+
+    // Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
+    // entries.
+    // header number -> header hash
+    mapping(uint64 => bytes32) canonicalHeaderHashes;
+
+    // TransactionRoots of the canonical chain mapped to their headerHash. Stores up to `canonical_gc_threshold`
+    // entries.
+    // header hash -> transactionRoots from the header
+    mapping(bytes32 => bytes32) canonicalTransactionsRoots;
+
+    // refer to https://github.com/ethereum/EIPs/blob/master/EIPS/eip-712.md
+    uint public constant SIGNATURE_SIZE = 65;
+    uint public constant VALIDATORS_SIZE_LIMIT = 20;
+    string public constant NAME_712 = "Force Bridge CKBChain";
+    // ADD_HEADERS_TYPEHASH = keccak256("AddHeaders(bytes[] tinyHeaders)");
+    bytes32 public constant ADD_HEADERS_TYPEHASH = 0x1dac851def8ec317cf44b4a6cf63dabe82895259e6290d4c2ef271700bfce584;
+    bytes32 public DOMAIN_SEPARATOR;
+    // if the number of verified signatures has reached `multisigThreshold_`, validators approve the tx
+    uint public multisigThreshold_;
+    address[] validators_;
+
+    mapping(bytes32 => bytes32) testMap1;
 
     // @notice             requires `memView` to be of a specified type
     // @param memView      a 29-byte view with a 5-byte type
@@ -38,6 +62,10 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
     modifier typeAssert(bytes29 memView, ViewCKB.CKBTypes t) {
         memView.assertType(uint40(t));
         _;
+    }
+
+    function testUpgrade1(bytes32 key, bytes32 value) external {
+        testMap1[key] = value;
     }
 
     /**
@@ -52,7 +80,6 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
         }
         return validators_.length;
     }
-
 
     /**
      * @notice             @dev signatures are a multiple of 65 bytes and are densely packed.
@@ -102,6 +129,38 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
         require(verifiedNum >= threshold, "signatures not verified");
     }
 
+    function initialize(
+        uint64 canonicalGcThreshold,
+        address[] memory validators,
+        uint multisigThreshold
+    ) public {
+        require(!initialized, "Contract instance has already been initialized");
+        initialized = true;
+
+        // set init threshold
+        CanonicalGcThreshold = canonicalGcThreshold;
+
+        // set DOMAIN_SEPARATOR
+        uint chainId;
+        assembly {
+            chainId := chainid()
+        }
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes(NAME_712)),
+                keccak256(bytes("1")),
+                chainId,
+                address(this)
+            )
+        );
+
+        // set validators
+        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
+        validators_ = validators;
+        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
+        multisigThreshold_ = multisigThreshold;
+    }
 
     // query
     function getLatestBlockNumber() view public returns (uint64) {
@@ -110,24 +169,24 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
 
     // query
     function getCanonicalHeaderHash(uint64 blockNumber)
-    public
-    view
-    returns (bytes32)
+        public
+        view
+        returns (bytes32)
     {
         return canonicalHeaderHashes[blockNumber];
     }
 
     // query
     function getCanonicalTransactionsRoot(bytes32 blockHash)
-    public
-    view
-    returns (bytes32)
+        public
+        view
+        returns (bytes32)
     {
         return canonicalTransactionsRoots[blockHash];
     }
 
     // # ICKBChain
-    function addHeaders(bytes[] calldata tinyHeaders, bytes calldata signatures) external {
+    function addHeaders(bytes[] calldata tinyHeaders, bytes calldata signatures) override external {
         // 1. calc msgHash
         bytes32 msgHash = keccak256(
             abi.encodePacked(
@@ -181,9 +240,10 @@ contract CKBChainV2Logic is Delegate, CKBChainV2Layout {
 
     // #ICKBSpv
     function proveTxExist(bytes calldata txProofData, uint64 numConfirmations)
-    external
-    view
-    returns (bool)
+        override
+        external
+        view
+        returns (bool)
     {
         bytes29 proofView = txProofData.ref(
             uint40(ViewSpv.SpvTypes.CKBTxProof)
