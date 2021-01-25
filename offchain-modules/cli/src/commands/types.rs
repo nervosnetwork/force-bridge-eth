@@ -320,6 +320,8 @@ pub struct EthRelayArgs {
     pub multisig_privkeys: Vec<String>,
     #[clap(long, default_value = "0")]
     pub start_height: u64,
+    #[clap(long)]
+    pub force_restart: bool,
 }
 
 #[derive(Clap, Clone, Debug)]

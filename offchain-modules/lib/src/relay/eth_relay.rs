@@ -35,6 +35,7 @@ pub struct ETHRelayer {
     pub multisig_privkeys: Vec<SecretKey>,
     pub secret_key: SecretKey,
     pub start_height: u64,
+    pub force_restart: bool,
 }
 
 impl ETHRelayer {
@@ -44,6 +45,7 @@ impl ETHRelayer {
         priv_key_path: String,
         multisig_privkeys: Vec<String>,
         start_height: u64,
+        force_restart: bool,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -89,6 +91,7 @@ impl ETHRelayer {
                 .collect::<Result<Vec<SecretKey>>>()?,
             config: force_config,
             start_height,
+            force_restart,
         })
     }
 
@@ -221,14 +224,23 @@ impl ETHRelayer {
                 )
             }
             _ => {
-                let (start_height, latest_height, merkle_root) =
-                    parse_merkle_cell_data(last_cell_output_data.to_vec())?;
-                last_cell_latest_height = latest_height;
-                let rocksdb_store = rocksdb::RocksDBStore::open(db_path.clone());
-                (
-                    start_height,
-                    rocksdb::SMT::new(merkle_root.into(), rocksdb_store),
-                )
+                // if force_restart, need to init rocksdb
+                if latest_submit_header_number == 0 && self.force_restart {
+                    let rocksdb_store = rocksdb::RocksDBStore::new(db_path.clone());
+                    (
+                        tip_header_number,
+                        rocksdb::SMT::new(sparse_merkle_tree::H256::zero(), rocksdb_store),
+                    )
+                } else {
+                    let (start_height, latest_height, merkle_root) =
+                        parse_merkle_cell_data(last_cell_output_data.to_vec())?;
+                    last_cell_latest_height = latest_height;
+                    let rocksdb_store = rocksdb::RocksDBStore::open(db_path.clone());
+                    (
+                        start_height,
+                        rocksdb::SMT::new(merkle_root.into(), rocksdb_store),
+                    )
+                }
             }
         };
 
@@ -289,7 +301,7 @@ impl ETHRelayer {
         if let Err(e) = send_tx_res {
             log::error!(
                 "relay eth header from {} to {} failed! err: {}",
-                last_cell_latest_height,
+                start_index,
                 tip_header_number,
                 e
             );
@@ -298,7 +310,7 @@ impl ETHRelayer {
             rocksdb_store.commit();
             info!(
                 "Successfully relayed the headers from {} to {}",
-                last_cell_latest_height, tip_header_number
+                start_index, tip_header_number
             );
             latest_submit_header_number = tip_header_number;
         }
