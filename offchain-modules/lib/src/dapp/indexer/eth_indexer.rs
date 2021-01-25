@@ -3,8 +3,8 @@ use crate::dapp::db::indexer::{
     get_eth_unconfirmed_block, get_eth_unconfirmed_blocks, get_height_info,
     get_max_eth_unconfirmed_block, insert_eth_unconfirmed_block, insert_eth_unconfirmed_blocks,
     reset_ckb_to_eth_record_status, update_ckb_to_eth_record_status,
-    update_cross_chain_eth_height_info, update_eth_unconfirmed_block, EthToCkbRecord,
-    EthUnConfirmedBlock,
+    update_cross_chain_height_info, update_eth_unconfirmed_block, CrossChainHeightInfo,
+    EthToCkbRecord, EthUnConfirmedBlock,
 };
 use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
@@ -103,12 +103,12 @@ impl<T: IndexerFilter> EthIndexer<T> {
 
     #[allow(unused_assignments)]
     pub async fn start(&mut self) -> Result<()> {
-        let mut height_info = get_height_info(&self.db).await?;
-        if height_info.eth_height == 0 {
+        let mut height_info = get_height_info(&self.db, 1 as u8).await?;
+        if height_info.height == 0 {
             // height info init.
-            height_info.eth_height = self.get_light_client_height_with_loop().await;
+            height_info.height = self.get_light_client_height_with_loop().await;
         }
-        let mut start_block_number = height_info.eth_height + 1;
+        let mut start_block_number = height_info.height + 1;
         let mut unconfirmed_blocks = get_eth_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
@@ -220,7 +220,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                         .await?;
                 }
             }
-            height_info = get_height_info(&self.db).await?;
+            height_info = get_height_info(&self.db, 1 as u8).await?;
             let mut unconfirmed_block;
             let hash_str = hex::encode(
                 block
@@ -267,9 +267,12 @@ impl<T: IndexerFilter> EthIndexer<T> {
             }
             let light_client_height = self.get_light_client_height_with_loop().await;
             // let eth_height = self.eth_client.client().eth().block_number().await?;
-            height_info.eth_height = start_block_number;
-            height_info.eth_client_height = light_client_height;
-            update_cross_chain_eth_height_info(&mut db_tx, &height_info).await?;
+            let height_info = CrossChainHeightInfo {
+                id: 1,
+                height: start_block_number,
+                client_height: light_client_height,
+            };
+            update_cross_chain_height_info(&mut db_tx, &height_info).await?;
             if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
                 insert_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
             } else {
