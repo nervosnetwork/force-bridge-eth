@@ -3,9 +3,9 @@
 
 pub mod dapp;
 pub mod header_relay;
+pub mod monitor;
 pub mod transfer;
 pub mod util;
-pub mod monitor;
 
 #[cfg(test)]
 mod tests {
