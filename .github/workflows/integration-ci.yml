@@ -27,7 +27,8 @@ jobs:
       - name: run coverage test
         run: |
           export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
-          make coverage-test
+          cd ckb-contracts && bash ckb_script_coverage.sh
+          cd eth-contracts && yarn install && bash eth_script_coverage.sh
       - name: install-capsule
         run: |
           wget -c https://github.com/nervosnetwork/capsule/releases/download/v0.2.3/capsule_v0.2.3_x86_64-linux.tar.gz
