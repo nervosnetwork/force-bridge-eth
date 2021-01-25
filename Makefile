@@ -80,6 +80,10 @@ start-force-server:
 restart-force-server:
 	pm2 restart force-server
 
+start-tx-indexer-services:
+	bash demo/tx-indexer-service.sh
+
+
 start-services: start-relay start-force-server
 
 restart-services: restart-relay restart-force-server
