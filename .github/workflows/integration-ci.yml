@@ -25,7 +25,7 @@ jobs:
         if: steps.cache-contract-target.outputs.cache-hit != 'true'
         run: cargo install cargo-tarpaulin -f
       - name: run coverage test
-      - run: |
+        run: |
           export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
           make coverage-test
       - name: install-capsule
