@@ -19,9 +19,9 @@
 
 This is a step by step guide to understand the crosschain process of force bridge.
 
-This doc is based on commit [f34dac2146bb5ea1facd353c32b2fea0010e01f3](https://github.com/nervosnetwork/force-bridge-eth/tree/f34dac2146bb5ea1facd353c32b2fea0010e01f3).
+This doc is based on commit [69863549db49684c36ba3419e373dc397df1cee1](https://github.com/nervosnetwork/force-bridge-eth/tree/69863549db49684c36ba3419e373dc397df1cee1).
 
-Before reading this document, you can check [introduction](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/docs/introduction.md) document to look for the architecture and high level process description.
+Before reading this document, you can check [introduction](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/docs/introduction.md) document to look for the architecture and high level process description.
 
 ## transfer from Ethereum Chain to CKB Chain
 
@@ -34,7 +34,7 @@ There are two steps if you want to transfer your Ethereum assets to CKB Chain.
 
 Let's take transfer ETH as an example.
 
-The first step is to call `lockETH` in [TokenLocker.sol](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/eth-contracts/contracts/TokenLocker.sol#L66-L71).
+The first step is to call `lockETH` in [TokenLocker.sol](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/eth-contracts/contracts/TokenLocker-openzeppelin.sol#L72-L77).
 
 This is an example of lock tx on Ethereum: <https://ropsten.etherscan.io/tx/0x1df2a7020f12060e74f369aabfd02ab848b77ca4448194bf4bdc8f74f677704e>
 
@@ -102,13 +102,13 @@ Here are some additional description.
 
 This cell maintains the Ethereum light client. We refer it in cell deps to verify the proof in witness.
 
-The typescript of the cell is [eth-light-client-typescript](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/lib/eth-light-client-typescript-lib/src/lib.rs).
+The typescript of the cell is [eth-light-client-typescript](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/ckb-contracts/lib/eth-light-client-typescript-lib/src/lib.rs).
 
 The typescript itself ensures there will be at most one live cell on CKB Chain with the same typescript hash. So we can use it in bridge cell lockscript args to prevent someone use fake light client to compose fake proof and mint token.
 
 The lockscript of the cell is [multi-sig script](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0024-ckb-system-script-list/0024-ckb-system-script-list.md#secp256k1multisig) in CKB system script. So the committee who maintains the light client cell can update this cell data with their signatures.
 
-The data structure is defined in [eth_header_cell.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/eth_header_cell.mol#L3-L7).
+The data structure is defined in [eth_header_cell.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/ckb-contracts/types/schemas/eth_header_cell.mol#L3-L7).
 
 ```
 struct ETHHeaderCellMerkleData {
@@ -132,7 +132,7 @@ It is an extended gov script. We can leave it null here. But the risk here is th
 
 This is the most important script in this tx. It verifies most of the crosschain logics.
 
-The args is a byte array serialized with [molecule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0008-serialization/0008-serialization.md). The structure is defined [here](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/eth_bridge_lock_cell.mol).
+The args is a byte array serialized with [molecule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0008-serialization/0008-serialization.md). The structure is defined [here](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/ckb-contracts/types/schemas/eth_bridge_lock_cell.mol).
 
 ```
 struct ETHBridgeLockArgs {
@@ -151,7 +151,7 @@ As long as we deployed all the contracts and set up the Ethereum light client, e
 
 #### bridge cell witness
 
-The witness structure is defined at [witness.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/witness.mol).
+The witness structure is defined at [witness.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/ckb-contracts/types/schemas/witness.mol).
 
 ```
 table MintTokenWitness {
@@ -224,7 +224,7 @@ The idea here is:
 - When we burn the mirror token, we use a script (eth recipient cell typescript) to ensure that we get a verified data in the output.
 - We submit the raw tx along with its merkle proof on Ethereum to unlock the associated asset.
 
-The data structure is located at [eth_recipient_cell.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/eth_recipient_cell.mol). And the typescript code is located at [eth-recipient-typescript](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/lib/eth-recipient-typescript-lib/src/lib.rs).
+The data structure is located at [eth_recipient_cell.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/ckb-contracts/types/schemas/eth_recipient_cell.mol). And the typescript code is located at [eth-recipient-typescript](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/ckb-contracts/lib/eth-recipient-typescript-lib/src/lib.rs).
 
 Let's recall the bridge lockscript and sudt typescript structure:
 
@@ -289,7 +289,7 @@ For example, you can use your [SECP256K1/blake160](https://github.com/nervosnetw
 
 ### eth bridge typescript
 
-This is a more complicated governance mechanism. The script args and data structure is located at [eth_bridge_type_cell.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/f34dac2146/ckb-contracts/types/schemas/eth_bridge_type_cell.mol).
+This is a more complicated governance mechanism. The script args and data structure is located at [eth_bridge_type_cell.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/ckb-contracts/types/schemas/eth_bridge_type_cell.mol).
 
 ```
 struct ETHBridgeTypeArgs {
