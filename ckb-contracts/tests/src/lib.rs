@@ -5,8 +5,10 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 #[cfg(test)]
+#[cfg(not(tarpaulin))]
 mod bridge;
 #[cfg(test)]
+#[cfg(not(tarpaulin))]
 mod eth_recipient_typescript;
 #[cfg(test)]
 mod utils;
