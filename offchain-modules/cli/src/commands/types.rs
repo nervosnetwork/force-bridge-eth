@@ -373,19 +373,23 @@ pub struct RelayerMonitorArgs {
     pub config_path: String,
     #[clap(long)]
     pub network: Option<String>,
-    #[clap(long, default_value = "30")]
+    #[clap(long, default_value = "100")]
     pub ckb_alarm_number: u64,
-    #[clap(long, default_value = "30")]
+    #[clap(long, default_value = "100")]
     pub eth_alarm_number: u64,
-    #[clap(long, default_value = "[ckb_conservator]")]
-    pub ckb_conservator: Vec<String>,
-    #[clap(long, default_value = "[eth_conservator]")]
-    pub eth_conservator: Vec<String>,
+    #[clap(long)]
+    pub eth_header_conservator: Option<Vec<String>>,
+    #[clap(long)]
+    pub ckb_header_conservator: Option<Vec<String>>,
+    #[clap(long)]
+    pub eth_indexer_conservator: Option<Vec<String>>,
+    #[clap(long)]
+    pub ckb_indexer_conservator: Option<Vec<String>>,
     #[clap(long)]
     pub alarm_url: String,
     #[clap(long, default_value = "5")]
     pub minute_interval: u64,
-    #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
+    #[clap(long)]
     pub db_path: Option<String>,
     #[clap(long, default_value = "all")]
     pub mode: String,
