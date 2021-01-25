@@ -3,7 +3,7 @@ use crate::dapp::db::indexer::{
     get_eth_unconfirmed_block, get_eth_unconfirmed_blocks, get_height_info,
     get_max_eth_unconfirmed_block, insert_eth_unconfirmed_block, insert_eth_unconfirmed_blocks,
     reset_ckb_to_eth_record_status, update_ckb_to_eth_record_status,
-    update_cross_chain_height_info, update_eth_unconfirmed_block, EthToCkbRecord,
+    update_cross_chain_eth_height_info, update_eth_unconfirmed_block, EthToCkbRecord,
     EthUnConfirmedBlock,
 };
 use crate::dapp::indexer::IndexerFilter;
@@ -196,7 +196,6 @@ impl<T: IndexerFilter> EthIndexer<T> {
                     .await
                     .map_err(|err| anyhow!(err))?;
             }
-            // let txs = block.transactions;
             let mut lock_records = vec![];
             let mut unlock_records = vec![];
             let (lock_vec, unlock_vec) = self.parse_event_with_retry(
@@ -221,28 +220,6 @@ impl<T: IndexerFilter> EthIndexer<T> {
                         .await?;
                 }
             }
-            // for tx_hash in txs {
-            //     let hash = hex::encode(tx_hash);
-            //     if !is_eth_to_ckb_record_exist(&self.db, &hash).await? {
-            //         let is_lock_tx = self
-            //             .handle_lock_event(
-            //                 hash.clone(),
-            //                 start_block_number,
-            //                 &mut lock_records,
-            //                 lock_contract_address.clone(),
-            //             )
-            //             .await?;
-            //         // if the tx is not lock tx, check if unlock tx.
-            //         if !is_lock_tx {
-            //             self.handle_unlock_event(
-            //                 hash.clone(),
-            //                 &mut unlock_records,
-            //                 lock_contract_address.clone(),
-            //             )
-            //             .await?;
-            //         }
-            //     }
-            // }
             height_info = get_height_info(&self.db).await?;
             let mut unconfirmed_block;
             let hash_str = hex::encode(
@@ -292,7 +269,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             // let eth_height = self.eth_client.client().eth().block_number().await?;
             height_info.eth_height = start_block_number;
             height_info.eth_client_height = light_client_height;
-            update_cross_chain_height_info(&mut db_tx, &height_info).await?;
+            update_cross_chain_eth_height_info(&mut db_tx, &height_info).await?;
             if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
                 insert_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
             } else {
