@@ -59,6 +59,7 @@ impl RelayMonitor {
 
         let mut header_args: Option<HeaderMonitorArgs> = None;
         let mut indexer_args: Option<IndexerMonitorArgs> = None;
+        log::info!("mode : {}", mode);
         match mode.as_str() {
             "all" => {
                 header_args = Option::from(HeaderMonitorArgs {
@@ -116,14 +117,14 @@ impl RelayMonitor {
                     .await?,
                 });
             }
-            _ => bail!("the mode arg is wrong "),
+            _ => bail!("the mode arg is wrong in constructor "),
         }
 
         return Ok(RelayMonitor {
             web3_client,
             generator,
             alarm_url,
-            mode: "".to_string(),
+            mode,
             ckb_alarm_number,
             eth_alarm_number,
             header_args,
@@ -133,7 +134,7 @@ impl RelayMonitor {
 
     #[allow(clippy::too_many_arguments)]
     pub async fn start(&mut self) -> Result<()> {
-        let mut msg = "".to_string();
+        let mut msg = " ".to_string();
         match self.mode.as_str() {
             "all" => {
                 match self.indexer_args.clone() {
@@ -152,7 +153,7 @@ impl RelayMonitor {
                     }
                     Some(args) => {
                         let height_msg = self.get_header_height(args).await?;
-                        msg = format!("{} {} ", msg, height_msg);
+                        msg = format!("{} %0A{} ", msg, height_msg);
                     }
                 };
             }
@@ -165,18 +166,17 @@ impl RelayMonitor {
                     msg = format!("{} {} ", msg, height_msg);
                 }
             },
-            "indexer" => {
-                match self.indexer_args.clone() {
-                    None => {
-                        bail!("the indexer args can not be none in indexer mode");
-                    }
-                    Some(args) => {
-                        let index_msg = self.get_indexer_height(args).await?;
-                        msg = format!("{} {} ", msg, index_msg);
-                    }
-                };
-            }
-            _ => bail!("the mode arg is wrong "),
+            "indexer" => match self.indexer_args.clone() {
+                None => {
+                    bail!("the indexer args can not be none in indexer mode");
+                }
+                Some(args) => {
+                    let index_msg = self.get_indexer_height(args).await?;
+                    msg = format!("{} {} ", msg, index_msg);
+                }
+            },
+
+            _ => bail!("the mode arg is wrong in monitor"),
         }
 
         let res = reqwest::get(format!("{}{}", self.alarm_url, msg).as_str())
@@ -218,7 +218,7 @@ impl RelayMonitor {
         let ckb_diff = ckb_current_height - ckb_light_client_height;
         let eth_diff = eth_current_height.sub(eth_light_client_height).as_u64();
 
-        let mut msg = format!("ckb light client height : {:?}  %0A ckb current height : {:?}  %0A eth light client height : {:?}  %0A eth current height : {:?} %0A ckb height difference is {:?}, eth height difference is {:?} %0A ", ckb_light_client_height, ckb_current_height, eth_light_client_height, eth_current_height, ckb_diff, eth_diff);
+        let mut msg = format!("ckb light client height : {:?}  %0A ckb current height : {:?}  %0A eth light client height : {:?}  %0A eth current height : {:?} %0A ckb height diff is {:?}, eth height diff is {:?} %0A ", ckb_light_client_height, ckb_current_height, eth_light_client_height, eth_current_height, ckb_diff, eth_diff);
 
         if self.ckb_alarm_number < ckb_diff {
             for conservator in args.eth_header_conservator.iter() {
@@ -249,7 +249,7 @@ impl RelayMonitor {
             height_info.eth_client_height - height_info.eth_height
         };
 
-        let mut msg = format!("ckb light client height in db record: {:?}  %0A ckb indexer height in db record : {:?}  %0A eth light client height in db record : {:?}  %0A eth indexer height in db record : {:?} %0A ckb height difference in db is {:?}, eth height difference in db is {:?} %0A ", height_info.ckb_client_height, height_info.ckb_height, height_info.eth_client_height, height_info.eth_height, ckb_db_diff, eth_db_diff);
+        let mut msg = format!("ckb light client height in db record: {:?}  %0A ckb indexer height in db record : {:?}  %0A eth light client height in db record : {:?}  %0A eth indexer height in db record : {:?} %0A ckb height diff in db is {:?}, eth height diff in db is {:?} %0A ", height_info.ckb_client_height, height_info.ckb_height, height_info.eth_client_height, height_info.eth_height, ckb_db_diff, eth_db_diff);
 
         if self.ckb_alarm_number < ckb_db_diff {
             for conservator in args.ckb_indexer_conservator.iter() {
