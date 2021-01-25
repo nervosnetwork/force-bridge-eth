@@ -3,7 +3,7 @@ use crate::dapp::db::indexer::{
     get_ckb_unconfirmed_block, get_ckb_unconfirmed_blocks, get_eth_to_ckb_record_by_outpoint,
     get_height_info, get_max_ckb_unconfirmed_block, insert_ckb_unconfirmed_block,
     insert_ckb_unconfirmed_blocks, is_ckb_to_eth_record_exist, reset_eth_to_ckb_record_status,
-    update_ckb_unconfirmed_block, update_cross_chain_height_info, update_eth_to_ckb_status,
+    update_ckb_unconfirmed_block, update_cross_chain_ckb_height_info, update_eth_to_ckb_status,
     CkbToEthRecord, CkbUnConfirmedBlock, EthToCkbRecord,
 };
 use crate::transfer::to_eth::parse_ckb_proof;
@@ -208,10 +208,7 @@ impl CkbIndexer {
                 .eth_client
                 .get_contract_height("latestBlockNumber", contract_addr)
                 .await?;
-            update_cross_chain_height_info(&mut db_tx, &height_info).await?;
-            // unconfirmed_block.number = start_block_number;
-            // unconfirmed_block.hash = hex::encode(block.header.hash);
-            // update_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+            update_cross_chain_ckb_height_info(&mut db_tx, &height_info).await?;
             if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
                 insert_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
             } else {

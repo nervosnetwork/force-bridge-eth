@@ -257,15 +257,28 @@ pub async fn get_height_info(pool: &MySqlPool) -> Result<CrossChainHeightInfo> {
     Ok(ret)
 }
 
-pub async fn update_cross_chain_height_info(
+pub async fn update_cross_chain_eth_height_info(
     pool: &mut Transaction<'_, MySql>,
     info: &CrossChainHeightInfo,
 ) -> Result<()> {
     let sql = r#"update cross_chain_height_info set
-    eth_height = ?, eth_client_height = ?, ckb_height = ?, ckb_client_height = ? WHERE id = ?"#;
+    eth_height = ?, eth_client_height = ? WHERE id = ?"#;
     sqlx::query(sql)
         .bind(info.eth_height)
         .bind(info.eth_client_height)
+        .bind(info.id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn update_cross_chain_ckb_height_info(
+    pool: &mut Transaction<'_, MySql>,
+    info: &CrossChainHeightInfo,
+) -> Result<()> {
+    let sql = r#"update cross_chain_height_info set
+    ckb_height = ?, ckb_client_height = ? WHERE id = ?"#;
+    sqlx::query(sql)
         .bind(info.ckb_height)
         .bind(info.ckb_client_height)
         .bind(info.id)
