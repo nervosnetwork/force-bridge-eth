@@ -81,7 +81,7 @@ restart-force-server:
 	pm2 restart force-server
 
 start-tx-indexer-services:
-	bash demo/tx-indexer-service.sh
+	bash demo/tx-indexer-ci.sh
 
 
 start-services: start-relay start-force-server
@@ -113,6 +113,7 @@ github-ci:
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
+	make start-tx-indexer-services
 
 demo-crosschain:
 	bash demo/crosschain.sh
