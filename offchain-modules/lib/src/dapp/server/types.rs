@@ -1,6 +1,8 @@
 use crate::dapp::db::server::CrosschainHistory;
-use ckb_jsonrpc_types::TransactionView;
 use ckb_jsonrpc_types::Uint128;
+use ckb_jsonrpc_types::{Script as ScriptJson, TransactionView};
+use ckb_types::packed::Script;
+use ckb_types::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use web3::types::{H160, U256};
 
@@ -90,14 +92,13 @@ pub struct GetCkbToEthStatusResponse {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetCrosschainHistoryArgs {
-    pub ckb_recipient_lockscript_addr: Option<String>,
-    pub ckb_recipient_lockscript: Option<String>,
+    pub lock_sender_addr: Option<String>,
     pub eth_recipient_addr: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct GetCrosschainHistoryRes {
-    pub eth_to_ckb: Vec<CrosschainHistory>,
+    pub eth_to_ckb: Vec<EthToCkbCrosschainHistoryRes>,
     pub ckb_to_eth: Vec<CrosschainHistory>,
 }
 
@@ -111,4 +112,39 @@ pub struct GetSudtBalanceArgs {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetBestBlockHeightArgs {
     pub chain: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct EthToCkbCrosschainHistoryRes {
+    pub id: u64,
+    pub eth_tx_hash: Option<String>,
+    pub ckb_tx_hash: Option<String>,
+    pub status: String,
+    pub sort: String,
+    pub amount: String,
+    pub token_addr: String,
+    pub recipient_lockscript: ScriptJson,
+}
+
+impl From<CrosschainHistory> for EthToCkbCrosschainHistoryRes {
+    fn from(history: CrosschainHistory) -> Self {
+        // TODO hanle error
+        let recipient_lockscript = Script::from_slice(
+            hex::decode(history.recipient_addr)
+                .expect("should not fail")
+                .as_slice(),
+        )
+        .unwrap();
+        let recipient_lockscript: ScriptJson = recipient_lockscript.into();
+        Self {
+            id: history.id,
+            eth_tx_hash: history.eth_tx_hash,
+            ckb_tx_hash: history.ckb_tx_hash,
+            status: history.status,
+            sort: history.sort,
+            amount: history.amount,
+            token_addr: history.token_addr,
+            recipient_lockscript,
+        }
+    }
 }

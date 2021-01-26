@@ -380,13 +380,13 @@ bad request data: token already inited
 
 ```json
 {
-    "eth_recipient_addr": "403A53A7Dfa7a4AB022e53FeFf11232b3140407d",
-    "ckb_recipient_lockscript_addr": "ckt1qyq2f0uwf3lk7e0nthfucvxgl3zu36v6zuwq6mlzps"
+    "lock_sender_addr": "8a0f5a1724f73b67c7464b8a61c8c37c1f78b057",
+    "eth_recipient_addr": "403A53A7Dfa7a4AB022e53FeFf11232b3140407d"
 }
 ```
 
-- eth_recipient_addr: 以太坊接收地址(去除 0x)
-- ckb_recipient_lockscript_addr: ckb 接收者的 lockscript address 地址
+- lock_sender_addr: 以太坊 lock 交易发送地址（去除 0x），用来查询 eth_to_ckb crosschain history
+- eth_recipient_addr: 以太坊接收地址(去除 0x), 用来查询 ckb_to_eth crosschain history
 
 #### 结果说明
 
@@ -396,11 +396,12 @@ bad request data: token already inited
         {
             "id": 1,
             "eth_tx_hash": "0xafc74282409140b853b3cbb74d772bc835e7ea5643704d35db77b8c306ed5fe0",
-            "ckb_tx_hash": null,
+            "ckb_tx_hash": "0xc500d54980956a509f5ae2809cd7208350d6db2cffd6fa42bdff17faa7c670b0",
             "status": "success",
             "sort": "eth_to_ckb",
             "amount": "0x64",
-            "token_addr": "0x0000000000000000000000000000000000000000"
+            "token_addr": "0x0000000000000000000000000000000000000000",
+            "recipient_addr": "0x490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8011400000048b6236839cc6fb48e772a716e443a26a89e8c4e"
         }
     ],
     "ckb_to_eth": [
@@ -411,7 +412,8 @@ bad request data: token already inited
             "status": "success",
             "sort": "ckb_to_eth",
             "amount": "0x2",
-            "token_addr": "0x0000000000000000000000000000000000000000"
+            "token_addr": "0x0000000000000000000000000000000000000000",
+            "recipient_addr": "0x403A53A7Dfa7a4AB022e53FeFf11232b3140407d"
         }
     ]
 }
@@ -425,6 +427,7 @@ bad request data: token already inited
 - sort: 类型为 ckb_to_eth 或者 eth_to_ckb
 - amount: 跨链金额，hex 格式
 - token_addr: 跨链涉及的币种
+- recipient_addr: 跨链接收方地址
 
 ### get_sudt_balance
 
