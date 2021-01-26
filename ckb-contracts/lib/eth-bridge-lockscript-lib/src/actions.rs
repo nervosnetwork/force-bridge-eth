@@ -18,6 +18,7 @@ use std::convert::TryInto;
 /// which means put an identical cell in output with higher capacity.
 pub fn verify_manage_mode<T: Adapter>(data_loader: &T) {
     let udt_script = data_loader.get_associated_udt_script();
+    debug!("slice {:?}", udt_script.as_slice());
     if data_loader.typescript_exists_in_outputs(udt_script.as_slice()) {
         panic!("mint sudt is forbidden in owner mode");
     }

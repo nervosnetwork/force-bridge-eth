@@ -70,6 +70,35 @@ fn get_correct_params() -> MintTestParams {
     }
 }
 
+fn generate_manage_mode_mock(typescript: Script) -> MockDataLoader {
+    let mut mock = MockDataLoader::new();
+
+    let witness = MintTokenWitness::new_builder().mode(Byte::new(1u8)).build();
+    let witness_args = WitnessArgs::new_builder()
+        .lock(Some(witness.as_bytes()).pack())
+        .build();
+
+    mock.expect_load_witness_args()
+        .times(1)
+        .returning(move |_, _| Ok(witness_args.clone()));
+
+    mock.expect_load_script_hash()
+        .times(1)
+        .returning(|| Ok([2u8; 32]));
+
+    mock.expect_load_cell_type()
+        .times(2)
+        .returning(move |index, _| {
+            if index == 0 {
+                Ok(Some(typescript.clone()))
+            } else {
+                Err(SysError::IndexOutOfBound)
+            }
+        });
+
+    mock
+}
+
 fn generate_mint_mode_mock(mint_test_params: MintTestParams) -> MockDataLoader {
     let mut mock = MockDataLoader::new();
 
@@ -238,6 +267,33 @@ fn generate_sudt_cell(
     let mut output_data = correct_amount.to_le_bytes().to_vec();
     output_data.extend(correct_sudt_extra.as_bytes().to_vec());
     (cell, output_data)
+}
+
+#[test]
+fn test_manage_mode_correct() {
+    let mock = generate_manage_mode_mock(Script::default());
+    let adapter = crate::adapter::ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
+#[should_panic(expected = "mint sudt is forbidden in owner mode")]
+fn test_manage_mode_wrong_when_output_have_sudt() {
+    let typescript = Script::from_slice(
+        [
+            85u8, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0, 0, 49, 0, 0, 0, 225, 227, 84, 214, 214, 67, 173,
+            66, 114, 77, 64, 150, 126, 51, 73, 132, 83, 78, 3, 103, 64, 92, 90, 228, 42, 157, 125,
+            99, 215, 125, 244, 25, 0, 32, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        ]
+        .as_ref(),
+    )
+    .unwrap();
+    let mock = generate_manage_mode_mock(typescript);
+    let adapter = crate::adapter::ChainAdapter { chain: mock };
+
+    _verify(adapter);
 }
 
 #[test]
