@@ -1,9 +1,11 @@
+use super::errors::RpcError;
 use crate::dapp::db::server::CrosschainHistory;
 use ckb_jsonrpc_types::Uint128;
 use ckb_jsonrpc_types::{Script as ScriptJson, TransactionView};
 use ckb_types::packed::Script;
 use ckb_types::prelude::Entity;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use web3::types::{H160, U256};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -99,7 +101,7 @@ pub struct GetCrosschainHistoryArgs {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct GetCrosschainHistoryRes {
     pub eth_to_ckb: Vec<EthToCkbCrosschainHistoryRes>,
-    pub ckb_to_eth: Vec<CrosschainHistory>,
+    pub ckb_to_eth: Vec<CkbToEthCrosschainHistoryRes>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -126,25 +128,68 @@ pub struct EthToCkbCrosschainHistoryRes {
     pub recipient_lockscript: ScriptJson,
 }
 
-impl From<CrosschainHistory> for EthToCkbCrosschainHistoryRes {
-    fn from(history: CrosschainHistory) -> Self {
-        // TODO hanle error
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct CkbToEthCrosschainHistoryRes {
+    pub id: u64,
+    pub eth_tx_hash: Option<String>,
+    pub ckb_tx_hash: Option<String>,
+    pub status: String,
+    pub sort: String,
+    pub amount: String,
+    pub token_addr: String,
+    pub recipient_addr: String,
+}
+
+impl TryFrom<CrosschainHistory> for EthToCkbCrosschainHistoryRes {
+    type Error = RpcError;
+
+    fn try_from(history: CrosschainHistory) -> Result<Self, Self::Error> {
         let recipient_lockscript = Script::from_slice(
             hex::decode(history.recipient_addr)
                 .expect("should not fail")
                 .as_slice(),
         )
-        .unwrap();
+        .map_err(|e| {
+            RpcError::ServerError(format!(
+                "molecule decode crosschain history recipient lockscript error: {:?}",
+                e
+            ))
+        })?;
         let recipient_lockscript: ScriptJson = recipient_lockscript.into();
-        Self {
+        Ok(Self {
             id: history.id,
-            eth_tx_hash: history.eth_tx_hash,
-            ckb_tx_hash: history.ckb_tx_hash,
+            eth_tx_hash: history.eth_tx_hash.as_ref().map(|h| pad_0x_prefix(&h)),
+            ckb_tx_hash: history.ckb_tx_hash.as_ref().map(|h| pad_0x_prefix(&h)),
             status: history.status,
             sort: history.sort,
             amount: history.amount,
-            token_addr: history.token_addr,
+            token_addr: pad_0x_prefix(&history.token_addr),
             recipient_lockscript,
+        })
+    }
+}
+
+impl From<CrosschainHistory> for CkbToEthCrosschainHistoryRes {
+    fn from(history: CrosschainHistory) -> Self {
+        Self {
+            id: history.id,
+            eth_tx_hash: history.eth_tx_hash.as_ref().map(|h| pad_0x_prefix(&h)),
+            ckb_tx_hash: history.ckb_tx_hash.as_ref().map(|h| pad_0x_prefix(&h)),
+            status: history.status,
+            sort: history.sort,
+            amount: history.amount,
+            token_addr: pad_0x_prefix(&history.token_addr),
+            recipient_addr: pad_0x_prefix(&history.recipient_addr),
         }
+    }
+}
+
+pub fn pad_0x_prefix(s: &str) -> String {
+    if !s.starts_with("0x") && !s.starts_with("0X") {
+        let mut res = "0x".to_owned();
+        res.push_str(s);
+        res
+    } else {
+        s.to_owned()
     }
 }

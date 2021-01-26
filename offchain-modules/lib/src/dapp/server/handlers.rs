@@ -18,6 +18,7 @@ use ethabi::Token;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use molecule::prelude::{Entity, Reader};
 use serde_json::{json, Value};
+use std::convert::TryFrom;
 use std::str::FromStr;
 use tokio::sync::oneshot;
 use web3::types::{CallRequest, U256};
@@ -300,10 +301,11 @@ pub async fn get_crosschain_history(
                         e
                     ))
                 })?;
-        crosschain_history.eth_to_ckb = raw_crosschain_history
+        let res: Result<Vec<_>, _> = raw_crosschain_history
             .into_iter()
-            .map(EthToCkbCrosschainHistoryRes::from)
+            .map(EthToCkbCrosschainHistoryRes::try_from)
             .collect();
+        crosschain_history.eth_to_ckb = res?;
     }
     // ckb to eth
     if let Some(eth_recipient_addr) = args.eth_recipient_addr {
@@ -312,7 +314,7 @@ pub async fn get_crosschain_history(
                 "invalid args: eth_recipient_addr string length should be 40".to_string(),
             ));
         }
-        crosschain_history.ckb_to_eth =
+        let raw_crosschain_history =
             db::get_ckb_to_eth_crosschain_history(&data.db, &eth_recipient_addr)
                 .await
                 .map_err(|e| {
@@ -321,6 +323,10 @@ pub async fn get_crosschain_history(
                         e
                     ))
                 })?;
+        crosschain_history.ckb_to_eth = raw_crosschain_history
+            .into_iter()
+            .map(CkbToEthCrosschainHistoryRes::from)
+            .collect();
     }
     Ok(HttpResponse::Ok().json(crosschain_history))
 }
