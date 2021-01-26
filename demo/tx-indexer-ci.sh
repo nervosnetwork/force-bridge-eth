@@ -29,9 +29,6 @@ MYSQL_NAME=test_mysql
 FORCE_LOG_PATH=~/.force-bridge/logs
 mkdir -p "${FORCE_LOG_PATH}"
 
-approve_token(){
-   ${FORCE_CLI} approve --config-path "${FORCE_CONFIG_PATH}" -k 0 --erc20-addr "${TOKEN_ADDRESS}" --wait
-}
 
 start_mysql() {
 
@@ -99,7 +96,7 @@ sleep 10
 #stop_service
 #start_header_relay
 start_server
-sleep 1
+sleep 3
 start_tx_relay
 
 stress_test
