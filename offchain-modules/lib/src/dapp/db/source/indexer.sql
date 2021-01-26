@@ -75,7 +75,7 @@ CREATE TABLE `eth_to_ckb` (
   `sender_addr` varchar(40) DEFAULT NULL,
   `locked_amount` varchar(20) DEFAULT NULL,
   `bridge_fee` varchar(20) DEFAULT NULL,
-  `ckb_recipient_lockscript` varchar(256) DEFAULT NULL,
+  `ckb_recipient_lockscript` varchar(512) DEFAULT NULL,
   `sudt_extra_data` varchar(256) DEFAULT NULL,
   `ckb_tx_hash` varchar(64) DEFAULT NULL,
   `eth_spv_proof` varchar(15360) DEFAULT NULL,
@@ -86,7 +86,7 @@ CREATE TABLE `eth_to_ckb` (
   KEY `eth_lock_tx_hash` (`eth_lock_tx_hash`),
   KEY `replay_resist_outpoint` (`replay_resist_outpoint`),
   KEY `block_number` (`eth_block_number`),
-  KEY `ckb_recipient_lockscript` (`ckb_recipient_lockscript`)
+  KEY `sender_addr` (`sender_addr`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
