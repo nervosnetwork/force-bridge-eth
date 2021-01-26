@@ -23,11 +23,9 @@ pub struct EthToCkbRecord {
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CrossChainHeightInfo {
-    pub id: u64,
-    pub eth_height: u64,
-    pub eth_client_height: u64,
-    pub ckb_height: u64,
-    pub ckb_client_height: u64,
+    pub id: u8,
+    pub height: u64,
+    pub client_height: u64,
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -248,39 +246,25 @@ pub async fn reset_eth_to_ckb_record_status(
     Ok(())
 }
 
-pub async fn get_height_info(pool: &MySqlPool) -> Result<CrossChainHeightInfo> {
-    let sql = r#"select * from cross_chain_height_info limit 1"#;
+pub async fn get_height_info(pool: &MySqlPool, id: u8) -> Result<CrossChainHeightInfo> {
+    let sql = r#"select * from cross_chain_height_info where id = ?"#;
     let ret = sqlx::query_as::<_, CrossChainHeightInfo>(sql)
+        .bind(id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| anyhow::anyhow!("the record is not exist"))?;
     Ok(ret)
 }
 
-pub async fn update_cross_chain_eth_height_info(
+pub async fn update_cross_chain_height_info(
     pool: &mut Transaction<'_, MySql>,
     info: &CrossChainHeightInfo,
 ) -> Result<()> {
     let sql = r#"update cross_chain_height_info set
-    eth_height = ?, eth_client_height = ? WHERE id = ?"#;
+    height = ?, client_height = ? WHERE id = ?"#;
     sqlx::query(sql)
-        .bind(info.eth_height)
-        .bind(info.eth_client_height)
-        .bind(info.id)
-        .execute(pool)
-        .await?;
-    Ok(())
-}
-
-pub async fn update_cross_chain_ckb_height_info(
-    pool: &mut Transaction<'_, MySql>,
-    info: &CrossChainHeightInfo,
-) -> Result<()> {
-    let sql = r#"update cross_chain_height_info set
-    ckb_height = ?, ckb_client_height = ? WHERE id = ?"#;
-    sqlx::query(sql)
-        .bind(info.ckb_height)
-        .bind(info.ckb_client_height)
+        .bind(info.height)
+        .bind(info.client_height)
         .bind(info.id)
         .execute(pool)
         .await?;
