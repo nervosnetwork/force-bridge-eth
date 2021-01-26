@@ -1,17 +1,20 @@
 const { expect } = require('chai');
 const { log, waitingForReceipt } = require('./utils');
-const testJson = require('./data/testTokenLocker.json');
 
+const testJson = require('./data/testTokenLocker.json');
 const recipientCellTypescript = testJson.recipientCellTypescript;
 const lightClientTypescriptHash = testJson.lightClientTypescriptHash;
 const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash;
 const decodeBurnTxTestCases = testJson.decodeBurnTxTestCases;
 const lockETHTestCases = testJson.lockETHTestCases;
 const lockTokenTestCases = testJson.lockTokenTestCases;
-
 let tokenLocker, provider, user;
+const retryTimes = 20;
+contract('TokenLocker openzeppelin', () => {
+  let adminAddress, contractAddress, initHeaderIndex, endHeaderIndex, factory;
+  let wallets, validators;
+  let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHeadersTypeHash;
 
-contract('TokenLocker', () => {
   before(async function () {
     // disable timeout
     this.timeout(0);
@@ -22,10 +25,13 @@ contract('TokenLocker', () => {
     const mockSpv = await factory.deploy();
     await mockSpv.deployed();
 
+    // deploy TokenLocker
     factory = await ethers.getContractFactory(
-      'contracts/TokenLocker.sol:TokenLockerRaw'
+      'contracts/TokenLocker-openzeppelin.sol:TokenLocker'
     );
-    tokenLocker = await factory.deploy(
+    tokenLocker = await factory.deploy();
+    await tokenLocker.deployTransaction.wait(1);
+    const res = await tokenLocker.initialize(
       mockSpv.address,
       123,
       recipientCellTypescript.codeHash,
@@ -33,29 +39,20 @@ contract('TokenLocker', () => {
       lightClientTypescriptHash,
       bridgeCellLockscriptCodeHash
     );
-    await tokenLocker.deployed();
-    log('tokenLocker deployed to:', tokenLocker.address);
+    await res.wait(1);
 
-    user = tokenLocker.signer;
+    contractAddress = tokenLocker.address;
     provider = tokenLocker.provider;
+    user = tokenLocker.signer;
   });
 
-  describe('lockETH', async function () {
+  describe('v1 test case', async function () {
     // disable timeout
     this.timeout(0);
-    it('Should lockETH verified', async () => {
-      for (testcase of lockETHTestCases) {
+
+    it('use v1 contract, lockETH correct case', async () => {
+      for (const testcase of lockETHTestCases) {
         await testLockETH(testcase);
-      }
-    });
-  });
-
-  describe('lockToken', async function () {
-    // disable timeout
-    this.timeout(0);
-    it('Should lock erc20 token verified', async () => {
-      for (testcase of lockTokenTestCases) {
-        await testLockToken(testcase);
       }
     });
   });
@@ -100,70 +97,6 @@ async function testLockETH(testcase) {
   // locked token amount == delta balance of contract
   const delta =
     (await provider.getBalance(tokenLocker.address)) - contractBalance;
-  const actualDelta = ethers.BigNumber.from(delta.toString());
-  expect(actualDelta).to.equal(amount);
-}
-
-async function testLockToken(testcase) {
-  const factory = await ethers.getContractFactory(
-    'contracts/test/ERC20.sol:ERC20'
-  );
-  const erc20 = await factory.deploy();
-  await erc20.deployed();
-  log('erc20 deployed to:', erc20.address);
-
-  const contractBalance = await erc20.callStatic.balanceOf(tokenLocker.address);
-  log(`tokenLocker contract erc20 balance: ${contractBalance.toString()}`);
-  const signerBalance = await erc20.callStatic.balanceOf(
-    await user.getAddress()
-  );
-  log(`signer erc20 balance: ${signerBalance.toString()}`);
-
-  // user should approve erc20 token to tokenLocker contract
-  const approveAmount =
-    '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF';
-  let res = await erc20.approve(tokenLocker.address, approveAmount);
-  let receipt = await waitingForReceipt(provider, res);
-  log(`approve gasUsed: ${receipt.gasUsed.toString()}`);
-
-  // lock erc20
-  const amount = testcase.lockAmount;
-  log(`lock erc20 token amount ${amount}`);
-  res = await tokenLocker.lockToken(
-    erc20.address,
-    amount,
-    testcase.bridgeFee,
-    testcase.recipientLockscript,
-    testcase.replayResistOutpoint,
-    testcase.sudtExtraData
-  );
-  receipt = await waitingForReceipt(provider, res);
-  log(`gasUsed: ${receipt.gasUsed.toString()}`);
-
-  const {
-    tokenAddressTopic,
-    lockerAddressTopic,
-    lockedAmount,
-    bridgeFee,
-    recipientLockscript,
-    replayResistOutpoint,
-    sudtExtraData,
-  } = parseLockedEvent(receipt.logs[2]);
-
-  expect(tokenAddressTopic).to.equal(erc20.address);
-  expect(lockerAddressTopic).to.equal(user.address);
-  expect(lockedAmount).to.equal(amount);
-  expect(bridgeFee).to.equal(testcase.bridgeFee);
-  expect(recipientLockscript).to.equal(testcase.recipientLockscript);
-  expect(replayResistOutpoint).to.equal(testcase.replayResistOutpoint);
-  expect(sudtExtraData).to.equal(testcase.sudtExtraData);
-
-  // locked token amount == delta balance of contract
-  const contractBalanceAfter = await erc20.callStatic.balanceOf(
-    tokenLocker.address
-  );
-  log(`contractBalanceAfter ${contractBalanceAfter}`);
-  const delta = contractBalanceAfter - contractBalance;
   const actualDelta = ethers.BigNumber.from(delta.toString());
   expect(actualDelta).to.equal(amount);
 }

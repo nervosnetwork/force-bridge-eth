@@ -5,7 +5,7 @@ const { log } = require('../test/utils');
 // 1. require the new version contract factory path to upgrade
 // 2. require old contract address
 const contractFactoryPath =
-  'contracts/TokenLocker-openzeppelin-v2.sol:TokenLocker';
+  'contracts/upgrades/TokenLocker-openzeppelin-v2.sol:TokenLocker';
 const contractAddress = '0xc9cdDFc8cF48048442B74731551545a6aF81b0E4';
 
 async function main() {
