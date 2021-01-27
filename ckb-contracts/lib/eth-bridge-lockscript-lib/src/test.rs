@@ -18,8 +18,10 @@ use std::convert::TryFrom;
 
 type SMT = SparseMerkleTree<Blake2bHasher, H256, DefaultStore<H256>>;
 
+#[derive(Clone)]
 struct MintTestParams {
     block_number: u128,
+    latest_number: u128,
     block_hash: String,
     recipient_lockscript: Vec<u8>,
     recipient_amount: u128,
@@ -27,10 +29,12 @@ struct MintTestParams {
     spv_proof: String,
     eth_locker_address: String,
     eth_token_address: String,
+    bridge_lockscript: Script,
 }
 
 fn get_correct_params() -> MintTestParams {
     let block_number = 45u128;
+    let latest_number = 100u128;
     let block_hash = "9485ad52a452389c67ea2364ae42c7a8772c54da7fa2929a6b2bf5261874298e".to_string();
     let recipient_lockscript = [
         73u8, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0, 0, 49, 0, 0, 0, 155, 215, 224, 111, 62, 207, 75, 224,
@@ -46,8 +50,15 @@ fn get_correct_params() -> MintTestParams {
     let eth_locker_address = "cD62E77cFE0386343c15C13528675aae9925D7Ae".to_string();
     let eth_token_address = "0000000000000000000000000000000000000000".to_string();
 
+    let bridge_lockscript = generate_lock_script(
+        eth_locker_address.as_str(),
+        eth_token_address.as_str(),
+        &[1u8; 32],
+    );
+
     MintTestParams {
         block_number,
+        latest_number,
         block_hash,
         recipient_lockscript,
         recipient_amount,
@@ -55,13 +66,40 @@ fn get_correct_params() -> MintTestParams {
         spv_proof,
         eth_locker_address,
         eth_token_address,
+        bridge_lockscript,
     }
 }
 
-fn generate_mint_mode_mock(
-    lock_script: Script,
-    mint_test_params: MintTestParams,
-) -> MockDataLoader {
+fn generate_manage_mode_mock(typescript: Script) -> MockDataLoader {
+    let mut mock = MockDataLoader::new();
+
+    let witness = MintTokenWitness::new_builder().mode(Byte::new(1u8)).build();
+    let witness_args = WitnessArgs::new_builder()
+        .lock(Some(witness.as_bytes()).pack())
+        .build();
+
+    mock.expect_load_witness_args()
+        .times(1)
+        .returning(move |_, _| Ok(witness_args.clone()));
+
+    mock.expect_load_script_hash()
+        .times(1)
+        .returning(|| Ok([2u8; 32]));
+
+    mock.expect_load_cell_type()
+        .times(2)
+        .returning(move |index, _| {
+            if index == 0 {
+                Ok(Some(typescript.clone()))
+            } else {
+                Err(SysError::IndexOutOfBound)
+            }
+        });
+
+    mock
+}
+
+fn generate_mint_mode_mock(mint_test_params: MintTestParams) -> MockDataLoader {
     let mut mock = MockDataLoader::new();
 
     let witness_args = generate_mint_token_witness(
@@ -75,6 +113,7 @@ fn generate_mint_mode_mock(
 
     let light_client_data = generate_light_client_data(
         mint_test_params.block_number,
+        mint_test_params.latest_number,
         mint_test_params.block_hash.as_str(),
     );
     mock.expect_load_cell_data()
@@ -88,6 +127,7 @@ fn generate_mint_mode_mock(
         .times(1)
         .returning(move |_, _| Ok(outpoint.clone()));
 
+    let lock_script = mint_test_params.bridge_lockscript;
     mock.expect_load_script()
         .times(1)
         .returning(move || Ok(lock_script.clone()));
@@ -104,13 +144,9 @@ fn generate_mint_mode_mock(
         mint_test_params.recipient_lockscript.as_slice(),
         mint_test_params.recipient_amount,
     );
-    mock.expect_load_cell().times(2).returning(move |index, _| {
-        if index == 0 {
-            Ok(cell.clone())
-        } else {
-            Err(SysError::IndexOutOfBound)
-        }
-    });
+    mock.expect_load_cell()
+        .times(1)
+        .returning(move |_, _| Ok(cell.clone()));
 
     mock.expect_load_cell_data()
         .times(1)
@@ -171,14 +207,14 @@ fn generate_mint_token_witness(
         .build()
 }
 
-fn generate_light_client_data(block_number: u128, block_hash: &str) -> Bytes {
+fn generate_light_client_data(block_number: u128, latest_number: u128, block_hash: &str) -> Bytes {
     let smt_tree = generate_smt_tree(block_number, block_hash);
 
     let merkle_root = smt_tree.root();
 
     let data = ETHHeaderCellMerkleData::new_builder()
         .merkle_root(basic::Byte32::from_slice(merkle_root.as_slice()).unwrap())
-        .latest_height(100u64.into())
+        .latest_height((latest_number as u64).into())
         .build();
 
     data.as_bytes()
@@ -234,15 +270,42 @@ fn generate_sudt_cell(
 }
 
 #[test]
+fn test_manage_mode_correct() {
+    let mock = generate_manage_mode_mock(Script::default());
+    let adapter = crate::adapter::ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
+#[should_panic(expected = "mint sudt is forbidden in owner mode")]
+fn test_manage_mode_wrong_when_output_have_sudt() {
+    let typescript = Script::from_slice(
+        [
+            85u8, 0, 0, 0, 16, 0, 0, 0, 48, 0, 0, 0, 49, 0, 0, 0, 225, 227, 84, 214, 214, 67, 173,
+            66, 114, 77, 64, 150, 126, 51, 73, 132, 83, 78, 3, 103, 64, 92, 90, 228, 42, 157, 125,
+            99, 215, 125, 244, 25, 0, 32, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+            2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        ]
+        .as_ref(),
+    )
+    .unwrap();
+    let mock = generate_manage_mode_mock(typescript);
+    let adapter = crate::adapter::ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
 fn test_mint_mode_correct() {
     let mint_test_params = get_correct_params();
-    let bridge_lockscript = generate_lock_script(
-        mint_test_params.eth_locker_address.as_str(),
-        mint_test_params.eth_token_address.as_str(),
-        &[1u8; 32],
-    );
 
-    let mock = generate_mint_mode_mock(bridge_lockscript, mint_test_params);
+    let mut mock = generate_mint_mode_mock(mint_test_params);
+
+    mock.expect_load_cell()
+        .times(1)
+        .returning(|_, _| Err(SysError::IndexOutOfBound));
+
     let adapter = crate::adapter::ChainAdapter { chain: mock };
 
     _verify(adapter);
@@ -259,6 +322,81 @@ fn test_mint_mode_invalid_proof() {
         .times(1)
         .returning(move || Ok(witness.as_bytes()));
     _verify(mock);
+}
+
+#[test]
+#[should_panic(expected = "eth cell data invalid")]
+fn test_mint_mode_eth_cell_data_invalid() {
+    let mint_test_params = get_correct_params();
+
+    let mut mock = MockDataLoader::new();
+
+    let witness_args = generate_mint_token_witness(
+        mint_test_params.spv_proof.as_str(),
+        mint_test_params.block_number,
+        mint_test_params.block_hash.as_str(),
+    );
+    mock.expect_load_witness_args()
+        .times(1)
+        .returning(move |_, _| Ok(witness_args.clone()));
+
+    mock.expect_load_cell_data()
+        .times(1)
+        .returning(move |_, _| Ok(Bytes::new().to_vec()));
+
+    let adapter = crate::adapter::ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
+#[should_panic(expected = "header is not confirmed on light client yet")]
+fn test_mint_mode_header_not_confirm() {
+    let mut mint_test_params = get_correct_params();
+    mint_test_params.latest_number = 50;
+
+    let mock = generate_mint_mode_mock(mint_test_params);
+    let adapter = crate::adapter::ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
+#[should_panic(expected = "replay_resist_cell_id not exists in inputs")]
+fn test_mint_mode_replay_resist_cell_not_exist() {
+    let mut mint_test_params = get_correct_params();
+    mint_test_params.replay_resist_outpoint =
+        "000000000000000000000000000000000000000000000000000000000000000000000000".to_string();
+
+    let mut mock = generate_mint_mode_mock(mint_test_params);
+    mock.expect_load_input_out_point()
+        .times(1)
+        .returning(move |_, _| Err(SysError::IndexOutOfBound));
+
+    let adapter = crate::adapter::ChainAdapter { chain: mock };
+
+    _verify(adapter);
+}
+
+#[test]
+#[should_panic(expected = "you can only mint one sudt cell for recipient")]
+fn test_mint_mode_mint_more_than_one_sudt_for_recipient() {
+    let mint_test_params = get_correct_params();
+
+    let mut mock = generate_mint_mode_mock(mint_test_params.clone());
+
+    let (cell, sudt_data) = generate_sudt_cell(mint_test_params.recipient_lockscript.as_slice(), 1);
+    mock.expect_load_cell()
+        .times(1)
+        .returning(move |_, _| Ok(cell.clone()));
+
+    mock.expect_load_cell_data()
+        .times(1)
+        .returning(move |_, _| Ok(sudt_data.clone()));
+
+    let adapter = crate::adapter::ChainAdapter { chain: mock };
+
+    _verify(adapter);
 }
 
 #[test]
