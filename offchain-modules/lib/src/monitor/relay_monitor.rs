@@ -237,28 +237,29 @@ impl RelayMonitor {
         Ok(msg)
     }
     pub async fn get_indexer_height(&mut self, args: IndexerMonitorArgs) -> Result<String> {
-        let height_info = get_height_info(&args.db).await?;
-        let ckb_db_diff = if height_info.ckb_height > height_info.ckb_client_height {
-            height_info.ckb_height - height_info.ckb_client_height
-        } else {
-            height_info.ckb_client_height - height_info.ckb_height
-        };
-        let eth_db_diff = if height_info.eth_height > height_info.eth_client_height {
-            height_info.eth_height - height_info.eth_client_height
-        } else {
-            height_info.eth_client_height - height_info.eth_height
-        };
+        let eth_height_info = get_height_info(&args.db, 1 as u8).await?;
+        let ckb_height_info = get_height_info(&args.db, 2 as u8).await?;
 
-        let mut msg = format!("ckb light client height in db record: {:?}  %0A ckb indexer height in db record : {:?}  %0A eth light client height in db record : {:?}  %0A eth indexer height in db record : {:?} %0A ckb height diff in db is {:?}, eth height diff in db is {:?} %0A ", height_info.ckb_client_height, height_info.ckb_height, height_info.eth_client_height, height_info.eth_height, ckb_db_diff, eth_db_diff);
+        let ckb_current_height = self
+            .generator
+            .rpc_client
+            .get_tip_block_number()
+            .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
+        let eth_current_height = self.web3_client.client().eth().block_number().await?;
 
-        if self.ckb_alarm_number < ckb_db_diff {
+        let ckb_diff = ckb_current_height - ckb_height_info.height;
+        let eth_diff = eth_current_height.as_u64() - eth_height_info.height;
+
+        let mut msg = format!("ckb chain height: {:?}  %0A ckb light client height in db record: {:?}  %0A ckb indexer height in db record : {:?}  %0A  eth chain height : {:?}  %0A  eth light client height in db record : {:?}  %0A eth indexer height in db record : {:?} %0A ckb height diff in db is {:?}, eth height diff in db is {:?} %0A ", ckb_current_height, ckb_height_info.client_height,ckb_height_info.height, eth_current_height, eth_height_info.client_height, eth_height_info.height, ckb_diff, eth_diff);
+
+        if self.ckb_alarm_number < ckb_diff {
             for conservator in args.ckb_indexer_conservator.iter() {
                 msg = format!("{} @{} ", msg, conservator,);
             }
             msg = format!("{} %0A ", msg);
         }
 
-        if self.eth_alarm_number < eth_db_diff {
+        if self.eth_alarm_number < eth_diff {
             for conservator in args.eth_indexer_conservator.iter() {
                 msg = format!("{} @{} ", msg, conservator,);
             }

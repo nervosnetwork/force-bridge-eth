@@ -3,8 +3,8 @@ use crate::dapp::db::indexer::{
     get_ckb_unconfirmed_block, get_ckb_unconfirmed_blocks, get_eth_to_ckb_record_by_outpoint,
     get_height_info, get_max_ckb_unconfirmed_block, insert_ckb_unconfirmed_block,
     insert_ckb_unconfirmed_blocks, is_ckb_to_eth_record_exist, reset_eth_to_ckb_record_status,
-    update_ckb_unconfirmed_block, update_cross_chain_ckb_height_info, update_eth_to_ckb_status,
-    CkbToEthRecord, CkbUnConfirmedBlock, EthToCkbRecord,
+    update_ckb_unconfirmed_block, update_cross_chain_height_info, update_eth_to_ckb_status,
+    CkbToEthRecord, CkbUnConfirmedBlock, CrossChainHeightInfo, EthToCkbRecord,
 };
 use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::{create_bridge_lockscript, parse_cell};
@@ -67,15 +67,15 @@ impl CkbIndexer {
             .ok_or_else(|| anyhow!("the deployed_contracts is not exist"))?
             .eth_ckb_chain_addr;
         let contract_addr = convert_eth_address(&eth_contract_addr)?;
-        let mut height_info = get_height_info(&self.db).await?;
-        if height_info.ckb_height == 0 {
+        let mut height_info = get_height_info(&self.db, 2 as u8).await?;
+        if height_info.height == 0 {
             // height info init.
-            height_info.ckb_height = self
+            height_info.height = self
                 .eth_client
                 .get_contract_height("latestBlockNumber", contract_addr)
                 .await?;
         }
-        let mut start_block_number = height_info.ckb_height + 1;
+        let mut start_block_number = height_info.height + 1;
         let mut unconfirmed_blocks = get_ckb_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
@@ -163,13 +163,14 @@ impl CkbIndexer {
                     }
                 }
             }
-            height_info = get_height_info(&self.db).await?;
-            // let mut unconfirmed_block = get_ckb_unconfirmed_block(
-            //     &self.db,
-            //     start_block_number % CKB_CHAIN_CONFIRMED as u64,
-            // )
-            // .await?
-            // .ok_or_else(|| anyhow!("the block is not exist"))?;
+            let height_info = CrossChainHeightInfo {
+                id: 2,
+                height: start_block_number,
+                client_height: self
+                    .eth_client
+                    .get_contract_height("latestBlockNumber", contract_addr)
+                    .await?,
+            };
             let mut unconfirmed_block;
             let hash_str = hex::encode(block.header.hash);
             if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
@@ -203,12 +204,7 @@ impl CkbIndexer {
                     update_eth_to_ckb_status(&mut db_tx, &item).await?;
                 }
             }
-            height_info.ckb_height = start_block_number;
-            height_info.ckb_client_height = self
-                .eth_client
-                .get_contract_height("latestBlockNumber", contract_addr)
-                .await?;
-            update_cross_chain_ckb_height_info(&mut db_tx, &height_info).await?;
+            update_cross_chain_height_info(&mut db_tx, &height_info).await?;
             if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
                 insert_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
             } else {

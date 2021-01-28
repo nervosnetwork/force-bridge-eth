@@ -93,8 +93,11 @@ pub async fn update_relayed_tx(
     pool: &MySqlPool,
     lock_tx_hash: String,
     status: String,
-    err_msg: String,
+    mut err_msg: String,
 ) -> Result<bool> {
+    if err_msg.len() > 2500 {
+        err_msg.truncate(2500);
+    }
     let sql = r#"
 UPDATE eth_tx_relayer
 SET status = ?, err_msg = ?

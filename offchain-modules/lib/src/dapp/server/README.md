@@ -380,13 +380,13 @@ bad request data: token already inited
 
 ```json
 {
-    "eth_recipient_addr": "403A53A7Dfa7a4AB022e53FeFf11232b3140407d",
-    "ckb_recipient_lockscript_addr": "ckt1qyq2f0uwf3lk7e0nthfucvxgl3zu36v6zuwq6mlzps"
+    "lock_sender_addr": "17c4b5ce0605f63732bfd175fece7ac6b4620fd2",
+    "eth_recipient_addr": "403A53A7Dfa7a4AB022e53FeFf11232b3140407d"
 }
 ```
 
-- eth_recipient_addr: 以太坊接收地址(去除 0x)
-- ckb_recipient_lockscript_addr: ckb 接收者的 lockscript address 地址
+- lock_sender_addr: 以太坊 lock 交易发送地址（去除 0x），用来查询 eth_to_ckb crosschain history
+- eth_recipient_addr: 以太坊接收地址(去除 0x), 用来查询 ckb_to_eth crosschain history
 
 #### 结果说明
 
@@ -396,22 +396,28 @@ bad request data: token already inited
         {
             "id": 1,
             "eth_tx_hash": "0xafc74282409140b853b3cbb74d772bc835e7ea5643704d35db77b8c306ed5fe0",
-            "ckb_tx_hash": null,
+            "ckb_tx_hash": "0x69fd6eb1790652b38f021a04ff86f6167d9ce322247d55353a699d698bd29467",
             "status": "success",
             "sort": "eth_to_ckb",
             "amount": "0x64",
-            "token_addr": "0x0000000000000000000000000000000000000000"
+            "token_addr": "0x0000000000000000000000000000000000000000",
+            "recipient_lockscript": {
+                "code_hash": "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8",
+                "hash_type": "type",
+                "args": "0xa4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c"
+            }
         }
     ],
     "ckb_to_eth": [
         {
             "id": 1,
-            "eth_tx_hash": "0x6302e20bf9b1ed24a9044d82b97c583477cd9a8aa8ae4e2ee27d0bf43e97613a",
-            "ckb_tx_hash": "0x31900669ba31ab2f14931eb35d9e74a024dcdff8c7a06c521cd6f7c1516cf838",
+            "eth_tx_hash": "0x50202e5a7fbc20f01bc7b403d3bae1fe17e61b9714b6a9971114799e3988b781",
+            "ckb_tx_hash": "0xc6842de0950ed7c159ee90d23253091d90d63ba921c855caadb63f639cdd40c5",
             "status": "success",
             "sort": "ckb_to_eth",
             "amount": "0x2",
-            "token_addr": "0x0000000000000000000000000000000000000000"
+            "token_addr": "0x0000000000000000000000000000000000000000",
+            "recipient_addr": "0x403a53a7dfa7a4ab022e53feff11232b3140407d"
         }
     ]
 }
@@ -425,6 +431,10 @@ bad request data: token already inited
 - sort: 类型为 ckb_to_eth 或者 eth_to_ckb
 - amount: 跨链金额，hex 格式
 - token_addr: 跨链涉及的币种
+- eth_to_ckb
+  - recipient_lockscript: ckb 接收方 lockscript
+- ckb_to_eth
+  - recipient_addr: 以太坊接收方地址
 
 ### get_sudt_balance
 
