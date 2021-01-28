@@ -112,27 +112,8 @@ impl<T: IndexerFilter> EthIndexer<T> {
         let mut unconfirmed_blocks = get_eth_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
-            let mut start = 0;
-            if start_block_number > ETH_CHAIN_CONFIRMED as u64 {
-                start = start_block_number - ETH_CHAIN_CONFIRMED as u64;
-            }
-            let blocks = self
-                .eth_client
-                .get_blocks(start, start_block_number)
+            self.init_eth_unconfirmed_blocks(&mut unconfirmed_blocks, start_block_number)
                 .await?;
-            for item in blocks {
-                let number = item
-                    .number
-                    .ok_or_else(|| anyhow!("the number is not exist."))?
-                    .as_u64();
-                let record = EthUnConfirmedBlock {
-                    id: number % ETH_CHAIN_CONFIRMED as u64,
-                    number,
-                    hash: hex::encode(item.hash.ok_or_else(|| anyhow!("the hash is not exist."))?),
-                };
-                unconfirmed_blocks.push(record);
-            }
-            insert_eth_unconfirmed_blocks(&self.db, &unconfirmed_blocks).await?;
         }
         let config_path = tilde(self.config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -177,7 +158,6 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 block = self
                     .lookup_common_ancestor_in_eth(
                         &unconfirmed_blocks,
-                        // (ETH_CHAIN_CONFIRMED - 1) as isize,
                         (unconfirmed_blocks.len() - 1) as isize,
                     )
                     .await?;
@@ -196,95 +176,46 @@ impl<T: IndexerFilter> EthIndexer<T> {
                     .await
                     .map_err(|err| anyhow!(err))?;
             }
-            let mut lock_records = vec![];
-            let mut unlock_records = vec![];
-            let (lock_vec, unlock_vec) = self.parse_event_with_retry(
-                hex::encode(block.hash.unwrap()),
-                5,
+            self.handle_eth_event(
+                &block,
                 lock_contract_address.clone(),
-            )?;
-            if !lock_vec.is_empty() {
-                for item in lock_vec {
-                    self.handle_lock_event(
-                        &mut lock_records,
-                        lock_contract_address.clone(),
-                        &item,
-                        start_block_number,
-                    )
-                    .await?;
-                }
-            }
-            if !unlock_vec.is_empty() {
-                for item in unlock_vec {
-                    self.handle_unlock_event(item.tx_hash, &mut unlock_records)
-                        .await?;
-                }
-            }
-            height_info = get_height_info(&self.db, 1 as u8).await?;
-            let mut unconfirmed_block;
-            let hash_str = hex::encode(
-                block
-                    .hash
-                    .ok_or_else(|| anyhow!("the block is not exist"))?,
-            );
-            if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
-                unconfirmed_block = EthUnConfirmedBlock {
-                    id: start_block_number % ETH_CHAIN_CONFIRMED as u64,
-                    number: start_block_number,
-                    hash: hash_str,
-                };
-            } else {
-                unconfirmed_block = get_eth_unconfirmed_block(
-                    &self.db,
-                    start_block_number % ETH_CHAIN_CONFIRMED as u64,
-                )
-                .await?
-                .ok_or_else(|| anyhow!("the block is not exist"))?;
-                unconfirmed_block.number = start_block_number;
-                unconfirmed_block.hash = hash_str;
-            }
-            let mut db_tx = self.db.begin().await?;
-            if re_org {
-                // delete eth to ckb record while the block number > start_block_number
-                delete_eth_to_ckb_records(&mut db_tx, start_block_number).await?;
-                reset_ckb_to_eth_record_status(&mut db_tx, start_block_number).await?;
-                delete_eth_unconfirmed_block(&mut db_tx, start_block_number).await?;
-            }
-            if !lock_records.is_empty() {
-                create_eth_to_ckb_record(&mut db_tx, &lock_records).await?;
-            }
-            if !unlock_records.is_empty() {
-                for item in unlock_records {
-                    update_ckb_to_eth_record_status(
-                        &mut db_tx,
-                        item.0,
-                        item.1,
-                        "success",
-                        start_block_number,
-                    )
-                    .await?;
-                }
-            }
-            let light_client_height = self.get_light_client_height_with_loop().await;
-            // let eth_height = self.eth_client.client().eth().block_number().await?;
-            let height_info = CrossChainHeightInfo {
-                id: 1,
-                height: start_block_number,
-                client_height: light_client_height,
-            };
-            update_cross_chain_height_info(&mut db_tx, &height_info).await?;
-            if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
-                insert_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
-            } else {
-                update_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
-                unconfirmed_blocks.remove(0);
-            }
-            db_tx.commit().await?;
-            start_block_number += 1;
-            tail = unconfirmed_block.clone();
-            unconfirmed_blocks.push(unconfirmed_block);
+                &mut start_block_number,
+                &mut unconfirmed_blocks,
+                &mut tail,
+                re_org,
+            )
+            .await?;
             tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         }
+    }
+
+    pub async fn init_eth_unconfirmed_blocks(
+        &mut self,
+        unconfirmed_blocks: &mut Vec<EthUnConfirmedBlock>,
+        start_block_number: u64,
+    ) -> Result<()> {
+        let mut start = 0;
+        if start_block_number > ETH_CHAIN_CONFIRMED as u64 {
+            start = start_block_number - ETH_CHAIN_CONFIRMED as u64;
+        }
+        let blocks = self
+            .eth_client
+            .get_blocks(start, start_block_number)
+            .await?;
+        for item in blocks {
+            let number = item
+                .number
+                .ok_or_else(|| anyhow!("the number is not exist."))?
+                .as_u64();
+            let record = EthUnConfirmedBlock {
+                id: number % ETH_CHAIN_CONFIRMED as u64,
+                number,
+                hash: hex::encode(item.hash.ok_or_else(|| anyhow!("the hash is not exist."))?),
+            };
+            unconfirmed_blocks.push(record);
+        }
+        insert_eth_unconfirmed_blocks(&self.db, &unconfirmed_blocks).await?;
+        Ok(())
     }
 
     // Find the common ancestor of the latest header and main chain
@@ -314,6 +245,127 @@ impl<T: IndexerFilter> EthIndexer<T> {
             index -= 1;
         }
         anyhow::bail!("system error! can not find the common ancestor with main chain.")
+    }
+
+    // handle eth event. parse lock event && unlock event.
+    pub async fn handle_eth_event(
+        &mut self,
+        block: &Block<H256>,
+        lock_contract_address: String,
+        start_block_number: &mut u64,
+        unconfirmed_blocks: &mut Vec<EthUnConfirmedBlock>,
+        tail: &mut EthUnConfirmedBlock,
+        re_org: bool,
+    ) -> Result<()> {
+        let mut lock_records = vec![];
+        let mut unlock_records = vec![];
+        let (lock_vec, unlock_vec) = self.parse_event_with_retry(
+            hex::encode(block.hash.unwrap()),
+            5,
+            lock_contract_address.clone(),
+        )?;
+        if !lock_vec.is_empty() {
+            for item in lock_vec {
+                self.handle_lock_event(
+                    &mut lock_records,
+                    lock_contract_address.clone(),
+                    &item,
+                    *start_block_number,
+                )
+                .await?;
+            }
+        }
+        if !unlock_vec.is_empty() {
+            for item in unlock_vec {
+                self.handle_unlock_event(item.tx_hash, &mut unlock_records)
+                    .await?;
+            }
+        }
+        // height_info = get_height_info(&self.db, 1 as u8).await?;
+        let mut unconfirmed_block;
+        let hash_str = hex::encode(
+            block
+                .hash
+                .ok_or_else(|| anyhow!("the block is not exist"))?,
+        );
+        if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
+            unconfirmed_block = EthUnConfirmedBlock {
+                id: *start_block_number % ETH_CHAIN_CONFIRMED as u64,
+                number: *start_block_number,
+                hash: hash_str,
+            };
+        } else {
+            unconfirmed_block = get_eth_unconfirmed_block(
+                &self.db,
+                *start_block_number % ETH_CHAIN_CONFIRMED as u64,
+            )
+            .await?
+            .ok_or_else(|| anyhow!("the block is not exist"))?;
+            unconfirmed_block.number = *start_block_number;
+            unconfirmed_block.hash = hash_str;
+        }
+        self.write_to_db(
+            re_org,
+            *start_block_number,
+            lock_records,
+            unlock_records,
+            unconfirmed_blocks,
+            &unconfirmed_block,
+        )
+        .await?;
+        *start_block_number += 1;
+        *tail = unconfirmed_block.clone();
+        unconfirmed_blocks.push(unconfirmed_block);
+        Ok(())
+    }
+
+    pub async fn write_to_db(
+        &mut self,
+        re_org: bool,
+        start_block_number: u64,
+        lock_records: Vec<EthToCkbRecord>,
+        unlock_records: Vec<(String, String)>,
+        unconfirmed_blocks: &mut Vec<EthUnConfirmedBlock>,
+        unconfirmed_block: &EthUnConfirmedBlock,
+    ) -> Result<()> {
+        let mut db_tx = self.db.begin().await?;
+        if re_org {
+            // delete eth to ckb record while the block number > start_block_number
+            delete_eth_to_ckb_records(&mut db_tx, start_block_number).await?;
+            reset_ckb_to_eth_record_status(&mut db_tx, start_block_number).await?;
+            delete_eth_unconfirmed_block(&mut db_tx, start_block_number).await?;
+        }
+        if !lock_records.is_empty() {
+            create_eth_to_ckb_record(&mut db_tx, &lock_records).await?;
+        }
+        if !unlock_records.is_empty() {
+            for item in unlock_records {
+                update_ckb_to_eth_record_status(
+                    &mut db_tx,
+                    item.0,
+                    item.1,
+                    "success",
+                    start_block_number,
+                )
+                .await?;
+            }
+        }
+        let light_client_height = self.get_light_client_height_with_loop().await;
+        // let eth_height = self.eth_client.client().eth().block_number().await?;
+        let height_info = CrossChainHeightInfo {
+            id: 1,
+            height: start_block_number,
+            client_height: light_client_height,
+        };
+        update_cross_chain_height_info(&mut db_tx, &height_info).await?;
+        if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
+            insert_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
+        } else {
+            update_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+            unconfirmed_blocks.remove(0);
+        }
+        db_tx.commit().await?;
+        Ok(())
     }
 
     pub async fn handle_lock_event(

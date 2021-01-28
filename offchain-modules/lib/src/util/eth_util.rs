@@ -577,12 +577,12 @@ pub fn parse_secret_key(privkey: H256) -> Result<SecretKey> {
 async fn test_get_block() {
     // use cmd_lib::run_fun;
     // use serde_json::{Result, Value};
-    // use web3::types::{BlockNumber, U64};
-    // let mut client = Web3Client::new(String::from(
-    //     "https://mainnet.infura.io/v3/b5f870422ee5454fb11937e947154cd2",
-    // ));
-    // let res = client.get_header_rlp(U64::from(3).into()).await;
-    // println!("{:?}", res);
+    use web3::types::{BlockNumber, U64};
+    let mut client = Web3Client::new(String::from(
+        "https://ropsten.infura.io/v3/71c02c451b6248708e493c4ea007c3b2",
+    ));
+    let res = client.get_header_rlp(U64::from(9543046).into()).await;
+    println!("{:?}", res);
     // let header_rlp = format!("0x{}", res.unwrap());
     // println!("{:?}", header_rlp);
     // let path = String::from("/tmp/data.json");

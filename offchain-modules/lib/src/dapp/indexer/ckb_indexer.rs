@@ -79,26 +79,8 @@ impl CkbIndexer {
         let mut unconfirmed_blocks = get_ckb_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
-            //
-            let mut start = 0;
-            if start_block_number > CKB_CHAIN_CONFIRMED as u64 {
-                start = start_block_number - CKB_CHAIN_CONFIRMED as u64;
-            }
-            for i in start..start_block_number {
-                let block = self
-                    .rpc_client
-                    .get_block_by_number(i)
-                    .map_err(|e| anyhow!("failed to get ckb block by hash : {}", e))?
-                    .ok_or_else(|| anyhow!("the block is not exist"))?;
-                let number = block.header.inner.number;
-                let record = CkbUnConfirmedBlock {
-                    id: number % CKB_CHAIN_CONFIRMED as u64,
-                    number,
-                    hash: hex::encode(block.header.hash),
-                };
-                unconfirmed_blocks.push(record);
-            }
-            insert_ckb_unconfirmed_blocks(&self.db, &unconfirmed_blocks).await?;
+            self.init_ckb_unconfirmed_blocks(&mut unconfirmed_blocks, start_block_number)
+                .await?;
         }
         let mut tail = get_max_ckb_unconfirmed_block(&self.db)
             .await?
@@ -120,7 +102,7 @@ impl CkbIndexer {
                 continue;
             }
             let mut block = block.unwrap();
-            if hex::encode(block.header.inner.parent_hash) != tail.hash {
+            if hex::encode(block.header.inner.parent_hash.clone()) != tail.hash {
                 // the chain is re_organized.
                 log::info!("the chain is re_organized");
                 re_org = true;
@@ -141,82 +123,130 @@ impl CkbIndexer {
                     .map_err(|e| anyhow!("failed to get ckb block by hash : {}", e))?
                     .ok_or_else(|| anyhow!("the block is not exist."))?;
             }
-            let txs = block.transactions;
-            let mut burn_records = vec![];
-            let mut mint_records = vec![];
-            for tx_view in txs {
-                let tx = tx_view.inner;
-                let tx_hash = hex::encode(tx_view.hash.as_bytes());
-                let exist = is_ckb_to_eth_record_exist(&self.db, tx_hash.as_str()).await?;
-                if !exist {
-                    let is_burn_tx = self
-                        .handle_burn_tx(
-                            tx.clone(),
-                            tx_hash.clone(),
-                            start_block_number,
-                            &mut burn_records,
-                        )
-                        .await?;
-                    if !is_burn_tx {
-                        self.handle_mint_tx(tx, tx_hash, &mut mint_records, start_block_number)
-                            .await?;
-                    }
-                }
-            }
-            let height_info = CrossChainHeightInfo {
-                id: 2,
-                height: start_block_number,
-                client_height: self
-                    .eth_client
-                    .get_contract_height("latestBlockNumber", contract_addr)
-                    .await?,
-            };
-            let mut unconfirmed_block;
-            let hash_str = hex::encode(block.header.hash);
-            if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
-                unconfirmed_block = CkbUnConfirmedBlock {
-                    id: start_block_number % CKB_CHAIN_CONFIRMED as u64,
-                    number: start_block_number,
-                    hash: hash_str,
-                };
-            } else {
-                unconfirmed_block = get_ckb_unconfirmed_block(
-                    &self.db,
-                    start_block_number % CKB_CHAIN_CONFIRMED as u64,
-                )
-                .await?
-                .ok_or_else(|| anyhow!("the block is not exist"))?;
-                unconfirmed_block.number = start_block_number;
-                unconfirmed_block.hash = hash_str;
-            }
-            let mut db_tx = self.db.begin().await?;
-            if re_org {
-                // delete eth to ckb record while the block number > start_block_number
-                delete_ckb_to_eth_records(&mut db_tx, start_block_number).await?;
-                reset_eth_to_ckb_record_status(&mut db_tx, start_block_number).await?;
-                delete_ckb_unconfirmed_block(&mut db_tx, start_block_number).await?;
-            }
-            if !burn_records.is_empty() {
-                create_ckb_to_eth_record(&mut db_tx, &burn_records).await?;
-            }
-            if !mint_records.is_empty() {
-                for item in mint_records {
-                    update_eth_to_ckb_status(&mut db_tx, &item).await?;
-                }
-            }
-            update_cross_chain_height_info(&mut db_tx, &height_info).await?;
-            if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
-                insert_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
-            } else {
-                update_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
-                unconfirmed_blocks.remove(0);
-            }
-            db_tx.commit().await?;
-            start_block_number += 1;
-            tail = unconfirmed_block.clone();
-            unconfirmed_blocks.push(unconfirmed_block);
+            self.handle_ckb_event(
+                &block,
+                contract_addr,
+                &mut start_block_number,
+                &mut unconfirmed_blocks,
+                &mut tail,
+                re_org,
+            )
+            .await?;
             tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         }
+    }
+
+    pub async fn handle_ckb_event(
+        &mut self,
+        block: &BlockView,
+        contract_addr: H160,
+        start_block_number: &mut u64,
+        unconfirmed_blocks: &mut Vec<CkbUnConfirmedBlock>,
+        tail: &mut CkbUnConfirmedBlock,
+        re_org: bool,
+    ) -> Result<()> {
+        let txs = block.transactions.clone();
+        let mut burn_records = vec![];
+        let mut mint_records = vec![];
+        for tx_view in txs {
+            let tx = tx_view.inner;
+            let tx_hash = hex::encode(tx_view.hash.as_bytes());
+            let exist = is_ckb_to_eth_record_exist(&self.db, tx_hash.as_str()).await?;
+            if !exist {
+                let is_burn_tx = self
+                    .handle_burn_tx(
+                        tx.clone(),
+                        tx_hash.clone(),
+                        *start_block_number,
+                        &mut burn_records,
+                    )
+                    .await?;
+                if !is_burn_tx {
+                    self.handle_mint_tx(tx, tx_hash, &mut mint_records, *start_block_number)
+                        .await?;
+                }
+            }
+        }
+        let height_info = CrossChainHeightInfo {
+            id: 2,
+            height: *start_block_number,
+            client_height: self
+                .eth_client
+                .get_contract_height("latestBlockNumber", contract_addr)
+                .await?,
+        };
+        let mut unconfirmed_block;
+        let hash_str = hex::encode(block.header.hash.clone());
+        if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
+            unconfirmed_block = CkbUnConfirmedBlock {
+                id: *start_block_number % CKB_CHAIN_CONFIRMED as u64,
+                number: *start_block_number,
+                hash: hash_str,
+            };
+        } else {
+            unconfirmed_block = get_ckb_unconfirmed_block(
+                &self.db,
+                *start_block_number % CKB_CHAIN_CONFIRMED as u64,
+            )
+            .await?
+            .ok_or_else(|| anyhow!("the block is not exist"))?;
+            unconfirmed_block.number = *start_block_number;
+            unconfirmed_block.hash = hash_str;
+        }
+        let mut db_tx = self.db.begin().await?;
+        if re_org {
+            // delete eth to ckb record while the block number > start_block_number
+            delete_ckb_to_eth_records(&mut db_tx, *start_block_number).await?;
+            reset_eth_to_ckb_record_status(&mut db_tx, *start_block_number).await?;
+            delete_ckb_unconfirmed_block(&mut db_tx, *start_block_number).await?;
+        }
+        if !burn_records.is_empty() {
+            create_ckb_to_eth_record(&mut db_tx, &burn_records).await?;
+        }
+        if !mint_records.is_empty() {
+            for item in mint_records {
+                update_eth_to_ckb_status(&mut db_tx, &item).await?;
+            }
+        }
+        update_cross_chain_height_info(&mut db_tx, &height_info).await?;
+        if unconfirmed_blocks.len() < CKB_CHAIN_CONFIRMED {
+            insert_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
+        } else {
+            update_ckb_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
+            unconfirmed_blocks.remove(0);
+        }
+        db_tx.commit().await?;
+        *start_block_number += 1;
+        *tail = unconfirmed_block.clone();
+        unconfirmed_blocks.push(unconfirmed_block);
+        Ok(())
+    }
+
+    pub async fn init_ckb_unconfirmed_blocks(
+        &mut self,
+        unconfirmed_blocks: &mut Vec<CkbUnConfirmedBlock>,
+        start_block_number: u64,
+    ) -> Result<()> {
+        let mut start = 0;
+        if start_block_number > CKB_CHAIN_CONFIRMED as u64 {
+            start = start_block_number - CKB_CHAIN_CONFIRMED as u64;
+        }
+        for i in start..start_block_number {
+            let block = self
+                .rpc_client
+                .get_block_by_number(i)
+                .map_err(|e| anyhow!("failed to get ckb block by hash : {}", e))?
+                .ok_or_else(|| anyhow!("the block is not exist"))?;
+            let number = block.header.inner.number;
+            let record = CkbUnConfirmedBlock {
+                id: number % CKB_CHAIN_CONFIRMED as u64,
+                number,
+                hash: hex::encode(block.header.hash),
+            };
+            unconfirmed_blocks.push(record);
+        }
+        insert_ckb_unconfirmed_blocks(&self.db, &unconfirmed_blocks).await?;
+        Ok(())
     }
 
     pub async fn lookup_common_ancestor_in_ckb(
