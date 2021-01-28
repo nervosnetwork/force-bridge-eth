@@ -13,7 +13,9 @@ use force_eth_lib::transfer::to_eth::{
 use force_eth_lib::util::ckb_tx_generator::Generator;
 use force_eth_lib::util::ckb_util::parse_privkey_path;
 use force_eth_lib::util::config::{self, ForceConfig};
-use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
+use force_eth_lib::util::eth_util::{
+    convert_eth_address, convert_hex_to_h256, parse_private_key, Web3Client,
+};
 use force_eth_lib::util::transfer;
 use log::{debug, error, info};
 use serde_json::json;
@@ -205,21 +207,48 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    let eth_proof = generate_eth_spv_proof_json(
-        args.hash.clone(),
-        ethereum_rpc_url.clone(),
-        deployed_contracts.eth_token_locker_addr.clone(),
-    )
-    .await?;
     let mut generator = Generator::new(ckb_rpc_url, ckb_indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow::anyhow!(e))?;
+
+    // ensure tx committed on eth
+    let mut web3 = Web3Client::new(ethereum_rpc_url.clone());
+    let eth_lock_tx_hash = convert_hex_to_h256(&args.hash)?;
+    let mut committed_header_number = 0u64;
+    for i in 0u8..100 {
+        let receipt_res = web3.get_receipt(eth_lock_tx_hash).await;
+        match receipt_res {
+            Ok(Some(receipt)) => {
+                log::info!("get lock tx {} receipt: {:?}", eth_lock_tx_hash, receipt);
+                committed_header_number = receipt.block_number.unwrap().as_u64();
+                break;
+            }
+            _ => {
+                log::error!(
+                    "lock tx {} not committed on eth yet, retry_index: {}",
+                    eth_lock_tx_hash,
+                    i
+                );
+                tokio::time::delay_for(std::time::Duration::from_secs(15)).await;
+            }
+        }
+    }
+    if committed_header_number == 0 {
+        bail!("wait lock tx committed on ethereum timeout");
+    }
     wait_header_sync_success(
         &mut generator,
         deployed_contracts
             .light_client_cell_script
             .cell_script
             .as_str(),
-        eth_proof.header_data.clone(),
+        committed_header_number,
+    )
+    .await?;
+
+    let eth_proof = generate_eth_spv_proof_json(
+        args.hash.clone(),
+        ethereum_rpc_url.clone(),
+        deployed_contracts.eth_token_locker_addr.clone(),
     )
     .await?;
     let from_privkey =

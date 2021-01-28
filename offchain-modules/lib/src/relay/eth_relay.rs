@@ -430,16 +430,17 @@ pub async fn update_cell_sync(
 pub async fn wait_header_sync_success(
     generator: &mut Generator,
     light_client_cell_script: &str,
-    header_rlp: String,
+    // header_rlp: String,
+    height: u64,
 ) -> Result<()> {
-    let header: eth_spv_lib::eth_types::BlockHeader = rlp::decode(
-        hex::decode(header_rlp.as_str())
-            .unwrap()
-            .to_vec()
-            .as_slice(),
-    )
-    .unwrap();
-    let mut i = 0;
+    // let header: eth_spv_lib::eth_types::BlockHeader = rlp::decode(
+    //     hex::decode(header_rlp.as_str())
+    //         .unwrap()
+    //         .to_vec()
+    //         .as_slice(),
+    // )
+    // .unwrap();
+    let mut i = 0u64;
     let cell_script;
     loop {
         let cell_script_result = parse_cell(light_client_cell_script);
@@ -490,15 +491,13 @@ pub async fn wait_header_sync_success(
             .number
             .unwrap()
             .as_u64();
-        if best_block_height > header.number
-            && (best_block_height - header.number) as usize >= CONFIRM
-        {
+        if best_block_height > height && (best_block_height - height) as usize >= CONFIRM {
             break;
         }
 
         info!(
             "waiting for eth client header reach sync, eth header number: {:?}, ckb light client number: {:?}, loop index: {}",
-            header.number, un_confirmed_headers[un_confirmed_headers.len() - 1].number.unwrap().as_u64(),i,
+            height, un_confirmed_headers[un_confirmed_headers.len() - 1].number.unwrap().as_u64(),i,
         );
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
         i += 1;
