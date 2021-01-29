@@ -2,7 +2,7 @@ use crate::dapp::db::indexer::{
     create_eth_to_ckb_record, delete_eth_to_ckb_records, delete_eth_unconfirmed_block,
     get_eth_unconfirmed_block, get_eth_unconfirmed_blocks, get_height_info,
     get_max_eth_unconfirmed_block, insert_eth_unconfirmed_block, insert_eth_unconfirmed_blocks,
-    reset_ckb_to_eth_record_status, update_ckb_to_eth_record_status,
+    is_ckb_to_eth_record_exist, reset_ckb_to_eth_record_status, update_ckb_to_eth_record_status,
     update_cross_chain_height_info, update_eth_unconfirmed_block, CrossChainHeightInfo,
     EthToCkbRecord, EthUnConfirmedBlock,
 };
@@ -504,6 +504,13 @@ impl<T: IndexerFilter> EthIndexer<T> {
             if tx_raw.is_some() {
                 let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
                 let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
+                if !is_ckb_to_eth_record_exist(&self.db, ckb_tx_hash_str.as_str()).await? {
+                    info!("the burn tx is not exist. waiting for ckb indexer reach sync status.");
+                    tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                    anyhow::bail!(
+                        "the burn tx is not exist. waiting for ckb indexer reach sync status."
+                    );
+                }
                 unlock_datas.push((
                     ckb_tx_hash_str,
                     String::from(clear_0x(tx_hash_str.clone().as_str())),

@@ -389,7 +389,6 @@ impl CkbIndexer {
                 .ok_or_else(|| anyhow!("the token address is not exist"))?;
             let token_address = convert_eth_address(token_address_str.as_str())?;
             let ret = self.check_bridge_lockscript(tx.clone(), token_address);
-            tokio::time::delay_for(std::time::Duration::from_secs(3)).await;
             if let Ok(success) = ret {
                 if success {
                     eth_to_ckb_record.status = String::from("success");
@@ -398,8 +397,11 @@ impl CkbIndexer {
                     unlock_datas.push(eth_to_ckb_record);
                 }
             }
+            return Ok(());
         }
-        Ok(())
+        log::info!("the lock tx is not exist. waiting for eth indexer reach sync status.");
+        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+        anyhow::bail!("the lock tx is not exist. waiting for eth indexer reach sync status.")
     }
 
     pub fn check_bridge_lockscript(&mut self, tx: Transaction, token: H160) -> Result<bool> {
