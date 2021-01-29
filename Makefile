@@ -80,8 +80,8 @@ start-force-server:
 restart-force-server:
 	pm2 restart force-server
 
-start-tx-indexer-services:
-	bash demo/tx-indexer-service.sh
+test-dapp-server:
+	bash offchain-modules/test-dapp-server.sh
 
 
 start-services: start-relay start-force-server
@@ -113,6 +113,7 @@ github-ci:
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
+	make test-dapp-server
 
 demo-crosschain:
 	bash demo/crosschain.sh

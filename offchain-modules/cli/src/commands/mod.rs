@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Result};
 use dapp::dapp_handle;
 use force_eth_lib::header_relay::ckb_relay::CKBRelayer;
 use force_eth_lib::header_relay::eth_relay::{wait_header_sync_success, ETHRelayer};
-use force_eth_lib::header_relay::relay_monitor::relay_monitor;
+use force_eth_lib::monitor::relay_monitor::RelayMonitor;
 use force_eth_lib::transfer::to_ckb::{
     self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
     lock_eth, lock_token, send_eth_spv_proof_tx,
@@ -468,24 +468,28 @@ pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
     let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
-
+    let mut relay_monitor = RelayMonitor::new(
+        ckb_rpc_url,
+        ckb_indexer_url,
+        eth_rpc_url,
+        args.ckb_alarm_number,
+        args.eth_alarm_number,
+        args.alarm_url,
+        args.mode,
+        deployed_contracts
+            .light_client_cell_script
+            .cell_script
+            .clone(),
+        deployed_contracts.eth_ckb_chain_addr.clone(),
+        args.eth_header_conservator,
+        args.ckb_header_conservator,
+        args.eth_indexer_conservator,
+        args.ckb_indexer_conservator,
+        args.db_path,
+    )
+    .await?;
     loop {
-        let res = relay_monitor(
-            ckb_rpc_url.clone(),
-            ckb_indexer_url.clone(),
-            eth_rpc_url.clone(),
-            deployed_contracts.eth_ckb_chain_addr.clone(),
-            deployed_contracts
-                .light_client_cell_script
-                .cell_script
-                .clone(),
-            args.ckb_alarm_number,
-            args.eth_alarm_number,
-            args.alarm_url.clone(),
-            args.ckb_conservator.clone(),
-            args.eth_conservator.clone(),
-        )
-        .await;
+        let res = relay_monitor.start().await;
         if let Err(err) = res {
             error!("An error occurred during the relay monitor. Err: {:?}", err)
         }
