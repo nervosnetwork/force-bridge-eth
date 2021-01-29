@@ -41,14 +41,14 @@ impl<T: IndexerFilter> EthIndexer<T> {
         config_path: String,
         network: Option<String>,
         db_path: String,
-        indexer_url: String,
         indexer_filter: T,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let eth_client = Web3Client::new(eth_rpc_url);
-        let indexer_client = IndexerRpcClient::new(indexer_url);
+        let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
+        let indexer_client = IndexerRpcClient::new(ckb_indexer_url);
         let db = MySqlPool::connect(&db_path).await?;
         Ok(EthIndexer {
             config_path,

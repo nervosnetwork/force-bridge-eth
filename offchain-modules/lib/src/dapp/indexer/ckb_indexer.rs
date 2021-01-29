@@ -40,15 +40,15 @@ impl CkbIndexer {
     pub async fn new(
         config_path: String,
         db_path: String,
-        rpc_url: String,
-        indexer_url: String,
         network: Option<String>,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
-        let rpc_client = HttpRpcClient::new(rpc_url);
-        let indexer_client = IndexerRpcClient::new(indexer_url);
+        let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+        let rpc_client = HttpRpcClient::new(ckb_rpc_url);
+        let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
+        let indexer_client = IndexerRpcClient::new(ckb_indexer_url);
         let db = MySqlPool::connect(&db_path).await?;
         let eth_client = Web3Client::new(eth_rpc_url);
         Ok(CkbIndexer {
@@ -370,42 +370,68 @@ impl CkbIndexer {
         unlock_datas: &mut Vec<EthToCkbRecord>,
         number: u64,
     ) -> Result<()> {
+        let force_config = ForceConfig::new(self.config_path.as_str())?;
+        let deployed_contracts = force_config.deployed_contracts.as_ref().unwrap();
         let input = tx.inputs[0].previous_output.clone();
         let outpoint = OutPoint::new_builder()
             .tx_hash(Byte32::from_slice(input.tx_hash.as_ref())?)
             .index(input.index.pack())
             .build();
         let outpoint_hex = hex::encode(outpoint.as_slice());
-        let ret = get_eth_to_ckb_record_by_outpoint(&self.db, outpoint_hex).await?;
-        if let Some(mut eth_to_ckb_record) = ret {
-            // check the tx is mint tx.
-            let token_address_str = eth_to_ckb_record.clone().token_addr;
-            let token_address = convert_eth_address(token_address_str.as_str())?;
-            let ret = self.check_bridge_lockscript(tx.clone(), token_address);
-            if let Ok(success) = ret {
-                if success {
-                    eth_to_ckb_record.status = String::from("success");
-                    eth_to_ckb_record.ckb_block_number = number;
-                    eth_to_ckb_record.ckb_tx_hash = Some(tx_hash_str);
-                    unlock_datas.push(eth_to_ckb_record);
+        if !tx.outputs.is_empty() {
+            let sudt_script_json = tx.outputs[0].clone().type_;
+            if let Some(type_script) = sudt_script_json {
+                let sudt_script = packed::Script::from(type_script);
+                let ret = is_mint_tx(tx.clone(), &deployed_contracts, sudt_script.clone());
+                if let Ok(mint_tx) = ret {
+                    if mint_tx {
+                        let ret = get_eth_to_ckb_record_by_outpoint(&self.db, outpoint_hex).await?;
+                        if let Some(mut eth_to_ckb_record) = ret {
+                            // check the tx is mint tx.
+                            let token_address_str = eth_to_ckb_record.clone().token_addr;
+                            let token_address = convert_eth_address(token_address_str.as_str())?;
+                            let ret = self.check_bridge_lockscript(
+                                token_address,
+                                &deployed_contracts,
+                                sudt_script,
+                            );
+                            if let Ok(success) = ret {
+                                if success {
+                                    eth_to_ckb_record.status = String::from("success");
+                                    eth_to_ckb_record.ckb_block_number = number;
+                                    eth_to_ckb_record.ckb_tx_hash = Some(tx_hash_str);
+                                    unlock_datas.push(eth_to_ckb_record);
+                                }
+                            }
+                            return Ok(());
+                        }
+                        log::info!(
+                            "the lock tx is not exist. waiting for eth indexer reach sync status."
+                        );
+                        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                        anyhow::bail!(
+                            "the lock tx is not exist. waiting for eth indexer reach sync status."
+                        )
+                    }
                 }
             }
-            return Ok(());
         }
-        log::info!("the lock tx is not exist. waiting for eth indexer reach sync status.");
-        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
-        anyhow::bail!("the lock tx is not exist. waiting for eth indexer reach sync status.")
+
+        Ok(())
     }
 
-    pub fn check_bridge_lockscript(&mut self, tx: Transaction, token: H160) -> Result<bool> {
-        let force_config = ForceConfig::new(self.config_path.as_str())?;
-        let deployed_contracts = force_config.deployed_contracts.as_ref().unwrap();
-        let sudt_script_json = tx.outputs[0]
-            .clone()
-            .type_
-            .ok_or_else(|| anyhow!("the typescript is not exist"))?;
+    pub fn check_bridge_lockscript(
+        &mut self,
+        token: H160,
+        deployed_contracts: &DeployedContracts,
+        sudt_script_packed: Script,
+    ) -> Result<bool> {
+        // let sudt_script_json = tx.outputs[0]
+        //     .clone()
+        //     .type_
+        //     .ok_or_else(|| anyhow!("the typescript is not exist"))?;
         let sudt_typescript_code_hash = hex::decode(&deployed_contracts.sudt.code_hash)?;
-        let sudt_script_packed = packed::Script::from(sudt_script_json);
+        // let sudt_script_packed = packed::Script::from(sudt_script_json);
 
         let eth_address_str = &deployed_contracts.eth_token_locker_addr;
         let eth_address = convert_eth_address(eth_address_str.as_str())?;
@@ -418,4 +444,25 @@ impl CkbIndexer {
             .build();
         Ok(sudt_script_packed.as_slice() == sudt_typescript.as_slice())
     }
+}
+
+pub fn is_mint_tx(
+    tx: Transaction,
+    deployed_contracts: &DeployedContracts,
+    sudt_script: Script,
+) -> Result<bool> {
+    let sudt_typescript_code_hash = hex::decode(&deployed_contracts.sudt.code_hash)?;
+    let bridge_typescript_code_hash = hex::decode(&deployed_contracts.bridge_typescript.code_hash)?;
+    if sudt_script.code_hash().as_slice() == sudt_typescript_code_hash.as_slice() {
+        for i in 1..tx.outputs.len() {
+            let bridge_type_script_op = tx.outputs[i].clone().type_;
+            if let Some(bridge_type_script) = bridge_type_script_op {
+                if bridge_type_script.code_hash.as_bytes() == bridge_typescript_code_hash.as_slice()
+                {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    Ok(false)
 }
