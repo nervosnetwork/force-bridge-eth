@@ -387,17 +387,17 @@ impl<T: IndexerFilter> EthIndexer<T> {
             let record = EthToCkbRecord {
                 eth_lock_tx_hash: String::from(clear_0x(eth_spv_proof.tx_hash.clone().as_str())),
                 status: "pending".to_string(),
-                token_addr: Some(hex::encode(eth_spv_proof.token.as_bytes())),
-                ckb_recipient_lockscript: Some(recipient_lockscript),
-                locked_amount: Some(Uint128::from(eth_spv_proof.lock_amount).to_string()),
+                token_addr: hex::encode(eth_spv_proof.token.as_bytes()),
+                ckb_recipient_lockscript: recipient_lockscript,
+                locked_amount: Uint128::from(eth_spv_proof.lock_amount).to_string(),
                 eth_spv_proof: Some(proof_json),
-                replay_resist_outpoint: Some(hex::encode(
+                replay_resist_outpoint: hex::encode(
                     eth_spv_proof.replay_resist_outpoint.as_slice(),
-                )),
+                ),
                 eth_block_number: block_number,
-                sender_addr: Some(hex::encode(eth_spv_proof.sender.as_bytes())),
+                sender_addr: hex::encode(eth_spv_proof.sender.as_bytes()),
                 sudt_extra_data: Some(hex::encode(eth_spv_proof.sudt_extra_data.as_slice())),
-                bridge_fee: Some(Uint128::from(eth_spv_proof.bridge_fee).to_string()),
+                bridge_fee: Uint128::from(eth_spv_proof.bridge_fee).to_string(),
                 ..Default::default()
             };
             records.push(record);

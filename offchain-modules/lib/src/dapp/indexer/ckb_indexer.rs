@@ -312,21 +312,17 @@ impl CkbIndexer {
                     let record = CkbToEthRecord {
                         ckb_burn_tx_hash: hash,
                         status: "pending".to_string(),
-                        token_addr: Some(hex::encode(token_addr.raw_data().to_vec().as_slice())),
-                        recipient_addr: Some(hex::encode(
-                            recipient_addr.raw_data().to_vec().as_slice(),
-                        )),
-                        token_amount: Some(Uint128::from(token_amount).to_string()),
+                        token_addr: hex::encode(token_addr.raw_data().to_vec().as_slice()),
+                        recipient_addr: hex::encode(recipient_addr.raw_data().to_vec().as_slice()),
+                        token_amount: Uint128::from(token_amount).to_string(),
                         ckb_spv_proof: Some(proof_str),
                         ckb_block_number: block_number,
-                        ckb_raw_tx: Some(mol_hex_tx),
-                        fee: Some(Uint128::from(eth_recipient.fee).to_string()),
-                        bridge_lock_hash: Some(hex::encode(
+                        ckb_raw_tx: mol_hex_tx,
+                        fee: Uint128::from(eth_recipient.fee).to_string(),
+                        bridge_lock_hash: hex::encode(
                             eth_recipient.eth_bridge_lock_hash.as_slice(),
-                        )),
-                        lock_contract_addr: Some(hex::encode(
-                            locker_addr.raw_data().to_vec().as_slice(),
-                        )),
+                        ),
+                        lock_contract_addr: hex::encode(locker_addr.raw_data().to_vec().as_slice()),
                         ..Default::default()
                     };
                     burn_records.push(record);
@@ -383,10 +379,7 @@ impl CkbIndexer {
         let ret = get_eth_to_ckb_record_by_outpoint(&self.db, outpoint_hex).await?;
         if let Some(mut eth_to_ckb_record) = ret {
             // check the tx is mint tx.
-            let token_address_str = eth_to_ckb_record
-                .clone()
-                .token_addr
-                .ok_or_else(|| anyhow!("the token address is not exist"))?;
+            let token_address_str = eth_to_ckb_record.clone().token_addr;
             let token_address = convert_eth_address(token_address_str.as_str())?;
             let ret = self.check_bridge_lockscript(tx.clone(), token_address);
             if let Ok(success) = ret {
