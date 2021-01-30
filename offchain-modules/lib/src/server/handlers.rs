@@ -364,6 +364,7 @@ pub async fn burn(
             fee: Some(args.unlock_fee.to_string()),
             ..Default::default()
         };
+        db::update_ckb_to_eth_status(&data.db, &record).await?;
         let mut err_msg = String::new();
         let ckb_tx_hash = hex::encode(tx.hash().as_slice());
         for i in 0u8..10 {
