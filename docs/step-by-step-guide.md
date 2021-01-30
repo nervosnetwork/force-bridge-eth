@@ -149,6 +149,29 @@ There are 3 fields in args:
 
 As long as we deployed all the contracts and set up the Ethereum light client, eth_contract_address and light_client_typescript_hash will be fixed. But the eth_token_address differs when you transfer different asset. The bridge cell lockscript hash will be used as the [sudt owner hash](https://github.com/nervosnetwork/ckb-miscellaneous-scripts/blob/master/c/simple_udt.c). The owner hash is the identity of an sudt on CKB Chain(just like ERC20 address on Ethereum). For different eth_token_address here, we'll have the associated sudt in the outputs. This is how we support ETH and all ERC20s crosschain without deploy new contracts.
 
+This script will verify that:
+- The block which concludes the receipt exists on ETH Mainnet and is confirmed with at least 15 blocks.
+- The receipt in witness is valid according to the receipt proof.
+- The cross-chain logic is valid according to the locked event parsed from receipt data.
+
+Let's recall the locked event again.
+
+```
+event Locked(
+    address indexed token,
+    address indexed sender,
+    uint256 lockedAmount,
+    uint256 bridgeFee,
+    bytes recipientLockscript,
+    bytes replayResistOutpoint,
+    bytes sudtExtraData
+);
+```
+
+The cross-chain logic verification will concludes:
+- The `replayResistOutpoint` exists in the tx inputs. This is the way to resist replay attack. [Outpoint](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0019-data-structures/0019-data-structures.md#outpoint) is like a pointer for a cell. In CKB cell model, a cell can only be consumed once. With this limit on CKB Chain, we can prevent that users use one lock event to mint multiple times. Normally we will use the bridge cell as the replayResistOutpoint, but the script will only verify that the replayResistOutpoint exists in the tx inputs, so we can use any cell you will use in the mint tx as the replayResistOutpoint when you send the lock tx on Ethereum, e.g. the cell you will use to pay for the tx fee.
+- The recipientLockscript receives amount of (lockedAmount - bridgeFee) SUDT (which is mirror token for ETH address `token` here). The sudtExtraData will be put in the sudt data part, just after the amount data.
+
 #### bridge cell witness
 
 The witness structure is defined at [witness.mol](https://github.com/nervosnetwork/force-bridge-eth/blob/69863549db/ckb-contracts/types/schemas/witness.mol).
