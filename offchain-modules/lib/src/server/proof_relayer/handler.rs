@@ -9,20 +9,17 @@ use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, bail, Result};
 use ckb_jsonrpc_types::Uint128;
-use ckb_types::core::TransactionView;
-use molecule::prelude::Entity;
 use secp256k1::SecretKey;
 use sqlx::mysql::MySqlPool;
 
 pub async fn relay_ckb_to_eth_proof(
-    mut record: CkbToEthRecord,
+    record: &mut CkbToEthRecord,
     db: &MySqlPool,
     config_path: String,
     eth_privkey_path: String,
     network: Option<String>,
-    tx: TransactionView,
+    ckb_tx_hash: String,
 ) -> Result<()> {
-    let ckb_tx_hash = hex::encode(tx.hash().as_slice());
     let force_config = ForceConfig::new(config_path.as_str())?;
     let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
@@ -81,7 +78,7 @@ pub async fn relay_ckb_to_eth_proof(
 }
 
 pub async fn relay_eth_to_ckb_proof(
-    mut record: EthToCkbRecord,
+    record: &mut EthToCkbRecord,
     ethereum_rpc_url: String,
     eth_token_locker_addr: String,
     mut generator: Generator,
@@ -166,6 +163,9 @@ pub async fn relay_eth_to_ckb_proof(
         ))
     };
     let eth_proof = eth_proof_retry(5, record.eth_lock_tx_hash.clone()).await?;
+    record.token_addr = Some(hex::encode(eth_proof.token.as_bytes()));
+    record.ckb_recipient_lockscript = Some(hex::encode(&eth_proof.recipient_lockscript));
+    record.locked_amount = Some(Uint128::from(eth_proof.lock_amount).to_string());
 
     let tx_hash = send_eth_spv_proof_tx(
         &mut generator,
@@ -181,9 +181,6 @@ pub async fn relay_eth_to_ckb_proof(
         tx_hash
     );
     // save result to db
-    record.token_addr = Some(hex::encode(eth_proof.token.as_bytes()));
-    record.ckb_recipient_lockscript = Some(hex::encode(eth_proof.recipient_lockscript));
-    record.locked_amount = Some(Uint128::from(eth_proof.lock_amount).to_string());
     record.status = "success".to_owned();
     record.ckb_tx_hash = Some(format!("0x{}", tx_hash));
     update_eth_to_ckb_status(db, &record).await?;

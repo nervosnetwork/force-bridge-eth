@@ -125,6 +125,70 @@ pub async fn get_crosschain_history(
     Ok(HttpResponse::Ok().json(format_crosschain_history_res(&crosschain_history)))
 }
 
+#[post("/relay_ckb_to_eth_proof")]
+pub async fn relay_ckb_to_eth_proof(
+    data: web::Data<DappState>,
+    args: web::Json<Value>,
+) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: CkbBurnTxHash =
+        serde_json::from_value(args.into_inner()).map_err(|e| format!("invalid args: {}", e))?;
+    let mut record = db::get_ckb_to_eth_status(&data.db, &args.ckb_burn_tx_hash)
+        .await?
+        .ok_or(format!("ckb burn tx {} not found", &args.ckb_burn_tx_hash))?;
+    let ckb_tx_hash = record.ckb_burn_tx_hash.clone();
+    if record.status == "success" || !data.add_relaying_tx(ckb_tx_hash.clone()).await {
+        return Ok(HttpResponse::Ok().json(json!({
+            "message": "tx proof relay processing/processed"
+        })));
+    }
+
+    tokio::spawn(async move {
+        let eth_privkey_path = data
+            .eth_key_channel
+            .1
+            .clone()
+            .recv_timeout(Duration::from_secs(600))
+            .map_err(|e| anyhow!("crossbeam channel recv ckb key path error: {:?}", e))?;
+        let mut err_msg = String::new();
+        for i in 0u8..10 {
+            let res = handler::relay_ckb_to_eth_proof(
+                &mut record,
+                &data.db,
+                data.config_path.clone(),
+                eth_privkey_path.clone(),
+                data.network.clone(),
+                ckb_tx_hash.clone(),
+            )
+            .await;
+            match res {
+                Ok(_) => {
+                    log::info!("ckb to eth relay successfully for tx {}", &ckb_tx_hash);
+                    err_msg = String::new();
+                    break;
+                }
+                Err(e) => {
+                    err_msg = format!("unlock failed. index: {}, err: {}", i, e);
+                    tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
+                }
+            }
+        }
+        if !err_msg.is_empty() {
+            record.err_msg = Some(err_msg);
+            record.status = "error".to_string();
+            db::update_ckb_to_eth_status(&data.db, &record).await?;
+        }
+        data.remove_relaying_tx(ckb_tx_hash).await;
+        data.eth_key_channel
+            .0
+            .clone()
+            .send(eth_privkey_path)
+            .map_err(|e| anyhow!("crossbeam channel send ckb key path error: {:?}", e))
+    });
+    Ok(HttpResponse::Ok().json(json!({
+        "message": "tx proof relay processing/processed"
+    })))
+}
+
 #[post("/relay_eth_to_ckb_proof")]
 pub async fn relay_eth_to_ckb_proof(
     data: web::Data<DappState>,
@@ -178,7 +242,7 @@ pub async fn relay_eth_to_ckb_proof(
             parse_privkey_path(private_key_path.as_str(), &force_config, &data.network)
                 .expect("get ckb key succeed");
         let res = handler::relay_eth_to_ckb_proof(
-            record.clone(),
+            &mut record,
             data.eth_rpc_url.clone(),
             data.deployed_contracts.eth_token_locker_addr.clone(),
             generator,
@@ -301,14 +365,15 @@ pub async fn burn(
             ..Default::default()
         };
         let mut err_msg = String::new();
+        let ckb_tx_hash = hex::encode(tx.hash().as_slice());
         for i in 0u8..10 {
             let res = handler::relay_ckb_to_eth_proof(
-                record.clone(),
+                &mut record,
                 &data.db,
                 data.config_path.clone(),
                 eth_privkey_path.clone(),
                 data.network.clone(),
-                tx.clone(),
+                ckb_tx_hash.clone(),
             )
             .await;
             match res {
