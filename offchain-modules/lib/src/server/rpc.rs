@@ -36,6 +36,7 @@ pub async fn start(
             .service(get_sudt_balance)
             .service(get_eth_to_ckb_status)
             .service(relay_eth_to_ckb_proof)
+            .service(relay_ckb_to_eth_proof)
             .service(get_crosschain_history)
     })
     .workers(200)
