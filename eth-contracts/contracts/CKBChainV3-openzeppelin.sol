@@ -60,7 +60,10 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
     bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x1dac851def8ec317cf44b4a6cf63dabe82895259e6290d4c2ef271700bfce584;
     bytes32 public historyTxRoot;
     mapping(bytes32 => bytes32) verifiedTxRoots;
-
+    struct TreeNode {
+        uint16 index;
+        bytes32 data;
+    }
 
     // @notice             requires `memView` to be of a specified type
     // @param memView      a 29-byte view with a 5-byte type
@@ -329,13 +332,23 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
             uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
         );
 
+        // queue
+        bytes29 indices = txRootProofView.indices();
+        uint leavesLength = indices.len() / 32;
+        uint queueLength = leavesLength + 1;
+        TreeNode[] memory queue = new TreeNode[](queueLength);
+        uint front = 0;
+        uint end = 0;
 
         // merkle tree indices and node(byte32) of leaves
-        uint leavesPosition = 0;
-        bytes29 indices = txRootProofView.indices();
-        bytes29 proofLeaves = txRootProofView.proofLeaves();
-        uint leavesLength = indices.len() / 32;
-        require(leavesLength > 0 && leavesLength == proofLeaves.len() / 32, "length of indices and proofLeaves mismatch");
+        {
+            bytes29 proofLeaves = txRootProofView.proofLeaves();
+            require(leavesLength > 0 && leavesLength == proofLeaves.len() / 32, "length of indices and proofLeaves mismatch");
+            for (uint i = 0; i < leavesLength; i++) {
+                queue[end] = TreeNode(indices.indexU16Array(i), proofLeaves.indexH256Array(i));
+                end++;
+            }
+        }
 
         //  merkle tree lemmas
         uint lemmasPosition = 0;
@@ -343,33 +356,44 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
         uint lemmasLength = lemmas.len() / 32;
 
         // init
-        uint16 currentIndex = indices.indexU16Array(leavesPosition);
-        bytes32 currentNode = proofLeaves.indexH256Array(leavesPosition);
+        uint16 currentIndex;
+        bytes32 currentNode;
         uint16 siblingIndex;
         bytes32 siblingNode;
 
+        while (front != end) {
+            currentIndex = queue[front].index;
+            currentNode = queue[front].data;
+            front = (front + 1) % queueLength;
 
-//        // calc the rawTransactionsRoot
-//        bytes32 rawTxRoot = txRootProofView.txHash();
-//        while (lemmasIndex < length && index > 0) {
-//            sibling = ((index + 1) ^ 1) - 1;
-//            if (index < sibling) {
-//                rawTxRoot = Blake2b.digest64Merge(rawTxRoot, lemmas.indexH256Array(lemmasIndex));
-//            } else {
-//                rawTxRoot = Blake2b.digest64Merge(lemmas.indexH256Array(lemmasIndex), rawTxRoot);
-//            }
-//
-//            lemmasIndex++;
-//            // index = parent(index)
-//            index = (index - 1) >> 1;
-//        }
-//
-//        // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
-//        bytes32 transactionsRoot = Blake2b.digest64Merge(rawTxRoot, txRootProofView.witnessesRoot());
-//        require(
-//            transactionsRoot == canonicalTransactionsRoots[blockHash],
-//            "proof not passed"
-//        );
+            if (currentIndex == 0) {
+                break;
+            }
+
+            siblingIndex = ((currentIndex + 1) ^ 1) - 1;
+            if (front != end && siblingIndex == queue[front].index) {
+                siblingNode = queue[front].data;
+                front = (front + 1) % queueLength;
+            } else {
+                require(lemmasPosition < lemmasLength, "invalid historyTxRootProof");
+                siblingNode = lemmas.indexH256Array(lemmasPosition);
+                lemmasPosition++;
+            }
+
+            // push parentTreeNode to queue
+            // parentIndex == (currentIndex - 1) >> 1, parentNode
+            if (currentIndex < siblingIndex) {
+                queue[end] = TreeNode((currentIndex - 1) >> 1, Blake2b.digest64Merge(currentNode, siblingNode));
+            } else {
+                queue[end] = TreeNode((currentIndex - 1) >> 1, Blake2b.digest64Merge(siblingNode, currentNode));
+            }
+            end = (end + 1) % queueLength;
+        }
+
+        require(
+            currentNode == historyTxRoot,
+            "proof not verified"
+        );
         return true;
     }
 }
