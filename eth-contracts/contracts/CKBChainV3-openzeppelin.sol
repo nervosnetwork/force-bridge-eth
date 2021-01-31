@@ -382,6 +382,7 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
 
             // push parentTreeNode to queue
             // parentIndex == (currentIndex - 1) >> 1, parentNode
+            // TODO modify Blake2b.digest64Merge to keccak256
             if (currentIndex < siblingIndex) {
                 queue[end] = TreeNode((currentIndex - 1) >> 1, Blake2b.digest64Merge(currentNode, siblingNode));
             } else {
