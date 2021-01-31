@@ -15,7 +15,9 @@ library ViewSpv {
         Unknown,                // 0x0
         CKBTxProof,
         H256,
-        H256Array
+        H256Array,
+        U16Array,
+        CKBHistoryTxRootProof
     }
 
     // @notice             requires `memView` to be of a specified type
@@ -47,10 +49,6 @@ library ViewSpv {
         return _input.index(startIndex, 32);
     }
 
-    function mockTxHash(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (bytes32) {
-        return bytes32(0);
-    }
-
     function witnessesRoot(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (bytes32) {
         uint256 startIndex = _input.indexLEUint(20, 4);
         return _input.index(startIndex, 32);
@@ -72,4 +70,36 @@ library ViewSpv {
         return _arr.index(_start, 32);
     }
 
+    function indexU16Array(bytes29 _arr, uint256 index) internal pure typeAssert(_arr, SpvTypes.U16Array) returns (uint16) {
+        uint256 _start = index.mul(2);
+        return uint16(_arr.indexLEUint(_start, 2));
+    }
+
+    function initBlockNumber(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxRootProof) returns (uint64) {
+        uint256 startIndex = _input.indexLEUint(4, 4);
+        return uint64(_input.indexLEUint(startIndex, 8));
+    }
+
+    function latestBlockNumber(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxRootProof) returns (uint64) {
+        uint256 startIndex = _input.indexLEUint(8, 4);
+        return uint64(_input.indexLEUint(startIndex, 8));
+    }
+
+    function indices(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxRootProof) returns (bytes29) {
+        uint256 startIndex = _input.indexLEUint(12, 4) + 4;
+        uint256 endIndex = _input.indexLEUint(16, 4);
+        return _input.slice(startIndex, endIndex - startIndex, uint40(SpvTypes.U16Array));
+    }
+
+    function proofLeaves(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxRootProof) returns (bytes29) {
+        uint256 startIndex = _input.indexLEUint(16, 4) + 4;
+        uint256 endIndex = _input.indexLEUint(20, 4);
+        return _input.slice(startIndex, endIndex - startIndex, uint40(SpvTypes.H256Array));
+    }
+
+    function txRootLemmas(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxRootProof) returns (bytes29) {
+        uint256 startIndex = _input.indexLEUint(20, 4) + 4;
+        uint256 inputLength = _input.len();
+        return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.H256Array));
+    }
 }
