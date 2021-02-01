@@ -334,7 +334,7 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
 
         // queue
         bytes29 indices = txRootProofView.indices();
-        uint leavesLength = indices.len() / 32;
+        uint leavesLength = indices.len() / 2;
         uint queueLength = leavesLength + 1;
         TreeNode[] memory queue = new TreeNode[](queueLength);
         uint front = 0;

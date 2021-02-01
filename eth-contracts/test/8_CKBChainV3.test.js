@@ -8,6 +8,8 @@ const {
   generateWallets,
   getMsgHashForAddHistoryTxRoot,
 } = require('./utils');
+
+const { addHistoryTxRootTestCases } = require('./data/testHistoryTxRoot.json');
 const retryTimes = 20;
 contract('CKBChainV3', () => {
   let ckbChain, adminAddress, contractAddress, provider, factory;
@@ -88,7 +90,12 @@ contract('CKBChainV3', () => {
     it('use v1 contract, addHistoryTxRoot correct case', async () => {
       let actualTipNumber;
       for (const testCase of addHistoryTxRootTestCases) {
-        const { initBlockNumber, latestBlockNumber, historyTxRoot } = testCase;
+        const {
+          initBlockNumber,
+          latestBlockNumber,
+          historyTxRoot,
+          txRootProofDataVec,
+        } = testCase;
         // 1. calc msgHash
         const msgHash = getMsgHashForAddHistoryTxRoot(
           DOMAIN_SEPARATOR,
@@ -113,15 +120,17 @@ contract('CKBChainV3', () => {
         );
         const receipt = await tx.wait(1);
         expect(receipt.status).to.eq(1);
-        log(
-          `add ${size} Headers gas: ${receipt.gasUsed}, gas cost per header: ${
-            receipt.gasUsed / size
-          }`
-        );
+        log(`gas cost: ${receipt.gasUsed}`);
 
         // check if addHeaders success
         actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber();
         log(`current tipBlockNumber: ${actualTipNumber}\r\n`);
+
+        // 4. proveTxRootExist
+        for (const proofData of txRootProofDataVec) {
+          const res = await ckbChain.callStatic.proveTxRootExist(proofData);
+          expect(res).to.equal(true);
+        }
       }
     });
   });
