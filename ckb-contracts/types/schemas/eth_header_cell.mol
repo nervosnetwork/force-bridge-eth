@@ -1,6 +1,10 @@
-// TODO replace Bytes, BytesVec with structure schema
-
 import basic;
+
+struct ETHHeaderCellMerkleData {
+    merkle_root: Byte32,
+    start_height: Uint64,
+    latest_height: Uint64,
+}
 
 table ETHHeaderInfo {
     header: Bytes,

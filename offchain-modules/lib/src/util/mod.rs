@@ -5,6 +5,7 @@ pub mod config;
 pub mod eth_proof_helper;
 pub mod eth_util;
 pub mod generated;
+pub mod rocksdb;
 
 use self::config::ForceConfig;
 use crate::util::ckb_tx_generator::Generator;

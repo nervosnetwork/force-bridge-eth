@@ -23,7 +23,7 @@ contract('TokenLocker', () => {
     await mockSpv.deployed();
 
     factory = await ethers.getContractFactory(
-      'contracts/TokenLocker.sol:TokenLocker'
+      'contracts/TokenLocker.sol:TokenLockerRaw'
     );
     tokenLocker = await factory.deploy(
       mockSpv.address,
@@ -58,28 +58,6 @@ contract('TokenLocker', () => {
         await testLockToken(testcase);
       }
     });
-  });
-
-  describe('unlock token', async function () {
-    // disable timeout
-    this.timeout(0);
-    it('should decode burn tx verified', async () => {
-      for (const testcase of decodeBurnTxTestCases) {
-        let [
-          bridgeAmount,
-          bridgeFee,
-          tokenAddress,
-          recipientAddress,
-        ] = await tokenLocker.decodeBurnResult(testcase.txData);
-        expect(tokenAddress.toLowerCase()).to.equal(testcase.tokenAddress);
-        expect(recipientAddress.toLowerCase()).to.equal(
-          testcase.recipientAddress
-        );
-        expect(bridgeAmount).to.equal(testcase.bridgeAmount);
-        expect(bridgeFee).to.equal(testcase.bridgeFee);
-      }
-    });
-    // TODO test unlock
   });
 });
 

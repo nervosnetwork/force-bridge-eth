@@ -1,20 +1,25 @@
-use crate::util::ckb_tx_generator::{Generator, CONFIRM, MAIN_HEADER_CACHE_LIMIT};
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers, parse_privkey_path};
+use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_util::{
+    parse_cell, parse_main_chain_headers, parse_merkle_cell_data, parse_privkey_path,
+};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::Web3Client;
+use crate::util::rocksdb;
 use anyhow::{anyhow, Result};
 use ckb_sdk::{Address, AddressPayload, SECP256K1};
 use ckb_types::core::TransactionView;
 use ckb_types::packed::Script;
 use ethereum_types::H256;
+use force_eth_types::generated::eth_header_cell::ETHHeaderCellMerkleDataReader;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign_with_multi_key, MultisigConfig};
 use force_sdk::util::send_tx_sync_with_response;
 use log::{debug, info};
+use molecule::prelude::Reader;
 use secp256k1::SecretKey;
+use serde::export::Clone;
 use shellexpand::tilde;
-use std::collections::HashMap;
 use std::ops::Add;
 use std::str::FromStr;
 use web3::types::{Block, BlockHeader, U64};
@@ -29,7 +34,6 @@ pub struct ETHRelayer {
     pub multisig_config: MultisigConfig,
     pub multisig_privkeys: Vec<SecretKey>,
     pub secret_key: SecretKey,
-    pub cached_blocks: HashMap<u64, Block<H256>>,
 }
 
 impl ETHRelayer {
@@ -70,6 +74,7 @@ impl ETHRelayer {
         .map_err(|err| anyhow!(err))?;
 
         let secret_key = parse_privkey_path(&priv_key_path, &force_config, &network)?;
+
         Ok(ETHRelayer {
             eth_client,
             generator,
@@ -81,7 +86,6 @@ impl ETHRelayer {
                 .map(|k| parse_privkey_path(&k, &force_config, &network))
                 .collect::<Result<Vec<SecretKey>>>()?,
             config: force_config,
-            cached_blocks: HashMap::new(),
         })
     }
 
@@ -177,51 +181,82 @@ impl ETHRelayer {
             info!("waiting for new eth header. tip_header_number: {}, latest_submit_header_number: {}", tip_header_number, latest_submit_header_number);
             return Ok(latest_submit_header_number);
         }
-        // sync cached blocks
-        let start = if tip_header_number > MAIN_HEADER_CACHE_LIMIT as u64 {
-            tip_header_number - MAIN_HEADER_CACHE_LIMIT as u64
-        } else {
-            1
-        };
-        log::info!(
-            "start relaying headers from {} to {}",
-            start,
-            tip_header_number
-        );
-        for number in (start..=tip_header_number).rev() {
-            log::info!("sync eth block {} to cache", number);
-            let block_number = U64([number]);
-            let cached_block = self.cached_blocks.get(&number);
-            let chain_block = self.eth_client.get_block(block_number.into()).await?;
-            if cached_block.is_some() && cached_block.unwrap() == &chain_block {
-                break;
-            } else {
-                self.cached_blocks.insert(number, chain_block);
-            }
-        }
-        // remove outdated cache
-        let mut del_index = start - 1;
-        loop {
-            if self.cached_blocks.contains_key(&del_index) {
-                self.cached_blocks.remove(&del_index);
-            } else {
-                break;
-            }
-            del_index -= 1;
-        }
-        let headers = (start..=tip_header_number)
-            .map(|n| self.cached_blocks.get(&n).cloned().unwrap())
-            .collect::<Vec<_>>();
+
+        let force_config = ForceConfig::new(self.config_path.as_str())?;
+        let db_path = force_config.rocksdb_path;
         // make tx
         let cell =
             get_live_cell_by_typescript(&mut self.generator.indexer_client, cell_script.clone())
                 .map_err(|err| anyhow::anyhow!(err))?
                 .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
+
+        let last_cell_output_data = cell.output_data.as_bytes();
+
+        let mut last_cell_latest_height = 0u64;
+
+        let (start_height, mut smt_tree) = match last_cell_output_data.len() {
+            0 => {
+                let rocksdb_store = rocksdb::RocksDBStore::new(db_path.clone());
+                (
+                    tip_header_number,
+                    rocksdb::SMT::new(sparse_merkle_tree::H256::zero(), rocksdb_store),
+                )
+            }
+            _ => {
+                let (start_height, latest_height, merkle_root) =
+                    parse_merkle_cell_data(last_cell_output_data.to_vec())?;
+                last_cell_latest_height = latest_height;
+                let rocksdb_store = rocksdb::RocksDBStore::open(db_path.clone());
+                (
+                    start_height,
+                    rocksdb::SMT::new(merkle_root.into(), rocksdb_store),
+                )
+            }
+        };
+
+        // 1. if first time update eth light client, only update latest header
+        // 2. if last cell latest height not exceed CONFIRM, update block from 1 to latest
+        // 3. if last cell latest height over CONFIRM, update block from last_cell_latest_height - CONFIRM to latest
+        let mut start_index = start_height;
+        if last_cell_latest_height <= CONFIRM as u64 && last_cell_latest_height > 0 {
+            start_index = 1;
+        } else if last_cell_latest_height > CONFIRM as u64 {
+            start_index = last_cell_latest_height - CONFIRM as u64;
+        }
+
+        log::info!(
+            "start relaying headers from {} to {}",
+            start_index,
+            tip_header_number
+        );
+
+        for number in (start_index..=tip_header_number).rev() {
+            log::info!("sync eth block {} to cache", number);
+            let block_number = U64([number]);
+
+            let mut key = [0u8; 32];
+            let mut height = [0u8; 8];
+            height.copy_from_slice(number.to_le_bytes().as_ref());
+            key[..8].clone_from_slice(&height);
+
+            let chain_block = self.eth_client.get_block(block_number.into()).await?;
+            let chain_block_hash = chain_block.hash.expect("block hash should not be none");
+
+            smt_tree
+                .update(key.into(), chain_block_hash.0.into())
+                .expect("update smt tree");
+        }
+
+        let new_merkle_root = smt_tree.root().as_slice();
+        let new_latest_height = tip_header_number;
         let unsigned_tx = self.generator.generate_eth_light_client_tx_naive(
             from_lockscript.clone(),
             cell.clone(),
-            &headers,
+            &new_merkle_root,
+            start_height,
+            new_latest_height,
         )?;
+
         let mut privkeys = vec![&self.secret_key];
         privkeys.extend(self.multisig_privkeys.iter());
         let tx = sign_with_multi_key(
@@ -236,14 +271,16 @@ impl ETHRelayer {
         if let Err(e) = send_tx_res {
             log::error!(
                 "relay eth header from {} to {} failed! err: {}",
-                start,
+                last_cell_latest_height,
                 tip_header_number,
                 e
             );
         } else {
+            let rocksdb_store = smt_tree.store_mut();
+            rocksdb_store.commit();
             info!(
                 "Successfully relayed the headers from {} to {}",
-                start, tip_header_number
+                last_cell_latest_height, tip_header_number
             );
             latest_submit_header_number = tip_header_number;
         }
@@ -484,12 +521,13 @@ pub async fn wait_header_sync_success(
             i += 1;
             continue;
         }
-        let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
 
-        let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
-            .number
-            .unwrap()
-            .as_u64();
+        let cell_data_reader = ETHHeaderCellMerkleDataReader::new_unchecked(&ckb_cell_data);
+        let mut best_block_height = [0u8; 8];
+        let latest_height_raw = cell_data_reader.latest_height().raw_data();
+        best_block_height.copy_from_slice(latest_height_raw);
+        let best_block_height = u64::from_le_bytes(best_block_height);
+
         if best_block_height > header.number
             && (best_block_height - header.number) as usize >= CONFIRM
         {
@@ -498,7 +536,7 @@ pub async fn wait_header_sync_success(
 
         info!(
             "waiting for eth client header reach sync, eth header number: {:?}, ckb light client number: {:?}, loop index: {}",
-            header.number, un_confirmed_headers[un_confirmed_headers.len() - 1].number.unwrap().as_u64(),i,
+            header.number, best_block_height, i,
         );
         tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
         i += 1;

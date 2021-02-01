@@ -45,27 +45,13 @@ where
     }
 
     fn get_sudt_amount_from_source(&self, source: Source, eth_bridge_lock_hash: &[u8]) -> u128 {
-        fn is_sudt_typescript(script: Option<Script>, lock_hash: &[u8]) -> bool {
-            if script.is_none() {
-                return false;
-            }
-            let script = script.unwrap();
-            if script.code_hash().raw_data().as_ref() == SUDT_CODE_HASH.as_ref()
-                && script.args().raw_data().as_ref() == lock_hash
-                && script.hash_type() == SUDT_HASH_TYPE.into()
-            {
-                return true;
-            }
-            false
-        }
-
         let mut index = 0;
         let mut sudt_sum = 0;
         loop {
             let cell_type = self.chain.load_cell_type(index, source);
             match cell_type {
                 Err(SysError::IndexOutOfBound) => break,
-                Err(_err) => panic!("iter input return an error"),
+                Err(err) => panic!("iter input return an error: {:?}", err),
                 Ok(cell_type) => {
                     if !(is_sudt_typescript(cell_type, eth_bridge_lock_hash)) {
                         index += 1;
@@ -77,14 +63,29 @@ where
                         .load_cell_data(index, source)
                         .expect("laod cell data fail");
                     let mut buf = [0u8; UDT_LEN];
-                    if data.len() >= UDT_LEN {
-                        buf.copy_from_slice(&data[0..UDT_LEN]);
-                        sudt_sum += u128::from_le_bytes(buf)
+                    if data.len() < UDT_LEN {
+                        panic!("invalid sudt cell. index: {}, source: {:?}", index, source);
                     }
+                    buf.copy_from_slice(&data[0..UDT_LEN]);
+                    sudt_sum += u128::from_le_bytes(buf);
                     index += 1;
                 }
             }
         }
         sudt_sum
     }
+}
+
+fn is_sudt_typescript(script: Option<Script>, lock_hash: &[u8]) -> bool {
+    if script.is_none() {
+        return false;
+    }
+    let script = script.unwrap();
+    if script.code_hash().raw_data().as_ref() == SUDT_CODE_HASH.as_ref()
+        && script.args().raw_data().as_ref() == lock_hash
+        && script.hash_type() == SUDT_HASH_TYPE.into()
+    {
+        return true;
+    }
+    false
 }

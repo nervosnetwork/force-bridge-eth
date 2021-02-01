@@ -8,24 +8,23 @@ use alloc::{vec, vec::Vec};
 
 /// verify the log entry is valid.
 pub fn verify_log_entry(
-    log_index: u64,
-    log_entry_data: Vec<u8>,
     receipt_index: u64,
     receipt_data: Vec<u8>,
     receipts_root: H256,
     proof: Vec<Vec<u8>>,
-) -> bool {
-    let log_entry: LogEntry = rlp::decode(log_entry_data.as_slice()).unwrap();
-    let receipt: Receipt = rlp::decode(receipt_data.as_slice()).unwrap();
-    // Verify log_entry included in receipt.
-    assert_eq!(receipt.logs[log_index as usize], log_entry);
+) -> Receipt {
+    let receipt: Receipt = rlp::decode(receipt_data.as_slice()).expect("invalid receipt data");
     // Verify the trie proof is valid.
-    verify_trie_proof(
-        receipts_root,
-        rlp::encode(&receipt_index),
-        proof,
-        receipt_data,
-    )
+    assert!(
+        verify_trie_proof(
+            receipts_root,
+            rlp::encode(&receipt_index),
+            proof,
+            receipt_data,
+        ),
+        "receipt proof is invalid"
+    );
+    receipt
 }
 
 /// Iterate the proof following the key.

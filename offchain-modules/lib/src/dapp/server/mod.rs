@@ -105,6 +105,8 @@ impl DappState {
             0,
             true,
             cell_num,
+            //FIXME: @ZHOUNAN
+            true,
         )
         .await
     }
