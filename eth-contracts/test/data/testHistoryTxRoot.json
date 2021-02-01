@@ -1,0 +1,21 @@
+{
+  "addHistoryTxRootTestCases": [
+    {
+      "initBlockNumber":  "",
+      "latestBlockNumber": "",
+      "historyTxRoot": "",
+      "txRootProofData": [
+
+      ]
+    }
+  ],
+  "lockTokenTestCases": [
+    {
+      "lockAmount": 666,
+      "bridgeFee": 66,
+      "recipientLockscript": "0x123456",
+      "replayResistOutpoint": "0x123456",
+      "sudtExtraData": "0x123456"
+    }
+  ]
+}

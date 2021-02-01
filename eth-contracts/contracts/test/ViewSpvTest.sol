@@ -35,4 +35,25 @@ contract ViewSpvTest {
     function lemmas(bytes memory _input) public view returns (bytes memory) {
         return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).lemmas().clone();
     }
+
+    // members in CkbHistoryTxRootProof
+    function initBlockNumber(bytes memory _input) public pure returns (uint64) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).initBlockNumber();
+    }
+
+    function latestBlockNumber(bytes memory _input) public pure returns (uint64) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).latestBlockNumber();
+    }
+
+    function indices(bytes memory _input) public view returns (bytes memory) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).indices().clone();
+    }
+
+    function proofLeaves(bytes memory _input) public view returns (bytes memory) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).proofLeaves().clone();
+    }
+
+    function txRootLemmas(bytes memory _input) public view returns (bytes memory) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).txRootLemmas().clone();
+    }
 }

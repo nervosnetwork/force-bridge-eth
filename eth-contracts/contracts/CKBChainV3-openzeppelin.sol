@@ -57,7 +57,7 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
     // CKBChainV3-----------------------------
     // TODO modify ADD_HISTORY_TX_ROOT_TYPEHASH to correct value
     // ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256("AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)");
-    bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x1dac851def8ec317cf44b4a6cf63dabe82895259e6290d4c2ef271700bfce584;
+    bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x0eeee1be1069b2c737b19f6c3510ceeed099af9ee1f5985109f117ce0524ca10;
     bytes32 public historyTxRoot;
     mapping(bytes32 => bytes32) verifiedTxRoots;
     struct TreeNode {

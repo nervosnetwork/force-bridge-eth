@@ -2,7 +2,8 @@
 const BN = require('bn.js');
 
 /* eslint-disable-next-line no-unresolved */
-const vectors = require('./data/testSpv.json');
+const spvVectors = require('./data/testSpv.json');
+const historyTxRootVectors = require('./data/testViewHistoryTxRoot.json');
 
 const ViewSpv = artifacts.require('ViewSpvTest');
 
@@ -13,7 +14,15 @@ const {
   extractTxHash,
   extractWitnessesRoot,
   extractLemmas,
-} = vectors;
+} = spvVectors;
+
+const {
+  extractInitBlockNumber,
+  extractLatestBlockNumber,
+  extractIndices,
+  extractProofLeaves,
+  extractLemmas: extractTxRootLemmas,
+} = historyTxRootVectors;
 
 contract('ViewSpv', () => {
   let instance;
@@ -78,6 +87,43 @@ contract('ViewSpv', () => {
           extractLemmas[i].output = null;
         }
         assert.strictEqual(extractLemmas[i].output, res);
+      }
+    });
+  });
+
+  // CKBHistoryTxRootProof
+  describe('#indices', async () => {
+    it('extracts the indices from a CKBHistoryTxRootProof', async () => {
+      for (let i = 0; i < extractIndices.length; i += 1) {
+        const res = await instance.indices(extractIndices[i].input);
+        if (extractIndices[i].output === '0x') {
+          extractIndices[i].output = null;
+        }
+        assert.strictEqual(extractIndices[i].output, res);
+      }
+    });
+  });
+
+  describe('#proofLeaves', async () => {
+    it('extracts the proofLeaves from a CKBHistoryTxRootProof', async () => {
+      for (let i = 0; i < extractProofLeaves.length; i += 1) {
+        const res = await instance.proofLeaves(extractProofLeaves[i].input);
+        if (extractProofLeaves[i].output === '0x') {
+          extractProofLeaves[i].output = null;
+        }
+        assert.strictEqual(extractProofLeaves[i].output, res);
+      }
+    });
+  });
+
+  describe('#txRootLemmas', async () => {
+    it('extracts the lemmas from a CKBHistoryTxRootProof', async () => {
+      for (let i = 0; i < extractTxRootLemmas.length; i += 1) {
+        const res = await instance.txRootLemmas(extractTxRootLemmas[i].input);
+        if (extractTxRootLemmas[i].output === '0x') {
+          extractTxRootLemmas[i].output = null;
+        }
+        assert.strictEqual(extractTxRootLemmas[i].output, res);
       }
     });
   });
