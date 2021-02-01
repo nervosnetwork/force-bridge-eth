@@ -320,6 +320,9 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
         initBlockNumber = _initBlockNumber;
         latestBlockNumber = _latestBlockNumber;
         historyTxRoot = _historyTxRoot;
+
+        // 3. event
+        emit HistoryTxRootAdded(_initBlockNumber, _latestBlockNumber, _historyTxRoot);
     }
 
     function proveTxRootExist(bytes calldata txRootProofData)
