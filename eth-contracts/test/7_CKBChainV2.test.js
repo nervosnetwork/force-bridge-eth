@@ -14,8 +14,6 @@ contract('CKBChainV2 openzeppelin upgradeable', () => {
     adminAddress,
     contractAddress,
     provider,
-    initHeaderIndex,
-    endHeaderIndex,
     factory;
   let wallets, validators;
   let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHeadersTypeHash;
