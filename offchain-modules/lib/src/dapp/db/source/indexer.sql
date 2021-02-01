@@ -55,7 +55,8 @@ CREATE TABLE `eth_to_ckb` (
   KEY `eth_lock_tx_hash` (`eth_lock_tx_hash`),
   KEY `replay_resist_outpoint` (`replay_resist_outpoint`),
   KEY `block_number` (`eth_block_number`),
-  KEY `ckb_recipient_lockscript` (`ckb_recipient_lockscript`)
+  KEY `ckb_recipient_lockscript` (`ckb_recipient_lockscript`),
+  KEY `sender_addr` (`sender_addr`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
