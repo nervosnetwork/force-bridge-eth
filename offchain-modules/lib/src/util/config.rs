@@ -22,6 +22,7 @@ const ETHEREUM_PRIVATE_KEYS: [&str; 6] = [
     "ca2e37b4f2e4a122cc86c401e3d1da3841c525f01b5b249dcdcd69e2f086d576",
 ];
 
+#[allow(clippy::too_many_arguments)]
 pub async fn init_config(
     is_force: bool,
     project_path: String,
@@ -30,6 +31,7 @@ pub async fn init_config(
     ckb_rpc_url: String,
     ckb_indexer_url: String,
     ethereum_rpc_url: String,
+    rocksdb_path: String,
 ) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     if std::path::Path::new(&config_path).exists() && !is_force {
@@ -77,6 +79,7 @@ pub async fn init_config(
     networks_config.insert(default_network.clone(), Value::Table(network_config));
     let force_cli_config = ForceConfig {
         project_path,
+        rocksdb_path,
         default_network,
         networks_config,
         deployed_contracts: None,
@@ -87,6 +90,7 @@ pub async fn init_config(
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct ForceConfig {
     pub project_path: String,
+    pub rocksdb_path: String,
     pub default_network: String,
     pub deployed_contracts: Option<DeployedContracts>,
     #[serde(serialize_with = "toml::ser::tables_last")]
@@ -111,6 +115,7 @@ pub struct DeployedContracts {
     pub light_client_typescript: ScriptConf,
     // pub light_client_lockscript: ScriptConf,
     pub recipient_typescript: ScriptConf,
+    pub simple_bridge_typescript: ScriptConf,
     pub sudt: ScriptConf,
     pub light_client_cell_script: CellScript,
     pub multisig_address: MultisigConf,
@@ -290,6 +295,16 @@ impl ForceConfig {
             .get_ckb_script_bin_path()?
             .join(std::path::Path::new("eth-bridge-typescript"));
         bridge_typescript_bin_path
+            .into_os_string()
+            .into_string()
+            .map_err(|e| anyhow!(format!("{:?}", e)))
+    }
+
+    pub fn get_simple_bridge_typescript_bin_path(&self) -> Result<String> {
+        let simple_bridge_typescript_bin_path = self
+            .get_ckb_script_bin_path()?
+            .join(std::path::Path::new("simple-eth-bridge-typescript"));
+        simple_bridge_typescript_bin_path
             .into_os_string()
             .into_string()
             .map_err(|e| anyhow!(format!("{:?}", e)))

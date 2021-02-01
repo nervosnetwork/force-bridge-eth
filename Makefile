@@ -43,11 +43,11 @@ deploy-ckb-sudt:
 
 deploy-eth:
 	cd eth-contracts \
-	&& npx hardhat run ./scripts/deploy.js
+	&& npx hardhat run ./scripts/deploy.js --network ci
 
 deploy-erc20:
 	cd eth-contracts \
-	&& npx hardhat run ./scripts/deploy-erc20.js > ~/.force-bridge/erc20-contracts.json
+	&& npx hardhat run ./scripts/deploy-erc20.js --network ci > ~/.force-bridge/erc20-contracts.json
 
 deploy-contracts: deploy-ckb deploy-eth
 
@@ -99,7 +99,9 @@ close-dev-env: stop-demo-services remove-docker-network
 integration-ci: setup-dev-env demo-crosschain
 
 local-ci:
+	git submodule update --init
 	make close-dev-env
+	rm -rf ~/.force-bridge/rocksdb
 	test -f ~/.force-bridge/config.toml && mv ~/.force-bridge/config.toml ~/.force-bridge/config_bak_`date "+%Y%m%d-%H%M%S"`.toml || echo 'config not exist'
 	cd offchain-modules && cargo build
 	make init-config
@@ -121,5 +123,9 @@ build-docker:
 fmt:
 	make -C offchain-modules fmt
 	make -C ckb-contracts fmt
+
+coverage-test:
+	cd ckb-contracts && bash ckb_script_coverage.sh
+	cd eth-contracts && yarn install && bash eth_script_coverage.sh
 
 .PHONY: demo

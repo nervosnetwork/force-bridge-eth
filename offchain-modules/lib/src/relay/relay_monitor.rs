@@ -1,8 +1,8 @@
 use crate::util::ckb_tx_generator::Generator;
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
+use crate::util::ckb_util::{parse_cell, parse_merkle_cell_data};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use anyhow::{anyhow, Result};
-use force_sdk::cell_collector::get_live_cell_by_lockscript;
+use force_sdk::cell_collector::get_live_cell_by_typescript;
 use std::ops::Sub;
 
 #[allow(clippy::too_many_arguments)]
@@ -34,20 +34,13 @@ pub async fn relay_monitor(
 
     let script = parse_cell(&cell).map_err(|e| anyhow!("get typescript fail {:?}", e))?;
 
-    let cell = get_live_cell_by_lockscript(&mut generator.indexer_client, script)
+    let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
         .map_err(|e| anyhow!("get live cell fail: {}", e))?
         .ok_or_else(|| anyhow!("eth header cell not exist"))?;
 
-    let (un_confirmed_headers, _) = parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
-        .map_err(|e| anyhow!("parse header data fail: {}", e))?;
-
-    let best_header = un_confirmed_headers
-        .last()
-        .ok_or_else(|| anyhow!("header is none"))?;
-    let eth_light_client_height = best_header
-        .number
-        .ok_or_else(|| anyhow!("header number is none"))?;
-
+    let (_, eth_light_client_height, _) =
+        parse_merkle_cell_data(cell.output_data.as_bytes().to_vec())
+            .map_err(|e| anyhow!("parse header data fail: {}", e))?;
     let ckb_diff = ckb_current_height - ckb_light_client_height;
     let eth_diff = eth_current_height.sub(eth_light_client_height).as_u64();
 

@@ -5,6 +5,7 @@ use crate::util::ckb_util::{
 use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::Witness;
 use crate::util::eth_util::convert_to_header_rlp;
+use crate::util::rocksdb;
 use anyhow::{anyhow, Result};
 use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
@@ -21,8 +22,10 @@ use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeData;
 use force_eth_types::generated::eth_header_cell::{
-    ETHChain, ETHHeaderCellData, ETHHeaderInfo, ETHHeaderInfoReader,
+    ETHChain, ETHHeaderCellData, ETHHeaderCellMerkleData, ETHHeaderCellMerkleDataReader,
+    ETHHeaderInfo, ETHHeaderInfoReader,
 };
+use force_eth_types::hasher::Blake2bHasher;
 use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
@@ -71,7 +74,9 @@ impl Generator {
         &mut self,
         from_lockscript: Script,
         cell: Cell,
-        headers: &[Block<ethereum_types::H256>],
+        merkle_root: &[u8],
+        start_height: u64,
+        latest_height: u64,
     ) -> Result<TransactionView> {
         let mut rng = rand::thread_rng();
         let tx_fee = rng.gen_range(ONE_CKB / 2000, ONE_CKB / 1000);
@@ -111,27 +116,13 @@ impl Generator {
             .lock(cell_output.lock())
             .type_(cell_output.type_())
             .build();
-        let mut main_chain_data: Vec<basic::Bytes> = vec![];
-        for (i, header) in headers.iter().enumerate() {
-            let data = if i + CONFIRM < headers.len() {
-                header.hash.unwrap().as_bytes().to_vec().into()
-            } else {
-                let header_rlp = convert_to_header_rlp(header)?;
-                let header_info = ETHHeaderInfo::new_builder()
-                    .header(hex::decode(header_rlp)?.into())
-                    .total_difficulty(header.total_difficulty.unwrap().as_u64().into())
-                    .hash(basic::Byte32::from_slice(header.hash.unwrap().as_bytes()).unwrap())
-                    .build();
-                header_info.as_slice().to_vec().into()
-            };
-            main_chain_data.push(data);
-        }
-        let output_data = ETHHeaderCellData::new_builder()
-            .headers(
-                ETHChain::new_builder()
-                    .main(BytesVec::new_builder().set(main_chain_data).build())
-                    .build(),
+
+        let output_data = ETHHeaderCellMerkleData::new_builder()
+            .merkle_root(
+                basic::Byte32::from_slice(merkle_root).expect("merkle root should be right"),
             )
+            .start_height(start_height.into())
+            .latest_height(latest_height.into())
             .build()
             .as_bytes();
         helper.add_output_with_auto_capacity(output, output_data);
@@ -418,7 +409,7 @@ impl Generator {
             .deployed_contracts
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-
+        let db_path = force_cli_config.rocksdb_path;
         // add cell deps.
         let cell_script = parse_cell(
             deployed_contracts
@@ -429,6 +420,15 @@ impl Generator {
         let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
             .map_err(|err| anyhow!(err))?
             .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
+        let cell_merkle_root = {
+            let cell_data = cell.output_data.as_bytes();
+            let eth_header_cell_data = ETHHeaderCellMerkleDataReader::new_unchecked(cell_data);
+            let merkle_root = eth_header_cell_data.merkle_root().raw_data();
+
+            let mut merkle_root_raw = [0u8; 32];
+            merkle_root_raw.copy_from_slice(merkle_root);
+            merkle_root_raw
+        };
         let mut builder = helper.transaction.as_advanced_builder();
         builder = builder.cell_dep(
             CellDep::new_builder()
@@ -441,6 +441,10 @@ impl Generator {
         let outpoints = vec![
             self.deployed_contracts.bridge_lockscript.outpoint.clone(),
             self.deployed_contracts.bridge_typescript.outpoint.clone(),
+            self.deployed_contracts
+                .simple_bridge_typescript
+                .outpoint
+                .clone(),
             self.deployed_contracts.sudt.outpoint.clone(),
         ];
         self.add_cell_deps(&mut helper, outpoints)
@@ -522,9 +526,49 @@ impl Generator {
         helper.add_output(bridge_cell, bridge_cell_data);
         // add witness
         {
+            let header: eth_spv_lib::eth_types::BlockHeader = rlp::decode(
+                hex::decode(eth_proof.header_data.as_str())
+                    .unwrap()
+                    .to_vec()
+                    .as_slice(),
+            )
+            .unwrap();
+            let mut key = [0u8; 32];
+            let mut height = [0u8; 8];
+            height.copy_from_slice(header.number.to_le_bytes().as_ref());
+            key[..8].clone_from_slice(&height);
+
+            let rocksdb_store = rocksdb::RocksDBStore::open_readonly(db_path);
+            let smt_tree = rocksdb::SMT::new(cell_merkle_root.into(), rocksdb_store);
+
+            let block_hash: [u8; 32] = smt_tree.get(&key.into()).unwrap().into();
+            let merkle_proof = smt_tree.merkle_proof(vec![key.into()]).unwrap();
+            let compiled_merkle_proof = merkle_proof
+                .compile(vec![(key.into(), block_hash.into())])
+                .unwrap();
+
+            {
+                let mut compiled_leaves = vec![];
+
+                let mut leaf_index = [0u8; 32];
+                leaf_index[..8].copy_from_slice(header.number.to_le_bytes().as_ref());
+
+                let mut leaf_value = [0u8; 32];
+                leaf_value.copy_from_slice(header.hash.expect("header hash is none").0.as_bytes());
+
+                compiled_leaves.push((leaf_index.into(), leaf_value.into()));
+                if !compiled_merkle_proof
+                    .verify::<Blake2bHasher>(&cell_merkle_root.into(), compiled_leaves)
+                    .expect("verify")
+                {
+                    return Err(anyhow!("pre merkle proof verify fail"));
+                }
+            }
+
             let witness = EthWitness {
                 cell_dep_index_list: vec![0],
                 spv_proof: eth_proof.clone(),
+                compiled_merkle_proof: compiled_merkle_proof.0,
             }
             .as_bytes();
             helper.transaction = helper
@@ -643,14 +687,22 @@ impl Generator {
         bridge_typescript: Script,
         bridge_lockscript: Script,
         bridge_fee: u128,
+        simple_typescript: bool,
         cell_num: usize,
     ) -> Result<TransactionView> {
         let mut tx_helper = TxHelper::default();
         // add cell deps
-        let outpoints = vec![
-            self.deployed_contracts.bridge_lockscript.outpoint.clone(),
-            self.deployed_contracts.bridge_typescript.outpoint.clone(),
-        ];
+        let mut outpoints = vec![self.deployed_contracts.bridge_lockscript.outpoint.clone()];
+        if simple_typescript {
+            outpoints.push(
+                self.deployed_contracts
+                    .simple_bridge_typescript
+                    .outpoint
+                    .clone(),
+            );
+        } else {
+            outpoints.push(self.deployed_contracts.bridge_typescript.outpoint.clone());
+        }
         self.add_cell_deps(&mut tx_helper, outpoints)
             .map_err(|err| anyhow!(err))?;
         // build bridge data

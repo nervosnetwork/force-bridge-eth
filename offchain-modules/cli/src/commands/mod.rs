@@ -83,6 +83,7 @@ pub async fn init_config(args: InitConfigArgs) -> Result<()> {
         args.ckb_rpc_url,
         args.ckb_indexer_url,
         args.ethereum_rpc_url,
+        args.rocksdb_path,
     )
     .await
 }
@@ -125,7 +126,9 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
+        args.simple_typescript,
         1,
+        args.force_create,
     )
     .await?;
     info!(

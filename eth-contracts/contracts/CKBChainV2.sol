@@ -14,7 +14,7 @@ import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 // tools below just for test, they will be removed before production ready
 //import "hardhat/console.sol";
 
-contract CKBChainV2 is ICKBChainV2, ICKBSpv {
+contract CKBChainV2Raw is ICKBChainV2, ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
