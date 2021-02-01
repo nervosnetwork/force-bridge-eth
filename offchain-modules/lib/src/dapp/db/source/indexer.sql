@@ -42,7 +42,7 @@ CREATE TABLE `eth_to_ckb` (
   `sender_addr` varchar(40) NOT NULL DEFAULT '',
   `locked_amount` varchar(20) NOT NULL DEFAULT '',
   `bridge_fee` varchar(20) NOT NULL DEFAULT '',
-  `ckb_recipient_lockscript` varchar(256) NOT NULL DEFAULT '',
+  `ckb_recipient_lockscript` varchar(512) NOT NULL DEFAULT '',
   `sudt_extra_data` varchar(256) DEFAULT NULL,
   `ckb_tx_hash` varchar(64) DEFAULT NULL,
   `eth_spv_proof` varchar(8192) DEFAULT NULL,
