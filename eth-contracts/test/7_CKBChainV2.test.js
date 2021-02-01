@@ -10,11 +10,7 @@ const {
 } = require('./utils');
 const retryTimes = 20;
 contract('CKBChainV2 openzeppelin upgradeable', () => {
-  let ckbChain,
-    adminAddress,
-    contractAddress,
-    provider,
-    factory;
+  let ckbChain, adminAddress, contractAddress, provider, factory;
   let wallets, validators;
   let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHeadersTypeHash;
 
