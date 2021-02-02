@@ -315,13 +315,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "setLightClientTypescriptHash",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "bytes",
@@ -331,6 +324,11 @@
       {
         "internalType": "bytes",
         "name": "ckbTx",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "txRootsProofData",
         "type": "bytes"
       }
     ],
