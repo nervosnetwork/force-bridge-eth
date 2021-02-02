@@ -34,3 +34,8 @@ $ npx hardhat test --network geth
 # specific test, e.g. TokenLocker test
 $ npx hardhat test test/1_TokenLocker.test.js --network geth
 ```
+
+## local-ci
+```bash
+$ cd .. && make local-ci
+```
