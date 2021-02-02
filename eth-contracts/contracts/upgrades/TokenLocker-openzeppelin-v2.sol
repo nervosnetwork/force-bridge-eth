@@ -12,7 +12,7 @@ import {SafeERC20} from "../libraries/SafeERC20.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {ICKBSpv} from "../interfaces/ICKBSpv.sol";
 
-contract TokenLocker {
+contract TokenLockerV2 {
     using SafeMath for uint256;
     using Address for address;
     using TypedMemView for bytes;
