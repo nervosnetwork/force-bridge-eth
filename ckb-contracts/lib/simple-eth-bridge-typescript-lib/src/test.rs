@@ -42,7 +42,7 @@ fn generate_manage_mode_correct_mock(test_params: TestParams) -> MockDataLoader 
     let owner_lock_hash = test_params.owner_lock_hash;
     mock.expect_load_cell_lock_hash()
         .times(1)
-        .returning(move |_, _| Ok(owner_lock_hash.clone()));
+        .returning(move |_, _| Ok(owner_lock_hash));
 
     let script = test_params.owner_script;
     mock.expect_load_script()
