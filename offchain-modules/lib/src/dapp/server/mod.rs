@@ -19,7 +19,7 @@ use sqlx::mysql::MySqlPool;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-const REPLAY_RESIST_CHANNEL_BOUND: usize = 5000;
+const REPLAY_RESIST_CHANNEL_BOUND: usize = 10000;
 pub const REPLAY_RESIST_CELL_NUMBER: usize = 500;
 const REFRESH_RATE: usize = 50; // 50/100
 const REPLAY_RESIST_CELL_CAPACITY: &str = "315";
@@ -36,6 +36,7 @@ pub struct DappState {
     pub eth_rpc_url: String,
     pub db: MySqlPool,
     pub replay_resist_sender: mpsc::Sender<ReplayResistTask>,
+    pub init_token_mutex: Arc<Mutex<i32>>,
 }
 
 pub struct ReplayResistTask {
@@ -57,6 +58,7 @@ impl DappState {
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let db = MySqlPool::connect(&db_path).await?;
+        let init_token_mutex = Arc::new(Mutex::new(1));
         Ok(Self {
             config_path,
             indexer_url,
@@ -69,6 +71,7 @@ impl DappState {
             network,
             db,
             replay_resist_sender,
+            init_token_mutex,
         })
     }
 
@@ -167,7 +170,7 @@ pub async fn start(
     ckb_private_key_path: String,
     listen_url: String,
     db_path: String,
-) -> std::io::Result<()> {
+) -> Result<()> {
     let (sender, mut receiver) = mpsc::channel(REPLAY_RESIST_CHANNEL_BOUND);
     let dapp_state = DappState::new(
         config_path,
@@ -176,8 +179,7 @@ pub async fn start(
         db_path,
         sender.clone(),
     )
-    .await
-    .expect("init dapp server succeed");
+    .await?;
     let dapp_state_for_receiver = dapp_state.clone();
 
     tokio::spawn(async move {
@@ -195,7 +197,9 @@ pub async fn start(
             let (cell_count, replay_resist_cell) = result.unwrap();
             if replay_resist_cell == "" {
                 task.resp
-                    .send(Err(anyhow!("replay resist cell is exhausted, please wait")))
+                    .send(Err(anyhow!(
+                        "replay resist cell is exhausted, please wait for create new cells"
+                    )))
                     .expect("send response to lock handler succeed");
             } else {
                 task.resp

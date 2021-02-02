@@ -641,15 +641,16 @@ pub async fn get_or_create_bridge_cell(
         &mut generator.indexer_client,
         bridge_lockscript.clone(),
         bridge_typescript.clone(),
-        cell_num,
+        std::usize::MAX,
     )
     .map_err(|e| anyhow!("failed to collect bridge cells {}", e))?;
+    let cells: Vec<String> = cells
+        .into_iter()
+        .map(|cell| hex::encode(OutPoint::from(cell.out_point).as_slice()))
+        .collect();
     if cells.len() >= cell_num {
         log::info!("get enough live bridge cells from ckb chain");
-        return Ok(cells
-            .into_iter()
-            .map(|cell| hex::encode(OutPoint::from(cell.out_point).as_slice()))
-            .collect());
+        return Ok(cells);
     }
     let unsigned_tx = generator
         .create_bridge_cell(
@@ -682,6 +683,7 @@ pub async fn get_or_create_bridge_cell(
         let outpoint_hex = hex::encode(outpoint.as_slice());
         res.push(outpoint_hex);
     }
+    res.extend(cells);
     Ok(res)
 }
 
