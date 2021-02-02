@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "tests",
     "types",
     "eth-spv-lib",
     "contracts-helper",

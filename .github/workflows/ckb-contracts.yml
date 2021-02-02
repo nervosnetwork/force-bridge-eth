@@ -27,7 +27,11 @@ jobs:
         run: |
           cargo install --force cargo-audit
           cargo generate-lockfile
-          cargo audit
+          for c in $$(ls contracts); do echo "enter $$c"; cd contracts/$$c; cargo audit; echo "audit done"; cd ../..; done
+          for c in $$(ls lib); do echo "enter $$c"; cd lib/$$c; cargo audit; echo "audit done"; cd ../..; done
+          cd contracts-helper; cargo audit; cd ../
+          cd eth-spv-lib; cargo audit; cd ../
+          cd types; cargo audit; cd ../
       - name: Cache cargo crate and target
         id: cache-contract-target
         uses: actions/cache@v2
