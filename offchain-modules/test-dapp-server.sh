@@ -65,14 +65,6 @@ stop_mysql(){
 #  done
 #}
 
-stop_service() {
-  ps aux | grep 'dapp ckb-indexer' | grep -v grep | awk '{print $2}' | xargs kill -9
-  ps aux | grep 'dapp eth-indexer' | grep -v grep | awk '{print $2}' | xargs kill -9
-  ps aux | grep 'dapp ckb-tx-relayer' | grep -v grep | awk '{print $2}' | xargs kill -9
-  ps aux | grep 'dapp eth-tx-relayer' | grep -v grep | awk '{print $2}' | xargs kill -9
-  ps aux | grep 'dapp server' | grep -v grep | awk '{print $2}' | xargs kill -9
-}
-
 start_server(){
   cd ${OFFCHAIN}
   ${FORCE_CLI} dapp server  --ckb-private-key-path ${CKB_MINT_PRIVKY}  --listen-url 0.0.0.0:3003 --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/force-server.log 2>&1 &
@@ -101,7 +93,7 @@ stress_test(){
 #stop_mysql
 start_mysql
 sleep 10
-stop_service
+#stop_service
 #start_header_relay
 start_server
 sleep 3
