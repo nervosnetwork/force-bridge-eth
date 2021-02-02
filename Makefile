@@ -110,7 +110,6 @@ local-ci:
 	make integration-ci
 
 github-ci:
-	make close-dev-env
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
