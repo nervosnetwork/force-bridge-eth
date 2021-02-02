@@ -24,10 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: check audit
-        uses: actions-rs/audit-check@v1
-        with:
-          path: ckb-contracts 
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cargo install --force cargo-audit
+          cargo generate-lockfile
+          cargo audit
       - name: Cache cargo crate and target
         id: cache-contract-target
         uses: actions/cache@v2
