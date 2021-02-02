@@ -56,13 +56,21 @@ stop_mysql(){
     docker rm `docker ps -a | grep ${MYSQL_NAME} | awk '{print $1}'`
 }
 
-services=("ckb-indexer" "eth-indexer" "force-server" "ckb-tx-relayer" "eth-tx-relayer")
+#services=("ckb-indexer" "eth-indexer" "force-server" "ckb-tx-relayer" "eth-tx-relayer")
+#stop_service() {
+#  all=*
+#  for service in "${services[@]}"
+#  do
+#    pm2 stop $service && pm2 delete $service && rm -f ~/.pm2/logs/$service$all
+#  done
+#}
+
 stop_service() {
-  all=*
-  for service in "${services[@]}"
-  do
-    pm2 stop $service && pm2 delete $service && rm -f ~/.pm2/logs/$service$all
-  done
+  ps aux | grep 'dapp ckb-indexer' | grep -v grep | awk '{print $2}' | xargs kill -9
+  ps aux | grep 'dapp eth-indexer' | grep -v grep | awk '{print $2}' | xargs kill -9
+  ps aux | grep 'dapp ckb-tx-relayer' | grep -v grep | awk '{print $2}' | xargs kill -9
+  ps aux | grep 'dapp eth-tx-relayer' | grep -v grep | awk '{print $2}' | xargs kill -9
+  ps aux | grep 'dapp server' | grep -v grep | awk '{print $2}' | xargs kill -9
 }
 
 start_server(){
@@ -93,7 +101,7 @@ stress_test(){
 #stop_mysql
 start_mysql
 sleep 10
-#stop_service
+stop_service
 #start_header_relay
 start_server
 sleep 3
