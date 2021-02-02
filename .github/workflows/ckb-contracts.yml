@@ -24,8 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: check audit
-        uses: actions-rs/audit-check@v1
         working-directory: ckb-contracts
+        uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache cargo crate and target
