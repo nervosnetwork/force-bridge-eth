@@ -18,6 +18,7 @@ CKB_URL=http://127.0.0.1:8114
 INDEXER_URL=http://127.0.0.1:8116
 HEADER_RELAY_PRIVKEY=1
 CKB_MINT_PRIVKY=2
+API_SERVER_PRIVKEY="4 5"
 ETH_UNLOCK_PRIVKEY=2
 SQL_PATH="$PROJECT_DIR"/offchain-modules/lib/src/dapp/db/source/
 DB_NAME=forcedb
@@ -35,7 +36,7 @@ start_mysql() {
     docker run -e MYSQL_ROOT_PASSWORD=root -p 3306:3306 --name ${MYSQL_NAME} -d mysql:5.7
     docker exec ${MYSQL_NAME} bash -c "echo -e '[mysqld]\nskip-grant-tables' > /etc/mysql/conf.d/my.cnf"
     docker restart ${MYSQL_NAME}
-    sleep 2
+    sleep 8
 #    docker exec ${MYSQL_NAME} mysql --user root --password=root -e "drop database ${DB_NAME};"
     docker exec ${MYSQL_NAME} mysql --user root --password=root -e "create database ${DB_NAME}; use ${DB_NAME}; show tables;"
     files=$(ls $SQL_PATH)
@@ -67,7 +68,7 @@ stop_service() {
 
 start_server(){
   cd ${OFFCHAIN}
-  ${FORCE_CLI} dapp server  --ckb-private-key-path ${CKB_MINT_PRIVKY}  --listen-url 0.0.0.0:3003 --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/force-server.log 2>&1 &
+  ${FORCE_CLI} dapp server  --server-private-key-path ${API_SERVER_PRIVKEY}  --mint-private-key-path ${CKB_MINT_PRIVKY} --listen-url 0.0.0.0:3003 --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/force-server.log 2>&1 &
 }
 
 start_tx_relay(){
