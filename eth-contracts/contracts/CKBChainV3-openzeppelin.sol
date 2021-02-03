@@ -279,6 +279,14 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
         bytes29 txRootProofView = txRootProofData.ref(
             uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
         );
+        require(
+            txRootProofView.initBlockNumber() == initBlockNumber,
+            "initBlockNumber mismatch"
+        );
+        require(
+            txRootProofView.latestBlockNumber() == latestBlockNumber,
+            "latestBlockNumber mismatch"
+        );
 
         // queue
         bytes29 indices = txRootProofView.indices();
