@@ -10,7 +10,8 @@ import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {Address} from "./libraries/Address.sol";
 import {SafeERC20} from "./libraries/SafeERC20.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
-import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
+import {ICKBSpvV3} from "./interfaces/ICKBSpvV3.sol";
+import {Blake2b} from "./libraries/Blake2b.sol";
 
 contract TokenLockerV2 {
     using SafeMath for uint256;
@@ -24,7 +25,7 @@ contract TokenLockerV2 {
     bool public initialized;
     uint8 public recipientCellTypescriptHashType_;
     uint64 public numConfirmations_;
-    ICKBSpv public ckbSpv_;
+    ICKBSpvV3 public ckbSpv_;
     bytes32 public recipientCellTypescriptCodeHash_;
     bytes32 public lightClientTypescriptHash_;
     bytes32 public bridgeCellLockscriptCodeHash_;
@@ -61,7 +62,7 @@ contract TokenLockerV2 {
         require(!initialized, "Contract instance has already been initialized");
         initialized = true;
 
-        ckbSpv_ = ICKBSpv(ckbSpvAddress);
+        ckbSpv_ = ICKBSpvV3(ckbSpvAddress);
         numConfirmations_ = numConfirmations;
         recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
         recipientCellTypescriptHashType_ = typescriptHashType;
@@ -109,29 +110,46 @@ contract TokenLockerV2 {
         );
     }
 
-    function unlockToken(bytes calldata ckbTxProof, bytes calldata ckbTx, bytes calldata txRootsProofData) external {
-        require(ckbSpv_.proveTxExist(ckbTxProof, numConfirmations_), "tx from proofData should exist");
+    function unlockToken(bytes[] calldata ckbTxProofArray, bytes[] calldata ckbTxs, bytes calldata txRootProofData) external {
+        // 1. check proveTxRootExist
+        require(ckbSpv_.proveTxRootExist(txRootProofData), "txRoot from txRootProofData should exist on CKBChain");
 
-        bytes29 proof = ckbTxProof.ref(uint40(ViewSpv.SpvTypes.CKBTxProof));
-        bytes32 txHash = proof.txHash();
-        require(!usedTx_[txHash], "The burn tx cannot be reused");
-        usedTx_[txHash] = true;
-        require((txHash == CKBCrypto.digest(ckbTx, ckbTx.length)), "ckbTx mismatched with ckbTxProof");
+        // 2. check raw ckbTx, txProof and txRootProof match
+        bytes29 txRootProofView = txRootProofData.ref(
+            uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
+        );
+        bytes29 proofLeaves = txRootProofView.proofLeaves();
+        uint txsLength = ckbTxProofArray.length;
+        require(txsLength == ckbTxs.length, "length of ckbTxProofArray and ckbTxs mismatch");
 
-        (uint256 bridgeAmount, uint256 bridgeFee, address tokenAddress, address recipientAddress) = decodeBurnResult(ckbTx);
-        require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
-        uint256 receivedAmount = bridgeAmount - bridgeFee;
+        bytes29 txProofView;
+        bytes32 txHash;
+        for (uint i = 0; i < txsLength; i++) {
+            // - 1. check txHashes match from txProof and raw ckbTx
+            txProofView = ckbTxProofArray[i].ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof));
+            txHash = txProofView.historyTxHash();
+            require(!usedTx_[txHash], "The burn tx cannot be reused");
+            usedTx_[txHash] = true;
+            require((txHash == CKBCrypto.digest(ckbTxs[i], ckbTxs[i].length)), "ckbTx mismatched with CkbHistoryTxProof");
 
-        // if token == ETH
-        if (tokenAddress == address(0)) {
-            payable(recipientAddress).transfer(receivedAmount);
-            payable(msg.sender).transfer(bridgeFee);
-        } else {
-            IERC20(tokenAddress).safeTransfer(recipientAddress, receivedAmount);
-            IERC20(tokenAddress).safeTransfer(msg.sender, bridgeFee);
+            // - 2. check txRoot match from txProof and txRootProof
+            uint leavesIndex = uint(txProofView.txRootProofLeavesIndex());
+            _proveTxExist(txProofView, proofLeaves.indexH256Array(leavesIndex));
+
+            // - 3. unlockToken
+            (uint256 bridgeAmount, uint256 bridgeFee, address tokenAddress, address recipientAddress) = decodeBurnResult(ckbTxs[i]);
+            require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
+            uint256 receivedAmount = bridgeAmount - bridgeFee;
+            // address(0) means `ether` here
+            if (tokenAddress == address(0)) {
+                payable(recipientAddress).transfer(receivedAmount);
+                payable(msg.sender).transfer(bridgeFee);
+            } else {
+                IERC20(tokenAddress).safeTransfer(recipientAddress, receivedAmount);
+                IERC20(tokenAddress).safeTransfer(msg.sender, bridgeFee);
+            }
+            emit Unlocked(tokenAddress, recipientAddress, msg.sender, receivedAmount, bridgeFee);
         }
-
-        emit Unlocked(tokenAddress, recipientAddress, msg.sender, receivedAmount, bridgeFee);
     }
 
     function decodeBurnResult(bytes memory ckbTx) public view returns (
@@ -157,5 +175,40 @@ contract TokenLockerV2 {
         recipientCellData.tokenAddress(),
         recipientCellData.recipientAddress()
         );
+    }
+
+    function _proveTxExist(bytes29 txProofView, bytes32 targetTxRoot)
+    internal
+    view
+    returns (bool)
+    {
+        uint16 index = txProofView.txMerkleIndex();
+        uint16 sibling;
+        uint256 lemmasIndex = 0;
+        bytes29 lemmas = txProofView.lemmas();
+        uint256 length = lemmas.len() / 32;
+
+        // calc the rawTransactionsRoot
+        bytes32 rawTxRoot = txProofView.historyTxHash();
+        while (lemmasIndex < length && index > 0) {
+            sibling = ((index + 1) ^ 1) - 1;
+            if (index < sibling) {
+                rawTxRoot = Blake2b.digest64Merge(rawTxRoot, lemmas.indexH256Array(lemmasIndex));
+            } else {
+                rawTxRoot = Blake2b.digest64Merge(lemmas.indexH256Array(lemmasIndex), rawTxRoot);
+            }
+
+            lemmasIndex++;
+            // index = parent(index)
+            index = (index - 1) >> 1;
+        }
+
+        // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
+        bytes32 transactionsRoot = Blake2b.digest64Merge(rawTxRoot, txProofView.witnessesRoot());
+        require(
+            transactionsRoot == targetTxRoot,
+            "tx proof not passed"
+        );
+        return true;
     }
 }

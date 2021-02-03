@@ -17,6 +17,7 @@ library ViewSpv {
         H256,
         H256Array,
         U16Array,
+        CKBHistoryTxProof,
         CKBHistoryTxRootProof
     }
 
@@ -29,6 +30,7 @@ library ViewSpv {
         _;
     }
 
+    // ## CkbTxProof
     function txMerkleIndex(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBTxProof) returns (uint16) {
         uint256 startIndex = _input.indexLEUint(4, 4);
         return uint16(_input.indexLEUint(startIndex, 2));
@@ -75,6 +77,34 @@ library ViewSpv {
         return uint16(_arr.indexLEUint(_start, 2));
     }
 
+    // ## CkbHistoryTxProof
+    function historyTxMerkleIndex(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (uint16) {
+        uint256 startIndex = _input.indexLEUint(4, 4);
+        return uint16(_input.indexLEUint(startIndex, 2));
+    }
+
+    function txRootProofLeavesIndex(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (uint16) {
+        uint256 startIndex = _input.indexLEUint(8, 4);
+        return uint16(_input.indexLEUint(startIndex, 2));
+    }
+
+    function historyTxHash(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes32) {
+        uint256 startIndex = _input.indexLEUint(12, 4);
+        return _input.index(startIndex, 32);
+    }
+
+    function historyWitnessesRoot(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes32) {
+        uint256 startIndex = _input.indexLEUint(16, 4);
+        return _input.index(startIndex, 32);
+    }
+
+    function historyLemmas(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes29) {
+        uint256 startIndex = _input.indexLEUint(20, 4) + 4;
+        uint256 inputLength = _input.len();
+        return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.H256Array));
+    }
+
+    // ## CKBHistoryTxRootProof
     function initBlockNumber(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxRootProof) returns (uint64) {
         uint256 startIndex = _input.indexLEUint(4, 4);
         return uint64(_input.indexLEUint(startIndex, 8));
