@@ -45,7 +45,7 @@ CREATE TABLE `eth_to_ckb` (
   `ckb_recipient_lockscript` varchar(512) NOT NULL DEFAULT '',
   `sudt_extra_data` varchar(256) DEFAULT NULL,
   `ckb_tx_hash` varchar(64) DEFAULT NULL,
-  `eth_spv_proof` varchar(8192) DEFAULT NULL,
+  `eth_spv_proof` varchar(15360) DEFAULT NULL,
   `eth_block_number` int(11) unsigned NOT NULL,
   `replay_resist_outpoint` varchar(128) NOT NULL DEFAULT '',
   `ckb_block_number` int(11) unsigned DEFAULT '0',

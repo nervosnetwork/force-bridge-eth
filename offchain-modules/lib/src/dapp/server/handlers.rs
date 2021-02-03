@@ -36,6 +36,9 @@ pub async fn init_token(
             "invalid args: token address string length should be 40".to_string(),
         ));
     }
+    let _ = data.init_token_mutex.try_lock().map_err(|_| {
+        RpcError::BadRequest("init_token api should be serial accessed".to_string())
+    })?;
     let is_token_init = is_token_replay_resist_init(&data.db, args.token_address.as_str())
         .await
         .map_err(|e| {
@@ -45,7 +48,11 @@ pub async fn init_token(
         return Err(RpcError::BadRequest("token already inited".to_string()));
     }
     let cells = data
-        .get_or_create_bridge_cell(args.token_address.as_str(), REPLAY_RESIST_CELL_NUMBER)
+        .get_or_create_bridge_cell(
+            args.token_address.as_str(),
+            REPLAY_RESIST_CELL_NUMBER,
+            data.init_token_privkey.clone(),
+        )
         .await
         .map_err(|e| RpcError::ServerError(format!("get or create bridge cell error: {}", e)))?;
     add_replay_resist_cells(&data.db, &cells, args.token_address.as_str())
@@ -77,6 +84,14 @@ pub async fn lock(
         return Err(RpcError::BadRequest(
             "invalid args: token address string length should be 40".to_string(),
         ));
+    }
+    let is_token_init = is_token_replay_resist_init(&data.db, args.token_address.as_str())
+        .await
+        .map_err(|e| {
+            RpcError::ServerError(format!("get is_token_replay_resist_init error: {}", e))
+        })?;
+    if !is_token_init {
+        return Err(RpcError::BadRequest("token not init".to_string()));
     }
     let token_addr = convert_eth_address(&args.token_address)
         .map_err(|e| RpcError::BadRequest(format!("token address parse fail: {}", e)))?;
@@ -166,6 +181,7 @@ pub async fn burn(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: BurnArgs = serde_json::from_value(args.into_inner())
         .map_err(|e| RpcError::BadRequest(format!("invalid args: {}", e)))?;
+    log::info!("burn args: {:?}", args);
 
     let from_lockscript = Script::from(
         Address::from_str(args.from_lockscript_addr.as_str())
@@ -201,11 +217,6 @@ pub async fn burn(
         )
         .map_err(|e| RpcError::ServerError(format!("generate burn tx error: {}", e)))?;
     let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
-    log::info!(
-        "burn args: {} tx: {}",
-        serde_json::to_string_pretty(&args).unwrap(),
-        serde_json::to_string_pretty(&rpc_tx).unwrap()
-    );
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
 
@@ -216,11 +227,11 @@ pub async fn get_eth_to_ckb_status(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: GetEthToCkbStatusArgs = serde_json::from_value(args.into_inner())
         .map_err(|e| RpcError::BadRequest(format!("invalid args: {}", e)))?;
-
     log::info!("get_eth_to_ckb_status args: {:?}", args);
+
     if args.eth_lock_tx_hash.len() != 64 {
         return Err(RpcError::BadRequest(
-            "invalid args: lock hash string length should be 64".to_string(),
+            "invalid args: lock tx hash string length should be 64".to_string(),
         ));
     }
     let indexer_status = db::get_eth_to_ckb_indexer_status(&data.db, &args.eth_lock_tx_hash)
@@ -338,11 +349,10 @@ pub async fn get_sudt_balance(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: GetSudtBalanceArgs = serde_json::from_value(args.into_inner())
         .map_err(|e| RpcError::BadRequest(format!("invalid args: {}", e)))?;
-    log::info!("get_crosschain_history args: {:?}", args);
+    log::info!("get_sudt_balance args: {:?}", args);
 
     let token_address = convert_eth_address(args.token_address.as_str())
         .map_err(|e| RpcError::BadRequest(format!("token address parse fail: {}", e)))?;
-
     let lock_contract_address = convert_eth_address(
         data.deployed_contracts.eth_token_locker_addr.as_str(),
     )
@@ -359,7 +369,6 @@ pub async fn get_sudt_balance(
         .get_generator()
         .await
         .map_err(|e| RpcError::ServerError(format!("get_generator: {}", e)))?;
-
     let addr_lockscript: Script = {
         if args.address.is_some() {
             Address::from_str(&args.address.unwrap())
@@ -369,10 +378,8 @@ pub async fn get_sudt_balance(
         } else if args.script.is_some() {
             let script = hex::decode(args.script.unwrap())
                 .map_err(|e| RpcError::BadRequest(format!("invalid ckb_script: {}", e)))?;
-
             ScriptReader::verify(&script, false)
                 .map_err(|e| RpcError::BadRequest(format!("invalid ckb_script: {}", e)))?;
-
             Script::from_slice(&script)
                 .map_err(|e| RpcError::BadRequest(format!("invalid ckb_script: {}", e)))?
         } else {
@@ -402,9 +409,7 @@ pub async fn get_best_block_height(
         "ckb" => {
             let contract_address = convert_eth_address(&data.deployed_contracts.eth_ckb_chain_addr)
                 .map_err(|e| RpcError::ServerError(format!("eth_ckb_chain_addr invalid: {}", e)))?;
-
             let mut eth_client = Web3Client::new(data.eth_rpc_url.clone());
-
             let result = eth_client
                 .get_contract_height("latestBlockNumber", contract_address)
                 .await
@@ -414,7 +419,6 @@ pub async fn get_best_block_height(
                         e
                     ))
                 })?;
-
             Ok(HttpResponse::Ok().json(Uint64::from(result)))
         }
         "eth" => {
@@ -422,7 +426,6 @@ pub async fn get_best_block_height(
                 .get_generator()
                 .await
                 .map_err(|e| RpcError::ServerError(format!("get_generator: {}", e)))?;
-
             let script = parse_cell(
                 data.deployed_contracts
                     .light_client_cell_script
@@ -432,16 +435,13 @@ pub async fn get_best_block_height(
             .map_err(|e| {
                 RpcError::ServerError(format!("get light client typescript fail: {:?}", e))
             })?;
-
             let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
                 .map_err(|e| RpcError::ServerError(format!("get live cell fail: {:?}", e)))?
                 .ok_or_else(|| RpcError::ServerError("eth client cell not exist".to_string()))?;
-
             let (un_confirmed_headers, _) =
                 parse_main_chain_headers(cell.output_data.as_bytes().to_vec()).map_err(|e| {
                     RpcError::ServerError(format!("parse header data fail: {:?}", e))
                 })?;
-
             let best_header = un_confirmed_headers
                 .last()
                 .ok_or_else(|| RpcError::ServerError("header is none".to_string()))?;
@@ -451,7 +451,7 @@ pub async fn get_best_block_height(
             Ok(HttpResponse::Ok().json(Uint64::from(best_block_number.as_u64())))
         }
         _ => {
-            return Err(RpcError::ServerError(
+            return Err(RpcError::BadRequest(
                 "unknown chain type, only support eth and ckb".to_string(),
             ));
         }

@@ -11,7 +11,7 @@ use crate::util::ckb_tx_generator::Generator;
 use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::Web3Client;
 use actix_web::{App, HttpServer};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use force_sdk::util::ensure_indexer_sync;
 use handlers::*;
 use shellexpand::tilde;
@@ -19,23 +19,25 @@ use sqlx::mysql::MySqlPool;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-const REPLAY_RESIST_CHANNEL_BOUND: usize = 5000;
 pub const REPLAY_RESIST_CELL_NUMBER: usize = 500;
-const REFRESH_RATE: usize = 50; // 50/100
+const REFRESH_RATE: usize = 60; // 60/100
 const REPLAY_RESIST_CELL_CAPACITY: &str = "315";
-const CREATE_REPLAY_RESIST_CELL_FEE: &str = "0.9";
 
 #[derive(Clone)]
 pub struct DappState {
     pub config_path: String,
     pub network: Option<String>,
     pub deployed_contracts: DeployedContracts,
-    pub ckb_privkey_path: String,
+    pub init_token_privkey: String,
+    pub refresh_cell_privkey: String,
+    pub mint_privkey: String,
+    pub create_bridge_cell_fee: String,
     pub indexer_url: String,
     pub ckb_rpc_url: String,
     pub eth_rpc_url: String,
     pub db: MySqlPool,
     pub replay_resist_sender: mpsc::Sender<ReplayResistTask>,
+    pub init_token_mutex: Arc<Mutex<i32>>,
 }
 
 pub struct ReplayResistTask {
@@ -47,7 +49,9 @@ impl DappState {
     pub async fn new(
         config_path: String,
         network: Option<String>,
-        ckb_privkey_path: String,
+        server_privkey_path: Vec<String>,
+        mint_privkey_path: String,
+        create_bridge_cell_fee: String,
         db_path: String,
         replay_resist_sender: mpsc::Sender<ReplayResistTask>,
     ) -> Result<Self> {
@@ -56,19 +60,27 @@ impl DappState {
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
+        if server_privkey_path.len() != 2 {
+            bail!("invalid args: ckb private key path length should be 2");
+        }
         let db = MySqlPool::connect(&db_path).await?;
+        let init_token_mutex = Arc::new(Mutex::new(1));
         Ok(Self {
             config_path,
             indexer_url,
             ckb_rpc_url,
             eth_rpc_url,
-            ckb_privkey_path,
+            init_token_privkey: server_privkey_path[0].clone(),
+            refresh_cell_privkey: server_privkey_path[1].clone(),
+            mint_privkey: mint_privkey_path,
+            create_bridge_cell_fee,
             deployed_contracts: force_config
                 .deployed_contracts
                 .expect("contracts should be deployed"),
             network,
             db,
             replay_resist_sender,
+            init_token_mutex,
         })
     }
 
@@ -93,12 +105,14 @@ impl DappState {
         &self,
         token: &str,
         cell_num: usize,
+        privkey: String,
     ) -> Result<Vec<String>> {
         to_ckb::get_or_create_bridge_cell(
             self.config_path.clone(),
             self.network.clone(),
-            self.ckb_privkey_path.clone(),
-            CREATE_REPLAY_RESIST_CELL_FEE.to_string(),
+            privkey,
+            self.mint_privkey.clone(),
+            self.create_bridge_cell_fee.clone(),
             REPLAY_RESIST_CELL_CAPACITY.to_string(),
             token.to_string(),
             "".to_string(),
@@ -113,7 +127,11 @@ impl DappState {
 
     pub async fn try_refresh_replay_resist_cells(&self, token: &str) -> Result<()> {
         let fresh_cells = self
-            .get_or_create_bridge_cell(token, REPLAY_RESIST_CELL_NUMBER * 2)
+            .get_or_create_bridge_cell(
+                token,
+                REPLAY_RESIST_CELL_NUMBER * 2,
+                self.refresh_cell_privkey.clone(),
+            )
             .await?;
         let (delete_cells, add_cells) = self
             .prepare_cell_modification(fresh_cells, token.to_string())
@@ -163,23 +181,28 @@ impl DappState {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn start(
     config_path: String,
     network: Option<String>,
-    ckb_private_key_path: String,
+    server_private_key_path: Vec<String>,
+    mint_private_key_path: String,
+    lock_api_channel_bound: usize,
+    create_bridge_cell_fee: String,
     listen_url: String,
     db_path: String,
-) -> std::io::Result<()> {
-    let (sender, mut receiver) = mpsc::channel(REPLAY_RESIST_CHANNEL_BOUND);
+) -> Result<()> {
+    let (sender, mut receiver) = mpsc::channel(lock_api_channel_bound);
     let dapp_state = DappState::new(
         config_path,
         network,
-        ckb_private_key_path,
+        server_private_key_path,
+        mint_private_key_path,
+        create_bridge_cell_fee,
         db_path,
         sender.clone(),
     )
-    .await
-    .expect("init dapp server succeed");
+    .await?;
     let dapp_state_for_receiver = dapp_state.clone();
 
     tokio::spawn(async move {
@@ -197,7 +220,9 @@ pub async fn start(
             let (cell_count, replay_resist_cell) = result.unwrap();
             if replay_resist_cell == "" {
                 task.resp
-                    .send(Err(anyhow!("replay resist cell is exhausted, please wait")))
+                    .send(Err(anyhow!(
+                        "replay resist cell is exhausted, please wait for create new cells"
+                    )))
                     .expect("send response to lock handler succeed");
             } else {
                 task.resp
