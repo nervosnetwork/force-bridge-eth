@@ -1,10 +1,15 @@
 FORCE_CLI := ./offchain-modules/target/debug/force-eth-cli
+FORCE_CLI_OFFCHAIN := target/debug/force-eth-cli
 
 .EXPORT_ALL_VARIABLES:
 
 FORCE_CONFIG_PATH=${HOME}/.force-bridge/config.toml
 RUST_BACKTRACE=1
 RUST_LOG=warn,force=info
+DB_PATH=mysql://root:@127.0.0.1:3306/${DB_NAME}
+DB_NAME=forcedb
+CKB_MINT_PRIVKY=2
+ETH_UNLOCK_PRIVKEY=2
 
 ci: modules-ci integration-ci
 
@@ -73,9 +78,17 @@ restart-eth2ckb-relay:
 
 restart-relay: restart-ckb2eth-relay restart-eth2ckb-relay
 
+start-tx-relay:
+	cd offchain-modules \
+	&& pm2 start --name force-server "${FORCE_CLI_OFFCHAIN} dapp server  --server-private-key-path 4 5  --mint-private-key-path ${CKB_MINT_PRIVKY} --listen-url 0.0.0.0:3003 --db-path ${DB_PATH}" \
+    && pm2 start --name ckb-indexer "${FORCE_CLI_OFFCHAIN} dapp ckb-indexer --db-path ${DB_PATH}" \
+    && pm2 start --name eth-indexer "${FORCE_CLI_OFFCHAIN} dapp eth-indexer --db-path ${DB_PATH}" \
+    && pm2 start --name ckb-tx-relayer "${FORCE_CLI_OFFCHAIN} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY}" \
+    && pm2 start --name eth-tx-relayer "${FORCE_CLI_OFFCHAIN} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY}"
+
 start-force-server:
 	cd offchain-modules \
-	&& pm2 start --name force-server "./target/debug/force-eth-cli server  --ckb-private-key-path 2 --eth-private-key-path 2 --listen-url 0.0.0.0:3003"
+	&& pm2 start --name force-server "${FORCE_CLI_OFFCHAIN} server  --ckb-private-key-path 2 --eth-private-key-path 2 --listen-url 0.0.0.0:3003"
 
 restart-force-server:
 	pm2 restart force-server
@@ -113,6 +126,7 @@ github-ci:
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
+	make start-tx-relay
 	make test-dapp-server
 
 demo-crosschain:
