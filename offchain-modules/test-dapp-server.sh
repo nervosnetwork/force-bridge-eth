@@ -36,7 +36,7 @@ start_mysql() {
     docker run -e MYSQL_ROOT_PASSWORD=root -p 3306:3306 --name ${MYSQL_NAME} -d mysql:5.7
     docker exec ${MYSQL_NAME} bash -c "echo -e '[mysqld]\nskip-grant-tables' > /etc/mysql/conf.d/my.cnf"
     docker restart ${MYSQL_NAME}
-    sleep 2
+    sleep 8
 #    docker exec ${MYSQL_NAME} mysql --user root --password=root -e "drop database ${DB_NAME};"
     docker exec ${MYSQL_NAME} mysql --user root --password=root -e "create database ${DB_NAME}; use ${DB_NAME}; show tables;"
     files=$(ls $SQL_PATH)

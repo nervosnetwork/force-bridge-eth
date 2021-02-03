@@ -179,6 +179,7 @@ impl DappState {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn start(
     config_path: String,
     network: Option<String>,
