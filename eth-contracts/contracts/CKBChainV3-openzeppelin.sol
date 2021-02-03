@@ -13,7 +13,7 @@ import {ICKBSpvV3} from "./interfaces/ICKBSpvV3.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 
 // tools below just for test, they will be removed before production ready
-import "./test/console.sol";
+//import "./test/console.sol";
 
 contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
     using TypedMemView for bytes;
@@ -243,61 +243,6 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
             delete canonicalHeaderHashes[number];
             number--;
         }
-    }
-
-    // #ICKBSpv
-    function proveTxExist(bytes calldata txProofData, uint64 numConfirmations)
-        override
-        external
-        view
-        returns (bool)
-    {
-        bytes29 proofView = txProofData.ref(
-            uint40(ViewSpv.SpvTypes.CKBTxProof)
-        );
-        uint64 blockNumber = proofView.spvBlockNumber();
-        bytes32 blockHash = proofView.blockHash();
-
-        require(
-            uint256(blockNumber) + uint256(numConfirmations) <= uint256(latestBlockNumber),
-            "blockNumber from txProofData is too ahead of the latestBlockNumber"
-        );
-        require(
-            canonicalHeaderHashes[blockNumber] == blockHash,
-            "blockNumber and blockHash mismatch"
-        );
-        require(
-            canonicalTransactionsRoots[blockHash] != bytes32(0),
-            "blockHash invalid or too old"
-        );
-        uint16 index = proofView.txMerkleIndex();
-        uint16 sibling;
-        uint256 lemmasIndex = 0;
-        bytes29 lemmas = proofView.lemmas();
-        uint256 length = lemmas.len() / 32;
-
-        // calc the rawTransactionsRoot
-        bytes32 rawTxRoot = proofView.txHash();
-        while (lemmasIndex < length && index > 0) {
-            sibling = ((index + 1) ^ 1) - 1;
-            if (index < sibling) {
-                rawTxRoot = Blake2b.digest64Merge(rawTxRoot, lemmas.indexH256Array(lemmasIndex));
-            } else {
-                rawTxRoot = Blake2b.digest64Merge(lemmas.indexH256Array(lemmasIndex), rawTxRoot);
-            }
-
-            lemmasIndex++;
-            // index = parent(index)
-            index = (index - 1) >> 1;
-        }
-
-        // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
-        bytes32 transactionsRoot = Blake2b.digest64Merge(rawTxRoot, proofView.witnessesRoot());
-        require(
-            transactionsRoot == canonicalTransactionsRoots[blockHash],
-            "proof not passed"
-        );
-        return true;
     }
 
     // CKBChainV3-----------------------------
