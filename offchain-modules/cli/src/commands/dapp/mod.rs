@@ -24,6 +24,8 @@ async fn server(args: ServerArgs) -> Result<()> {
         args.config_path,
         args.network,
         args.ckb_private_key_path,
+        args.lock_api_channel_bound,
+        args.create_bridge_cell_fee,
         args.listen_url,
         args.db_path,
     )

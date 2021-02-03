@@ -18,6 +18,7 @@ CKB_URL=http://127.0.0.1:8114
 INDEXER_URL=http://127.0.0.1:8116
 HEADER_RELAY_PRIVKEY=1
 CKB_MINT_PRIVKY=2
+API_SERVER_PRIVKEY="4 5"
 ETH_UNLOCK_PRIVKEY=2
 SQL_PATH="$PROJECT_DIR"/offchain-modules/lib/src/dapp/db/source/
 DB_NAME=forcedb
@@ -67,7 +68,7 @@ stop_service() {
 
 start_server(){
   cd ${OFFCHAIN}
-  ${FORCE_CLI} dapp server  --ckb-private-key-path ${CKB_MINT_PRIVKY}  --listen-url 0.0.0.0:3003 --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/force-server.log 2>&1 &
+  ${FORCE_CLI} dapp server  --ckb-private-key-path "${API_SERVER_PRIVKEY}"  --listen-url 0.0.0.0:3003 --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/force-server.log 2>&1 &
 }
 
 start_tx_relay(){

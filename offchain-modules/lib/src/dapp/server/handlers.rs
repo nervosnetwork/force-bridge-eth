@@ -48,7 +48,11 @@ pub async fn init_token(
         return Err(RpcError::BadRequest("token already inited".to_string()));
     }
     let cells = data
-        .get_or_create_bridge_cell(args.token_address.as_str(), REPLAY_RESIST_CELL_NUMBER)
+        .get_or_create_bridge_cell(
+            args.token_address.as_str(),
+            REPLAY_RESIST_CELL_NUMBER,
+            data.init_token_privkey.clone(),
+        )
         .await
         .map_err(|e| RpcError::ServerError(format!("get or create bridge cell error: {}", e)))?;
     add_replay_resist_cells(&data.db, &cells, args.token_address.as_str())
