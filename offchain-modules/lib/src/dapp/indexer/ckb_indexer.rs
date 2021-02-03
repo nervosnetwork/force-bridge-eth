@@ -453,11 +453,15 @@ pub fn is_mint_tx(
 ) -> Result<bool> {
     let sudt_typescript_code_hash = hex::decode(&deployed_contracts.sudt.code_hash)?;
     let bridge_typescript_code_hash = hex::decode(&deployed_contracts.bridge_typescript.code_hash)?;
+    let simple_typescript_code_hash =
+        hex::decode(&deployed_contracts.simple_bridge_typescript.code_hash)?;
     if sudt_script.code_hash().as_slice() == sudt_typescript_code_hash.as_slice() {
         for i in 1..tx.outputs.len() {
             let bridge_type_script_op = tx.outputs[i].clone().type_;
             if let Some(bridge_type_script) = bridge_type_script_op {
                 if bridge_type_script.code_hash.as_bytes() == bridge_typescript_code_hash.as_slice()
+                    || bridge_type_script.code_hash.as_bytes()
+                        == simple_typescript_code_hash.as_slice()
                 {
                     return Ok(true);
                 }
