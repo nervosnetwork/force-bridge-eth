@@ -68,7 +68,7 @@ stop_service() {
 
 start_server(){
   cd ${OFFCHAIN}
-  ${FORCE_CLI} dapp server  --ckb-private-key-path "${API_SERVER_PRIVKEY}"  --listen-url 0.0.0.0:3003 --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/force-server.log 2>&1 &
+  ${FORCE_CLI} dapp server  --server-private-key-path ${API_SERVER_PRIVKEY}  --mint-private-key-path ${CKB_MINT_PRIVKY} --listen-url 0.0.0.0:3003 --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/force-server.log 2>&1 &
 }
 
 start_tx_relay(){

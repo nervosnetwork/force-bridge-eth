@@ -16,7 +16,9 @@ pub struct ServerArgs {
     #[clap(long)]
     pub network: Option<String>,
     #[clap(short = 'c', long)]
-    pub ckb_private_key_path: Vec<String>,
+    pub server_private_key_path: Vec<String>,
+    #[clap(long)]
+    pub mint_private_key_path: String,
     #[clap(long, default_value = "5000")]
     pub lock_api_channel_bound: usize,
     #[clap(long, default_value = "0.9")]

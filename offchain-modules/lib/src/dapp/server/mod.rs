@@ -30,6 +30,7 @@ pub struct DappState {
     pub deployed_contracts: DeployedContracts,
     pub init_token_privkey: String,
     pub refresh_cell_privkey: String,
+    pub mint_privkey: String,
     pub create_bridge_cell_fee: String,
     pub indexer_url: String,
     pub ckb_rpc_url: String,
@@ -48,7 +49,8 @@ impl DappState {
     pub async fn new(
         config_path: String,
         network: Option<String>,
-        ckb_privkey_path: Vec<String>,
+        server_privkey_path: Vec<String>,
+        mint_privkey_path: String,
         create_bridge_cell_fee: String,
         db_path: String,
         replay_resist_sender: mpsc::Sender<ReplayResistTask>,
@@ -58,7 +60,7 @@ impl DappState {
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
-        if ckb_privkey_path.len() != 2 {
+        if server_privkey_path.len() != 2 {
             bail!("invalid args: ckb private key path length should be 2");
         }
         let db = MySqlPool::connect(&db_path).await?;
@@ -68,8 +70,9 @@ impl DappState {
             indexer_url,
             ckb_rpc_url,
             eth_rpc_url,
-            init_token_privkey: ckb_privkey_path[0].clone(),
-            refresh_cell_privkey: ckb_privkey_path[1].clone(),
+            init_token_privkey: server_privkey_path[0].clone(),
+            refresh_cell_privkey: server_privkey_path[1].clone(),
+            mint_privkey: mint_privkey_path,
             create_bridge_cell_fee,
             deployed_contracts: force_config
                 .deployed_contracts
@@ -108,6 +111,7 @@ impl DappState {
             self.config_path.clone(),
             self.network.clone(),
             privkey,
+            self.mint_privkey.clone(),
             self.create_bridge_cell_fee.clone(),
             REPLAY_RESIST_CELL_CAPACITY.to_string(),
             token.to_string(),
@@ -178,7 +182,8 @@ impl DappState {
 pub async fn start(
     config_path: String,
     network: Option<String>,
-    ckb_private_key_path: Vec<String>,
+    server_private_key_path: Vec<String>,
+    mint_private_key_path: String,
     lock_api_channel_bound: usize,
     create_bridge_cell_fee: String,
     listen_url: String,
@@ -188,7 +193,8 @@ pub async fn start(
     let dapp_state = DappState::new(
         config_path,
         network,
-        ckb_private_key_path,
+        server_private_key_path,
+        mint_private_key_path,
         create_bridge_cell_fee,
         db_path,
         sender.clone(),

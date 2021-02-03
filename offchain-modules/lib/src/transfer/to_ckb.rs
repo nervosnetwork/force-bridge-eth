@@ -561,7 +561,8 @@ pub async fn init_multi_sign_address(
 pub async fn get_or_create_bridge_cell(
     config_path: String,
     network: Option<String>,
-    private_key_path: String,
+    sender_privkey_path: String,
+    owner_privkey_path: String,
     tx_fee: String,
     capacity: String,
     eth_token_address_str: String,
@@ -582,8 +583,10 @@ pub async fn get_or_create_bridge_cell(
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
-    let from_privkey = parse_privkey_path(&private_key_path, &force_config, &network)?;
+    let from_privkey = parse_privkey_path(&sender_privkey_path, &force_config, &network)?;
     let from_lockscript = parse_privkey(&from_privkey);
+    let owner_privkey = parse_privkey_path(&owner_privkey_path, &force_config, &network)?;
+    let owner_lockscript = parse_privkey(&owner_privkey);
 
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
         .map_err(|e| anyhow!(e))?
@@ -602,7 +605,7 @@ pub async fn get_or_create_bridge_cell(
 
     let bridge_typescript = match simple_typescript {
         true => {
-            let bridge_typescript_args = from_lockscript.calc_script_hash();
+            let bridge_typescript_args = owner_lockscript.calc_script_hash();
             Script::new_builder()
                 .code_hash(Byte32::from_slice(
                     &hex::decode(&deployed_contracts.simple_bridge_typescript.code_hash).unwrap(),
@@ -657,6 +660,7 @@ pub async fn get_or_create_bridge_cell(
             tx_fee,
             capacity,
             from_lockscript,
+            owner_lockscript,
             bridge_typescript,
             bridge_lockscript,
             bridge_fee,
