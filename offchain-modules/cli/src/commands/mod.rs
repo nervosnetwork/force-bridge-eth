@@ -120,6 +120,7 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
     let outpoint_hex = get_or_create_bridge_cell(
         args.config_path,
         args.network,
+        args.private_key_path.clone(),
         args.private_key_path,
         args.tx_fee,
         args.capacity,

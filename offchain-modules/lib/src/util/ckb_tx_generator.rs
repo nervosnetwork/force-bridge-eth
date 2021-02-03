@@ -679,6 +679,7 @@ impl Generator {
         tx_fee: u64,
         capacity: u64,
         from_lockscript: Script,
+        owner_lockscript: Script,
         bridge_typescript: Script,
         bridge_lockscript: Script,
         bridge_fee: u128,
@@ -702,7 +703,7 @@ impl Generator {
             .map_err(|err| anyhow!(err))?;
         // build bridge data
         let bridge_data = ETHBridgeTypeData::new_builder()
-            .owner_lock_script(from_lockscript.as_slice().to_vec().into())
+            .owner_lock_script(owner_lockscript.as_slice().to_vec().into())
             .fee(bridge_fee.into())
             .build();
         // build output
