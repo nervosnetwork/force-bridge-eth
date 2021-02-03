@@ -126,7 +126,6 @@ github-ci:
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
-	make start-tx-relay
 	make test-dapp-server
 
 demo-crosschain:
