@@ -1897,6 +1897,7 @@ dependencies = [
  "futures 0.3.8",
  "hex 0.4.2",
  "log",
+ "merkle-cbt",
  "molecule",
  "rand 0.7.3",
  "reqwest 0.10.10",

@@ -88,7 +88,7 @@ async function deploy() {
   // await sleep(waitingSeconds);
 
   // deploy TokenLocker
-  const numConfirmations = 10;
+  const numConfirmations = 1;
   factory = await ethers.getContractFactory(
     'contracts/TokenLockerV2-openzeppelin.sol:TokenLockerV2'
   );

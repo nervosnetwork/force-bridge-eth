@@ -257,11 +257,19 @@ pub async fn unlock(
 
 pub fn get_add_ckb_headers_func() -> Function {
     Function {
-        name: "addHeaders".to_owned(),
+        name: "addHistoryTxRoot".to_owned(),
         inputs: vec![
             Param {
-                name: "tinyHeaders".to_owned(),
-                kind: ParamType::Array(Box::new(ParamType::Bytes)),
+                name: "_initBlockNumber".to_owned(),
+                kind: ParamType::Uint(64),
+            },
+            Param {
+                name: "_latestBlockNumber".to_owned(),
+                kind: ParamType::Uint(64),
+            },
+            Param {
+                name: "_historyTxRoot".to_owned(),
+                kind: ParamType::FixedBytes(32),
             },
             Param {
                 name: "signatures".to_owned(),
@@ -478,12 +486,12 @@ pub async fn get_balance(
 pub fn get_msg_hash(
     chain_id: U256,
     contract_addr: H160,
-    headers_data: Vec<Token>,
+    init_block_number: u64,
+    latest_block_number: u64,
+    history_tx_root: [u8; 32],
 ) -> Result<[u8; 32]> {
     let ckb_light_client_name = "Force Bridge CKBChain";
     let vesion = "1";
-    let add_headers_func_name = "AddHeaders(bytes[] tinyHeaders)";
-    let pack_number = 1901;
     let eip712_domain =
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
 
@@ -497,18 +505,20 @@ pub fn get_msg_hash(
 
     let domain_separator = keccak256(domain_data.as_slice());
 
-    let add_headers_type_hash = keccak256(add_headers_func_name.as_bytes());
+    let add_headers_type_hash =
+        hex::decode("0eeee1be1069b2c737b19f6c3510ceeed099af9ee1f5985109f117ce0524ca10")?;
     let msg = ethabi::encode(&[
-        Token::FixedBytes(Vec::from(add_headers_type_hash)),
-        Token::Array(headers_data),
+        Token::FixedBytes(add_headers_type_hash),
+        Token::Uint(init_block_number.into()),
+        Token::Uint(latest_block_number.into()),
+        Token::FixedBytes(history_tx_root.to_vec()),
     ]);
 
     let msg_data_hash = keccak256(&msg);
 
     info!("msg_data_hash {:?}  \n", hex::encode(msg_data_hash));
     let data = format!(
-        "{}{}{}",
-        pack_number,
+        "1901{}{}",
         hex::encode(domain_separator),
         hex::encode(msg_data_hash)
     );

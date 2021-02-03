@@ -5,13 +5,17 @@ use crate::util::eth_util::{
     convert_eth_address, parse_secret_key, relay_header_transaction, Web3Client,
 };
 use anyhow::{anyhow, bail, Result};
-use ethabi::Token;
+use ckb_sdk::HttpRpcClient;
+use ethabi::{FixedBytes, Token};
 use ethereum_types::U256;
 use futures::future::try_join_all;
 use log::info;
+use merkle_cbt::{merkle_tree::Merge, CBMT as ExCBMT};
 use secp256k1::SecretKey;
+use std::collections::HashMap;
 use std::ops::Add;
 use std::time::Instant;
+use tiny_keccak::{Hasher, Keccak};
 use web3::types::{H160, H256};
 
 pub struct CKBRelayer {
@@ -21,6 +25,7 @@ pub struct CKBRelayer {
     pub web3_client: Web3Client,
     pub gas_price: U256,
     pub multisig_privkeys: Vec<SecretKey>,
+    pub ckb_rpc_url: String,
 }
 
 impl CKBRelayer {
@@ -34,12 +39,13 @@ impl CKBRelayer {
         multisig_privkeys: Vec<H256>,
     ) -> Result<CKBRelayer> {
         let contract_addr = convert_eth_address(&eth_ckb_chain_addr)?;
-        let ckb_client = Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
+        let ckb_client = Generator::new(ckb_rpc_url.clone(), ckb_indexer_url, Default::default())
             .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
         let web3_client = Web3Client::new(eth_rpc_url);
         let gas_price = U256::from(gas_price);
 
         Ok(CKBRelayer {
+            ckb_rpc_url: ckb_rpc_url.clone(),
             contract_addr,
             priv_key,
             ckb_client,
@@ -63,84 +69,52 @@ impl CKBRelayer {
             .web3_client
             .get_contract_height("latestBlockNumber", self.contract_addr)
             .await?;
-        if client_block_number < client_init_height {
-            client_block_number = client_init_height;
-        }
-        while client_block_number > client_init_height {
-            let ckb_header_hash = self
-                .ckb_client
-                .rpc_client
-                .get_block_hash(client_block_number)
-                .map_err(|e| anyhow!("failed to get ckb block hash: {}", e))?
-                .ok_or_else(|| anyhow!("ckb block {:?}  hash is none", client_block_number))?;
-
-            if self
-                .web3_client
-                .is_header_exist_v2(client_block_number, ckb_header_hash, self.contract_addr)
-                .await?
-            {
-                break;
-            }
-            info!(
-                "client contract forked, forked block height: {}",
-                client_block_number
-            );
-            client_block_number -= 1;
-        }
-
-        let mut block_height = client_block_number + 1;
         let ckb_current_height = self
             .ckb_client
             .rpc_client
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
-        info!("ckb_current_height:{:?}", ckb_current_height);
+        let merkle_root = self.get_history_merkle_root(client_init_height, ckb_current_height)?;
         let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
-        let mut sequence: u64 = 0;
-
-        let mut futures = vec![];
-
-        let mut target_height = block_height + per_amount * max_tx_amount;
-        if target_height > ckb_current_height {
-            target_height = ckb_current_height;
-        }
-
-        while block_height + per_amount <= target_height {
-            let height_range = block_height..block_height + per_amount;
-            block_height += per_amount;
-
-            let heights: Vec<u64> = height_range.clone().collect();
-            let sign_tx = self.relay_headers(heights, nonce.add(sequence)).await?;
-            futures.push(relay_header_transaction(eth_url.clone(), sign_tx));
-            sequence += 1;
-        }
-        if !futures.is_empty() {
-            let now = Instant::now();
-            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
-            let task_future = try_join_all(futures);
-            tokio::select! {
-                v = task_future => { v?; }
-                _ = timeout_future => {
-                    bail!("relay headers timeout");
-                }
+        let sign_tx = self
+            .relay_headers(client_init_height, ckb_current_height, merkle_root, nonce)
+            .await?;
+        let task_future = relay_header_transaction(eth_url.clone(), sign_tx);
+        let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
+        let now = Instant::now();
+        tokio::select! {
+            v = task_future => { v?; }
+            _ = timeout_future => {
+                bail!("relay headers timeout");
             }
-            info!("relay headers time elapsed: {:?}", now.elapsed());
         }
+        info!("relay headers time elapsed: {:?}", now.elapsed());
         Ok(())
     }
 
-    pub async fn relay_headers(&mut self, heights: Vec<u64>, asec_nonce: U256) -> Result<Vec<u8>> {
-        let headers = self.ckb_client.get_ckb_headers_v2(heights.clone())?;
-
+    pub async fn relay_headers(
+        &mut self,
+        init_block_number: u64,
+        latest_block_number: u64,
+        history_tx_root: [u8; 32],
+        asec_nonce: U256,
+    ) -> Result<Vec<u8>> {
+        info!("relay headers. init_block_number: {:?}, latest_block_number: {:?}, history_tx_root: {:?}, asec_nonce: {:?}",
+            init_block_number,
+            latest_block_number,
+            &history_tx_root,
+            &asec_nonce,
+        );
         let add_headers_func = get_add_ckb_headers_func();
         let chain_id = self.web3_client.client().eth().chain_id().await?;
 
-        let header_datas = headers
-            .into_iter()
-            .map(Token::Bytes)
-            .collect::<Vec<Token>>();
-
-        let headers_msg_hash = get_msg_hash(chain_id, self.contract_addr, header_datas.clone())?;
+        let headers_msg_hash = get_msg_hash(
+            chain_id,
+            self.contract_addr,
+            init_block_number,
+            latest_block_number,
+            history_tx_root.clone(),
+        )?;
 
         let mut signatures: Vec<u8> = vec![];
         for &privkey in self.multisig_privkeys.iter() {
@@ -149,8 +123,12 @@ impl CKBRelayer {
         }
         info!("msg signatures {}", hex::encode(&signatures));
 
-        let add_headers_abi = add_headers_func
-            .encode_input(&[Token::Array(header_datas), Token::Bytes(signatures)])?;
+        let add_headers_abi = add_headers_func.encode_input(&[
+            Token::Uint(init_block_number.into()),
+            Token::Uint(latest_block_number.into()),
+            Token::FixedBytes(history_tx_root.to_vec()),
+            Token::Bytes(signatures),
+        ])?;
         let increased_gas_price =
             self.web3_client.client().eth().gas_price().await?.as_u128() * 3 / 2;
         let signed_tx = self
@@ -160,8 +138,8 @@ impl CKBRelayer {
                 self.priv_key,
                 add_headers_abi,
                 U256::from(increased_gas_price),
-                Some(U256::from(1_500_000)),
-                U256::from(0),
+                Some(U256::from(1_500_000u64)),
+                U256::from(0u64),
                 asec_nonce,
             )
             .await?;
@@ -192,4 +170,48 @@ impl CKBRelayer {
             .number;
         Ok(ckb_height)
     }
+
+    pub fn get_history_merkle_root(
+        &self,
+        start_height: u64,
+        latest_height: u64,
+    ) -> Result<[u8; 32]> {
+        let mut rpc_client = HttpRpcClient::new(self.ckb_rpc_url.clone());
+        let mut all_tx_roots = vec![];
+        // TODO: use rocksdb here to persist header data
+        for number in start_height..=latest_height {
+            match rpc_client
+                .get_header_by_number(number)
+                .map_err(|e| anyhow!("get_header_by_number err: {:?}", e))?
+            {
+                Some(header_view) => {
+                    let root = header_view.inner.transactions_root;
+                    all_tx_roots.push(root.0)
+                }
+                None => {
+                    bail!(
+                        "cannot get the block transactions root, block_number = {}",
+                        number
+                    );
+                }
+            }
+        }
+        Ok(CBMT::build_merkle_root(&all_tx_roots))
+    }
 }
+
+pub struct Keccak256;
+
+impl Merge for Keccak256 {
+    type Item = [u8; 32];
+    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
+        let mut output = [0u8; 32];
+        let mut hasher = Keccak::v256();
+        hasher.update(left);
+        hasher.update(right);
+        hasher.finalize(&mut output);
+        output
+    }
+}
+
+type CBMT = ExCBMT<[u8; 32], Keccak256>;

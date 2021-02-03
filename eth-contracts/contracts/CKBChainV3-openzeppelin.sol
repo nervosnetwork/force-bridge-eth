@@ -184,6 +184,8 @@ contract CKBChainV3 is ICKBSpvV3 {
     view
     returns (bool)
     {
+        // todo: check numconfirmations
+
         bytes29 txRootProofView = txRootProofData.ref(
             uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
         );
@@ -238,11 +240,10 @@ contract CKBChainV3 is ICKBSpvV3 {
 
             // push parentTreeNode to queue
             // parentIndex == (currentIndex - 1) >> 1, parentNode
-            // TODO modify Blake2b.digest64Merge to keccak256
             if (currentIndex < siblingIndex) {
-                queue[end] = TreeNode((currentIndex - 1) >> 1, Blake2b.digest64Merge(currentNode, siblingNode));
+                queue[end] = TreeNode((currentIndex - 1) >> 1, keccak256(abi.encodePacked(currentNode, siblingNode)));
             } else {
-                queue[end] = TreeNode((currentIndex - 1) >> 1, Blake2b.digest64Merge(siblingNode, currentNode));
+                queue[end] = TreeNode((currentIndex - 1) >> 1, keccak256(abi.encodePacked(siblingNode, currentNode)));
             }
             end = (end + 1) % queueLength;
         }
