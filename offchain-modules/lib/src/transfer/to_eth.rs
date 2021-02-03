@@ -211,8 +211,7 @@ pub async fn unlock(
     network: Option<String>,
     key_path: String,
     to: String,
-    tx_proof: String,
-    raw_tx: String,
+    proof: String,
     gas_price: u64,
     wait: bool,
 ) -> Result<String> {
@@ -221,25 +220,18 @@ pub async fn unlock(
     let to = convert_eth_address(&to)?;
     let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
     let mut rpc_client = Web3Client::new(eth_url);
-    let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
-    let tx_info = hex::decode(raw_tx).map_err(|err| anyhow!(err))?;
+    let proof = hex::decode(proof).map_err(|err| anyhow!(err))?;
 
     let function = Function {
         name: "unlockToken".to_owned(),
-        inputs: vec![
-            Param {
-                name: "ckbTxProof".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "ckbTx".to_owned(),
-                kind: ParamType::Bytes,
-            },
-        ],
+        inputs: vec![Param {
+            name: "proof".to_owned(),
+            kind: ParamType::Bytes,
+        }],
         outputs: vec![],
         constant: false,
     };
-    let tokens = [Token::Bytes(proof), Token::Bytes(tx_info)];
+    let tokens = [Token::Bytes(proof)];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
         .send_transaction(
@@ -247,7 +239,7 @@ pub async fn unlock(
             eth_private_key,
             input_data,
             U256::from(gas_price),
-            U256::from(0),
+            U256::from(0u64),
             wait,
         )
         .await?;
@@ -307,9 +299,22 @@ pub fn get_init_ckb_headers_func() -> Function {
     }
 }
 
-pub fn get_ckb_proof_info(tx_hash_str: &str, rpc_url: String) -> Result<(String, String)> {
+pub async fn get_ckb_proof_info(
+    tx_hash_str: &str,
+    ckb_rpc_url: String,
+    eth_rpc_url: String,
+    contract_addr: web3::types::Address,
+) -> Result<String> {
+    let mut web3_client = Web3Client::new(eth_rpc_url);
+    let latest_block_number = web3_client
+        .get_contract_height("latestBlockNumber", contract_addr)
+        .await?;
+    let init_block_number = web3_client
+        .get_contract_height("init_block_number", contract_addr)
+        .await?;
+
     let tx_hash = covert_to_h256(tx_hash_str)?;
-    let mut rpc_client = HttpRpcClient::new(rpc_url.clone());
+    let mut rpc_client = HttpRpcClient::new(ckb_rpc_url.clone());
     let tx: packed::Transaction = rpc_client
         .get_transaction(tx_hash.clone())
         .map_err(|e| anyhow!("failed to get tx {}, err: {}", &tx_hash, e))?
@@ -321,11 +326,11 @@ pub fn get_ckb_proof_info(tx_hash_str: &str, rpc_url: String) -> Result<(String,
     let mol_hex_tx = hex::encode(tx.raw().as_slice());
     debug!("mol hex raw tx : {:?} ", mol_hex_tx);
 
-    let ckb_tx_proof = parse_ckb_proof(tx_hash_str, rpc_url)?;
+    let ckb_tx_proof = parse_ckb_proof(tx_hash_str, ckb_rpc_url)?;
     let mol_tx_proof: ckb_tx_proof::CkbTxProof = ckb_tx_proof.into();
     let mol_hex_header = hex::encode(mol_tx_proof.as_bytes().as_ref());
     debug!("mol hex header: {:?} ", mol_hex_header);
-    Ok((mol_hex_header, mol_hex_tx))
+    Ok(mol_hex_header)
 }
 
 pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof> {

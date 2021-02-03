@@ -110,46 +110,46 @@ contract TokenLockerV2 {
         );
     }
 
-    function unlockToken(bytes[] calldata ckbTxProofArray, bytes[] calldata ckbTxs, bytes calldata txRootProofData) external {
-        // 1. check proveTxRootExist
-        require(ckbSpv_.proveTxRootExist(txRootProofData), "txRoot from txRootProofData should exist on CKBChain");
-
-        // 2. check raw ckbTx, txProof and txRootProof match
-        bytes29 txRootProofView = txRootProofData.ref(
-            uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
-        );
-        bytes29 proofLeaves = txRootProofView.proofLeaves();
-        uint txsLength = ckbTxProofArray.length;
-        require(txsLength == ckbTxs.length, "length of ckbTxProofArray and ckbTxs mismatch");
-
-        bytes29 txProofView;
-        bytes32 txHash;
-        for (uint i = 0; i < txsLength; i++) {
-            // - 1. check txHashes match from txProof and raw ckbTx
-            txProofView = ckbTxProofArray[i].ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof));
-            txHash = txProofView.historyTxHash();
-            require(!usedTx_[txHash], "The burn tx cannot be reused");
-            usedTx_[txHash] = true;
-            require((txHash == CKBCrypto.digest(ckbTxs[i], ckbTxs[i].length)), "ckbTx mismatched with CkbHistoryTxProof");
-
-            // - 2. check txRoot match from txProof and txRootProof
-            uint leavesIndex = uint(txProofView.txRootProofLeavesIndex());
-            _proveTxExist(txProofView, proofLeaves.indexH256Array(leavesIndex));
-
-            // - 3. unlockToken
-            (uint256 bridgeAmount, uint256 bridgeFee, address tokenAddress, address recipientAddress) = decodeBurnResult(ckbTxs[i]);
-            require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
-            uint256 receivedAmount = bridgeAmount - bridgeFee;
-            // address(0) means `ether` here
-            if (tokenAddress == address(0)) {
-                payable(recipientAddress).transfer(receivedAmount);
-                payable(msg.sender).transfer(bridgeFee);
-            } else {
-                IERC20(tokenAddress).safeTransfer(recipientAddress, receivedAmount);
-                IERC20(tokenAddress).safeTransfer(msg.sender, bridgeFee);
-            }
-            emit Unlocked(tokenAddress, recipientAddress, msg.sender, receivedAmount, bridgeFee);
-        }
+    function unlockToken(bytes memory proof) external {
+//        // 1. check proveTxRootExist
+//        require(ckbSpv_.proveTxExist(txRootProofData, numConfirmations_), "txRoot from txRootProofData should exist on CKBChain");
+//
+//        // 2. check raw ckbTx, txProof and txRootProof match
+//        bytes29 txRootProofView = txRootProofData.ref(
+//            uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
+//        );
+//        bytes29 proofLeaves = txRootProofView.proofLeaves();
+//        uint txsLength = ckbTxProofArray.length;
+//        require(txsLength == ckbTxs.length, "length of ckbTxProofArray and ckbTxs mismatch");
+//
+//        bytes29 txProofView;
+//        bytes32 txHash;
+//        for (uint i = 0; i < txsLength; i++) {
+//            // - 1. check txHashes match from txProof and raw ckbTx
+//            txProofView = ckbTxProofArray[i].ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof));
+//            txHash = txProofView.historyTxHash();
+//            require(!usedTx_[txHash], "The burn tx cannot be reused");
+//            usedTx_[txHash] = true;
+//            require((txHash == CKBCrypto.digest(ckbTxs[i], ckbTxs[i].length)), "ckbTx mismatched with CkbHistoryTxProof");
+//
+//            // - 2. check txRoot match from txProof and txRootProof
+//            uint leavesIndex = uint(txProofView.txRootProofLeavesIndex());
+//            _proveTxExist(txProofView, proofLeaves.indexH256Array(leavesIndex));
+//
+//            // - 3. unlockToken
+//            (uint256 bridgeAmount, uint256 bridgeFee, address tokenAddress, address recipientAddress) = decodeBurnResult(ckbTxs[i]);
+//            require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
+//            uint256 receivedAmount = bridgeAmount - bridgeFee;
+//            // address(0) means `ether` here
+//            if (tokenAddress == address(0)) {
+//                payable(recipientAddress).transfer(receivedAmount);
+//                payable(msg.sender).transfer(bridgeFee);
+//            } else {
+//                IERC20(tokenAddress).safeTransfer(recipientAddress, receivedAmount);
+//                IERC20(tokenAddress).safeTransfer(msg.sender, bridgeFee);
+//            }
+//            emit Unlocked(tokenAddress, recipientAddress, msg.sender, receivedAmount, bridgeFee);
+//        }
     }
 
     function decodeBurnResult(bytes memory ckbTx) public view returns (

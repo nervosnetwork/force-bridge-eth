@@ -103,7 +103,7 @@
     "name": "ckbSpv_",
     "outputs": [
       {
-        "internalType": "contract ICKBSpv",
+        "internalType": "contract ICKBSpvV3",
         "name": "",
         "type": "address"
       }
@@ -318,17 +318,7 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "ckbTxProof",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bytes",
-        "name": "ckbTx",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bytes",
-        "name": "txRootsProofData",
+        "name": "proof",
         "type": "bytes"
       }
     ],
