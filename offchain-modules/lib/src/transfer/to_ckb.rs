@@ -570,7 +570,6 @@ pub async fn get_or_create_bridge_cell(
     bridge_fee: u128,
     simple_typescript: bool,
     cell_num: usize,
-    _force_create: bool,
 ) -> Result<Vec<String>> {
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
