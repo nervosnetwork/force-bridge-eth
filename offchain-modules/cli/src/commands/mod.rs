@@ -453,14 +453,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     )?;
     let mut consecutive_failures = 0;
     while consecutive_failures < 5 {
-        let res = ckb_relayer
-            .start(
-                eth_rpc_url.clone(),
-                args.per_amount,
-                args.max_tx_count,
-                ckb_height,
-            )
-            .await;
+        let res = ckb_relayer.start(eth_rpc_url.clone(), ckb_height).await;
         if let Err(err) = res {
             error!("An error occurred during the ckb relay. Err: {:?}", err);
             consecutive_failures += 1;

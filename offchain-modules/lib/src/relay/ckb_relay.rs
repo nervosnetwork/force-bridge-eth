@@ -7,16 +7,11 @@ use crate::util::eth_util::{
 };
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::HttpRpcClient;
-use ethabi::{FixedBytes, Token};
+use ethabi::Token;
 use ethereum_types::U256;
-use futures::future::try_join_all;
 use log::info;
-use merkle_cbt::{merkle_tree::Merge, CBMT as ExCBMT};
 use secp256k1::SecretKey;
-use std::collections::HashMap;
-use std::ops::Add;
 use std::time::Instant;
-use tiny_keccak::{Hasher, Keccak};
 use web3::types::{H160, H256};
 
 pub struct CKBRelayer {
@@ -59,17 +54,7 @@ impl CKBRelayer {
         })
     }
 
-    pub async fn start(
-        &mut self,
-        eth_url: String,
-        per_amount: u64,
-        max_tx_amount: u64,
-        client_init_height: u64,
-    ) -> Result<()> {
-        let mut client_block_number = self
-            .web3_client
-            .get_contract_height("latestBlockNumber", self.contract_addr)
-            .await?;
+    pub async fn start(&mut self, eth_url: String, client_init_height: u64) -> Result<()> {
         let ckb_current_height = self
             .ckb_client
             .rpc_client

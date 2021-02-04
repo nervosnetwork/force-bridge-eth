@@ -589,7 +589,6 @@ pub fn generate_ckb_history_tx_root_proof(
         let index = (number - init_block_number) as u32;
         tx_roots_indices.push(index);
         proof_leaves.push(all_tx_roots[index as usize].clone().into())
-        // proof_leaves.push(all_tx_roots.get(index as usize).unwrap().clone())
     }
 
     let tx_roots_num = latest_block_number - init_block_number + 1;
