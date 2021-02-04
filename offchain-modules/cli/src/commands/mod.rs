@@ -267,14 +267,14 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+    let eth_ckb_chain_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let proof = get_ckb_proof_info(
         &args.tx_hash,
         ckb_rpc_url,
         ethereum_rpc_url,
-        lock_contract_addr,
+        eth_ckb_chain_addr,
     )
     .await?;
     println!("proof: {:?}", proof);
@@ -307,7 +307,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+    let light_client_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
 
     let ckb_tx_hash = burn(
         args.config_path.clone(),
@@ -322,21 +322,20 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
 
+    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
+    wait_block_submit(
+        ethereum_rpc_url.clone(),
+        ckb_rpc_url.clone(),
+        light_client_addr,
+        ckb_tx_hash.clone(),
+        lock_contract_addr,
+    )
+    .await?;
     let proof = get_ckb_proof_info(
         &ckb_tx_hash,
         ckb_rpc_url.clone(),
         eth_rpc_url,
-        lock_contract_addr,
-    )
-    .await?;
-    let light_client = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
-    let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
-    wait_block_submit(
-        ethereum_rpc_url.clone(),
-        ckb_rpc_url,
-        light_client,
-        ckb_tx_hash,
-        lock_contract_addr,
+        light_client_addr,
     )
     .await?;
     let result = unlock(

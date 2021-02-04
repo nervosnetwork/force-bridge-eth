@@ -30,7 +30,7 @@ pub async fn relay_ckb_to_eth_proof(
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    let light_client = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
+    let light_client_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
     let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     let try_get_ckb_proof = async || {
         let mut error = "".to_string();
@@ -39,7 +39,7 @@ pub async fn relay_ckb_to_eth_proof(
                 &ckb_tx_hash,
                 ckb_rpc_url.clone(),
                 ethereum_rpc_url.clone(),
-                lock_contract_addr,
+                light_client_addr,
             )
             .await;
             if ret.is_ok() {
@@ -56,7 +56,7 @@ pub async fn relay_ckb_to_eth_proof(
     let wait_header_future = wait_block_submit(
         ethereum_rpc_url.clone(),
         ckb_rpc_url,
-        light_client,
+        light_client_addr,
         ckb_tx_hash.clone(),
         lock_contract_addr,
     );

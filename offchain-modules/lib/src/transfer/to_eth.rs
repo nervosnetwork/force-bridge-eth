@@ -326,14 +326,14 @@ pub async fn parse_ckb_proof(
     contract_addr: web3::types::Address,
 ) -> Result<CKBUnlockTokenParam> {
     let mut web3_client = Web3Client::new(eth_rpc_url);
-    let latest_block_number = web3_client
-        .get_contract_height("getLatestBlockNumber", contract_addr)
-        .await
-        .map_err(|e| anyhow!("get latest_block_number err: {:?}", e))?;
     let init_block_number = web3_client
         .get_contract_height("initBlockNumber", contract_addr)
         .await
         .map_err(|e| anyhow!("get init_block_number err: {:?}", e))?;
+    let latest_block_number = web3_client
+        .get_contract_height("latestBlockNumber", contract_addr)
+        .await
+        .map_err(|e| anyhow!("get latest_block_number err: {:?}", e))?;
 
     let tx_hash = covert_to_h256(tx_hash_str)?;
     let mut rpc_client = HttpRpcClient::new(rpc_url);
