@@ -221,6 +221,7 @@ pub async fn unlock(
     let to = convert_eth_address(&to)?;
     let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
     let mut rpc_client = Web3Client::new(eth_url);
+    info!("unlock proof: {}", &proof);
     let proof = hex::decode(proof).map_err(|err| anyhow!(err))?;
 
     let function = Function {
@@ -308,8 +309,13 @@ pub async fn get_ckb_proof_info(
 ) -> Result<String> {
     let ckb_tx_proof =
         parse_ckb_proof(tx_hash_str, ckb_rpc_url, eth_rpc_url, contract_addr).await?;
+    debug!("ckb_tx_proof: {:?}", ckb_tx_proof);
     let mol_tx_proof: ckb_tx_proof::CKBUnlockTokenParam = ckb_tx_proof.into();
     let mol_hex_tx_proof = hex::encode(mol_tx_proof.as_bytes().as_ref());
+    info!(
+        "unlock, tx_hash: {}, proof: {}",
+        tx_hash_str, &mol_hex_tx_proof
+    );
     Ok(mol_hex_tx_proof)
 }
 
@@ -321,11 +327,13 @@ pub async fn parse_ckb_proof(
 ) -> Result<CKBUnlockTokenParam> {
     let mut web3_client = Web3Client::new(eth_rpc_url);
     let latest_block_number = web3_client
-        .get_contract_height("latestBlockNumber", contract_addr)
-        .await?;
+        .get_contract_height("getLatestBlockNumber", contract_addr)
+        .await
+        .map_err(|e| anyhow!("get latest_block_number err: {:?}", e))?;
     let init_block_number = web3_client
-        .get_contract_height("init_block_number", contract_addr)
-        .await?;
+        .get_contract_height("initBlockNumber", contract_addr)
+        .await
+        .map_err(|e| anyhow!("get init_block_number err: {:?}", e))?;
 
     let tx_hash = covert_to_h256(tx_hash_str)?;
     let mut rpc_client = HttpRpcClient::new(rpc_url);

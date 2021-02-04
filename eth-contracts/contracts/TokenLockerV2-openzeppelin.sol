@@ -189,7 +189,8 @@ contract TokenLockerV2 {
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
-        bytes32 rawTxRoot = txProofView.historyTxHash();
+//        bytes32 rawTxRoot = txProofView.historyTxHash();
+        bytes32 rawTxRoot;
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
             if (index < sibling) {
