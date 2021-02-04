@@ -8,9 +8,7 @@ use crate::dapp::db::indexer::{
 };
 use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
-use crate::util::ckb_util::{
-    clear_0x, parse_cell, parse_main_chain_headers, parse_merkle_cell_data,
-};
+use crate::util::ckb_util::{clear_0x, parse_cell, parse_merkle_cell_data};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
