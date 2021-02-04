@@ -1,4 +1,5 @@
 use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash, get_msg_signature};
+use crate::util::ckb_proof_helper::CBMT;
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::covert_to_h256;
 use crate::util::eth_util::{
@@ -199,19 +200,3 @@ impl CKBRelayer {
         Ok(CBMT::build_merkle_root(&all_tx_roots))
     }
 }
-
-pub struct Keccak256;
-
-impl Merge for Keccak256 {
-    type Item = [u8; 32];
-    fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
-        let mut output = [0u8; 32];
-        let mut hasher = Keccak::v256();
-        hasher.update(left);
-        hasher.update(right);
-        hasher.finalize(&mut output);
-        output
-    }
-}
-
-type CBMT = ExCBMT<[u8; 32], Keccak256>;
