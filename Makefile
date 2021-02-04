@@ -125,6 +125,7 @@ local-ci:
 	make integration-ci
 
 github-ci:
+	rm -rf ~/.force-bridge/rocksdb
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
