@@ -183,16 +183,17 @@ pub fn get_eth_client_tip_number(
     let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
         .map_err(|e| anyhow!("get live cell fail: {}", e))?
         .ok_or_else(|| anyhow!("eth header cell not exist"))?;
-    let (un_confirmed_headers, _) = parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
-        .map_err(|e| anyhow!("parse header data fail: {}", e))?;
-    let best_header = un_confirmed_headers
-        .last()
-        .ok_or_else(|| anyhow!("header is none"))?;
-    let best_number = best_header
-        .number
-        .ok_or_else(|| anyhow!("header number is none"))?
-        .as_u64();
-    Ok(best_number)
+    // let (un_confirmed_headers, _) = parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
+    //     .map_err(|e| anyhow!("parse header data fail: {}", e))?;
+    // let best_header = un_confirmed_headers
+    //     .last()
+    //     .ok_or_else(|| anyhow!("header is none"))?;
+    // let best_number = best_header
+    //     .number
+    //     .ok_or_else(|| anyhow!("header number is none"))?
+    //     .as_u64();
+    let (_, latest_height, _) = parse_merkle_cell_data(cell.output_data.as_bytes().to_vec())?;
+    Ok(latest_height)
 }
 
 pub fn parse_cell(cell: &str) -> Result<Script> {

@@ -8,7 +8,9 @@ use crate::dapp::db::indexer::{
 };
 use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
-use crate::util::ckb_util::{clear_0x, parse_cell, parse_main_chain_headers};
+use crate::util::ckb_util::{
+    clear_0x, parse_cell, parse_main_chain_headers, parse_merkle_cell_data,
+};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
 use anyhow::{anyhow, Result};
@@ -76,12 +78,20 @@ impl<T: IndexerFilter> EthIndexer<T> {
             .ok_or_else(|| anyhow!("the cell is not exist"))?;
         let ckb_cell_data = cell.output_data.as_bytes().to_vec();
         if !ckb_cell_data.is_empty() {
-            let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
-            let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
-                .number
-                .ok_or_else(|| anyhow!("the number is not exist"))?
-                .as_u64();
-            return Ok(best_block_height);
+            // let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
+            // let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
+            //     .number
+            //     .ok_or_else(|| anyhow!("the number is not exist"))?
+            //     .as_u64();
+            // return Ok(best_block_height);
+            let (start_height, latest_height, _) = parse_merkle_cell_data(ckb_cell_data.to_vec())?;
+            log::info!(
+                "get_light_client_height start_height: {:?}, latest_height: {:?}",
+                start_height,
+                latest_height
+            );
+
+            return Ok(latest_height);
         }
         anyhow::bail!("waiting for the block confirmed!")
     }
