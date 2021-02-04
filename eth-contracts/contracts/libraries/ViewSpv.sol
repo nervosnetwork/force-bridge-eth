@@ -5,6 +5,7 @@ pragma abicoder v2;
 import {TypedMemView} from "./TypedMemView.sol";
 import {ViewCKB} from "./ViewCKB.sol";
 import {SafeMath} from "./SafeMath.sol";
+import {CKBTxView} from "./CKBTxView.sol";
 
 library ViewSpv {
     using TypedMemView for bytes29;
@@ -17,8 +18,10 @@ library ViewSpv {
         H256,
         H256Array,
         U16Array,
+        CKBUnlockTokenParam,
+        CKBHistoryTxRootProof,
         CKBHistoryTxProof,
-        CKBHistoryTxRootProof
+        CKBHistoryTxProofVec
     }
 
     // @notice             requires `memView` to be of a specified type
@@ -72,36 +75,42 @@ library ViewSpv {
         return _arr.index(_start, 32);
     }
 
+    function indexU64Array(bytes29 _arr, uint256 index) internal pure typeAssert(_arr, SpvTypes.U16Array) returns (uint64) {
+        uint256 _start = index.mul(8);
+        return uint64(_arr.indexLEUint(_start, 8));
+    }
+
     function indexU16Array(bytes29 _arr, uint256 index) internal pure typeAssert(_arr, SpvTypes.U16Array) returns (uint16) {
         uint256 _start = index.mul(2);
         return uint16(_arr.indexLEUint(_start, 2));
     }
 
     // ## CkbHistoryTxProof
-    function historyTxMerkleIndex(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (uint16) {
+    function txBlockNumber(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (uint64) {
         uint256 startIndex = _input.indexLEUint(4, 4);
-        return uint16(_input.indexLEUint(startIndex, 2));
+        return uint64(_input.indexLEUint(startIndex, 8));
     }
 
-    function txRootProofLeavesIndex(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (uint16) {
+    function historyTxMerkleIndex(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (uint16) {
         uint256 startIndex = _input.indexLEUint(8, 4);
         return uint16(_input.indexLEUint(startIndex, 2));
     }
 
-    function historyTxHash(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes32) {
+    function historyWitnessesRoot(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes32) {
         uint256 startIndex = _input.indexLEUint(12, 4);
         return _input.index(startIndex, 32);
     }
 
-    function historyWitnessesRoot(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes32) {
-        uint256 startIndex = _input.indexLEUint(16, 4);
-        return _input.index(startIndex, 32);
+    function historyLemmas(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes29) {
+        uint256 startIndex = _input.indexLEUint(16, 4) + 4;
+        uint256 endIndex = _input.indexLEUint(20, 4);
+        return _input.slice(startIndex, endIndex - startIndex, uint40(SpvTypes.H256Array));
     }
 
-    function historyLemmas(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes29) {
+    function rawTransaction(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes29) {
         uint256 startIndex = _input.indexLEUint(20, 4) + 4;
         uint256 inputLength = _input.len();
-        return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.H256Array));
+        return _input.slice(startIndex, inputLength - startIndex, uint40(CKBTxView.CKBTxTypes.RawTx));
     }
 
     // ## CKBHistoryTxRootProof
@@ -131,5 +140,38 @@ library ViewSpv {
         uint256 startIndex = _input.indexLEUint(20, 4) + 4;
         uint256 inputLength = _input.len();
         return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.H256Array));
+    }
+
+    // ## CKBUnlockTokenParam
+    function historyTxRootProof(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBUnlockTokenParam) returns (bytes29) {
+        uint256 startIndex = _input.indexLEUint(4, 4);
+        uint256 endIndex = _input.indexLEUint(8, 4);
+        return _input.slice(startIndex, endIndex - startIndex, uint40(SpvTypes.CKBHistoryTxRootProof));
+    }
+
+    function historyTxProofVec(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBUnlockTokenParam) returns (bytes29) {
+        uint256 startIndex = _input.indexLEUint(8, 4);
+        uint256 inputLength = _input.len();
+        return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.CKBHistoryTxProofVec));
+    }
+
+    function length(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
+        if (_input.len() == 4) {
+            return 0;
+        }
+        return _input.indexLEUint(4, 4) / 4 - 1;
+    }
+
+    function getHistoryTxProofFromVec(bytes29 _input, uint256 idx) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
+        uint256 startIndex = 4 * (1 + idx);
+        uint256 start = _input.indexLEUint(startIndex, 4);
+        if (idx == length(_input) - 1) {
+            uint256 inputLength = _input.len();
+            return _input.slice(start, inputLength - start, uint40(SpvTypes.CKBHistoryTxProof));
+        } else {
+            uint256 endIndex = startIndex + 4;
+            uint256 end = _input.indexLEUint(endIndex, 4);
+            return _input.slice(start, end - start, uint40(SpvTypes.CKBHistoryTxProof));
+        }
     }
 }
