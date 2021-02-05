@@ -94,12 +94,12 @@ async function deploy() {
   );
   const locker = await factory.deploy();
   const res = await locker.initialize(
-          ckbChainV2Addr,
-          numConfirmations,
-          '0x' + recipient_typescript_code_hash,
-          recipientCellTypescriptHashType,
-          lightClientTypescriptHash,
-          '0x' + bridge_lockscript_code_hash,
+    ckbChainV2Addr,
+    numConfirmations,
+    '0x' + recipient_typescript_code_hash,
+    recipientCellTypescriptHashType,
+    lightClientTypescriptHash,
+    '0x' + bridge_lockscript_code_hash
   );
   console.error(res);
   // const locker = await upgrades.deployProxy(

@@ -117,7 +117,7 @@ contract TokenLockerV2 {
 
     function unlockToken(bytes memory proof) external {
         // 1. getHistoryTxRootInfo from CkbChain
-        (uint64 initBlockNumber, uint64 latestBlockNumber, bytes32 historyTxRoot) = ckbSpv_.getHistoryTxRootInfo();
+        (uint64 initBlockNumber, uint64 latestBlockNumber, bytes32 targetHistoryTxRoot) = ckbSpv_.getHistoryTxRootInfo();
         require(latestBlockNumber > 0, "ckbSpv should initialize");
 
         // 2. check proveTxRootExist
@@ -130,7 +130,7 @@ contract TokenLockerV2 {
 
             require(txRootProofView.initBlockNumber() == initBlockNumber, "initBlockNumber mismatch");
             require(txRootProofView.latestBlockNumber() == latestBlockNumber, "latestBlockNumber mismatch");
-            leafNodes = _proveTxRootExist(txRootProofView, historyTxRoot);
+            leafNodes = _proveTxRootExist(txRootProofView, targetHistoryTxRoot);
         }
 
         // 3. check txs exist and unlockToken
