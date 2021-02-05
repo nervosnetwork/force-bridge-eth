@@ -572,28 +572,3 @@ pub fn rlp_transaction(tx: &RawTransaction) -> String {
 pub fn parse_secret_key(privkey: H256) -> Result<SecretKey> {
     Ok(SecretKey::from_slice(&privkey.0)?)
 }
-
-#[tokio::test]
-async fn test_get_block() {
-    // use cmd_lib::run_fun;
-    // use serde_json::{Result, Value};
-    use web3::types::{BlockNumber, U64};
-    let mut client = Web3Client::new(String::from(
-        "https://ropsten.infura.io/v3/71c02c451b6248708e493c4ea007c3b2",
-    ));
-    let res = client.get_header_rlp(U64::from(9543046).into()).await;
-    println!("{:?}", res);
-    // let header_rlp = format!("0x{}", res.unwrap());
-    // println!("{:?}", header_rlp);
-    // let path = String::from("/tmp/data.json");
-    // let cmd = format!("pwd > {}", path);
-    // println!("{}", cmd);
-    // let hash = "0x731bc2fc859789d4190175281a43a446b6cc34c55bc8736eb793b4362803a19c";
-    // let idx = 2;
-    // let url = "https://ropsten.infura.io/v3/48be8feb3f9c46c397ceae02a0dbc7ae";
-    // let res = run_fun! {
-    // node /Users/leon/dev/rust/leon/eth-proof/index proof --hash ${hash} --index ${idx} --network ${url}}
-    // .unwrap();
-    //
-    // println!("{:?}", res);
-}
