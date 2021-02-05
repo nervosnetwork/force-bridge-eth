@@ -17,7 +17,7 @@ library ViewSpv {
         CKBTxProof,
         H256,
         H256Array,
-        U16Array,
+        U64Array,
         CKBUnlockTokenParam,
         CKBHistoryTxRootProof,
         CKBHistoryTxProof,
@@ -75,14 +75,9 @@ library ViewSpv {
         return _arr.index(_start, 32);
     }
 
-    function indexU64Array(bytes29 _arr, uint256 index) internal pure typeAssert(_arr, SpvTypes.U16Array) returns (uint64) {
+    function indexU64Array(bytes29 _arr, uint256 index) internal pure typeAssert(_arr, SpvTypes.U64Array) returns (uint64) {
         uint256 _start = index.mul(8);
         return uint64(_arr.indexLEUint(_start, 8));
-    }
-
-    function indexU16Array(bytes29 _arr, uint256 index) internal pure typeAssert(_arr, SpvTypes.U16Array) returns (uint16) {
-        uint256 _start = index.mul(2);
-        return uint16(_arr.indexLEUint(_start, 2));
     }
 
     // ## CkbHistoryTxProof
@@ -127,7 +122,7 @@ library ViewSpv {
     function indices(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxRootProof) returns (bytes29) {
         uint256 startIndex = _input.indexLEUint(12, 4) + 4;
         uint256 endIndex = _input.indexLEUint(16, 4);
-        return _input.slice(startIndex, endIndex - startIndex, uint40(SpvTypes.U16Array));
+        return _input.slice(startIndex, endIndex - startIndex, uint40(SpvTypes.U64Array));
     }
 
     function proofLeaves(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxRootProof) returns (bytes29) {
@@ -155,23 +150,23 @@ library ViewSpv {
         return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.CKBHistoryTxProofVec));
     }
 
-//    function length(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
-//        if (_input.len() == 4) {
-//            return 0;
-//        }
-//        return _input.indexLEUint(4, 4) / 4 - 1;
-//    }
-//
-//    function getHistoryTxProofFromVec(bytes29 _input, uint256 idx) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
-//        uint256 startIndex = 4 * (1 + idx);
-//        uint256 start = _input.indexLEUint(startIndex, 4);
-//        if (idx == length(_input) - 1) {
-//            uint256 inputLength = _input.len();
-//            return _input.slice(start, inputLength - start, uint40(SpvTypes.CKBHistoryTxProof));
-//        } else {
-//            uint256 endIndex = startIndex + 4;
-//            uint256 end = _input.indexLEUint(endIndex, 4);
-//            return _input.slice(start, end - start, uint40(SpvTypes.CKBHistoryTxProof));
-//        }
-//    }
+    function txProofLength(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (uint) {
+        if (_input.len() == 4) {
+            return 0;
+        }
+        return _input.indexLEUint(4, 4) / 4 - 1;
+    }
+
+    function getHistoryTxProofFromVec(bytes29 _input, uint256 idx) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
+        uint256 startIndex = 4 * (1 + idx);
+        uint256 start = _input.indexLEUint(startIndex, 4);
+        if (idx == txProofLength(_input) - 1) {
+            uint256 inputLength = _input.len();
+            return _input.slice(start, inputLength - start, uint40(SpvTypes.CKBHistoryTxProof));
+        } else {
+            uint256 endIndex = startIndex + 4;
+            uint256 end = _input.indexLEUint(endIndex, 4);
+            return _input.slice(start, end - start, uint40(SpvTypes.CKBHistoryTxProof));
+        }
+    }
 }

@@ -38,10 +38,6 @@ contract CKBChainV3 is ICKBSpvV3 {
     bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x0eeee1be1069b2c737b19f6c3510ceeed099af9ee1f5985109f117ce0524ca10;
     bytes32 public historyTxRoot;
     mapping(bytes32 => bytes32) verifiedTxRoots;
-    struct TreeNode {
-        uint16 index;
-        bytes32 data;
-    }
 
     event HistoryTxRootAdded(
         uint64 indexed startBlockNumber,
@@ -178,80 +174,7 @@ contract CKBChainV3 is ICKBSpvV3 {
         emit HistoryTxRootAdded(_initBlockNumber, _latestBlockNumber, _historyTxRoot);
     }
 
-    function proveTxExist(bytes calldata txRootProofData, uint64 numConfirmations)
-    override
-    external
-    view
-    returns (bool)
-    {
-        // todo: check numconfirmations
-
-        bytes29 txRootProofView = txRootProofData.ref(
-            uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
-        );
-
-        // queue
-        bytes29 indices = txRootProofView.indices();
-        uint leavesLength = indices.len() / 2;
-        uint queueLength = leavesLength + 1;
-        TreeNode[] memory queue = new TreeNode[](queueLength);
-        uint front = 0;
-        uint end = 0;
-
-        // merkle tree indices and node(byte32) of leaves
-        {
-            bytes29 proofLeaves = txRootProofView.proofLeaves();
-            require(leavesLength > 0 && leavesLength == proofLeaves.len() / 32, "length of indices and proofLeaves mismatch");
-            for (uint i = 0; i < leavesLength; i++) {
-                queue[end] = TreeNode(indices.indexU16Array(i), proofLeaves.indexH256Array(i));
-                end++;
-            }
-        }
-
-        //  merkle tree lemmas
-        uint lemmasPosition = 0;
-        bytes29 lemmas = txRootProofView.txRootLemmas();
-        uint lemmasLength = lemmas.len() / 32;
-
-        // init
-        uint16 currentIndex;
-        bytes32 currentNode;
-        uint16 siblingIndex;
-        bytes32 siblingNode;
-
-        while (front != end) {
-            currentIndex = queue[front].index;
-            currentNode = queue[front].data;
-            front = (front + 1) % queueLength;
-
-            if (currentIndex == 0) {
-                break;
-            }
-
-            siblingIndex = ((currentIndex + 1) ^ 1) - 1;
-            if (front != end && siblingIndex == queue[front].index) {
-                siblingNode = queue[front].data;
-                front = (front + 1) % queueLength;
-            } else {
-                require(lemmasPosition < lemmasLength, "invalid historyTxRootProof");
-                siblingNode = lemmas.indexH256Array(lemmasPosition);
-                lemmasPosition++;
-            }
-
-            // push parentTreeNode to queue
-            // parentIndex == (currentIndex - 1) >> 1, parentNode
-            if (currentIndex < siblingIndex) {
-                queue[end] = TreeNode((currentIndex - 1) >> 1, keccak256(abi.encodePacked(currentNode, siblingNode)));
-            } else {
-                queue[end] = TreeNode((currentIndex - 1) >> 1, keccak256(abi.encodePacked(siblingNode, currentNode)));
-            }
-            end = (end + 1) % queueLength;
-        }
-
-        require(
-            currentNode == historyTxRoot,
-            "proof not verified"
-        );
-        return true;
+    function getHistoryTxRootInfo() override external view returns (uint64, uint64, bytes32) {
+        return (initBlockNumber, latestBlockNumber, historyTxRoot);
     }
 }
