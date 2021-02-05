@@ -17,7 +17,6 @@ contract CKBChainV3 is ICKBSpvV3 {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
-    using ViewSpv for bytes29;
 
     bool public initialized;
     uint64 public latestBlockNumber;
@@ -33,7 +32,6 @@ contract CKBChainV3 is ICKBSpvV3 {
     address[] validators_;
 
     // CKBChainV3-----------------------------
-    // TODO modify ADD_HISTORY_TX_ROOT_TYPEHASH to correct value
     // ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256("AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)");
     bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x0eeee1be1069b2c737b19f6c3510ceeed099af9ee1f5985109f117ce0524ca10;
     bytes32 public historyTxRoot;
@@ -45,20 +43,11 @@ contract CKBChainV3 is ICKBSpvV3 {
         bytes32 HistoryTxRoot
     );
 
-    // @notice             requires `memView` to be of a specified type
-    // @param memView      a 29-byte view with a 5-byte type
-    // @param t            the expected type (e.g. CKBTypes.Outpoint, CKBTypes.Script, etc)
-    // @return             passes if it is the correct type, errors if not
-    modifier typeAssert(bytes29 memView, ViewCKB.CKBTypes t) {
-        memView.assertType(uint40(t));
-        _;
-    }
-
     /**
      * @notice  if addr is not one of validators_, return validators_.length
      * @return  index of addr in validators_
      */
-    function getIndexOfValidators(address user) internal view returns (uint) {
+    function _getIndexOfValidators(address user) internal view returns (uint) {
         for (uint i = 0; i < validators_.length; i++) {
             if (validators_[i] == user) {
                 return i;
@@ -98,7 +87,7 @@ contract CKBChainV3 is ICKBSpvV3 {
             require(recoveredAddress != address(0), "invalid signature");
 
             // get index of recoveredAddress in validators_
-            validatorIndex = getIndexOfValidators(recoveredAddress);
+            validatorIndex = _getIndexOfValidators(recoveredAddress);
 
             // recoveredAddress is not validator or has been visited
             if (validatorIndex >= validators_.length || validatorIndexVisited[validatorIndex]) {
@@ -145,11 +134,6 @@ contract CKBChainV3 is ICKBSpvV3 {
         multisigThreshold_ = multisigThreshold;
     }
 
-    // query
-    function getLatestBlockNumber() view public returns (uint64) {
-        return latestBlockNumber;
-    }
-
     // CKBChainV3-----------------------------
     function addHistoryTxRoot(uint64 _initBlockNumber, uint64 _latestBlockNumber, bytes32 _historyTxRoot, bytes calldata signatures)
     external
@@ -172,6 +156,10 @@ contract CKBChainV3 is ICKBSpvV3 {
 
         // 3. event
         emit HistoryTxRootAdded(_initBlockNumber, _latestBlockNumber, _historyTxRoot);
+    }
+
+    function getLatestBlockNumber() view public returns (uint64) {
+        return latestBlockNumber;
     }
 
     function getHistoryTxRootInfo() override external view returns (uint64, uint64, bytes32) {
