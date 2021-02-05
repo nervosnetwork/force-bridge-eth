@@ -216,6 +216,7 @@ contract TokenLockerV2 {
     view
     returns (bool)
     {
+        require(targetTxRoot != bytes32(0), "txRoot from the blockNumber is not in the proof");
         uint16 index = txProofView.txMerkleIndex();
         uint16 sibling;
         uint256 lemmasIndex = 0;
