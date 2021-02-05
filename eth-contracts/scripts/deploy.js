@@ -72,7 +72,7 @@ async function deploy() {
   let factory = await ethers.getContractFactory(
     'contracts/CKBChainV3-openzeppelin.sol:CKBChainV3'
   );
-  let CKBChainV2 = await upgrades.deployProxy(
+  let CKBChainV3 = await upgrades.deployProxy(
     factory,
     [validators, multisigThreshold],
     {
@@ -81,11 +81,11 @@ async function deploy() {
       unsafeAllowLinkedLibraries: true,
     }
   );
-  const ckbChainV2Addr = CKBChainV2.address;
-  console.error('ckbChainV2 address: ', ckbChainV2Addr);
+  const ckbChainV3Addr = CKBChainV3.address;
+  console.error('ckbChainV3 address: ', ckbChainV3Addr);
   const waitingSeconds = 20;
-  // console.error(`waiting ${waitingSeconds} seconds`);
-  // await sleep(waitingSeconds);
+  console.error(`waiting ${waitingSeconds} seconds`);
+  await sleep(waitingSeconds);
 
   // deploy TokenLocker
   const numConfirmations = 1;
@@ -94,7 +94,7 @@ async function deploy() {
   );
   const locker = await factory.deploy();
   const res = await locker.initialize(
-    ckbChainV2Addr,
+    ckbChainV3Addr,
     numConfirmations,
     '0x' + recipient_typescript_code_hash,
     recipientCellTypescriptHashType,
@@ -126,7 +126,7 @@ async function deploy() {
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
-  deployedContracts.eth_ckb_chain_addr = ckbChainV2Addr;
+  deployedContracts.eth_ckb_chain_addr = ckbChainV3Addr;
   deployedContracts.ckb_relay_mutlisig_threshold.threshold = multisigThreshold;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);

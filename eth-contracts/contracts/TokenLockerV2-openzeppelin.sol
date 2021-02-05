@@ -4,8 +4,6 @@ pragma abicoder v2;
 
 import {CKBCrypto} from "./libraries/CKBCrypto.sol";
 import {TypedMemView} from "./libraries/TypedMemView.sol";
-import {SafeMath} from "./libraries/SafeMath.sol";
-import {CKBTxView} from "./libraries/CKBTxView.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {Address} from "./libraries/Address.sol";
 import {SafeERC20} from "./libraries/SafeERC20.sol";
@@ -14,11 +12,9 @@ import {ICKBSpvV3} from "./interfaces/ICKBSpvV3.sol";
 import {Blake2b} from "./libraries/Blake2b.sol";
 
 contract TokenLockerV2 {
-    using SafeMath for uint256;
     using Address for address;
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
-    using CKBTxView for bytes29;
     using ViewSpv for bytes29;
     using SafeERC20 for IERC20;
 
@@ -183,7 +179,7 @@ contract TokenLockerV2 {
         address token,
         address recipient
     ){
-        bytes29 rawTx = ckbTx.ref(uint40(CKBTxView.CKBTxTypes.RawTx));
+        bytes29 rawTx = ckbTx.ref(uint40(ViewSpv.SpvTypes.RawTx));
         bytes29 recipientCellTypescript = rawTx.outputs().recipientCellOutput().typescript();
         require(
             (recipientCellTypescript.recipientTypescriptCodeHash() == recipientCellTypescriptCodeHash_),
@@ -217,10 +213,10 @@ contract TokenLockerV2 {
     returns (bool)
     {
         require(targetTxRoot != bytes32(0), "txRoot from the blockNumber is not in the proof");
-        uint16 index = txProofView.txMerkleIndex();
+        uint16 index = txProofView.historyTxMerkleIndex();
         uint16 sibling;
         uint256 lemmasIndex = 0;
-        bytes29 lemmas = txProofView.lemmas();
+        bytes29 lemmas = txProofView.historyLemmas();
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
@@ -239,7 +235,7 @@ contract TokenLockerV2 {
         }
 
         // calc the transactionsRoot by [rawTransactionsRoot, witnessesRoot]
-        bytes32 transactionsRoot = Blake2b.digest64Merge(rawTxRoot, txProofView.witnessesRoot());
+        bytes32 transactionsRoot = Blake2b.digest64Merge(rawTxRoot, txProofView.historyWitnessesRoot());
         require(
             transactionsRoot == targetTxRoot,
             "tx proof not passed"
@@ -249,7 +245,7 @@ contract TokenLockerV2 {
 
     function _proveTxRootExist(bytes29 txRootProofView, bytes32 targetHistoryTxRoot)
     internal
-    view
+    pure
     returns (TreeNode[] memory leafNodes)
     {
         // queue

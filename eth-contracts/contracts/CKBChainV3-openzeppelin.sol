@@ -3,15 +3,12 @@ pragma solidity ^0.8.0;
 pragma abicoder v2;
 
 import {TypedMemView} from "./libraries/TypedMemView.sol";
-import {Blake2b} from "./libraries/Blake2b.sol";
-import {SafeMath} from "./libraries/SafeMath.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
-import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {ICKBSpvV3} from "./interfaces/ICKBSpvV3.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 
 // tools below just for test, they will be removed before production ready
-import "./test/console.sol";
+//import "./test/console.sol";
 
 contract CKBChainV3 is ICKBSpvV3 {
     using TypedMemView for bytes;
