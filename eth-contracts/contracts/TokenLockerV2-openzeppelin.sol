@@ -317,6 +317,6 @@ contract TokenLockerV2 {
             currentNode == historyTxRoot,
             "proof not verified"
         );
-        return queue;
+        return leafNodes;
     }
 }
