@@ -103,7 +103,7 @@ library ViewSpv {
     }
 
     function rawTransaction(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes29) {
-        uint256 startIndex = _input.indexLEUint(20, 4) + 4;
+        uint256 startIndex = _input.indexLEUint(20, 4);
         uint256 inputLength = _input.len();
         return _input.slice(startIndex, inputLength - startIndex, uint40(CKBTxView.CKBTxTypes.RawTx));
     }
