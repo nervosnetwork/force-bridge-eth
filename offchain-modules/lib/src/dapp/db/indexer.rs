@@ -8,16 +8,16 @@ pub struct EthToCkbRecord {
     pub id: u64,
     pub eth_lock_tx_hash: String,
     pub status: String,
-    pub token_addr: Option<String>,
-    pub sender_addr: Option<String>,
-    pub locked_amount: Option<String>,
-    pub bridge_fee: Option<String>,
-    pub ckb_recipient_lockscript: Option<String>,
+    pub token_addr: String,
+    pub sender_addr: String,
+    pub locked_amount: String,
+    pub bridge_fee: String,
+    pub ckb_recipient_lockscript: String,
     pub sudt_extra_data: Option<String>,
     pub ckb_tx_hash: Option<String>,
     pub eth_spv_proof: Option<String>,
     pub eth_block_number: u64,
-    pub replay_resist_outpoint: Option<String>,
+    pub replay_resist_outpoint: String,
     pub ckb_block_number: u64,
 }
 
@@ -341,7 +341,7 @@ pub async fn create_eth_to_ckb_record(
 ) -> Result<()> {
     let mut sql = String::from(
         r"
-INSERT INTO eth_to_ckb ( eth_lock_tx_hash, status, token_addr, sender_addr, locked_amount, bridge_fee, 
+INSERT INTO eth_to_ckb ( eth_lock_tx_hash, status, token_addr, sender_addr, locked_amount, bridge_fee,
 ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, eth_spv_proof, eth_block_number, replay_resist_outpoint)
 VALUES ",
     );
@@ -354,16 +354,16 @@ VALUES ",
         ret = ret
             .bind(record.eth_lock_tx_hash.clone())
             .bind(record.status.clone())
-            .bind(record.token_addr.as_ref())
-            .bind(record.sender_addr.as_ref())
-            .bind(record.locked_amount.as_ref())
-            .bind(record.bridge_fee.as_ref())
-            .bind(record.ckb_recipient_lockscript.as_ref())
+            .bind(record.token_addr.clone())
+            .bind(record.sender_addr.clone())
+            .bind(record.locked_amount.clone())
+            .bind(record.bridge_fee.clone())
+            .bind(record.ckb_recipient_lockscript.clone())
             .bind(record.sudt_extra_data.as_ref())
             .bind(record.ckb_tx_hash.as_ref())
             .bind(record.eth_spv_proof.as_ref())
             .bind(record.eth_block_number)
-            .bind(record.replay_resist_outpoint.as_ref());
+            .bind(record.replay_resist_outpoint.clone());
     }
     ret.execute(pool).await?;
     Ok(())
@@ -374,17 +374,17 @@ pub struct CkbToEthRecord {
     pub id: u64,
     pub ckb_burn_tx_hash: String,
     pub status: String,
-    pub recipient_addr: Option<String>,
-    pub token_addr: Option<String>,
-    pub token_amount: Option<String>,
-    pub fee: Option<String>,
+    pub recipient_addr: String,
+    pub token_addr: String,
+    pub token_amount: String,
+    pub fee: String,
     pub eth_tx_hash: Option<String>,
     pub ckb_spv_proof: Option<String>,
     pub ckb_block_number: u64,
-    pub ckb_raw_tx: Option<String>,
+    pub ckb_raw_tx: String,
     pub eth_block_number: u64,
-    pub bridge_lock_hash: Option<String>,
-    pub lock_contract_addr: Option<String>,
+    pub bridge_lock_hash: String,
+    pub lock_contract_addr: String,
 }
 
 pub async fn get_latest_ckb_to_eth_record(pool: &MySqlPool) -> Result<Option<CkbToEthRecord>> {
@@ -405,7 +405,7 @@ pub async fn create_ckb_to_eth_record(
 ) -> Result<()> {
     let mut sql = String::from(
         r"
-INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
+INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee,
 eth_tx_hash, ckb_spv_proof, ckb_block_number, ckb_raw_tx, lock_contract_addr, bridge_lock_hash)
 VALUES ",
     );
@@ -418,16 +418,16 @@ VALUES ",
         ret = ret
             .bind(record.ckb_burn_tx_hash.clone())
             .bind(record.status.clone())
-            .bind(record.recipient_addr.as_ref())
-            .bind(record.token_addr.as_ref())
-            .bind(record.token_amount.as_ref())
-            .bind(record.fee.as_ref())
+            .bind(record.recipient_addr.clone())
+            .bind(record.token_addr.clone())
+            .bind(record.token_amount.clone())
+            .bind(record.fee.clone())
             .bind(record.eth_tx_hash.as_ref())
             .bind(record.ckb_spv_proof.as_ref())
             .bind(record.ckb_block_number)
-            .bind(record.ckb_raw_tx.as_ref())
-            .bind(record.lock_contract_addr.as_ref())
-            .bind(record.bridge_lock_hash.as_ref())
+            .bind(record.ckb_raw_tx.clone())
+            .bind(record.lock_contract_addr.clone())
+            .bind(record.bridge_lock_hash.clone())
     }
     ret.execute(pool).await?;
     Ok(())
@@ -481,7 +481,7 @@ pub async fn update_ckb_to_eth_record_status(
 UPDATE ckb_to_eth SET
     status = ?,
     eth_tx_hash = ?,
-    eth_block_number = ? 
+    eth_block_number = ?
 WHERE  ckb_burn_tx_hash = ?
         "#;
     sqlx::query(sql)
