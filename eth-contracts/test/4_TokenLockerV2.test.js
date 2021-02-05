@@ -81,30 +81,30 @@ contract('TokenLocker openzeppelin', () => {
       expect(await ckbChain.NAME_712()).to.eq(name);
 
       addHistoryTxRootTypeHash = keccak256(
-          toUtf8Bytes(
-              'AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)'
-          )
+        toUtf8Bytes(
+          'AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)'
+        )
       );
       log(`addHeadersTypeHash`, addHistoryTxRootTypeHash);
       expect(await ckbChain.ADD_HISTORY_TX_ROOT_TYPEHASH()).to.eq(
-          addHistoryTxRootTypeHash
+        addHistoryTxRootTypeHash
       );
 
       DOMAIN_SEPARATOR = keccak256(
-          defaultAbiCoder.encode(
-              ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
-              [
-                keccak256(
-                    toUtf8Bytes(
-                        'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
-                    )
-                ),
-                keccak256(toUtf8Bytes(name)),
-                keccak256(toUtf8Bytes('1')),
-                chainId,
-                ckbChain.address,
-              ]
-          )
+        defaultAbiCoder.encode(
+          ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
+          [
+            keccak256(
+              toUtf8Bytes(
+                'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
+              )
+            ),
+            keccak256(toUtf8Bytes(name)),
+            keccak256(toUtf8Bytes('1')),
+            chainId,
+            ckbChain.address,
+          ]
+        )
       );
       expect(await ckbChain.DOMAIN_SEPARATOR()).to.eq(DOMAIN_SEPARATOR);
     });
@@ -120,25 +120,25 @@ contract('TokenLocker openzeppelin', () => {
         } = testCase;
         // 1. calc msgHash
         const msgHash = getMsgHashForAddHistoryTxRoot(
-            DOMAIN_SEPARATOR,
-            addHistoryTxRootTypeHash,
-            initBlockNumber,
-            latestBlockNumber,
-            historyTxRoot
+          DOMAIN_SEPARATOR,
+          addHistoryTxRootTypeHash,
+          initBlockNumber,
+          latestBlockNumber,
+          historyTxRoot
         );
 
         // 2. generate signatures
         let signatures = generateSignatures(
-            msgHash,
-            wallets.slice(0, multisigThreshold)
+          msgHash,
+          wallets.slice(0, multisigThreshold)
         );
 
         // 3. addHeaders with gc
         const tx = await ckbChain.addHistoryTxRoot(
-            initBlockNumber,
-            latestBlockNumber,
-            historyTxRoot,
-            signatures
+          initBlockNumber,
+          latestBlockNumber,
+          historyTxRoot,
+          signatures
         );
         const receipt = await tx.wait(1);
         expect(receipt.status).to.eq(1);
