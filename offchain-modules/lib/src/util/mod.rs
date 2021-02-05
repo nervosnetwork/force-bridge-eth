@@ -1,3 +1,4 @@
+pub mod ckb_proof_helper;
 pub mod ckb_tx_generator;
 pub mod ckb_types;
 pub mod ckb_util;

@@ -7,48 +7,26 @@ import {Blake2b} from "./libraries/Blake2b.sol";
 import {SafeMath} from "./libraries/SafeMath.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ViewSpv} from "./libraries/ViewSpv.sol";
-import {ICKBChainV2} from "./interfaces/ICKBChainV2.sol";
-import {ICKBChainV3} from "./interfaces/ICKBChainV3.sol";
 import {ICKBSpvV3} from "./interfaces/ICKBSpvV3.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 
 // tools below just for test, they will be removed before production ready
-//import "./test/console.sol";
+import "./test/console.sol";
 
-contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
+contract CKBChainV3 is ICKBSpvV3 {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
     using ViewSpv for bytes29;
 
     bool public initialized;
-    // We store the hashes of the blocks for the past `CanonicalGcThreshold` headers.
-    // Events that happen past this threshold cannot be verified by the client.
-    // It is desirable that this number is larger than 7 days worth of headers, which is roughly
-    // 40k ckb blocks. So this number should be 40k in production.
-    uint64 public CanonicalGcThreshold;
-
     uint64 public latestBlockNumber;
     uint64 public initBlockNumber;
-
-    address public governance;
-
-    // Hashes of the canonical chain mapped to their numbers. Stores up to `canonical_gc_threshold`
-    // entries.
-    // header number -> header hash
-    mapping(uint64 => bytes32) canonicalHeaderHashes;
-
-    // TransactionRoots of the canonical chain mapped to their headerHash. Stores up to `canonical_gc_threshold`
-    // entries.
-    // header hash -> transactionRoots from the header
-    mapping(bytes32 => bytes32) canonicalTransactionsRoots;
 
     // refer to https://github.com/ethereum/EIPs/blob/master/EIPS/eip-712.md
     uint public constant SIGNATURE_SIZE = 65;
     uint public constant VALIDATORS_SIZE_LIMIT = 20;
     string public constant NAME_712 = "Force Bridge CKBChain";
-    // ADD_HEADERS_TYPEHASH = keccak256("AddHeaders(bytes[] tinyHeaders)");
-    bytes32 public constant ADD_HEADERS_TYPEHASH = 0x1dac851def8ec317cf44b4a6cf63dabe82895259e6290d4c2ef271700bfce584;
     bytes32 public DOMAIN_SEPARATOR;
     // if the number of verified signatures has reached `multisigThreshold_`, validators approve the tx
     uint public multisigThreshold_;
@@ -64,6 +42,12 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
         uint16 index;
         bytes32 data;
     }
+
+    event HistoryTxRootAdded(
+        uint64 indexed startBlockNumber,
+        uint64 indexed endBlockNumber,
+        bytes32 HistoryTxRoot
+    );
 
     // @notice             requires `memView` to be of a specified type
     // @param memView      a 29-byte view with a 5-byte type
@@ -137,15 +121,11 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
     }
 
     function initialize(
-        uint64 canonicalGcThreshold,
         address[] memory validators,
         uint multisigThreshold
     ) public {
         require(!initialized, "Contract instance has already been initialized");
         initialized = true;
-
-        // set init threshold
-        CanonicalGcThreshold = canonicalGcThreshold;
 
         // set DOMAIN_SEPARATOR
         uint chainId;
@@ -174,80 +154,8 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
         return latestBlockNumber;
     }
 
-    // query
-    function getCanonicalHeaderHash(uint64 blockNumber)
-        public
-        view
-        returns (bytes32)
-    {
-        return canonicalHeaderHashes[blockNumber];
-    }
-
-    // query
-    function getCanonicalTransactionsRoot(bytes32 blockHash)
-        public
-        view
-        returns (bytes32)
-    {
-        return canonicalTransactionsRoots[blockHash];
-    }
-
-    // # ICKBChain
-    function addHeaders(bytes[] calldata tinyHeaders, bytes calldata signatures) override external {
-        // 1. calc msgHash
-        bytes32 msgHash = keccak256(
-            abi.encodePacked(
-                "\x19\x01", // solium-disable-line
-                DOMAIN_SEPARATOR,
-                keccak256(abi.encode(ADD_HEADERS_TYPEHASH, tinyHeaders))
-            )
-        );
-
-        // 2. validatorsApprove
-        validatorsApprove(msgHash, signatures, multisigThreshold_);
-
-        // 3. addHeaders
-        bytes29 tinyHeaderView;
-        for (uint i = 0; i < tinyHeaders.length; i++) {
-            tinyHeaderView = tinyHeaders[i].ref(uint40(ViewCKB.CKBTypes.TinyHeader));
-            _addHeader(tinyHeaderView);
-        }
-    }
-
-    function _addHeader(bytes29 tinyHeaderView) private {
-        bytes32 blockHash = tinyHeaderView.hash();
-
-        // 1. set latestBlockNumber
-        latestBlockNumber = tinyHeaderView.number();
-
-        // 1. refresh canonicalChain
-        canonicalHeaderHashes[latestBlockNumber] = blockHash;
-        canonicalTransactionsRoots[blockHash] = tinyHeaderView.txRoot();
-        emit BlockHashAdded(latestBlockNumber, blockHash);
-
-        // 2. gc
-        if (latestBlockNumber > CanonicalGcThreshold) {
-            _gcCanonicalChain(latestBlockNumber - CanonicalGcThreshold);
-        }
-    }
-
-    // Remove hashes from the Canonical chain that are at least as old as the given header number.
-    function _gcCanonicalChain(uint64 blockNumber) internal {
-        uint64 number = blockNumber;
-        while (true) {
-            if (number == 0 || canonicalHeaderHashes[number] == bytes32(0)) {
-                break;
-            }
-
-            delete canonicalTransactionsRoots[canonicalHeaderHashes[number]];
-            delete canonicalHeaderHashes[number];
-            number--;
-        }
-    }
-
     // CKBChainV3-----------------------------
     function addHistoryTxRoot(uint64 _initBlockNumber, uint64 _latestBlockNumber, bytes32 _historyTxRoot, bytes calldata signatures)
-    override
     external
     {
         // 1. calc msgHash
@@ -270,22 +178,16 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
         emit HistoryTxRootAdded(_initBlockNumber, _latestBlockNumber, _historyTxRoot);
     }
 
-    function proveTxRootExist(bytes calldata txRootProofData)
+    function proveTxExist(bytes calldata txRootProofData, uint64 numConfirmations)
     override
     external
     view
     returns (bool)
     {
+        // todo: check numconfirmations
+
         bytes29 txRootProofView = txRootProofData.ref(
             uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
-        );
-        require(
-            txRootProofView.initBlockNumber() == initBlockNumber,
-            "initBlockNumber mismatch"
-        );
-        require(
-            txRootProofView.latestBlockNumber() == latestBlockNumber,
-            "latestBlockNumber mismatch"
         );
 
         // queue
@@ -338,11 +240,10 @@ contract CKBChainV3 is ICKBChainV2, ICKBChainV3, ICKBSpvV3 {
 
             // push parentTreeNode to queue
             // parentIndex == (currentIndex - 1) >> 1, parentNode
-            // TODO modify Blake2b.digest64Merge to keccak256
             if (currentIndex < siblingIndex) {
-                queue[end] = TreeNode((currentIndex - 1) >> 1, Blake2b.digest64Merge(currentNode, siblingNode));
+                queue[end] = TreeNode((currentIndex - 1) >> 1, keccak256(abi.encodePacked(currentNode, siblingNode)));
             } else {
-                queue[end] = TreeNode((currentIndex - 1) >> 1, Blake2b.digest64Merge(siblingNode, currentNode));
+                queue[end] = TreeNode((currentIndex - 1) >> 1, keccak256(abi.encodePacked(siblingNode, currentNode)));
             }
             end = (end + 1) % queueLength;
         }

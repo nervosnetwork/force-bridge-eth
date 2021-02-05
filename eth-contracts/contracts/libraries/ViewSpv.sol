@@ -155,23 +155,23 @@ library ViewSpv {
         return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.CKBHistoryTxProofVec));
     }
 
-    function length(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
-        if (_input.len() == 4) {
-            return 0;
-        }
-        return _input.indexLEUint(4, 4) / 4 - 1;
-    }
-
-    function getHistoryTxProofFromVec(bytes29 _input, uint256 idx) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
-        uint256 startIndex = 4 * (1 + idx);
-        uint256 start = _input.indexLEUint(startIndex, 4);
-        if (idx == length(_input) - 1) {
-            uint256 inputLength = _input.len();
-            return _input.slice(start, inputLength - start, uint40(SpvTypes.CKBHistoryTxProof));
-        } else {
-            uint256 endIndex = startIndex + 4;
-            uint256 end = _input.indexLEUint(endIndex, 4);
-            return _input.slice(start, end - start, uint40(SpvTypes.CKBHistoryTxProof));
-        }
-    }
+//    function length(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
+//        if (_input.len() == 4) {
+//            return 0;
+//        }
+//        return _input.indexLEUint(4, 4) / 4 - 1;
+//    }
+//
+//    function getHistoryTxProofFromVec(bytes29 _input, uint256 idx) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProofVec) returns (bytes29) {
+//        uint256 startIndex = 4 * (1 + idx);
+//        uint256 start = _input.indexLEUint(startIndex, 4);
+//        if (idx == length(_input) - 1) {
+//            uint256 inputLength = _input.len();
+//            return _input.slice(start, inputLength - start, uint40(SpvTypes.CKBHistoryTxProof));
+//        } else {
+//            uint256 endIndex = startIndex + 4;
+//            uint256 end = _input.indexLEUint(endIndex, 4);
+//            return _input.slice(start, end - start, uint40(SpvTypes.CKBHistoryTxProof));
+//        }
+//    }
 }

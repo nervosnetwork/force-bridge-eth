@@ -110,28 +110,24 @@ contract TokenLockerV2 {
         );
     }
 
-    function unlockToken(bytes[] calldata ckbTxProofArray, bytes[] calldata ckbTxs, bytes calldata txRootProofData) external {
-        // 1. check proveTxRootExist
-        require(ckbSpv_.proveTxRootExist(txRootProofData), "txRoot from txRootProofData should exist on CKBChain");
-
-        // 2. check raw ckbTx, txProof and txRootProof match
-        bytes29 txRootProofView = txRootProofData.ref(
-            uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
-        );
-        bytes29 proofLeaves = txRootProofView.proofLeaves();
-        uint txsLength = ckbTxProofArray.length;
-        require(txsLength == ckbTxs.length, "length of ckbTxProofArray and ckbTxs mismatch");
-
-        bytes29 txProofView;
-        bytes29 rawTxView;
-        bytes32 txHash;
-        for (uint i = 0; i < txsLength; i++) {
-            // - 1. check txHashes match from txProof and raw ckbTx
-            txProofView = ckbTxProofArray[i].ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof));
-//            txHash = txProofView.historyTxHash();
-            rawTxView = txProofView.rawTransaction();
-
+    function unlockToken(bytes memory proof) external {
+//        // 1. check proveTxRootExist
+//        require(ckbSpv_.proveTxExist(txRootProofData, numConfirmations_), "txRoot from txRootProofData should exist on CKBChain");
 //
+//        // 2. check raw ckbTx, txProof and txRootProof match
+//        bytes29 txRootProofView = txRootProofData.ref(
+//            uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)
+//        );
+//        bytes29 proofLeaves = txRootProofView.proofLeaves();
+//        uint txsLength = ckbTxProofArray.length;
+//        require(txsLength == ckbTxs.length, "length of ckbTxProofArray and ckbTxs mismatch");
+//
+//        bytes29 txProofView;
+//        bytes32 txHash;
+//        for (uint i = 0; i < txsLength; i++) {
+//            // - 1. check txHashes match from txProof and raw ckbTx
+//            txProofView = ckbTxProofArray[i].ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof));
+//            txHash = txProofView.historyTxHash();
 //            require(!usedTx_[txHash], "The burn tx cannot be reused");
 //            usedTx_[txHash] = true;
 //            require((txHash == CKBCrypto.digest(ckbTxs[i], ckbTxs[i].length)), "ckbTx mismatched with CkbHistoryTxProof");
@@ -153,7 +149,7 @@ contract TokenLockerV2 {
 //                IERC20(tokenAddress).safeTransfer(msg.sender, bridgeFee);
 //            }
 //            emit Unlocked(tokenAddress, recipientAddress, msg.sender, receivedAmount, bridgeFee);
-        }
+//        }
     }
 
     function decodeBurnResult(bytes memory ckbTx) public view returns (
@@ -181,7 +177,7 @@ contract TokenLockerV2 {
         );
     }
 
-    function _proveTxExist(bytes29 txProofView, bytes32 txHash, bytes32 targetTxRoot)
+    function _proveTxExist(bytes29 txProofView, bytes32 targetTxRoot)
     internal
     view
     returns (bool)
@@ -193,7 +189,8 @@ contract TokenLockerV2 {
         uint256 length = lemmas.len() / 32;
 
         // calc the rawTransactionsRoot
-        bytes32 rawTxRoot = txHash;
+//        bytes32 rawTxRoot = txProofView.historyTxHash();
+        bytes32 rawTxRoot;
         while (lemmasIndex < length && index > 0) {
             sibling = ((index + 1) ^ 1) - 1;
             if (index < sibling) {
