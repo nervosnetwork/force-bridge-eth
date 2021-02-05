@@ -15,7 +15,7 @@ aggron = []
 lina = []
 
 [dependencies]
-cfg-if = "0.1"
+cfg-if = "1.0"
 molecule = { version = "0.6", default-features = false }
 ethereum-types = {version = "0.9.2", default-features = false }
 no-std-compat = { version = "0.4.1", features = [ "alloc" ] }

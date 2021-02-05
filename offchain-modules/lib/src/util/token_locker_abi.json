@@ -315,13 +315,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "setLightClientTypescriptHash",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "bytes",

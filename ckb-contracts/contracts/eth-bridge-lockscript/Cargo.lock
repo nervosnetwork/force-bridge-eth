@@ -190,7 +190,7 @@ name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
  "blake2b-ref",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "eth-spv-lib",
  "ethereum-types",
  "molecule",
