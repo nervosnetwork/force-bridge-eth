@@ -246,7 +246,7 @@ contract TokenLockerV2 {
         return true;
     }
 
-    function _proveTxRootExist(bytes29 txRootProofView, bytes32 historyTxRoot)
+    function _proveTxRootExist(bytes29 txRootProofView, bytes32 targetHistoryTxRoot)
     internal
     view
     returns (TreeNode[] memory leafNodes)
@@ -314,7 +314,7 @@ contract TokenLockerV2 {
         }
 
         require(
-            currentNode == historyTxRoot,
+            currentNode == targetHistoryTxRoot,
             "proof not verified"
         );
         return leafNodes;
