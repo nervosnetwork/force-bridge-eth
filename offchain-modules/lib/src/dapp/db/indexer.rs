@@ -279,8 +279,8 @@ FROM eth_to_ckb
 order by id desc limit 1
         "#,
     )
-        .fetch_optional(pool)
-        .await?)
+    .fetch_optional(pool)
+    .await?)
 }
 
 pub async fn get_eth_to_ckb_record_by_outpoint(
@@ -395,8 +395,8 @@ FROM ckb_to_eth
 order by id desc limit 1
         "#,
     )
-        .fetch_optional(pool)
-        .await?)
+    .fetch_optional(pool)
+    .await?)
 }
 
 pub async fn create_ckb_to_eth_record(

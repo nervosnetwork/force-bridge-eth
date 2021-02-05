@@ -131,7 +131,7 @@ impl CkbIndexer {
                 &mut tail,
                 re_org,
             )
-                .await?;
+            .await?;
             tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         }
     }
@@ -188,8 +188,8 @@ impl CkbIndexer {
                 &self.db,
                 *start_block_number % CKB_CHAIN_CONFIRMED as u64,
             )
-                .await?
-                .ok_or_else(|| anyhow!("the block is not exist"))?;
+            .await?
+            .ok_or_else(|| anyhow!("the block is not exist"))?;
             unconfirmed_block.number = *start_block_number;
             unconfirmed_block.hash = hash_str;
         }
@@ -461,7 +461,7 @@ pub fn is_mint_tx(
             if let Some(bridge_type_script) = bridge_type_script_op {
                 if bridge_type_script.code_hash.as_bytes() == bridge_typescript_code_hash.as_slice()
                     || bridge_type_script.code_hash.as_bytes()
-                    == simple_typescript_code_hash.as_slice()
+                        == simple_typescript_code_hash.as_slice()
                 {
                     return Ok(true);
                 }

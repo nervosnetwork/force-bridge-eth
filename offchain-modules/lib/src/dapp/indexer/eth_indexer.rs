@@ -184,7 +184,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 &mut tail,
                 re_org,
             )
-                .await?;
+            .await?;
             tokio::time::delay_for(std::time::Duration::from_millis(100)).await;
         }
     }
@@ -272,7 +272,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                     &item,
                     *start_block_number,
                 )
-                    .await?;
+                .await?;
             }
         }
         if !unlock_vec.is_empty() {
@@ -299,8 +299,8 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 &self.db,
                 *start_block_number % ETH_CHAIN_CONFIRMED as u64,
             )
-                .await?
-                .ok_or_else(|| anyhow!("the block is not exist"))?;
+            .await?
+            .ok_or_else(|| anyhow!("the block is not exist"))?;
             unconfirmed_block.number = *start_block_number;
             unconfirmed_block.hash = hash_str;
         }
@@ -312,7 +312,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             unconfirmed_blocks,
             &unconfirmed_block,
         )
-            .await?;
+        .await?;
         *start_block_number += 1;
         *tail = unconfirmed_block.clone();
         unconfirmed_blocks.push(unconfirmed_block);
@@ -347,7 +347,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                     "success",
                     start_block_number,
                 )
-                    .await?;
+                .await?;
             }
         }
         let light_client_height = self.get_light_client_height_with_loop().await;
@@ -380,7 +380,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             contract_addr,
             String::from(self.eth_client.url()),
         )
-            .await?;
+        .await?;
         let proof_json = serde_json::to_string(&eth_proof_json)?;
         let recipient_lockscript = hex::encode(eth_proof_json.recipient_lockscript);
         if self.indexer_filter.filter(recipient_lockscript.clone()) {
