@@ -29,7 +29,7 @@ contract('CKBChainV3', () => {
     multisigThreshold = 5;
     chainId = await signer.getChainId();
 
-    // deploy CKBChainV2
+    // deploy CKBChainV3
     const canonicalGcThreshold = 40;
     factory = await ethers.getContractFactory(
       'contracts/CKBChainV3-openzeppelin.sol:CKBChainV3'
@@ -37,11 +37,7 @@ contract('CKBChainV3', () => {
 
     ckbChain = await factory.deploy();
     await ckbChain.deployTransaction.wait(1);
-    const res = await ckbChain.initialize(
-      canonicalGcThreshold,
-      validators,
-      multisigThreshold
-    );
+    const res = await ckbChain.initialize(validators, multisigThreshold);
     await res.wait(1);
 
     contractAddress = ckbChain.address;
@@ -126,11 +122,11 @@ contract('CKBChainV3', () => {
         actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber();
         log(`current tipBlockNumber: ${actualTipNumber}\r\n`);
 
-        // 4. proveTxRootExist
-        for (const proofData of txRootProofDataVec) {
-          const res = await ckbChain.callStatic.proveTxRootExist(proofData);
-          expect(res).to.equal(true);
-        }
+        // // 4. proveTxRootExist
+        // for (const proofData of txRootProofDataVec) {
+        //   const res = await ckbChain.callStatic.proveTxRootExist(proofData);
+        //   expect(res).to.equal(true);
+        // }
       }
     });
   });
