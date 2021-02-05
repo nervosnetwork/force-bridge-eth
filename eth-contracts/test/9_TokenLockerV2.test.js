@@ -1,4 +1,5 @@
 const { expect } = require('chai');
+const { keccak256, defaultAbiCoder, toUtf8Bytes } = ethers.utils;
 const {
   log,
   waitingForReceipt,
@@ -6,7 +7,7 @@ const {
   generateWallets,
   getMsgHashForAddHistoryTxRoot,
 } = require('./utils');
-
+const { addHistoryTxRootTestCases } = require('./data/testHistoryTxRoot.json');
 const testJson = require('./data/testTokenLocker.json');
 const recipientCellTypescript = testJson.recipientCellTypescript;
 const lightClientTypescriptHash = testJson.lightClientTypescriptHash;
@@ -24,7 +25,7 @@ contract('TokenLocker openzeppelin', () => {
     endHeaderIndex,
     factory;
   let wallets, validators;
-  let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHeadersTypeHash;
+  let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHistoryTxRootTypeHash;
 
   before(async function () {
     // disable timeout
@@ -67,6 +68,82 @@ contract('TokenLocker openzeppelin', () => {
     contractAddress = tokenLocker.address;
     provider = tokenLocker.provider;
     user = tokenLocker.signer;
+  });
+
+  it('SIGNATURE_SIZE, name, AddHistoryTxRootTypeHash, DOMAIN_SEPARATOR', async () => {
+    expect(await ckbChain.SIGNATURE_SIZE()).to.eq(65);
+
+    const name = 'Force Bridge CKBChain';
+    expect(await ckbChain.NAME_712()).to.eq(name);
+
+    addHistoryTxRootTypeHash = keccak256(
+        toUtf8Bytes(
+            'AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)'
+        )
+    );
+    log(`addHeadersTypeHash`, addHistoryTxRootTypeHash);
+    expect(await ckbChain.ADD_HISTORY_TX_ROOT_TYPEHASH()).to.eq(
+        addHistoryTxRootTypeHash
+    );
+
+    DOMAIN_SEPARATOR = keccak256(
+        defaultAbiCoder.encode(
+            ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
+            [
+              keccak256(
+                  toUtf8Bytes(
+                      'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
+                  )
+              ),
+              keccak256(toUtf8Bytes(name)),
+              keccak256(toUtf8Bytes('1')),
+              chainId,
+              ckbChain.address,
+            ]
+        )
+    );
+    expect(await ckbChain.DOMAIN_SEPARATOR()).to.eq(DOMAIN_SEPARATOR);
+  });
+
+  it('use v1 contract, addHistoryTxRoot correct case', async () => {
+    let actualTipNumber;
+    for (const testCase of addHistoryTxRootTestCases) {
+      const {
+        initBlockNumber,
+        latestBlockNumber,
+        historyTxRoot,
+        txRootProofDataVec,
+      } = testCase;
+      // 1. calc msgHash
+      const msgHash = getMsgHashForAddHistoryTxRoot(
+          DOMAIN_SEPARATOR,
+          addHistoryTxRootTypeHash,
+          initBlockNumber,
+          latestBlockNumber,
+          historyTxRoot
+      );
+
+      // 2. generate signatures
+      let signatures = generateSignatures(
+          msgHash,
+          wallets.slice(0, multisigThreshold)
+      );
+
+      // 3. addHeaders with gc
+      const tx = await ckbChain.addHistoryTxRoot(
+          initBlockNumber,
+          latestBlockNumber,
+          historyTxRoot,
+          signatures
+      );
+      const receipt = await tx.wait(1);
+      expect(receipt.status).to.eq(1);
+      log(`gas cost: ${receipt.gasUsed}`);
+
+      // check if addHeaders success
+      actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber();
+      log(`current tipBlockNumber: ${actualTipNumber}\r\n`);
+    }
   });
 
   describe('v1 test case', async function () {
