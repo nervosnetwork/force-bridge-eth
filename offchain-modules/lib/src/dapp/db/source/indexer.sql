@@ -94,8 +94,8 @@ LOCK TABLES `cross_chain_height_info` WRITE;
 
 INSERT INTO `cross_chain_height_info` (`id`, `height`, `client_height`)
 VALUES
-	(1,0,0),
-	(2,0,0);
+(1,0,0),
+(2,0,0);
 
 /*!40000 ALTER TABLE `cross_chain_height_info` ENABLE KEYS */;
 UNLOCK TABLES;

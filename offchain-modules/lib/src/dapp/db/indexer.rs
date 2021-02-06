@@ -341,7 +341,7 @@ pub async fn create_eth_to_ckb_record(
 ) -> Result<()> {
     let mut sql = String::from(
         r"
-INSERT INTO eth_to_ckb ( eth_lock_tx_hash, status, token_addr, sender_addr, locked_amount, bridge_fee, 
+INSERT INTO eth_to_ckb ( eth_lock_tx_hash, status, token_addr, sender_addr, locked_amount, bridge_fee,
 ckb_recipient_lockscript, sudt_extra_data, ckb_tx_hash, eth_spv_proof, eth_block_number, replay_resist_outpoint)
 VALUES ",
     );
@@ -405,7 +405,7 @@ pub async fn create_ckb_to_eth_record(
 ) -> Result<()> {
     let mut sql = String::from(
         r"
-INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee, 
+INSERT INTO ckb_to_eth ( ckb_burn_tx_hash, status, recipient_addr, token_addr, token_amount, fee,
 eth_tx_hash, ckb_spv_proof, ckb_block_number, ckb_raw_tx, lock_contract_addr, bridge_lock_hash)
 VALUES ",
     );
@@ -481,7 +481,7 @@ pub async fn update_ckb_to_eth_record_status(
 UPDATE ckb_to_eth SET
     status = ?,
     eth_tx_hash = ?,
-    eth_block_number = ? 
+    eth_block_number = ?
 WHERE  ckb_burn_tx_hash = ?
         "#;
     sqlx::query(sql)
