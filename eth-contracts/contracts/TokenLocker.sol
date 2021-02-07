@@ -156,6 +156,7 @@ contract TokenLocker {
 
             // - 2. proveTxExist, check if txRoots from txProof and txRootProof match
             // calc the index in txRoot-merkle-tree
+            merkleIndex = (latestBlockNumber - initBlockNumber) + (blockNumber - initBlockNumber);
             _proveTxExist(txProofView, txHash, _getTargetTxRoot(merkleIndex, leafNodes));
 
             // - 3. unlockToken
