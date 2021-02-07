@@ -8,6 +8,7 @@ const {
   getMsgHashForAddHistoryTxRoot,
 } = require('./utils');
 const { addHistoryTxRootTestCases } = require('./data/testHistoryTxRoot.json');
+const viewHistoryTxProof = require('./data/testHistoryTxProof.json');
 const testJson = require('./data/testTokenLocker.json');
 const recipientCellTypescript = testJson.recipientCellTypescript;
 const lightClientTypescriptHash = testJson.lightClientTypescriptHash;
@@ -165,7 +166,20 @@ contract('TokenLocker openzeppelin', () => {
         input,
         historyTxRoot
       );
-      log(res);
+      expect(res).to.eq(true);
+    });
+
+    it('test _proveTxExist', async () => {
+      for (let i = 0; i < viewHistoryTxProof.calcTxHash.length; i++) {
+        const testCase = viewHistoryTxProof.calcTxHash[i];
+        const txRoot = viewHistoryTxProof.expectTransactionsRoot[i].output;
+        const res = await tokenLocker.callStatic.testProveTxExist(
+          testCase.input,
+          testCase.output,
+          txRoot
+        );
+        expect(res).to.eq(true);
+      }
     });
 
     it('use v1 contract, lockETH correct case', async () => {
