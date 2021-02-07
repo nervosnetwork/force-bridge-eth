@@ -15,6 +15,7 @@ contract('CKBChainV3', () => {
   let ckbChain, adminAddress, contractAddress, provider, factory;
   let wallets, validators;
   let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHistoryTxRootTypeHash;
+  let initBlockNumber, latestBlockNumber, historyTxRoot, txRootProofDataVec;
 
   before(async function () {
     // disable timeout
@@ -86,12 +87,10 @@ contract('CKBChainV3', () => {
     it('use v1 contract, addHistoryTxRoot correct case', async () => {
       let actualTipNumber;
       for (const testCase of addHistoryTxRootTestCases) {
-        const {
-          initBlockNumber,
-          latestBlockNumber,
-          historyTxRoot,
-          txRootProofDataVec,
-        } = testCase;
+        initBlockNumber = testCase.initBlockNumber;
+        latestBlockNumber = testCase.latestBlockNumber;
+        historyTxRoot = testCase.historyTxRoot;
+        txRootProofDataVec = testCase.txRootProofDataVec;
         // 1. calc msgHash
         const msgHash = getMsgHashForAddHistoryTxRoot(
           DOMAIN_SEPARATOR,
