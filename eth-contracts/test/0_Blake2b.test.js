@@ -1,12 +1,5 @@
-/* global artifacts contract describe before it assert */
-const BN = require('bn.js');
-
-/* eslint-disable-next-line no-unresolved */
-const vectors = require('./data/testVectors.json');
-
 const _ = require('lodash');
 const { ckbBlake2b, log } = require('./utils');
-const { extractSince, extractPreviousOutput } = vectors;
 
 const generateRandomHex = () => {
   const chars = '0123456789abcdef';
