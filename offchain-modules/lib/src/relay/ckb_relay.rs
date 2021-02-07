@@ -41,7 +41,7 @@ impl CKBRelayer {
         let gas_price = U256::from(gas_price);
 
         Ok(CKBRelayer {
-            ckb_rpc_url: ckb_rpc_url.clone(),
+            ckb_rpc_url,
             contract_addr,
             priv_key,
             ckb_client,
@@ -99,7 +99,7 @@ impl CKBRelayer {
             self.contract_addr,
             init_block_number,
             latest_block_number,
-            history_tx_root.clone(),
+            history_tx_root,
         )?;
 
         let mut signatures: Vec<u8> = vec![];

@@ -618,6 +618,6 @@ pub fn generate_ckb_history_tx_root_proof(
         latest_block_number,
         indices: indices.iter().map(|i| *i as u64).collect(),
         proof_leaves,
-        lemmas: proof.lemmas().into_iter().map(|&p| p.into()).collect(),
+        lemmas: proof.lemmas().iter().map(|&p| p.into()).collect(),
     })
 }
