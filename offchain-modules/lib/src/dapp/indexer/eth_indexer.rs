@@ -76,12 +76,6 @@ impl<T: IndexerFilter> EthIndexer<T> {
             .ok_or_else(|| anyhow!("the cell is not exist"))?;
         let ckb_cell_data = cell.output_data.as_bytes().to_vec();
         if !ckb_cell_data.is_empty() {
-            // let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
-            // let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
-            //     .number
-            //     .ok_or_else(|| anyhow!("the number is not exist"))?
-            //     .as_u64();
-            // return Ok(best_block_height);
             let (start_height, latest_height, _) = parse_merkle_cell_data(ckb_cell_data.to_vec())?;
             log::info!(
                 "get_light_client_height start_height: {:?}, latest_height: {:?}",
@@ -114,12 +108,14 @@ impl<T: IndexerFilter> EthIndexer<T> {
         let mut height_info = get_height_info(&self.db, 1 as u8).await?;
         if height_info.height == 0 {
             // height info init.
+            log::info!("init cross chain height info.");
             height_info.height = self.get_light_client_height_with_loop().await;
         }
         let mut start_block_number = height_info.height + 1;
         let mut unconfirmed_blocks = get_eth_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
+            log::info!("init eth unconfirmed blocks.");
             self.init_eth_unconfirmed_blocks(&mut unconfirmed_blocks, start_block_number)
                 .await?;
         }
@@ -169,6 +165,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                         (unconfirmed_blocks.len() - 1) as isize,
                     )
                     .await?;
+                log::info!("find the common ancestor block: {:?}", block);
                 start_block_number = block
                     .number
                     .ok_or_else(|| anyhow!("invalid block number"))?

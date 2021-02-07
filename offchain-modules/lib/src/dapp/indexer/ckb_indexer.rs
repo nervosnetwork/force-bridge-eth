@@ -92,6 +92,7 @@ impl CkbIndexer {
         }
         let mut re_org = false;
         loop {
+            log::info!("handle ckb block number: {:?}", start_block_number);
             let block = self
                 .rpc_client
                 .get_block_by_number(start_block_number)
@@ -112,6 +113,7 @@ impl CkbIndexer {
                         (unconfirmed_blocks.len() - 1) as isize,
                     )
                     .await?;
+                log::info!("find the common ancestor ckb block: {:?}", block);
                 start_block_number = block.header.inner.number + 1;
                 unconfirmed_blocks = unconfirmed_blocks
                     .into_iter()
