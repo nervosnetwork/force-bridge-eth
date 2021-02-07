@@ -40,9 +40,9 @@ contract('TokenLocker openzeppelin', () => {
     multisigThreshold = 5;
     chainId = await signer.getChainId();
 
-    // deploy CKBChainV3
+    // deploy CKBChain
     factory = await ethers.getContractFactory(
-      'contracts/CKBChainV3-openzeppelin.sol:CKBChainV3'
+      'contracts/CKBChain.sol:CKBChain'
     );
 
     ckbChain = await factory.deploy();
@@ -52,7 +52,7 @@ contract('TokenLocker openzeppelin', () => {
 
     // deploy TokenLocker
     factory = await ethers.getContractFactory(
-      'contracts/TokenLockerV2-openzeppelin.sol:TokenLockerV2'
+      'contracts/TokenLocker.sol:TokenLocker'
     );
     tokenLocker = await factory.deploy();
     await tokenLocker.deployTransaction.wait(1);

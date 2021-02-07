@@ -4,13 +4,13 @@ pragma abicoder v2;
 
 import {TypedMemView} from "./libraries/TypedMemView.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
-import {ICKBSpvV3} from "./interfaces/ICKBSpvV3.sol";
+import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "./test/console.sol";
 
-contract CKBChainV3 is ICKBSpvV3 {
+contract CKBChain is ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;

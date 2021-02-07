@@ -70,9 +70,9 @@ async function deploy() {
 
   // const canonicalGcThreshold = 40000;
   let factory = await ethers.getContractFactory(
-    'contracts/CKBChainV3-openzeppelin.sol:CKBChainV3'
+    'contracts/CKBChain.sol:CKBChain'
   );
-  let CKBChainV3 = await upgrades.deployProxy(
+  let CKBChain = await upgrades.deployProxy(
     factory,
     [validators, multisigThreshold],
     {
@@ -81,8 +81,8 @@ async function deploy() {
       unsafeAllowLinkedLibraries: true,
     }
   );
-  const ckbChainV3Addr = CKBChainV3.address;
-  console.error('ckbChainV3 address: ', ckbChainV3Addr);
+  const CKBChainAddr = CKBChain.address;
+  console.error('CKBChain address: ', CKBChainAddr);
   const waitingSeconds = 20;
   console.error(`waiting ${waitingSeconds} seconds`);
   await sleep(waitingSeconds);
@@ -90,11 +90,11 @@ async function deploy() {
   // deploy TokenLocker
   const numConfirmations = 1;
   factory = await ethers.getContractFactory(
-    'contracts/TokenLockerV2-openzeppelin.sol:TokenLockerV2'
+    'contracts/TokenLocker.sol:TokenLocker'
   );
   const locker = await factory.deploy();
   const res = await locker.initialize(
-    ckbChainV3Addr,
+    CKBChainAddr,
     numConfirmations,
     '0x' + recipient_typescript_code_hash,
     recipientCellTypescriptHashType,
@@ -126,15 +126,15 @@ async function deploy() {
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
-  deployedContracts.eth_ckb_chain_addr = ckbChainV3Addr;
+  deployedContracts.eth_ckb_chain_addr = CKBChainAddr;
   deployedContracts.ckb_relay_mutlisig_threshold.threshold = multisigThreshold;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
   console.error('write eth addr into config successfully');
 
-  const tokenLockerJson = require('../artifacts/contracts/TokenLockerV2-openzeppelin.sol/TokenLockerV2.json');
+  const tokenLockerJson = require('../artifacts/contracts/TokenLocker.sol/TokenLocker.json');
   const lockerABI = tokenLockerJson.abi;
-  const ckbChainJSON = require('../artifacts/contracts/CKBChainV3-openzeppelin.sol/CKBChainV3.json');
+  const ckbChainJSON = require('../artifacts/contracts/CKBChain.sol/CKBChain.json');
   const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
     '../offchain-modules/lib/src/util/token_locker_abi.json',

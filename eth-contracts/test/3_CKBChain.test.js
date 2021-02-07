@@ -11,7 +11,7 @@ const {
 
 const { addHistoryTxRootTestCases } = require('./data/testHistoryTxRoot.json');
 const retryTimes = 20;
-contract('CKBChainV3', () => {
+contract('CKBChain', () => {
   let ckbChain, adminAddress, contractAddress, provider, factory;
   let wallets, validators;
   let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHistoryTxRootTypeHash;
@@ -30,10 +30,10 @@ contract('CKBChainV3', () => {
     multisigThreshold = 5;
     chainId = await signer.getChainId();
 
-    // deploy CKBChainV3
+    // deploy CKBChain
     const canonicalGcThreshold = 40;
     factory = await ethers.getContractFactory(
-      'contracts/CKBChainV3-openzeppelin.sol:CKBChainV3'
+      'contracts/CKBChain.sol:CKBChain'
     );
 
     ckbChain = await factory.deploy();

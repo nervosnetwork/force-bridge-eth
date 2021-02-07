@@ -8,10 +8,10 @@ import {ViewSpv} from "./libraries/ViewSpv.sol";
 import {Address} from "./libraries/Address.sol";
 import {SafeERC20} from "./libraries/SafeERC20.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
-import {ICKBSpvV3} from "./interfaces/ICKBSpvV3.sol";
+import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {Blake2b} from "./libraries/Blake2b.sol";
 
-contract TokenLockerV2 {
+contract TokenLocker {
     using Address for address;
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
@@ -21,7 +21,7 @@ contract TokenLockerV2 {
     bool public initialized;
     uint8 public recipientCellTypescriptHashType_;
     uint64 public numConfirmations_;
-    ICKBSpvV3 public ckbSpv_;
+    ICKBSpv public ckbSpv_;
     bytes32 public recipientCellTypescriptCodeHash_;
     bytes32 public lightClientTypescriptHash_;
     bytes32 public bridgeCellLockscriptCodeHash_;
@@ -63,7 +63,7 @@ contract TokenLockerV2 {
         require(!initialized, "Contract instance has already been initialized");
         initialized = true;
 
-        ckbSpv_ = ICKBSpvV3(ckbSpvAddress);
+        ckbSpv_ = ICKBSpv(ckbSpvAddress);
         numConfirmations_ = numConfirmations;
         recipientCellTypescriptCodeHash_ = recipientCellTypescriptCodeHash;
         recipientCellTypescriptHashType_ = typescriptHashType;
