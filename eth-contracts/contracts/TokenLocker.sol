@@ -11,6 +11,8 @@ import {IERC20} from "./interfaces/IERC20.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {Blake2b} from "./libraries/Blake2b.sol";
 
+import "hardhat/console.sol";
+
 contract TokenLocker {
     using Address for address;
     using TypedMemView for bytes;
@@ -129,6 +131,9 @@ contract TokenLocker {
             leafNodes = _proveTxRootExist(txRootProofView, targetHistoryTxRoot);
         }
 
+        console.logUint(leafNodes.length);
+        console.logBytes32(leafNodes[0].data);
+
         // 3. check txs exist and unlockToken
         bytes29 txProofView;
         uint64 blockNumber;
@@ -151,11 +156,18 @@ contract TokenLocker {
             bytes32 txHash = CKBCrypto.digest(rawTx, rawTx.length);
             require(!usedTx_[txHash], "The burn tx cannot be reused");
             usedTx_[txHash] = true;
+            console.logString("1. checked if txHashes from txProof and raw ckbTx match");
 
             // - 2. proveTxExist, check if txRoots from txProof and txRootProof match
             // calc the index in txRoot-merkle-tree
             merkleIndex = (latestBlockNumber - initBlockNumber) + (blockNumber - initBlockNumber);
-            _proveTxExist(txProofView, txHash, _getTargetTxRoot(merkleIndex, leafNodes));
+            console.logUint(merkleIndex);
+            console.logBytes32(_getTargetTxRoot(merkleIndex, leafNodes));
+            console.logUint(txProofView.txBlockNumber());
+            console.logUint(txProofView.historyTxMerkleIndex());
+            console.logBytes32(txProofView.historyWitnessesRoot());
+            console.logBytes(txProofView.rawTransaction().clone());
+//            _proveTxExist(txProofView, txHash, _getTargetTxRoot(merkleIndex, leafNodes));
 
             // - 3. unlockToken
             (uint256 bridgeAmount, uint256 bridgeFee, address tokenAddress, address recipientAddress) = decodeBurnResult(rawTx);

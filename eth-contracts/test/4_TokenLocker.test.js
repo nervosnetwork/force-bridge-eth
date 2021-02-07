@@ -16,9 +16,10 @@ const bridgeCellLockscriptCodeHash = testJson.bridgeCellLockscriptCodeHash;
 const decodeBurnTxTestCases = testJson.decodeBurnTxTestCases;
 const lockETHTestCases = testJson.lockETHTestCases;
 const lockTokenTestCases = testJson.lockTokenTestCases;
+const unlockTokenTestCase = require('./data/testUnlockTokenParam.json');
 let tokenLocker, provider, user;
 const retryTimes = 20;
-contract('TokenLocker openzeppelin', () => {
+contract('TokenLocker', () => {
   let ckbChain,
     adminAddress,
     contractAddress,
@@ -63,7 +64,7 @@ contract('TokenLocker openzeppelin', () => {
     await tokenLocker.deployTransaction.wait(1);
     res = await tokenLocker.initialize(
       ckbChain.address,
-      123,
+      0,
       recipientCellTypescript.codeHash,
       recipientCellTypescript.hashType,
       lightClientTypescriptHash,
@@ -182,10 +183,17 @@ contract('TokenLocker openzeppelin', () => {
       }
     });
 
-    it('use v1 contract, lockETH correct case', async () => {
+    it('lockETH correct case', async () => {
       for (const testcase of lockETHTestCases) {
         await testLockETH(testcase);
       }
+    });
+
+    it('unlockToken correct case', async () => {
+      const unlockTokenParam =
+        unlockTokenTestCase.extractHistoryTxRootProof[0].input;
+      const res = await tokenLocker.unlockToken(unlockTokenParam);
+      await res.wait(1);
     });
   });
 });
