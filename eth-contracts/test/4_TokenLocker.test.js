@@ -26,7 +26,11 @@ contract('TokenLocker openzeppelin', () => {
     factory;
   let wallets, validators;
   let multisigThreshold, chainId, DOMAIN_SEPARATOR, addHistoryTxRootTypeHash;
-  let initBlockNumber, latestBlockNumber, historyTxRoot, txRootProofDataVec;
+  let initBlockNumber,
+    latestBlockNumber,
+    historyTxRoot,
+    txRootProofDataVec,
+    input;
 
   before(async function () {
     // disable timeout
@@ -52,7 +56,7 @@ contract('TokenLocker openzeppelin', () => {
 
     // deploy TokenLocker
     factory = await ethers.getContractFactory(
-      'contracts/TokenLocker.sol:TokenLocker'
+      'contracts/test/TestTokenLocker.sol:TestTokenLocker'
     );
     tokenLocker = await factory.deploy();
     await tokenLocker.deployTransaction.wait(1);
@@ -113,6 +117,7 @@ contract('TokenLocker openzeppelin', () => {
     it('use v1 contract, addHistoryTxRoot correct case', async () => {
       let actualTipNumber;
       for (const testCase of addHistoryTxRootTestCases) {
+        input = testCase.input;
         initBlockNumber = testCase.initBlockNumber;
         latestBlockNumber = testCase.latestBlockNumber;
         historyTxRoot = testCase.historyTxRoot;
@@ -151,9 +156,17 @@ contract('TokenLocker openzeppelin', () => {
     });
   });
 
-  describe('v1 test case', async function () {
+  describe('tokenLocker test case', async function () {
     // disable timeout
     this.timeout(0);
+
+    it('test _proveTxRootExist', async () => {
+      const res = await tokenLocker.callStatic.testProveTxRootExist(
+        input,
+        historyTxRoot
+      );
+      log(res);
+    });
 
     it('use v1 contract, lockETH correct case', async () => {
       for (const testcase of lockETHTestCases) {
