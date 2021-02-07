@@ -10,6 +10,7 @@ use crate::transfer::to_ckb;
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::Web3Client;
+use actix_web::middleware::Logger;
 use actix_web::{App, HttpServer};
 use anyhow::{anyhow, Result};
 use force_sdk::util::ensure_indexer_sync;
@@ -243,6 +244,7 @@ pub async fn start(
     let _server_res = HttpServer::new(move || {
         let cors = actix_cors::Cors::permissive();
         App::new()
+            .wrap(Logger::default())
             .wrap(cors)
             .data(dapp_state.clone())
             .service(init_token)

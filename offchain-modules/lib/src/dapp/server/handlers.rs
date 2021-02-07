@@ -156,6 +156,7 @@ pub async fn lock(
         data: hex::encode(raw_transaction.clone().data),
         raw: rlp_transaction(&raw_transaction),
     };
+    log::info!("generate lock tx success, request args:{:?}", args);
     Ok(HttpResponse::Ok().json(result))
 }
 
@@ -166,6 +167,7 @@ pub async fn burn(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: BurnArgs = serde_json::from_value(args.into_inner())
         .map_err(|e| RpcError::BadRequest(format!("invalid args: {}", e)))?;
+    log::info!("burn args: {:?}", args);
 
     let from_lockscript = Script::from(
         Address::from_str(args.from_lockscript_addr.as_str())
@@ -202,9 +204,9 @@ pub async fn burn(
         .map_err(|e| RpcError::ServerError(format!("generate burn tx error: {}", e)))?;
     let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
     log::info!(
-        "burn args: {} tx: {}",
-        serde_json::to_string_pretty(&args).unwrap(),
-        serde_json::to_string_pretty(&rpc_tx).unwrap()
+        "generate burn tx success: {:?}, request args:{:?}",
+        rpc_tx.hash,
+        args
     );
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
