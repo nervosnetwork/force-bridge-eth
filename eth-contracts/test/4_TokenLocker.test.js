@@ -188,13 +188,6 @@ contract('TokenLocker', () => {
         await testLockETH(testcase);
       }
     });
-
-    it('unlockToken correct case', async () => {
-      const unlockTokenParam =
-        unlockTokenTestCase.extractHistoryTxRootProof[0].input;
-      const res = await tokenLocker.unlockToken(unlockTokenParam);
-      await res.wait(1);
-    });
   });
 });
 
