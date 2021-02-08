@@ -156,6 +156,11 @@ contract TokenLocker {
 
             // - 2. proveTxExist, check if txRoots from txProof and txRootProof match
             // calc the index in txRoot-merkle-tree
+            // @dev refer to https://github.com/nervosnetwork/merkle-tree/blob/master/README.md
+            // in definition, merkleIndex = i+n-1
+            // n == all_leaves_count == latestBlockNumber - initBlockNumber + 1
+            // i == index of the item in all_leaves == blockNumber - initBlockNumber
+            // merkleIndex = ( blockNumber - initBlockNumber ) + (latestBlockNumber - initBlockNumber + 1) - 1
             merkleIndex = (latestBlockNumber - initBlockNumber) + (blockNumber - initBlockNumber);
             _proveTxExist(txProofView, txHash, _getTargetTxRoot(merkleIndex, leafNodes));
 
