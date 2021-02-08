@@ -118,7 +118,7 @@ contract('CKBChain', () => {
         log(`gas cost: ${receipt.gasUsed}`);
 
         // check if addHeaders success
-        actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber();
+        actualTipNumber = await ckbChain.callStatic.latestBlockNumber();
         log(`current tipBlockNumber: ${actualTipNumber}\r\n`);
 
         // // 4. proveTxRootExist

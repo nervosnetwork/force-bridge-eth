@@ -155,10 +155,6 @@ contract CKBChain is ICKBSpv {
         emit HistoryTxRootAdded(_initBlockNumber, _latestBlockNumber, _historyTxRoot);
     }
 
-    function getLatestBlockNumber() view public returns (uint64) {
-        return latestBlockNumber;
-    }
-
     function getHistoryTxRootInfo() override external view returns (uint64, uint64, bytes32) {
         return (initBlockNumber, latestBlockNumber, historyTxRoot);
     }
