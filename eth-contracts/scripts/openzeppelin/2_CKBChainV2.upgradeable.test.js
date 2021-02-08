@@ -124,7 +124,7 @@ contract('CKBChainV2 openzeppelin upgradeable', () => {
         );
 
         // check if addHeaders success
-        actualTipNumber = await ckbChain.callStatic.getLatestBlockNumber();
+        actualTipNumber = await ckbChain.callStatic.latestBlockNumber();
         log(`current tipBlockNumber: ${actualTipNumber}\r\n`);
       }
     });

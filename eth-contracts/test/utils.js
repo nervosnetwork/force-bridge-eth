@@ -205,6 +205,31 @@ const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
   );
 };
 
+const getMsgHashForAddHistoryTxRoot = (
+  DOMAIN_SEPARATOR,
+  typeHash,
+  initBlockNumber,
+  latestBlockNumber,
+  historyTxRoot
+) => {
+  return keccak256(
+    solidityPack(
+      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
+      [
+        '0x19',
+        '0x01',
+        DOMAIN_SEPARATOR,
+        keccak256(
+          defaultAbiCoder.encode(
+            ['bytes32', 'uint64', 'uint64', 'bytes32'],
+            [typeHash, initBlockNumber, latestBlockNumber, historyTxRoot]
+          )
+        ),
+      ]
+    )
+  );
+};
+
 const ckbBlake2b = (hexStr) => {
   let str = hexStr.startsWith('0x') ? hexStr.slice(2) : hexStr;
   const instance = blake2b(32, null, null, PERSONAL);
@@ -260,6 +285,7 @@ module.exports = {
   runErrorCase,
   getMsgHashForSetNewCkbSpv,
   getMsgHashForAddHeaders,
+  getMsgHashForAddHistoryTxRoot,
   ckbBlake2b,
   retryPromise,
   fixedLengthLe,

@@ -68,63 +68,73 @@ async function deploy() {
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
 
-  const canonicalGcThreshold = 40000;
+  // const canonicalGcThreshold = 40000;
   let factory = await ethers.getContractFactory(
-    'contracts/CKBChainV2-openzeppelin.sol:CKBChainV2'
+    'contracts/CKBChain.sol:CKBChain'
   );
-  let CKBChainV2 = await upgrades.deployProxy(
+  let CKBChain = await upgrades.deployProxy(
     factory,
-    [canonicalGcThreshold, validators, multisigThreshold],
+    [validators, multisigThreshold],
     {
       initializer: 'initialize',
       unsafeAllowCustomTypes: true,
       unsafeAllowLinkedLibraries: true,
     }
   );
-  const ckbChainV2Addr = CKBChainV2.address;
-  console.error('ckbChainV2 address: ', ckbChainV2Addr);
+  const CKBChainAddr = CKBChain.address;
+  console.error('CKBChain address: ', CKBChainAddr);
   const waitingSeconds = 20;
   console.error(`waiting ${waitingSeconds} seconds`);
   await sleep(waitingSeconds);
 
   // deploy TokenLocker
-  const numConfirmations = 10;
+  const numConfirmations = 1;
   factory = await ethers.getContractFactory(
-    'contracts/TokenLocker-openzeppelin.sol:TokenLocker'
+    'contracts/TokenLocker.sol:TokenLocker'
   );
-  const locker = await upgrades.deployProxy(
-    factory,
-    [
-      ckbChainV2Addr,
-      numConfirmations,
-      '0x' + recipient_typescript_code_hash,
-      recipientCellTypescriptHashType,
-      lightClientTypescriptHash,
-      '0x' + bridge_lockscript_code_hash,
-    ],
-    {
-      initializer: 'initialize',
-      unsafeAllowCustomTypes: true,
-      unsafeAllowLinkedLibraries: true,
-    }
+  const locker = await factory.deploy();
+  const res = await locker.initialize(
+    CKBChainAddr,
+    numConfirmations,
+    '0x' + recipient_typescript_code_hash,
+    recipientCellTypescriptHashType,
+    lightClientTypescriptHash,
+    '0x' + bridge_lockscript_code_hash
   );
+  console.error(res);
+  // const locker = await upgrades.deployProxy(
+  //   factory,
+  //   [
+  //     ckbChainV2Addr,
+  //     numConfirmations,
+  //     '0x' + recipient_typescript_code_hash,
+  //     recipientCellTypescriptHashType,
+  //     lightClientTypescriptHash,
+  //     '0x' + bridge_lockscript_code_hash,
+  //   ],
+  //   {
+  //     initializer: 'initialize',
+  //     unsafeAllowCustomTypes: true,
+  //     unsafeAllowLinkedLibraries: true,
+  //   }
+  // );
 
   const lockerAddr = locker.address;
   console.error('tokenLocker address: ', lockerAddr);
-  console.error(`waiting ${waitingSeconds} seconds`);
-  await sleep(waitingSeconds);
+  // console.error(`waiting ${waitingSeconds} seconds`);
+  // await sleep(waitingSeconds);
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
-  deployedContracts.eth_ckb_chain_addr = ckbChainV2Addr;
+  deployedContracts.eth_ckb_chain_addr = CKBChainAddr;
   deployedContracts.ckb_relay_mutlisig_threshold.threshold = multisigThreshold;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
   console.error('write eth addr into config successfully');
 
-  const tokenLockerJson = require('../artifacts/contracts/TokenLocker-openzeppelin.sol/TokenLocker.json');
+  const tokenLockerJson = require('../artifacts/contracts/TokenLocker.sol/TokenLocker.json');
   const lockerABI = tokenLockerJson.abi;
-  const ckbChainJSON = require('../artifacts/contracts/CKBChainV2-openzeppelin.sol/CKBChainV2.json');
+  const ckbChainJSON = require('../artifacts/contracts/CKBChain.sol/CKBChain.json');
   const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
     '../offchain-modules/lib/src/util/token_locker_abi.json',
