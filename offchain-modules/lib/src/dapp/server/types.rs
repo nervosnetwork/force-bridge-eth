@@ -62,15 +62,15 @@ pub struct GetEthToCkbStatusResponse {
     pub eth_lock_tx_hash: String,
     pub status: String,
     pub err_msg: String,
-    pub token_addr: Option<String>,
-    pub sender_addr: Option<String>,
-    pub locked_amount: Option<String>,
-    pub bridge_fee: Option<String>,
-    pub ckb_recipient_lockscript: Option<String>,
+    pub token_addr: String,
+    pub sender_addr: String,
+    pub locked_amount: String,
+    pub bridge_fee: String,
+    pub ckb_recipient_lockscript: String,
     pub sudt_extra_data: Option<String>,
     pub ckb_tx_hash: Option<String>,
     pub block_number: u64,
-    pub replay_resist_outpoint: Option<String>,
+    pub replay_resist_outpoint: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
