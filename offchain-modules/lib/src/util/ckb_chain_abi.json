@@ -119,12 +119,22 @@
   },
   {
     "inputs": [],
-    "name": "getLatestBlockNumber",
+    "name": "getHistoryTxRootInfo",
     "outputs": [
       {
         "internalType": "uint64",
         "name": "",
         "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -208,30 +218,6 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes",
-        "name": "txRootProofData",
-        "type": "bytes"
-      },
-      {
-        "internalType": "uint64",
-        "name": "numConfirmations",
-        "type": "uint64"
-      }
-    ],
-    "name": "proveTxExist",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
       }
     ],
     "stateMutability": "view",

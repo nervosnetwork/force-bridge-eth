@@ -5,7 +5,7 @@ const { upgrades } = require('hardhat');
 const { sleep, ckbBlake2b, log } = require('../test/utils');
 
 async function main() {
-  const retryTimes = 10;
+  const retryTimes = 20;
   for (let i = 0; i < retryTimes; i++) {
     try {
       await deploy();
@@ -55,7 +55,7 @@ async function deploy() {
   const adminAddress = wallet.address;
   console.error(`adminAddress : `, adminAddress);
 
-  // deploy ckbChainV2
+  // deploy ckbChain
   const validators = network_config.ethereum_private_keys
     .slice(0, 2)
     .map((privateKey) => {
@@ -68,7 +68,6 @@ async function deploy() {
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
 
-  // const canonicalGcThreshold = 40000;
   let factory = await ethers.getContractFactory(
     'contracts/CKBChain.sol:CKBChain'
   );
@@ -92,37 +91,27 @@ async function deploy() {
   factory = await ethers.getContractFactory(
     'contracts/TokenLocker.sol:TokenLocker'
   );
-  const locker = await factory.deploy();
-  const res = await locker.initialize(
-    CKBChainAddr,
-    numConfirmations,
-    '0x' + recipient_typescript_code_hash,
-    recipientCellTypescriptHashType,
-    lightClientTypescriptHash,
-    '0x' + bridge_lockscript_code_hash
+  const locker = await upgrades.deployProxy(
+    factory,
+    [
+      CKBChainAddr,
+      numConfirmations,
+      '0x' + recipient_typescript_code_hash,
+      recipientCellTypescriptHashType,
+      lightClientTypescriptHash,
+      '0x' + bridge_lockscript_code_hash,
+    ],
+    {
+      initializer: 'initialize',
+      unsafeAllowCustomTypes: true,
+      unsafeAllowLinkedLibraries: true,
+    }
   );
-  console.error(res);
-  // const locker = await upgrades.deployProxy(
-  //   factory,
-  //   [
-  //     ckbChainV2Addr,
-  //     numConfirmations,
-  //     '0x' + recipient_typescript_code_hash,
-  //     recipientCellTypescriptHashType,
-  //     lightClientTypescriptHash,
-  //     '0x' + bridge_lockscript_code_hash,
-  //   ],
-  //   {
-  //     initializer: 'initialize',
-  //     unsafeAllowCustomTypes: true,
-  //     unsafeAllowLinkedLibraries: true,
-  //   }
-  // );
 
   const lockerAddr = locker.address;
   console.error('tokenLocker address: ', lockerAddr);
-  // console.error(`waiting ${waitingSeconds} seconds`);
-  // await sleep(waitingSeconds);
+  console.error(`waiting ${waitingSeconds} seconds`);
+  await sleep(waitingSeconds);
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;

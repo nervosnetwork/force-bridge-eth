@@ -103,7 +103,7 @@
     "name": "ckbSpv_",
     "outputs": [
       {
-        "internalType": "contract ICKBSpvV3",
+        "internalType": "contract ICKBSpv",
         "name": "",
         "type": "address"
       }

@@ -280,13 +280,51 @@ When the burn tx is confirmed on CKB Chain, we can submit the proof on Ethereum 
 The signature of the function is:
 
 ```
-function unlockToken(bytes memory ckbTxProof, bytes memory ckbTx)
+function unlockToken(bytes memory proof)
 ```
 
-- `ckbTx` is the raw tx bytes serialized with with molecule.
-- `ckbTxProof` is the merkle proof of the tx in the block.
+The parameter of this function is a single byte array serialized with [molecule](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0008-serialization/0008-serialization.md).
 
-The Ethereum contract will parse the tx and proof, verify that it is a valid tx on CKB Chain, compare the fields in ETHRecipientCellData matches the params stored in the contract, and then unlock the asset to specified eth_recipient_address.
+The schema of the data structure is defined [here](https://github.com/nervosnetwork/force-bridge-eth/blob/audit-v1.1/offchain-modules/lib/src/util/schemas/ckb_tx_proof.mol)
+and showed below.
+
+```
+table CKBHistoryTxProof {
+    block_number:               Uint64,
+    tx_merkle_index:            Uint16,
+    witnesses_root:             Byte32,
+    lemmas:                     Byte32Vec,
+    raw_transaction:            Bytes,
+}
+
+table CKBHistoryTxRootProof {
+    init_block_number:      Uint64,
+    latest_block_number:    Uint64,
+    indices:                Uint64Vec,
+    proof_leaves:           Byte32Vec,
+    lemmas:                 Byte32Vec,
+}
+
+vector CKBHistoryTxProofVec <CKBHistoryTxProof>;
+
+table CKBUnlockTokenParam {
+    history_tx_root_proof:  CKBHistoryTxRootProof,
+    tx_proofs: CKBHistoryTxProofVec,
+}
+```
+
+- `CKBUnlockTokenParam`: The `proof` parameter data structure in `unlockToken` function.
+- `history_tx_root_proof`. The `CKBChain.sol` contract maintains the merkle root of the CKB main chain.
+  `history_tx_root_proof` is the proof to verify that specified blocks exist on the main chain. The merkle tree algorithm we
+  used is [Complete Binary Merkle Tree](https://github.com/nervosnetwork/merkle-tree) (CBMT) instead of classic merkle tree used
+  in Bitcoin. The nodes in the tree is [`transactions_root`](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0019-data-structures/0019-data-structures.md#header)
+  from `init_block_number` to `latest_block_number`. CBMT can generate proof for multiple nodes at the same time.
+- `tx_proofs` is the a vector of `CKBHistoryTxProof`. Each one is a merkle proof to verify that a `raw_transaction` is valid
+  given a valid `transactions_root`.
+
+With the data structure above, we can construct a single proof for multiple burn tx on CKB.
+
+The Ethereum contract will parse the proof, verify that it is a valid tx on CKB Chain, compare the fields in ETHRecipientCellData matches the params stored in the contract, and then unlock the asset to specified eth_recipient_address.
 
 ## run the whole process locally
 
