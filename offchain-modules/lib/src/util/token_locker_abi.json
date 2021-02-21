@@ -315,22 +315,10 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "setLightClientTypescriptHash",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "ckbTxProof",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bytes",
-        "name": "ckbTx",
+        "name": "proof",
         "type": "bytes"
       }
     ],

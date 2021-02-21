@@ -11,6 +11,8 @@ use std::prelude::v1::*;
 
 #[cfg_attr(feature = "std", automock)]
 pub trait Adapter {
+    fn load_input_data_size(&self) -> usize;
+
     fn load_script_args(&self) -> Bytes;
 
     /// check whether there is any input lock script matches the given one
@@ -25,6 +27,14 @@ impl<T> Adapter for ChainAdapter<T>
 where
     T: DataLoader,
 {
+    fn load_input_data_size(&self) -> usize {
+        QueryIter::new(
+            |index, source| self.chain.load_cell_data(index, source),
+            Source::GroupInput,
+        )
+        .count()
+    }
+
     fn load_script_args(&self) -> Bytes {
         self.chain.load_script().unwrap().args().raw_data()
     }

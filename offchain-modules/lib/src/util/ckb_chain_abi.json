@@ -5,59 +5,33 @@
       {
         "indexed": true,
         "internalType": "uint64",
-        "name": "blockNumber",
+        "name": "startBlockNumber",
         "type": "uint64"
       },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "BlockHashAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
       {
         "indexed": true,
         "internalType": "uint64",
-        "name": "blockNumber",
+        "name": "endBlockNumber",
         "type": "uint64"
       },
       {
         "indexed": false,
         "internalType": "bytes32",
-        "name": "blockHash",
+        "name": "HistoryTxRoot",
         "type": "bytes32"
       }
     ],
-    "name": "BlockHashReverted",
+    "name": "HistoryTxRootAdded",
     "type": "event"
   },
   {
     "inputs": [],
-    "name": "ADD_HEADERS_TYPEHASH",
+    "name": "ADD_HISTORY_TX_ROOT_TYPEHASH",
     "outputs": [
       {
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "CanonicalGcThreshold",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
       }
     ],
     "stateMutability": "view",
@@ -118,9 +92,19 @@
   {
     "inputs": [
       {
-        "internalType": "bytes[]",
-        "name": "tinyHeaders",
-        "type": "bytes[]"
+        "internalType": "uint64",
+        "name": "_initBlockNumber",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_latestBlockNumber",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "_historyTxRoot",
+        "type": "bytes32"
       },
       {
         "internalType": "bytes",
@@ -128,40 +112,25 @@
         "type": "bytes"
       }
     ],
-    "name": "addHeaders",
+    "name": "addHistoryTxRoot",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs": [],
+    "name": "getHistoryTxRootInfo",
+    "outputs": [
       {
         "internalType": "uint64",
-        "name": "blockNumber",
-        "type": "uint64"
-      }
-    ],
-    "name": "getCanonicalHeaderHash",
-    "outputs": [
-      {
-        "internalType": "bytes32",
         "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
+        "type": "uint64"
+      },
       {
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "getCanonicalTransactionsRoot",
-    "outputs": [
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      },
       {
         "internalType": "bytes32",
         "name": "",
@@ -173,25 +142,12 @@
   },
   {
     "inputs": [],
-    "name": "getLatestBlockNumber",
+    "name": "historyTxRoot",
     "outputs": [
       {
-        "internalType": "uint64",
+        "internalType": "bytes32",
         "name": "",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "governance",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -212,11 +168,6 @@
   },
   {
     "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "canonicalGcThreshold",
-        "type": "uint64"
-      },
       {
         "internalType": "address[]",
         "name": "validators",
@@ -267,30 +218,6 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes",
-        "name": "txProofData",
-        "type": "bytes"
-      },
-      {
-        "internalType": "uint64",
-        "name": "numConfirmations",
-        "type": "uint64"
-      }
-    ],
-    "name": "proveTxExist",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
       }
     ],
     "stateMutability": "view",

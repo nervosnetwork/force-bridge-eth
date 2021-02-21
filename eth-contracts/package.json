@@ -11,8 +11,8 @@
     "test": "hardhat test --network geth || (npm run stop-geth && false)",
     "posttest": "npm run stop-geth",
     "test:coverage": "hardhat coverage",
-    "lint": "solhint \"contracts/**/*.sol\" && yarn prettier ./test/*.js ./test/*/*.js ./scripts/*/*.js ./scripts/*.js --check",
-    "lint:fix": "solhint --fix \"contracts/**/*.sol\" && yarn prettier ./test/*.js ./test/*/*.js ./scripts/*/*.js ./scripts/*.js --write"
+    "lint": "solhint \"contracts/**/*.sol\" && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --check",
+    "lint:fix": "solhint --fix \"contracts/**/*.sol\" && yarn prettier ./test/*.js ./scripts/*/*.js ./scripts/*.js --write"
   },
   "author": "cosinlink",
   "devDependencies": {
@@ -27,10 +27,10 @@
     "ethereum-waffle": "^3.1.1",
     "ethereumjs-util": "^7.0.7",
     "ethers": "^5.0.18",
-    "hardhat": "^2.0.6",
+    "hardhat": "^2.0.8",
     "lodash": "^4.17.20",
     "prettier": "^2.1.2",
-    "solc": "^0.5.16",
+    "solc": "^0.8.0",
     "solhint": "^3.3.2",
     "solidity-coverage": "^0.7.13",
     "solidity-docgen": "^0.3.0-beta.4",
