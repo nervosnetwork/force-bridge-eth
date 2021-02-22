@@ -23,7 +23,10 @@ async fn server(args: ServerArgs) -> Result<()> {
     Ok(start(
         args.config_path,
         args.network,
-        args.ckb_private_key_path,
+        args.server_private_key_path,
+        args.mint_private_key_path,
+        args.lock_api_channel_bound,
+        args.create_bridge_cell_fee,
         args.listen_url,
         args.db_path,
     )
@@ -34,14 +37,8 @@ async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
     let filter = DexFilter {
         code_hash: args.recipient_lockscript_code_hash,
     };
-    let mut eth_indexer = EthIndexer::new(
-        args.config_path,
-        args.network,
-        args.db_path,
-        args.ckb_indexer_url,
-        filter,
-    )
-    .await?;
+    let mut eth_indexer =
+        EthIndexer::new(args.config_path, args.network, args.db_path, filter).await?;
     loop {
         let res = eth_indexer.start().await;
         if let Err(err) = res {
@@ -52,14 +49,7 @@ async fn eth_indexer(args: EthIndexerArgs) -> Result<()> {
 }
 
 async fn ckb_indexer(args: CkbIndexerArgs) -> Result<()> {
-    let mut ckb_indexer = CkbIndexer::new(
-        args.config_path,
-        args.db_path,
-        args.ckb_rpc_url,
-        args.ckb_indexer_url,
-        args.network,
-    )
-    .await?;
+    let mut ckb_indexer = CkbIndexer::new(args.config_path, args.db_path, args.network).await?;
     loop {
         let res = ckb_indexer.start().await;
         if let Err(err) = res {

@@ -68,38 +68,39 @@ impl EthTxRelayer {
     pub async fn start(&self) -> Result<()> {
         let mut last_relayed_number = last_relayed_number(&self.db_pool).await?;
         loop {
-            last_relayed_number = self.relay(last_relayed_number).await?;
+            let res = self.relay(last_relayed_number).await;
+            if let Err(e) = res {
+                log::error!("encountered an error when relay eth tx: {:?}", e);
+            } else {
+                last_relayed_number = res.unwrap();
+            }
             tokio::time::delay_for(Duration::from_secs(15)).await
         }
     }
 
     async fn relay(&self, last_relayed_number: u64) -> Result<u64> {
+        let capacity_cells = self.capacity_cells_for_mint().await?;
+        if capacity_cells.is_empty() {
+            log::info!("generate capacity cells for mint success, jump to next relay round");
+            return Ok(last_relayed_number);
+        }
         let client_confirmed_number = self.client_confirmed_number().await?;
         let latest_index_number = latest_index_number(&self.db_pool).await?;
         log::info!(
-            "eth relayer start relay round: last relayed number: {}, client confirmed number: {}, latest index number: {}",
+            "start new relay round: last relayed number: {}, client confirmed number: {}, latest indexed number: {}",
             last_relayed_number,
             client_confirmed_number,
             latest_index_number
         );
         let relay_to_number = std::cmp::min(client_confirmed_number, latest_index_number);
         let retry_tasks = get_retry_tasks(&self.db_pool).await?;
-        log::debug!("get retry tasks: {:?}", &retry_tasks);
         log::info!("total retry tasks: {}", retry_tasks.len());
         let mut mint_tasks =
             get_mint_tasks(&self.db_pool, last_relayed_number, relay_to_number).await?;
-        log::debug!("get mint tasks: {:?}", &mint_tasks);
         log::info!("total mint tasks: {}", mint_tasks.len());
         store_mint_tasks(&self.db_pool, &mint_tasks).await?;
         mint_tasks.extend(retry_tasks);
 
-        let capacity_cells = self.capacity_cells_for_mint().await;
-        if let Err(e) = capacity_cells {
-            log::info!("get capacity cells for mint error: {:?}", e);
-            return Ok(relay_to_number);
-        }
-
-        let capacity_cells = capacity_cells.expect("succeed");
         let mint_count = std::cmp::min(mint_tasks.len(), capacity_cells.len());
         let mut mint_futures = vec![];
         for i in 0..mint_count {
@@ -129,7 +130,7 @@ impl EthTxRelayer {
                     error.to_string(),
                 )
                 .await?;
-                log::info!(
+                log::error!(
                     "mint for lock tx {:?} failed with irreparable error: {:?}",
                     task.lock_tx_hash,
                     error
@@ -142,7 +143,7 @@ impl EthTxRelayer {
                     error.to_string(),
                 )
                 .await?;
-                log::info!(
+                log::error!(
                     "mint for lock tx {:?} failed with retryable error: {:?}",
                     task.lock_tx_hash,
                     error
@@ -180,15 +181,17 @@ impl EthTxRelayer {
             self.minimum_cell_capacity,
             self.mint_concurrency,
         )
-        .map_err(|e| anyhow!("get capacity cell error when mint: {:?}", e))?;
+        .map_err(|e| {
+            anyhow!(
+                "get live capacity cells from indexer error when mint: {:?}",
+                e
+            )
+        })?;
         if (capacity_cells.len() as u64) < self.mint_concurrency {
             log::info!("capacity cells for this round not enough");
             self.generate_capacity_cells(&mut generator, from_lockscript.clone())
                 .await?;
-            log::info!("generate capacity cells for mint success");
-            Err(anyhow!(
-                "capacity cells for this round not enough, next round will be ok"
-            ))
+            Ok(vec![])
         } else {
             let ret = capacity_cells
                 .into_iter()
@@ -271,7 +274,7 @@ impl EthTxRelayer {
                 }
                 Err(e) => {
                     if i < 3 {
-                        log::error!("new geneartor fail {}, err: {}", i, e);
+                        log::info!("new geneartor fail {}, err: {}", i, e);
                         continue;
                     }
                     bail!("new geneartor fail after retry, err: {}", e);

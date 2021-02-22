@@ -8,5 +8,5 @@ CREATE TABLE `replay_resist_cells` (
 	`create_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
 	`update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY ( `id` ),
-KEY `token` ( `token` )
+    KEY `token` ( `token` )
 ) ENGINE = INNODB DEFAULT CHARSET = utf8;

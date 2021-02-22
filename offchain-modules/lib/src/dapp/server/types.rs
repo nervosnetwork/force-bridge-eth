@@ -62,15 +62,15 @@ pub struct GetEthToCkbStatusResponse {
     pub eth_lock_tx_hash: String,
     pub status: String,
     pub err_msg: String,
-    pub token_addr: Option<String>,
-    pub sender_addr: Option<String>,
-    pub locked_amount: Option<String>,
-    pub bridge_fee: Option<String>,
-    pub ckb_recipient_lockscript: Option<String>,
+    pub token_addr: String,
+    pub sender_addr: String,
+    pub locked_amount: String,
+    pub bridge_fee: String,
+    pub ckb_recipient_lockscript: String,
     pub sudt_extra_data: Option<String>,
     pub ckb_tx_hash: Option<String>,
     pub block_number: u64,
-    pub replay_resist_outpoint: Option<String>,
+    pub replay_resist_outpoint: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -83,10 +83,10 @@ pub struct GetCkbToEthStatusResponse {
     pub id: u64,
     pub ckb_burn_tx_hash: String,
     pub status: String,
-    pub recipient_addr: Option<String>,
-    pub token_addr: Option<String>,
-    pub token_amount: Option<String>,
-    pub fee: Option<String>,
+    pub recipient_addr: String,
+    pub token_addr: String,
+    pub token_amount: String,
+    pub fee: String,
     pub eth_tx_hash: Option<String>,
     pub ckb_block_number: u64,
     pub eth_block_number: u64,
@@ -144,12 +144,13 @@ impl TryFrom<CrosschainHistory> for EthToCkbCrosschainHistoryRes {
     type Error = RpcError;
 
     fn try_from(history: CrosschainHistory) -> Result<Self, Self::Error> {
-        let recipient_lockscript = Script::from_slice(
-            hex::decode(history.recipient_addr)
-                .expect("should not fail")
-                .as_slice(),
-        )
-        .map_err(|e| {
+        let recipient_addr = hex::decode(history.recipient_addr).map_err(|e| {
+            RpcError::ServerError(format!(
+                "hex decode crosschain history recipient addr error: {:?}",
+                e
+            ))
+        })?;
+        let recipient_lockscript = Script::from_slice(recipient_addr.as_slice()).map_err(|e| {
             RpcError::ServerError(format!(
                 "molecule decode crosschain history recipient lockscript error: {:?}",
                 e

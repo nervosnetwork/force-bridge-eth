@@ -16,7 +16,13 @@ pub struct ServerArgs {
     #[clap(long)]
     pub network: Option<String>,
     #[clap(short = 'c', long)]
-    pub ckb_private_key_path: String,
+    pub server_private_key_path: Vec<String>,
+    #[clap(long)]
+    pub mint_private_key_path: String,
+    #[clap(long, default_value = "5000")]
+    pub lock_api_channel_bound: usize,
+    #[clap(long, default_value = "0.9")]
+    pub create_bridge_cell_fee: String,
     #[clap(short, long, default_value = "127.0.0.1:3030")]
     pub listen_url: String,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/serverdb")]
@@ -31,9 +37,6 @@ pub struct EthIndexerArgs {
     pub network: Option<String>,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
     pub db_path: String,
-    // #[clap(long, default_value = "https://testnet.ckbapp.dev/indexer")]
-    #[clap(long, default_value = "http://127.0.0.1:8116")]
-    pub ckb_indexer_url: String,
     #[clap(
         long,
         default_value = "9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"
@@ -47,10 +50,6 @@ pub struct CkbIndexerArgs {
     pub config_path: String,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
     pub db_path: String,
-    #[clap(long, default_value = "http://127.0.0.1:8114")]
-    pub ckb_rpc_url: String,
-    #[clap(long, default_value = "http://127.0.0.1:8116")]
-    pub ckb_indexer_url: String,
     #[clap(long)]
     pub network: Option<String>,
 }

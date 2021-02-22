@@ -125,11 +125,11 @@ WHERE lock_tx_hash = ?
         .rows_affected();
     Ok(rows_affected > 0)
 }
-//
+
 // #[cfg(test)]
 // mod test {
 //     use super::{
-//         delete_relayed_tx, get_retry_tasks, last_relayed_number, store_mint_tasks,
+//         delete_relayed_tx, get_retry_tasks, last_relayed_number, store_mint_tasks, get_mint_tasks,
 //         update_relayed_tx, MintTask,
 //     };
 //     use sqlx::MySqlPool;
@@ -141,6 +141,15 @@ WHERE lock_tx_hash = ?
 //             .expect("connect db error");
 //         let number = last_relayed_number(&pool).await.expect("get number error");
 //         println!("number: {:?}", number);
+//     }
+//
+//     #[tokio::test]
+//     async fn test_get_mint_tasks() {
+//         let pool = MySqlPool::connect("mysql://root:root1234@127.0.0.1:3306/forcedb")
+//             .await
+//             .expect("connect db error");
+//         let mint_tasks = get_mint_tasks(&pool, 0, 100).await;
+//         print!("mint tasks: {:?}", mint_tasks);
 //     }
 //
 //     #[tokio::test]
