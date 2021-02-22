@@ -44,3 +44,4 @@ rand = "0.7.3"
 reqwest = { version = "0.10", features = ["blocking", "json"] }
 rocksdb = { package = "ckb-rocksdb", version = "0.14.1", features = ["snappy"] }
 sparse-merkle-tree = { version = "0.3.1-pre", default-features = false }
+merkle-cbt = "0.2.2"

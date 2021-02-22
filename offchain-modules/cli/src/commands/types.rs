@@ -282,9 +282,7 @@ pub struct UnlockArgs {
     #[clap(short, long)]
     pub to: String,
     #[clap(long)]
-    pub tx_proof: String,
-    #[clap(long)]
-    pub tx_info: String,
+    pub proof: String,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
     #[clap(long)]

@@ -265,10 +265,21 @@ pub async fn burn_handler(args: BurnArgs) -> Result<()> {
 pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()> {
     debug!("generate_ckb_proof_handler args: {:?}", &args);
     let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let eth_ckb_chain_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
-    let (header, tx) = get_ckb_proof_info(&args.tx_hash, ckb_rpc_url)?;
-    println!("headers : {:?}", header);
-    println!("tx : {:?}", tx);
+    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let proof = get_ckb_proof_info(
+        &args.tx_hash,
+        ckb_rpc_url,
+        ethereum_rpc_url,
+        eth_ckb_chain_addr,
+    )
+    .await?;
+    println!("proof: {:?}", proof);
     Ok(())
 }
 
@@ -281,8 +292,7 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
         eth_private_key,
         eth_url,
         args.to,
-        args.tx_proof,
-        args.tx_info,
+        args.proof,
         args.gas_price,
         U256::zero(),
         args.wait,
@@ -297,11 +307,13 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     let force_config = ForceConfig::new(args.config_path.as_str())?;
     let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let deployed_contracts = force_config
         .deployed_contracts
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let eth_private_key = parse_private_key(&args.eth_privkey_path, &force_config, &args.network)?;
+    let light_client_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
 
     let ckb_tx_hash = burn(
         args.config_path.clone(),
@@ -316,23 +328,27 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     .await?;
     log::info!("burn erc20 token on ckb. tx_hash: {}", &ckb_tx_hash);
 
-    let (tx_proof, tx_info) = get_ckb_proof_info(&ckb_tx_hash, ckb_rpc_url.clone())?;
-    let light_client = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
     let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     wait_block_submit(
         ethereum_rpc_url.clone(),
-        ckb_rpc_url,
-        light_client,
-        ckb_tx_hash,
+        ckb_rpc_url.clone(),
+        light_client_addr,
+        ckb_tx_hash.clone(),
         lock_contract_addr,
+    )
+    .await?;
+    let proof = get_ckb_proof_info(
+        &ckb_tx_hash,
+        ckb_rpc_url.clone(),
+        eth_rpc_url,
+        light_client_addr,
     )
     .await?;
     let result = unlock(
         eth_private_key,
         ethereum_rpc_url,
         deployed_contracts.eth_token_locker_addr.clone(),
-        tx_proof,
-        tx_info,
+        proof,
         args.gas_price,
         U256::zero(),
         args.wait,
@@ -442,14 +458,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     )?;
     let mut consecutive_failures = 0;
     while consecutive_failures < 5 {
-        let res = ckb_relayer
-            .start(
-                eth_rpc_url.clone(),
-                args.per_amount,
-                args.max_tx_count,
-                ckb_height,
-            )
-            .await;
+        let res = ckb_relayer.start(eth_rpc_url.clone(), ckb_height).await;
         if let Err(err) = res {
             error!("An error occurred during the ckb relay. Err: {:?}", err);
             consecutive_failures += 1;

@@ -5,7 +5,7 @@ const { upgrades } = require('hardhat');
 const { sleep, ckbBlake2b, log } = require('../test/utils');
 
 async function main() {
-  const retryTimes = 10;
+  const retryTimes = 20;
   for (let i = 0; i < retryTimes; i++) {
     try {
       await deploy();
@@ -55,7 +55,7 @@ async function deploy() {
   const adminAddress = wallet.address;
   console.error(`adminAddress : `, adminAddress);
 
-  // deploy ckbChainV2
+  // deploy ckbChain
   const validators = network_config.ethereum_private_keys
     .slice(0, 2)
     .map((privateKey) => {
@@ -68,34 +68,33 @@ async function deploy() {
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
 
-  const canonicalGcThreshold = 40000;
   let factory = await ethers.getContractFactory(
-    'contracts/CKBChainV2-openzeppelin.sol:CKBChainV2'
+    'contracts/CKBChain.sol:CKBChain'
   );
-  let CKBChainV2 = await upgrades.deployProxy(
+  let CKBChain = await upgrades.deployProxy(
     factory,
-    [canonicalGcThreshold, validators, multisigThreshold],
+    [validators, multisigThreshold],
     {
       initializer: 'initialize',
       unsafeAllowCustomTypes: true,
       unsafeAllowLinkedLibraries: true,
     }
   );
-  const ckbChainV2Addr = CKBChainV2.address;
-  console.error('ckbChainV2 address: ', ckbChainV2Addr);
+  const CKBChainAddr = CKBChain.address;
+  console.error('CKBChain address: ', CKBChainAddr);
   const waitingSeconds = 20;
   console.error(`waiting ${waitingSeconds} seconds`);
   await sleep(waitingSeconds);
 
   // deploy TokenLocker
-  const numConfirmations = 10;
+  const numConfirmations = 1;
   factory = await ethers.getContractFactory(
-    'contracts/TokenLocker-openzeppelin.sol:TokenLocker'
+    'contracts/TokenLocker.sol:TokenLocker'
   );
   const locker = await upgrades.deployProxy(
     factory,
     [
-      ckbChainV2Addr,
+      CKBChainAddr,
       numConfirmations,
       '0x' + recipient_typescript_code_hash,
       recipientCellTypescriptHashType,
@@ -116,15 +115,15 @@ async function deploy() {
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
-  deployedContracts.eth_ckb_chain_addr = ckbChainV2Addr;
+  deployedContracts.eth_ckb_chain_addr = CKBChainAddr;
   deployedContracts.ckb_relay_mutlisig_threshold.threshold = multisigThreshold;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);
   console.error('write eth addr into config successfully');
 
-  const tokenLockerJson = require('../artifacts/contracts/TokenLocker-openzeppelin.sol/TokenLocker.json');
+  const tokenLockerJson = require('../artifacts/contracts/TokenLocker.sol/TokenLocker.json');
   const lockerABI = tokenLockerJson.abi;
-  const ckbChainJSON = require('../artifacts/contracts/CKBChainV2-openzeppelin.sol/CKBChainV2.json');
+  const ckbChainJSON = require('../artifacts/contracts/CKBChain.sol/CKBChain.json');
   const ckbChainABI = ckbChainJSON.abi;
   fs.writeFileSync(
     '../offchain-modules/lib/src/util/token_locker_abi.json',
