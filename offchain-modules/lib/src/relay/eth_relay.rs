@@ -20,6 +20,7 @@ use molecule::prelude::Reader;
 use secp256k1::SecretKey;
 use serde::export::Clone;
 use shellexpand::tilde;
+use sparse_merkle_tree::traits::Value;
 use std::ops::Add;
 use std::str::FromStr;
 use web3::types::{Block, BlockHeader, U64};
@@ -214,38 +215,37 @@ impl ETHRelayer {
             }
         };
 
-        // 1. if first time update eth light client, only update latest header
-        // 2. if last cell latest height not exceed CONFIRM, update block from 1 to latest
-        // 3. if last cell latest height over CONFIRM, update block from last_cell_latest_height - CONFIRM to latest
-        let mut start_index = start_height;
-        if last_cell_latest_height <= CONFIRM as u64 && last_cell_latest_height > 0 {
-            start_index = 1;
-        } else if last_cell_latest_height > CONFIRM as u64 {
-            start_index = last_cell_latest_height - CONFIRM as u64;
-        }
-
-        log::info!(
-            "start relaying headers from {} to {}",
-            start_index,
-            tip_header_number
-        );
-
-        for number in (start_index..=tip_header_number).rev() {
-            log::info!("sync eth block {} to cache", number);
-            let block_number = U64([number]);
+        let mut index = tip_header_number;
+        while index >= start_height {
+            let block_number = U64([index]);
 
             let mut key = [0u8; 32];
             let mut height = [0u8; 8];
-            height.copy_from_slice(number.to_le_bytes().as_ref());
+            height.copy_from_slice(index.to_le_bytes().as_ref());
             key[..8].clone_from_slice(&height);
 
             let chain_block = self.eth_client.get_block(block_number.into()).await?;
-            let chain_block_hash = chain_block.hash.expect("block hash should not be none");
+            let chain_block_hash = chain_block
+                .hash
+                .ok_or_else(|| anyhow!("the block number is not exist."))?;
 
-            smt_tree
-                .update(key.into(), chain_block_hash.0.into())
-                .expect("update smt tree");
+            let db_block_hash = smt_tree.get(&key.into()).unwrap();
+
+            if db_block_hash.to_h256().as_slice() != chain_block_hash.0.as_ref() {
+                smt_tree
+                    .update(key.into(), chain_block_hash.0.into())
+                    .map_err(|err| anyhow::anyhow!(err))?;
+                log::info!("sync eth block {} to cache", index);
+            } else {
+                break;
+            }
+            index -= 1;
         }
+        log::info!(
+            "start relaying headers from {} to {}",
+            index + 1,
+            tip_header_number
+        );
 
         let new_merkle_root = smt_tree.root().as_slice();
         let new_latest_height = tip_header_number;
@@ -280,7 +280,7 @@ impl ETHRelayer {
             rocksdb_store.commit();
             info!(
                 "Successfully relayed the headers from {} to {}",
-                last_cell_latest_height, tip_header_number
+                index, tip_header_number
             );
             latest_submit_header_number = tip_header_number;
         }
@@ -311,7 +311,7 @@ impl ETHRelayer {
                     e
                 ),
             }
-            tokio::time::delay_for(std::time::Duration::from_secs(30)).await;
+            tokio::time::delay_for(std::time::Duration::from_secs(300)).await;
         }
     }
 

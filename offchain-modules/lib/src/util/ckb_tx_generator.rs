@@ -541,11 +541,16 @@ impl Generator {
             let rocksdb_store = rocksdb::RocksDBStore::open_readonly(db_path);
             let smt_tree = rocksdb::SMT::new(cell_merkle_root.into(), rocksdb_store);
 
-            let block_hash: [u8; 32] = smt_tree.get(&key.into()).unwrap().into();
-            let merkle_proof = smt_tree.merkle_proof(vec![key.into()]).unwrap();
+            let block_hash: [u8; 32] = smt_tree
+                .get(&key.into())
+                .map_err(|err| anyhow::anyhow!(err))?
+                .into();
+            let merkle_proof = smt_tree
+                .merkle_proof(vec![key.into()])
+                .map_err(|err| anyhow::anyhow!(err))?;
             let compiled_merkle_proof = merkle_proof
                 .compile(vec![(key.into(), block_hash.into())])
-                .unwrap();
+                .map_err(|err| anyhow::anyhow!(err))?;
 
             {
                 let mut compiled_leaves = vec![];
