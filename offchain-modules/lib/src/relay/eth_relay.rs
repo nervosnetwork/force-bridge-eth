@@ -229,7 +229,9 @@ impl ETHRelayer {
                 .hash
                 .ok_or_else(|| anyhow!("the block number is not exist."))?;
 
-            let db_block_hash = smt_tree.get(&key.into()).unwrap();
+            let db_block_hash = smt_tree
+                .get(&key.into())
+                .map_err(|err| anyhow::anyhow!(err))?;
 
             if db_block_hash.to_h256().as_slice() != chain_block_hash.0.as_ref() {
                 smt_tree
