@@ -10,7 +10,7 @@ use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::{create_bridge_lockscript, parse_cell};
 use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
-use crate::util::generated::ckb_tx_proof::CkbTxProof;
+use crate::util::generated::ckb_tx_proof;
 use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::Uint128;
 use ckb_sdk::rpc::{BlockView, Transaction};
@@ -304,10 +304,17 @@ impl CkbIndexer {
                     let recipient_addr: ETHAddress =
                         eth_recipient.eth_recipient_address.get_address().into();
                     let token_amount = eth_recipient.token_amount;
-                    let ckb_tx_proof =
-                        parse_ckb_proof(hash.as_str(), String::from(self.rpc_client.url()))?;
-                    let mol_tx_proof: CkbTxProof = ckb_tx_proof.into();
-                    let proof_str = hex::encode(mol_tx_proof.as_bytes().as_ref());
+                    let ckb_unlock_token_param = parse_ckb_proof(
+                        hash.as_str(),
+                        String::from(self.rpc_client.url()),
+                        String::from(self.eth_client.url()),
+                        H160::from_slice(locker_addr.as_slice()),
+                    )
+                    .await?;
+                    let ckb_history_tx_proof: ckb_tx_proof::CKBHistoryTxProof =
+                        ckb_unlock_token_param.tx_proofs[0].clone().into();
+
+                    let proof_str = hex::encode(ckb_history_tx_proof.as_bytes().as_ref());
                     let tx_raw: packed::Transaction = tx.into();
                     let mol_hex_tx = hex::encode(tx_raw.raw().as_slice());
 

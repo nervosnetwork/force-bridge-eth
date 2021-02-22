@@ -88,7 +88,7 @@ impl CkbTxRelay {
                 self.ethereum_rpc_url.clone(),
                 self.eth_token_locker_addr.clone(),
                 tx_record.ckb_spv_proof.clone(),
-                tx_record.ckb_raw_tx.clone(),
+                // tx_record.ckb_raw_tx.clone(),
                 0,
                 nonce.add(i),
                 true,
