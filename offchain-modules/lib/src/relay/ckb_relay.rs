@@ -2,8 +2,9 @@ use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash, get_msg_si
 use crate::util::ckb_proof_helper::CBMT;
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::covert_to_h256;
+use crate::util::config::ForceConfig;
 use crate::util::eth_util::{
-    convert_eth_address, parse_secret_key, relay_header_transaction, Web3Client,
+    convert_eth_address, parse_private_key, parse_secret_key, relay_header_transaction, Web3Client,
 };
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::HttpRpcClient;
@@ -22,26 +23,61 @@ pub struct CKBRelayer {
     pub gas_price: U256,
     pub multisig_privkeys: Vec<SecretKey>,
     pub ckb_rpc_url: String,
+    pub eth_rpc_url: String,
+    pub ckb_init_height: u64,
 }
 
 impl CKBRelayer {
     pub fn new(
-        ckb_rpc_url: String,
-        ckb_indexer_url: String,
-        eth_rpc_url: String,
-        priv_key: H256,
-        eth_ckb_chain_addr: String,
+        config_path: String,
+        network: Option<String>,
+        priv_key_path: String,
+        multisig_privkeys: Vec<String>,
         gas_price: u64,
-        multisig_privkeys: Vec<H256>,
     ) -> Result<CKBRelayer> {
-        let contract_addr = convert_eth_address(&eth_ckb_chain_addr)?;
-        let ckb_client = Generator::new(ckb_rpc_url.clone(), ckb_indexer_url, Default::default())
-            .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
-        let web3_client = Web3Client::new(eth_rpc_url);
+        let force_config = ForceConfig::new(config_path.as_str())?;
+        let deployed_contracts = force_config
+            .deployed_contracts
+            .as_ref()
+            .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+
+        if multisig_privkeys.len() < deployed_contracts.ckb_relay_mutlisig_threshold.threshold {
+            bail!(
+                "the mutlisig privkeys number is less. expect {}, actual {} ",
+                deployed_contracts.ckb_relay_mutlisig_threshold.threshold,
+                multisig_privkeys.len()
+            );
+        }
+
+        let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
+        let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+        let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
+        let priv_key = parse_private_key(&priv_key_path, &force_config, &network)?;
+        let multisig_privkeys = multisig_privkeys
+            .into_iter()
+            .map(|k| parse_private_key(&k, &force_config, &network))
+            .collect::<Result<Vec<H256>>>()?;
+
+        let contract_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
+        let mut ckb_client =
+            Generator::new(ckb_rpc_url.clone(), ckb_indexer_url, Default::default())
+                .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+        let web3_client = Web3Client::new(eth_rpc_url.clone());
         let gas_price = U256::from(gas_price);
+
+        let ckb_init_height = CKBRelayer::get_ckb_contract_deloy_height(
+            &mut ckb_client,
+            deployed_contracts
+                .recipient_typescript
+                .outpoint
+                .tx_hash
+                .clone(),
+        )?;
 
         Ok(CKBRelayer {
             ckb_rpc_url,
+            eth_rpc_url,
+            ckb_init_height,
             contract_addr,
             priv_key,
             ckb_client,
@@ -54,18 +90,18 @@ impl CKBRelayer {
         })
     }
 
-    pub async fn start(&mut self, eth_url: String, client_init_height: u64) -> Result<()> {
+    pub async fn start(&mut self) -> Result<()> {
         let ckb_current_height = self
             .ckb_client
             .rpc_client
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
-        let merkle_root = self.get_history_merkle_root(client_init_height, ckb_current_height)?;
+        let merkle_root = self.get_history_merkle_root(self.ckb_init_height, ckb_current_height)?;
         let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
         let sign_tx = self
-            .relay_headers(client_init_height, ckb_current_height, merkle_root, nonce)
+            .relay_headers(self.ckb_init_height, ckb_current_height, merkle_root, nonce)
             .await?;
-        let task_future = relay_header_transaction(eth_url.clone(), sign_tx);
+        let task_future = relay_header_transaction(self.eth_rpc_url.clone(), sign_tx);
         let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
         let now = Instant::now();
         tokio::select! {
@@ -147,11 +183,13 @@ impl CKBRelayer {
         Ok(signed_tx)
     }
 
-    pub fn get_ckb_contract_deloy_height(&mut self, tx_hash: String) -> Result<u64> {
+    pub fn get_ckb_contract_deloy_height(
+        ckb_client: &mut Generator,
+        tx_hash: String,
+    ) -> Result<u64> {
         let hash = covert_to_h256(&tx_hash)?;
 
-        let block_hash = self
-            .ckb_client
+        let block_hash = ckb_client
             .rpc_client
             .get_transaction(hash)
             .map_err(|err| anyhow!(err))?
@@ -160,8 +198,7 @@ impl CKBRelayer {
             .block_hash
             .ok_or_else(|| anyhow!("failed to get block height : block hash is none"))?;
 
-        let ckb_height = self
-            .ckb_client
+        let ckb_height = ckb_client
             .rpc_client
             .get_block(block_hash)
             .map_err(|err| anyhow!(err))?
