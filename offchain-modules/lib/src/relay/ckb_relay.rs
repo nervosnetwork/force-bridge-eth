@@ -78,7 +78,7 @@ impl CKBRelayer {
                 .clone(),
         )?;
 
-        let db_path = force_config.rocksdb_path;
+        let db_path = force_config.ckb_rocksdb_path;
         Ok(CKBRelayer {
             ckb_rpc_url,
             eth_rpc_url,
