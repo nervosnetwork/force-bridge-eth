@@ -1,4 +1,4 @@
-use crate::transfer::to_eth::unlock;
+use crate::transfer::to_eth::{get_ckb_proof_info, unlock};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use anyhow::{anyhow, Result};
@@ -22,6 +22,7 @@ pub struct UnlockTask {
 pub struct CkbTxRelay {
     eth_token_locker_addr: String,
     ethereum_rpc_url: String,
+    ckb_rpc_url: String,
     eth_private_key: H256,
     web3_client: Web3Client,
     contract_addr: H160,
@@ -48,12 +49,14 @@ impl CkbTxRelay {
         let contract_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr.clone())?;
         let token_locker_addr = convert_eth_address(&eth_token_locker_addr)?;
         let mut web3_client = Web3Client::new(ethereum_rpc_url.clone());
+        let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let confirm_num = web3_client
             .get_locker_contract_confirm("numConfirmations_", token_locker_addr)
             .await?;
         Ok(CkbTxRelay {
             eth_token_locker_addr,
             ethereum_rpc_url,
+            ckb_rpc_url,
             eth_private_key,
             web3_client,
             contract_addr,
@@ -83,11 +86,26 @@ impl CkbTxRelay {
             .await?;
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
             info!("burn tx wait to unlock: {:?} ", tx_record.ckb_burn_tx_hash);
+            let proof_info = get_ckb_proof_info(
+                &tx_record.ckb_burn_tx_hash,
+                String::from(self.ckb_rpc_url.clone()),
+                String::from(self.web3_client.url()),
+                H160::from_slice(self.eth_token_locker_addr.as_ref()),
+            )
+            .await?;
+            // let ckb_unlock_token_param = parse_ckb_proof(
+            //     &tx_record.ckb_burn_tx_hash,
+            //     String::from(self.ckb_rpc_url.clone()),
+            //     String::from(self.web3_client.url()),
+            //     H160::from_slice(self.eth_token_locker_addr.as_ref()),
+            // )
+            // .await?;
             unlock_futures.push(unlock(
                 self.eth_private_key,
                 self.ethereum_rpc_url.clone(),
                 self.eth_token_locker_addr.clone(),
-                tx_record.ckb_spv_proof.clone(),
+                // tx_record.ckb_spv_proof.clone(),
+                proof_info,
                 // tx_record.ckb_raw_tx.clone(),
                 0,
                 nonce.add(i),

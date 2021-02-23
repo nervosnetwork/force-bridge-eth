@@ -6,11 +6,9 @@ use crate::dapp::db::indexer::{
     update_ckb_unconfirmed_block, update_cross_chain_height_info, update_eth_to_ckb_status,
     CkbToEthRecord, CkbUnConfirmedBlock, CrossChainHeightInfo, EthToCkbRecord,
 };
-use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::{create_bridge_lockscript, parse_cell};
 use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
-use crate::util::generated::ckb_tx_proof;
 use anyhow::{anyhow, Result};
 use ckb_jsonrpc_types::Uint128;
 use ckb_sdk::rpc::{BlockView, Transaction};
@@ -304,19 +302,19 @@ impl CkbIndexer {
                     let recipient_addr: ETHAddress =
                         eth_recipient.eth_recipient_address.get_address().into();
                     let token_amount = eth_recipient.token_amount;
-                    let ckb_unlock_token_param = parse_ckb_proof(
-                        hash.as_str(),
-                        String::from(self.rpc_client.url()),
-                        String::from(self.eth_client.url()),
-                        H160::from_slice(locker_addr.as_slice()),
-                    )
-                    .await?;
-                    let ckb_history_tx_proof: ckb_tx_proof::CKBHistoryTxProof =
-                        ckb_unlock_token_param.tx_proofs[0].clone().into();
+                    // let ckb_unlock_token_param = parse_ckb_proof(
+                    //     hash.as_str(),
+                    //     String::from(self.rpc_client.url()),
+                    //     String::from(self.eth_client.url()),
+                    //     H160::from_slice(locker_addr.as_slice()),
+                    // )
+                    // .await?;
+                    // let ckb_history_tx_proof: ckb_tx_proof::CKBHistoryTxProof =
+                    //     ckb_unlock_token_param.tx_proofs[0].clone().into();
 
-                    let proof_str = hex::encode(ckb_history_tx_proof.as_bytes().as_ref());
-                    let tx_raw: packed::Transaction = tx.into();
-                    let mol_hex_tx = hex::encode(tx_raw.raw().as_slice());
+                    // let proof_str = hex::encode(ckb_history_tx_proof.as_bytes().as_ref());
+                    // let tx_raw: packed::Transaction = tx.into();
+                    // let mol_hex_tx = hex::encode(tx_raw.raw().as_slice());
 
                     let record = CkbToEthRecord {
                         ckb_burn_tx_hash: hash,
@@ -324,9 +322,9 @@ impl CkbIndexer {
                         token_addr: hex::encode(token_addr.raw_data().to_vec().as_slice()),
                         recipient_addr: hex::encode(recipient_addr.raw_data().to_vec().as_slice()),
                         token_amount: Uint128::from(token_amount).to_string(),
-                        ckb_spv_proof: Some(proof_str),
+                        // ckb_spv_proof: Some(proof_str),
                         ckb_block_number: block_number,
-                        ckb_raw_tx: mol_hex_tx,
+                        // ckb_raw_tx: mol_hex_tx,
                         fee: Uint128::from(eth_recipient.fee).to_string(),
                         bridge_lock_hash: hex::encode(
                             eth_recipient.eth_bridge_lock_hash.as_slice(),
