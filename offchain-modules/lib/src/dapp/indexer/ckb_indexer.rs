@@ -6,7 +6,8 @@ use crate::dapp::db::indexer::{
     update_ckb_unconfirmed_block, update_cross_chain_height_info, update_eth_to_ckb_status,
     CkbToEthRecord, CkbUnConfirmedBlock, CrossChainHeightInfo, EthToCkbRecord,
 };
-use crate::util::ckb_util::{create_bridge_lockscript, parse_cell};
+use crate::transfer::to_eth::parse_ckb_proof;
+use crate::util::ckb_util::{clear_0x, create_bridge_lockscript, parse_cell};
 use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::{convert_eth_address, Web3Client};
 use anyhow::{anyhow, Result};
@@ -293,10 +294,21 @@ impl CkbIndexer {
                     hex::decode(&deployed_contracts.recipient_typescript.code_hash)
                         .map_err(|err| anyhow!(err))?;
                 let typescript = tx.outputs[0].type_.as_ref().unwrap();
-                if typescript.code_hash.as_bytes().to_vec() == recipient_typescript_code_hash {
+                let locker_addr: ETHAddress =
+                    eth_recipient.eth_lock_contract_address.get_address().into();
+                let lock_contract_addr = hex::encode(locker_addr.raw_data().to_vec().as_slice());
+                if typescript.code_hash.as_bytes().to_vec() == recipient_typescript_code_hash
+                    && lock_contract_addr.to_lowercase().as_str()
+                        == clear_0x(
+                            deployed_contracts
+                                .eth_token_locker_addr
+                                .to_lowercase()
+                                .as_str(),
+                        )
+                {
                     // the tx is burn tx.
-                    let locker_addr: ETHAddress =
-                        eth_recipient.eth_lock_contract_address.get_address().into();
+                    // let locker_addr: ETHAddress =
+                    //     eth_recipient.eth_lock_contract_address.get_address().into();
                     let token_addr: ETHAddress =
                         eth_recipient.eth_token_address.get_address().into();
                     let recipient_addr: ETHAddress =
@@ -329,7 +341,7 @@ impl CkbIndexer {
                         bridge_lock_hash: hex::encode(
                             eth_recipient.eth_bridge_lock_hash.as_slice(),
                         ),
-                        lock_contract_addr: hex::encode(locker_addr.raw_data().to_vec().as_slice()),
+                        lock_contract_addr,
                         ..Default::default()
                     };
                     burn_records.push(record);
