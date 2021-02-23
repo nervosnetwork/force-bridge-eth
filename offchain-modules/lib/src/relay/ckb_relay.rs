@@ -6,6 +6,9 @@ use crate::util::config::ForceConfig;
 use crate::util::eth_util::{
     convert_eth_address, parse_private_key, parse_secret_key, relay_header_transaction, Web3Client,
 };
+use rocksdb::ops::{Get, Put};
+
+use crate::util::rocksdb::open_rocksdb;
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::HttpRpcClient;
 use ethabi::Token;
@@ -25,6 +28,7 @@ pub struct CKBRelayer {
     pub ckb_rpc_url: String,
     pub eth_rpc_url: String,
     pub ckb_init_height: u64,
+    pub db_path: String,
 }
 
 impl CKBRelayer {
@@ -74,10 +78,12 @@ impl CKBRelayer {
                 .clone(),
         )?;
 
+        let db_path = force_config.rocksdb_path;
         Ok(CKBRelayer {
             ckb_rpc_url,
             eth_rpc_url,
             ckb_init_height,
+            db_path,
             contract_addr,
             priv_key,
             ckb_client,
@@ -96,7 +102,17 @@ impl CKBRelayer {
             .rpc_client
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
-        let merkle_root = self.get_history_merkle_root(self.ckb_init_height, ckb_current_height)?;
+        self.stroe_history_transaction_root(
+            self.ckb_init_height,
+            ckb_current_height,
+            self.db_path.clone(),
+        )?;
+
+        let merkle_root = self.get_history_merkle_root(
+            self.ckb_init_height,
+            ckb_current_height,
+            self.db_path.clone(),
+        )?;
         let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
         let sign_tx = self
             .relay_headers(self.ckb_init_height, ckb_current_height, merkle_root, nonce)
@@ -213,27 +229,74 @@ impl CKBRelayer {
         &self,
         start_height: u64,
         latest_height: u64,
+        db_path: String,
     ) -> Result<[u8; 32]> {
-        let mut rpc_client = HttpRpcClient::new(self.ckb_rpc_url.clone());
+        let db = open_rocksdb(db_path);
+
         let mut all_tx_roots = vec![];
         // TODO: use rocksdb here to persist header data
         for number in start_height..=latest_height {
+            let db_root = db
+                .get(number.to_le_bytes())
+                .map_err(|err| anyhow!(err))?
+                .ok_or_else(|| anyhow!("db ckb root should not be none"))?;
+            let mut db_root_raw = [0u8; 32];
+            db_root_raw.copy_from_slice(db_root.as_ref());
+            all_tx_roots.push(db_root_raw);
+        }
+        Ok(CBMT::build_merkle_root(&all_tx_roots))
+    }
+
+    pub fn stroe_history_transaction_root(
+        &self,
+        start_height: u64,
+        latest_height: u64,
+        db_path: String,
+    ) -> Result<()> {
+        let db = open_rocksdb(db_path);
+        let mut rpc_client = HttpRpcClient::new(self.ckb_rpc_url.clone());
+
+        let mut index = latest_height;
+        while index >= start_height {
             match rpc_client
-                .get_header_by_number(number)
+                .get_header_by_number(index)
                 .map_err(|e| anyhow!("get_header_by_number err: {:?}", e))?
             {
                 Some(header_view) => {
-                    let root = header_view.inner.transactions_root;
-                    all_tx_roots.push(root.0)
+                    let chain_root = header_view.inner.transactions_root.0;
+
+                    let db_root_option = db.get(index.to_le_bytes()).map_err(|err| anyhow!(err))?;
+
+                    let db_root = match db_root_option {
+                        Some(v) => {
+                            let mut db_root_raw = [0u8; 32];
+                            db_root_raw.copy_from_slice(v.as_ref());
+                            db_root_raw
+                        }
+                        None => [0u8; 32],
+                    };
+
+                    if chain_root.to_vec() != db_root {
+                        db.put(index.to_le_bytes(), chain_root.to_vec())
+                            .map_err(|err| anyhow!(err))?;
+                    } else {
+                        break;
+                    }
+                    index -= 1;
                 }
                 None => {
                     bail!(
                         "cannot get the block transactions root, block_number = {}",
-                        number
+                        index
                     );
                 }
             }
         }
-        Ok(CBMT::build_merkle_root(&all_tx_roots))
+        info!(
+            "store ckb headers from {:?} to {:?}",
+            index + 1,
+            latest_height
+        );
+        Ok(())
     }
 }
