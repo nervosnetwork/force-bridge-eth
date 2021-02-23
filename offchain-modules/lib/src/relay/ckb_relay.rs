@@ -12,7 +12,7 @@ use ethereum_types::U256;
 use log::info;
 use secp256k1::SecretKey;
 use std::time::Instant;
-use web3::types::{H160, H256};
+use web3::types::{CallRequest, H160, H256};
 
 pub struct CKBRelayer {
     pub contract_addr: H160,
@@ -115,16 +115,31 @@ impl CKBRelayer {
             Token::FixedBytes(history_tx_root.to_vec()),
             Token::Bytes(signatures),
         ])?;
-        let increased_gas_price =
-            self.web3_client.client().eth().gas_price().await?.as_u128() * 3 / 2;
+        let gas_price = self.web3_client.client().eth().gas_price().await?.as_u128();
+
+        let request = CallRequest {
+            from: None,
+            to: Some(self.contract_addr),
+            gas: None,
+            gas_price: None,
+            value: Some(0x0.into()),
+            data: Some(add_headers_abi.to_vec().into()),
+        };
+        let gas_limit = self
+            .web3_client
+            .client()
+            .eth()
+            .estimate_gas(request, None)
+            .await?
+            .as_u128();
         let signed_tx = self
             .web3_client
             .build_sign_tx(
                 self.contract_addr,
                 self.priv_key,
                 add_headers_abi,
-                U256::from(increased_gas_price),
-                Some(U256::from(1_500_000u64)),
+                U256::from(gas_price),
+                Some(U256::from(gas_limit)),
                 U256::from(0u64),
                 asec_nonce,
             )
