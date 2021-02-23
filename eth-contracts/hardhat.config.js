@@ -96,6 +96,10 @@ module.exports = {
 
     networks: {
         hardhat: {},
+        rinkeby: {
+            url: `${process.env.RINKEBY_API ? process.env.RINKEBY_API : "https://rinkeby.infura.io/v3/48be8feb3f9c46c397ceae02a0dbc7ae"}`,
+            accounts: [`${process.env.RINKEBY_DEPLOYER_PRIVATE_KEY ? process.env.RINKEBY_DEPLOYER_PRIVATE_KEY : "0x49740e7b29259e7c2b693f365a9fd581cef75d1e346c8dff89ec037cdfd9f89d"}`]
+        },
         ropsten: {
             url: `${process.env.ROPSTEN_API ? process.env.ROPSTEN_API : "https://ropsten.infura.io/v3/48be8feb3f9c46c397ceae02a0dbc7ae"}`,
             accounts: [`${process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY ? process.env.ROPSTEN_DEPLOYER_PRIVATE_KEY : "0x49740e7b29259e7c2b693f365a9fd581cef75d1e346c8dff89ec037cdfd9f89d"}`]
