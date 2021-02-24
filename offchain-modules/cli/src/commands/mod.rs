@@ -275,6 +275,7 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
         ckb_rpc_url,
         ethereum_rpc_url,
         eth_ckb_chain_addr,
+        force_config.ckb_rocksdb_path,
     )
     .await?;
     println!("proof: {:?}", proof);
@@ -336,6 +337,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         ckb_rpc_url.clone(),
         eth_rpc_url,
         light_client_addr,
+        force_config.ckb_rocksdb_path,
     )
     .await?;
     let result = unlock(

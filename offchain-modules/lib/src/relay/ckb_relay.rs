@@ -6,14 +6,14 @@ use crate::util::config::ForceConfig;
 use crate::util::eth_util::{
     convert_eth_address, parse_private_key, parse_secret_key, relay_header_transaction, Web3Client,
 };
-use rocksdb::ops::{Get, Put};
-
 use crate::util::rocksdb::open_rocksdb;
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::HttpRpcClient;
 use ethabi::Token;
 use ethereum_types::U256;
+use force_eth_types::eth_recipient_cell::ETHRecipientDataView;
 use log::info;
+use rocksdb::ops::{Get, Put};
 use secp256k1::SecretKey;
 use std::time::Instant;
 use web3::types::{CallRequest, H160, H256};
@@ -29,6 +29,8 @@ pub struct CKBRelayer {
     pub eth_rpc_url: String,
     pub ckb_init_height: u64,
     pub db_path: String,
+    pub last_burn_tx_height: u64,
+    pub last_submit_height: u64,
 }
 
 impl CKBRelayer {
@@ -79,11 +81,16 @@ impl CKBRelayer {
         )?;
 
         let db_path = force_config.ckb_rocksdb_path;
+        let last_burn_tx_height = 0;
+        let last_submit_height = 0;
+
         Ok(CKBRelayer {
             ckb_rpc_url,
             eth_rpc_url,
             ckb_init_height,
             db_path,
+            last_burn_tx_height,
+            last_submit_height,
             contract_addr,
             priv_key,
             ckb_client,
@@ -102,31 +109,41 @@ impl CKBRelayer {
             .rpc_client
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
+
         self.stroe_history_transaction_root(
             self.ckb_init_height,
             ckb_current_height,
             self.db_path.clone(),
         )?;
 
-        let merkle_root = self.get_history_merkle_root(
-            self.ckb_init_height,
-            ckb_current_height,
-            self.db_path.clone(),
-        )?;
-        let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
-        let sign_tx = self
-            .relay_headers(self.ckb_init_height, ckb_current_height, merkle_root, nonce)
-            .await?;
-        let task_future = relay_header_transaction(self.eth_rpc_url.clone(), sign_tx);
-        let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
-        let now = Instant::now();
-        tokio::select! {
-            v = task_future => { v?; }
-            _ = timeout_future => {
-                bail!("relay headers timeout");
+        // usually relay every 5000 blocks
+        // burn tx will trigger relay
+        if (self.last_burn_tx_height > self.last_submit_height
+            && ckb_current_height > self.last_burn_tx_height)
+            || ckb_current_height - self.last_submit_height > 5000
+        {
+            let merkle_root = self.get_history_merkle_root(
+                self.ckb_init_height,
+                ckb_current_height,
+                self.db_path.clone(),
+            )?;
+            let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
+            let sign_tx = self
+                .relay_headers(self.ckb_init_height, ckb_current_height, merkle_root, nonce)
+                .await?;
+            let task_future = relay_header_transaction(self.eth_rpc_url.clone(), sign_tx);
+            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
+            let now = Instant::now();
+            tokio::select! {
+                v = task_future => { v?; }
+                _ = timeout_future => {
+                    bail!("relay headers timeout");
+                }
             }
+            self.last_submit_height = ckb_current_height;
+            info!("relay headers time elapsed: {:?}", now.elapsed());
         }
-        info!("relay headers time elapsed: {:?}", now.elapsed());
+
         Ok(())
     }
 
@@ -234,7 +251,6 @@ impl CKBRelayer {
         let db = open_rocksdb(db_path);
 
         let mut all_tx_roots = vec![];
-        // TODO: use rocksdb here to persist header data
         for number in start_height..=latest_height {
             let db_root = db
                 .get(number.to_le_bytes())
@@ -248,7 +264,7 @@ impl CKBRelayer {
     }
 
     pub fn stroe_history_transaction_root(
-        &self,
+        &mut self,
         start_height: u64,
         latest_height: u64,
         db_path: String,
@@ -259,10 +275,22 @@ impl CKBRelayer {
         let mut index = latest_height;
         while index >= start_height {
             match rpc_client
-                .get_header_by_number(index)
+                .get_block_by_number(index)
                 .map_err(|e| anyhow!("get_header_by_number err: {:?}", e))?
             {
-                Some(header_view) => {
+                Some(block_view) => {
+                    for tx in block_view.transactions {
+                        if tx.inner.outputs_data.is_empty() {
+                            continue;
+                        }
+                        let output_data = tx.inner.outputs_data[0].as_bytes();
+                        if ETHRecipientDataView::new(&output_data).is_ok() {
+                            self.last_burn_tx_height = index;
+                        }
+                    }
+
+                    let header_view = block_view.header;
+
                     let chain_root = header_view.inner.transactions_root.0;
 
                     let db_root_option = db.get(index.to_le_bytes()).map_err(|err| anyhow!(err))?;
