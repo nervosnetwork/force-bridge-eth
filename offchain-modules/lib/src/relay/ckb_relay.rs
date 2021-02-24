@@ -286,6 +286,7 @@ impl CKBRelayer {
                         let output_data = tx.inner.outputs_data[0].as_bytes();
                         if ETHRecipientDataView::new(&output_data).is_ok() {
                             self.last_burn_tx_height = index;
+                            break;
                         }
                     }
 
