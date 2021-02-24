@@ -15,7 +15,7 @@ use tokio::time::Duration;
 pub struct UnlockTask {
     pub id: u32,
     pub ckb_burn_tx_hash: String,
-    pub ckb_spv_proof: String,
+    // pub ckb_spv_proof: String,
     pub ckb_raw_tx: String,
 }
 
@@ -84,13 +84,14 @@ impl CkbTxRelay {
             .web3_client
             .get_eth_nonce(&self.eth_private_key)
             .await?;
+        // let light_client_addr = convert_eth_address(&self.deployed_contracts.eth_ckb_chain_addr)?;
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
             info!("burn tx wait to unlock: {:?} ", tx_record.ckb_burn_tx_hash);
             let proof_info = get_ckb_proof_info(
                 &tx_record.ckb_burn_tx_hash,
                 String::from(self.ckb_rpc_url.clone()),
                 String::from(self.web3_client.url()),
-                H160::from_slice(self.eth_token_locker_addr.as_ref()),
+                self.contract_addr,
             )
             .await?;
             // let ckb_unlock_token_param = parse_ckb_proof(
@@ -143,7 +144,7 @@ pub async fn get_unlock_tasks(
     height: u64,
 ) -> Result<Vec<UnlockTask>> {
     let sql = r#"
-SELECT id, ckb_burn_tx_hash, ckb_spv_proof, ckb_raw_tx
+SELECT id, ckb_burn_tx_hash, ckb_raw_tx
 FROM ckb_to_eth
 WHERE status = 'pending' AND ckb_block_number + ? < ?
     "#;

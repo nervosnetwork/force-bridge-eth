@@ -11,13 +11,17 @@ use crate::transfer::to_ckb::to_eth_spv_proof_json;
 use crate::util::ckb_util::{clear_0x, parse_cell, parse_merkle_cell_data};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
+use crate::util::generated::ckb_tx_proof;
+use crate::util::generated::ckb_tx_proof::CKBUnlockTokenParamReader;
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types::Uint128;
+use ckb_types::prelude::{Pack, Unpack};
 use ethabi::{Function, Param, ParamType};
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use log::info;
+use molecule::prelude::{Entity, Reader};
 use rusty_receipt_proof_maker::types::UnlockEvent;
 use rusty_receipt_proof_maker::{
     generate_eth_proof, parse_event, parse_unlock_event, types::EthSpvProof,
@@ -407,6 +411,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             };
             records.push(record);
         }
+        info!("handle lock event. records: {:?}", records);
         Ok(())
     }
 
@@ -490,24 +495,44 @@ impl<T: IndexerFilter> EthIndexer<T> {
             let input = tx.unwrap().input;
             let function = Function {
                 name: "unlockToken".to_owned(),
-                inputs: vec![
-                    Param {
-                        name: "ckbTxProof".to_owned(),
-                        kind: ParamType::Bytes,
-                    },
-                    Param {
-                        name: "ckbTx".to_owned(),
-                        kind: ParamType::Bytes,
-                    },
-                ],
+                inputs: vec![Param {
+                    name: "proof".to_owned(),
+                    kind: ParamType::Bytes,
+                }],
                 outputs: vec![],
                 constant: false,
             };
+            // let function = Function {
+            //     name: "unlockToken".to_owned(),
+            //     inputs: vec![
+            //         Param {
+            //             name: "ckbTxProof".to_owned(),
+            //             kind: ParamType::Bytes,
+            //         },
+            //         Param {
+            //             name: "ckbTx".to_owned(),
+            //             kind: ParamType::Bytes,
+            //         },
+            //     ],
+            //     outputs: vec![],
+            //     constant: false,
+            // };
+            info!("input: {:?}", hex::encode(input.0.clone()));
             let input_data = function.decode_input(input.0[4..].as_ref())?;
-            let ckb_tx = input_data[1].clone();
-            let tx_raw = &ckb_tx.to_bytes();
-            if tx_raw.is_some() {
-                let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
+            let ckb_tx_proof_token = input_data[0].clone();
+            let ckb_tx_proof_raw = ckb_tx_proof_token.to_bytes();
+            if let Some(ckb_tx_proof_raw) = ckb_tx_proof_raw {
+                // let data_raw: molecule::bytes::Bytes = ckb_tx_proof_raw.into();
+                // let data = data_raw.pack();
+                let raw_data = &ckb_tx_proof_raw;
+                CKBUnlockTokenParamReader::verify(raw_data, false).map_err(|err| anyhow!(err))?;
+                let ckb_tx_proof_reader = CKBUnlockTokenParamReader::new_unchecked(raw_data);
+                let ckb_tx_proof_vec = ckb_tx_proof_reader.tx_proofs();
+                let raw_tx = ckb_tx_proof_vec
+                    .get_unchecked(0)
+                    .raw_transaction()
+                    .raw_data();
+                let ckb_tx_hash = blake2b_256(raw_tx);
                 let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
                 if !is_ckb_to_eth_record_exist(&self.db, ckb_tx_hash_str.as_str()).await? {
                     info!("the burn tx is not exist. waiting for ckb indexer reach sync status.");
@@ -522,6 +547,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 ));
             }
         }
+        info!("handle lock event. unlock_datas: {:?}", unlock_datas);
         Ok(())
     }
 
@@ -561,32 +587,49 @@ impl<T: IndexerFilter> EthIndexer<T> {
 
 #[test]
 fn test_decode() {
-    let input = "0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000aaaa0000001c0000001e0000002600000046000000660000008600000002003d0000000000000087665cdcc219b392791360a8077fb12e37a43554434f1694026a2ad4ecae078ea4f6038b2f6b634d0aa46cd45be2880cf89153f7866aa7e857f91e4f60da69e584635bda360a131d909a63dd21b4ff2f757edcfbb0e43748520959c37aac910b01000000404bb346c38c5efb4471763d1c7771085bea1c3bd4d9d8509d8f692f8e43e80600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000039d9d0300001c00000020000000b8000000bc00000018010000d50200000000000004000000e287ea8bc97eceaf3420e780b7341c739128da626b1d4158923820727ada5e7a0000000000e287ea8bc97eceaf3420e780b7341c739128da626b1d4158923820727ada5e7a0200000000e287ea8bc97eceaf3420e780b7341c739128da626b1d4158923820727ada5e7a0400000000a777fd1964ffa98a7b0b6c09ff71691705d84d5ed1badfb14271a3a870bdd06b000000000100000000020000000000000000000000fd6edeff40306873d838681e8020aee3ac5080c63a1235de3102767ec6a0d3750000000000000000000000005edca2d744b6eaa347de7ff0edcd2e6e88ab8f2836bcbd0df0940026956e5f810a000000bd01000010000000a60000005c0100009600000010000000180000006100000000ba1dd205000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000a4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c35000000100000003000000031000000ed0df97ea89ce848b20479194c9eb50cda612837f2db516b828ffeea61473ff30000000000b600000010000000180000006100000000c817a804000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000a4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c55000000100000003000000031000000e1e354d6d643ad42724d40967e334984534e0367405c5ae42a9d7d63d77df4190020000000b5ff94e85f04396cf5b852446eb75d8880cad4d94a1c17d0e5cd70470e6c2ba86100000010000000180000006100000080e4c47b606dc11b490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000a4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171cc800000010000000b0000000c40000009c000000403a53a7dfa7a4ab022e53feff11232b3140407d0000000000000000000000000000000000000000cd62e77cfe0386343c15c13528675aae9925d7ae88d9ffc645fef37c2097140cdc2923726d4efe16131e76e85757b446138e39ceda6d3ad483fb11a5619e65035c3139acdb17c26e73647b7f0ac62a4036ca4e720200000000000000000000000000000001000000000000000000000000000000100000005a00000000000000000000000000000000000000000000";
+    let input = "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000573730500000c000000480100003c0100001800000020000000280000003400000058000000130000000000000062000000000000000100000098000000000000000100000083b4214ed8f43eed580143fc9d7a9e2cf2d6c7fa6916f24ff8e94f4140eec04c0700000082546cc2b780e219ce919d63a1959d4f73566c2bbcf3947f0f65df25031a9648bdeb13ce1e1bb1f6f6d82152900cae4476719d68e8bf0973f4d10ece418dcf7227961f244f9ae79133c1fec6c3e483bfca9b3f1b3ace30e1b4e996904ec8635c0f021f5ccb7e967b73868c712fd15ee40e4b84977d59765d5f218874e4cd73fd7a66be9b114ac18fa0c7c4549921ac2c2fde722ff0559d3cf933141fa44fca9a8ebaeb098d0ec012b6a2db783fbab25fe2dad76d4986621ee48279340c19069dccfd7059568f74f003d1131aab31bb169d018196f7366434a97d4dc701410a2a2b040000080000002304000018000000200000002200000042000000860000005c00000000000000030066231532fec620593924a5baf49d3f0c5a83c66537328cac3e070d678cf0a4530200000005695fa89364db64fbb12c8467202fde0233dc916506f9b3c6d9d4c33434b58763ea3ee2faae53e9d6800afe699e0a306a2307a51661bdb73f0755173dc7b6c29d0300001c00000020000000b8000000bc00000018010000d502000000000000040000001b9015427d92d2ba3986283c7f6777e63673bd9ed67dc73d4e6f607890646a0200000000001b9015427d92d2ba3986283c7f6777e63673bd9ed67dc73d4e6f607890646a0202000000001b9015427d92d2ba3986283c7f6777e63673bd9ed67dc73d4e6f607890646a020500000000a777fd1964ffa98a7b0b6c09ff71691705d84d5ed1badfb14271a3a870bdd06b000000000100000000020000000000000000000000d3ea5c774c86a7c2302b87a9b066f04418174f6008bccb4dc95c8780db094375000000000000000000000000d7e58f6ed325544a859a7dcd30b9ccae9563db4daa88621bb49ff8278148bef601000000bd01000010000000a60000005c0100009600000010000000180000006100000000ba1dd205000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce801140000005ab81ab26a25c17f1798bc350080b7d96674d4de35000000100000003000000031000000ad5d462324bfc392652ffe2e9cccdfa9ed9f967559acd3883d533e11ff7e5a590000000000b600000010000000180000006100000000c817a804000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce801140000005ab81ab26a25c17f1798bc350080b7d96674d4de55000000100000003000000031000000e1e354d6d643ad42724d40967e334984534e0367405c5ae42a9d7d63d77df4190020000000d81a9bd367db75c30ef7937c64ef123fec23ff21c4c6a9fbebc91e1485040fc061000000100000001800000061000000809ebde010000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce801140000005ab81ab26a25c17f1798bc350080b7d96674d4dec800000010000000b0000000c40000009c00000017c4b5ce0605f63732bfd175fece7ac6b4620fd20000000000000000000000000000000000000000899ee5d8fb3875f6d9288f700917d8a7c5d51e8964fbfb7225e76ca26155b9ec2cbcb6e25c5d49991343ed1ab1536f1b0d429d72ff63902f8814169b4a3fd8850b9c0bca06c21fe6664cc872c604bede1d633535020000000000000000000000000000000100000000000000000000000000000010000000fe7fb7952f5feb0d00000000000000000000000000000000000000000000000000";
     let input_bin = hex::decode(input).unwrap();
+    // let function = Function {
+    //     name: "unlockToken".to_owned(),
+    //     inputs: vec![
+    //         Param {
+    //             name: "ckbTxProof".to_owned(),
+    //             kind: ParamType::Bytes,
+    //         },
+    //         Param {
+    //             name: "ckbTx".to_owned(),
+    //             kind: ParamType::Bytes,
+    //         },
+    //     ],
+    //     outputs: vec![],
+    //     constant: false,
+    // };
     let function = Function {
         name: "unlockToken".to_owned(),
-        inputs: vec![
-            Param {
-                name: "ckbTxProof".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "ckbTx".to_owned(),
-                kind: ParamType::Bytes,
-            },
-        ],
+        inputs: vec![Param {
+            name: "proof".to_owned(),
+            kind: ParamType::Bytes,
+        }],
         outputs: vec![],
         constant: false,
     };
     let input_data = function.decode_input(input_bin.as_slice()).unwrap();
-    let ckb_tx = input_data[1].clone();
-    let tx_raw = &ckb_tx.to_bytes();
-    if tx_raw.is_some() {
-        let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
-        let hash = hex::encode(ckb_tx_hash);
-        assert_eq!(
-            hash,
-            "a4f6038b2f6b634d0aa46cd45be2880cf89153f7866aa7e857f91e4f60da69e5"
-        )
+    let ckb_tx_proof_token = input_data[0].clone();
+    let ckb_tx_proof_raw = ckb_tx_proof_token.to_bytes();
+    if let Some(ckb_tx_proof_raw) = ckb_tx_proof_raw {
+        // let data_raw: molecule::bytes::Bytes = ckb_tx_proof_raw.into();
+        // let data = data_raw.pack();
+        let raw_data = &ckb_tx_proof_raw;
+        CKBUnlockTokenParamReader::verify(raw_data, false)
+            .map_err(|err| anyhow!(err))
+            .unwrap();
+        let ckb_tx_proof_reader = CKBUnlockTokenParamReader::new_unchecked(raw_data);
+        let ckb_tx_proof_vec = ckb_tx_proof_reader.tx_proofs();
+        let raw_tx = ckb_tx_proof_vec
+            .get_unchecked(0)
+            .raw_transaction()
+            .raw_data();
+        let ckb_tx_hash = blake2b_256(raw_tx);
+        let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
     }
 }
