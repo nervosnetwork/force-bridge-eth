@@ -4,8 +4,7 @@ use super::REPLAY_RESIST_CELL_NUMBER;
 use super::{DappState, ReplayResistTask};
 use crate::dapp::db::server::{self as db, add_replay_resist_cells, is_token_replay_resist_init};
 use crate::util::ckb_util::{
-    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
-    parse_merkle_cell_data,
+    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_merkle_cell_data,
 };
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,

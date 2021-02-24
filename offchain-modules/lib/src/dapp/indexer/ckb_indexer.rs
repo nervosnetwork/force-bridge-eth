@@ -6,7 +6,6 @@ use crate::dapp::db::indexer::{
     update_ckb_unconfirmed_block, update_cross_chain_height_info, update_eth_to_ckb_status,
     CkbToEthRecord, CkbUnConfirmedBlock, CrossChainHeightInfo, EthToCkbRecord,
 };
-use crate::transfer::to_eth::parse_ckb_proof;
 use crate::util::ckb_util::{clear_0x, create_bridge_lockscript, parse_cell};
 use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::{convert_eth_address, Web3Client};

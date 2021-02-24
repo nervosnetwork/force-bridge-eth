@@ -84,30 +84,20 @@ impl CkbTxRelay {
             .web3_client
             .get_eth_nonce(&self.eth_private_key)
             .await?;
-        // let light_client_addr = convert_eth_address(&self.deployed_contracts.eth_ckb_chain_addr)?;
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
             info!("burn tx wait to unlock: {:?} ", tx_record.ckb_burn_tx_hash);
             let proof_info = get_ckb_proof_info(
                 &tx_record.ckb_burn_tx_hash,
-                String::from(self.ckb_rpc_url.clone()),
+                self.ckb_rpc_url.clone(),
                 String::from(self.web3_client.url()),
                 self.contract_addr,
             )
             .await?;
-            // let ckb_unlock_token_param = parse_ckb_proof(
-            //     &tx_record.ckb_burn_tx_hash,
-            //     String::from(self.ckb_rpc_url.clone()),
-            //     String::from(self.web3_client.url()),
-            //     H160::from_slice(self.eth_token_locker_addr.as_ref()),
-            // )
-            // .await?;
             unlock_futures.push(unlock(
                 self.eth_private_key,
                 self.ethereum_rpc_url.clone(),
                 self.eth_token_locker_addr.clone(),
-                // tx_record.ckb_spv_proof.clone(),
                 proof_info,
-                // tx_record.ckb_raw_tx.clone(),
                 0,
                 nonce.add(i),
                 true,
