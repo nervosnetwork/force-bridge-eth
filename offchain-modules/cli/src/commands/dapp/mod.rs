@@ -16,10 +16,25 @@ pub async fn dapp_handle(command: DappCommand) -> Result<()> {
         DappCommand::CKBIndexer(args) => ckb_indexer(args).await,
         DappCommand::CkbTxRelayer(args) => ckb_tx_relay(args).await,
         DappCommand::EthTxRelayer(args) => eth_tx_relay(args).await,
+        DappCommand::SignServer(args) => sign_server(args).await,
     }
 }
 
 async fn server(args: ServerArgs) -> Result<()> {
+    Ok(start(
+        args.config_path,
+        args.network,
+        args.server_private_key_path,
+        args.mint_private_key_path,
+        args.lock_api_channel_bound,
+        args.create_bridge_cell_fee,
+        args.listen_url,
+        args.db_path,
+    )
+    .await?)
+}
+
+async fn sign_server(args: SignServerArgs) -> Result<()> {
     Ok(start(
         args.config_path,
         args.network,

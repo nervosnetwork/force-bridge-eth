@@ -7,10 +7,31 @@ pub enum DappCommand {
     CKBIndexer(CkbIndexerArgs),
     CkbTxRelayer(CkbTxRelayerArgs),
     EthTxRelayer(EthTxRelayerArgs),
+    SignServer(SignServerArgs),
 }
 
 #[derive(Clap, Clone, Debug)]
 pub struct ServerArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(short = 'c', long)]
+    pub server_private_key_path: Vec<String>,
+    #[clap(long)]
+    pub mint_private_key_path: String,
+    #[clap(long, default_value = "5000")]
+    pub lock_api_channel_bound: usize,
+    #[clap(long, default_value = "0.9")]
+    pub create_bridge_cell_fee: String,
+    #[clap(short, long, default_value = "127.0.0.1:3030")]
+    pub listen_url: String,
+    #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/serverdb")]
+    pub db_path: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct SignServerArgs {
     #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
