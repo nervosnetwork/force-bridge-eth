@@ -5,6 +5,7 @@ use crate::util::ckb_util::{covert_to_h256, parse_privkey, parse_privkey_path};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use crate::util::generated::ckb_tx_proof;
+use crate::util::rocksdb::open_readonly_rocksdb;
 use anyhow::anyhow;
 use anyhow::Result;
 use ckb_sdk::rpc::{BlockView, TransactionView};
@@ -17,6 +18,7 @@ use ethabi::{Function, Param, ParamType, Token};
 use ethereum_types::U256;
 use force_sdk::util::ensure_indexer_sync;
 use log::{debug, info};
+use rocksdb::ops::Get;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::export::Clone;
 use std::str::FromStr;
@@ -306,9 +308,16 @@ pub async fn get_ckb_proof_info(
     ckb_rpc_url: String,
     eth_rpc_url: String,
     contract_addr: web3::types::Address,
+    ckb_db_path: String,
 ) -> Result<String> {
-    let ckb_tx_proof =
-        parse_ckb_proof(tx_hash_str, ckb_rpc_url, eth_rpc_url, contract_addr).await?;
+    let ckb_tx_proof = parse_ckb_proof(
+        tx_hash_str,
+        ckb_rpc_url,
+        eth_rpc_url,
+        contract_addr,
+        ckb_db_path,
+    )
+    .await?;
     debug!("ckb_tx_proof: {:?}", ckb_tx_proof);
     let mol_tx_proof: ckb_tx_proof::CKBUnlockTokenParam = ckb_tx_proof.into();
     let mol_hex_tx_proof = hex::encode(mol_tx_proof.as_bytes().as_ref());
@@ -324,6 +333,7 @@ pub async fn parse_ckb_proof(
     rpc_url: String,
     eth_rpc_url: String,
     contract_addr: web3::types::Address,
+    ckb_db_path: String,
 ) -> Result<CKBUnlockTokenParam> {
     let mut web3_client = Web3Client::new(eth_rpc_url);
     let init_block_number = web3_client
@@ -386,8 +396,15 @@ pub async fn parse_ckb_proof(
         init_block_number,
         latest_block_number,
         vec![block_number],
-        &mut rpc_client,
+        ckb_db_path,
     )?;
+    let new_latest_block_number = web3_client
+        .get_contract_height("latestBlockNumber", contract_addr)
+        .await
+        .map_err(|e| anyhow!("get latest_block_number err: {:?}", e))?;
+    if latest_block_number != new_latest_block_number {
+        return Err(anyhow!("ckb light client latest_block_number changed"));
+    }
     let proof = CKBUnlockTokenParam {
         history_tx_root_proof,
         tx_proofs: vec![tx_proof],
@@ -559,29 +576,25 @@ pub fn get_msg_signature(msg_hash: &[u8], eth_key: SecretKey) -> Result<Vec<u8>>
     Ok(signature)
 }
 
-// TODO: add storage for get headers
 pub fn generate_ckb_history_tx_root_proof(
     init_block_number: u64,
     latest_block_number: u64,
     block_numbers: Vec<u64>,
-    rpc_client: &mut HttpRpcClient,
+    ckb_db_path: String,
 ) -> Result<CKBHistoryTxRootProof> {
     let mut tx_roots_indices: Vec<u32> = vec![];
     let mut proof_leaves: Vec<H256> = vec![];
+
+    let db = open_readonly_rocksdb(ckb_db_path);
     let mut all_tx_roots = vec![];
     for number in init_block_number..=latest_block_number {
-        match rpc_client
-            .get_header_by_number(number)
-            .map_err(|e| anyhow!("get_header_by_number err: {:?}", e))?
-        {
-            Some(header_view) => all_tx_roots.push(header_view.inner.transactions_root.0),
-            None => {
-                return Err(anyhow!(
-                    "cannot get the block transactions root, block_number = {}",
-                    number
-                ));
-            }
-        }
+        let db_root = db
+            .get(number.to_le_bytes())
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("db ckb root should not be none"))?;
+        let mut db_root_raw = [0u8; 32];
+        db_root_raw.copy_from_slice(db_root.as_ref());
+        all_tx_roots.push(db_root_raw);
     }
 
     for number in block_numbers {
@@ -607,7 +620,7 @@ pub fn generate_ckb_history_tx_root_proof(
         &all_tx_roots,
         &tx_roots_indices.into_iter().collect::<Vec<_>>(),
     )
-    .expect("build proof with verified inputs should be OK");
+    .ok_or_else(|| anyhow!("build proof with verified inputs should be OK"))?;
 
     let mut indices = proof.indices().to_vec();
     indices.sort_by(|a, b| b.cmp(a));

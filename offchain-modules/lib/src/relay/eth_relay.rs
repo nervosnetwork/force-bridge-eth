@@ -184,7 +184,7 @@ impl ETHRelayer {
         }
 
         let force_config = ForceConfig::new(self.config_path.as_str())?;
-        let db_path = force_config.rocksdb_path;
+        let db_path = force_config.eth_rocksdb_path;
         // make tx
         let cell =
             get_live_cell_by_typescript(&mut self.generator.indexer_client, cell_script.clone())

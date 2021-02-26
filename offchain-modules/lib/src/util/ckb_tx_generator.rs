@@ -409,7 +409,7 @@ impl Generator {
             .deployed_contracts
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-        let db_path = force_cli_config.rocksdb_path;
+        let db_path = force_cli_config.eth_rocksdb_path;
         // add cell deps.
         let cell_script = parse_cell(
             deployed_contracts
