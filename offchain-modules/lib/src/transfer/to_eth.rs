@@ -398,6 +398,13 @@ pub async fn parse_ckb_proof(
         vec![block_number],
         ckb_db_path,
     )?;
+    let new_latest_block_number = web3_client
+        .get_contract_height("latestBlockNumber", contract_addr)
+        .await
+        .map_err(|e| anyhow!("get latest_block_number err: {:?}", e))?;
+    if latest_block_number != new_latest_block_number {
+        return Err(anyhow!("ckb light client latest_block_number changed"));
+    }
     let proof = CKBUnlockTokenParam {
         history_tx_root_proof,
         tx_proofs: vec![tx_proof],
