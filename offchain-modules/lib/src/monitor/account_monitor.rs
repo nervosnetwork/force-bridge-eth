@@ -1,7 +1,7 @@
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{get_secret_key, parse_privkey};
 use crate::util::config::ForceConfig;
-use crate::util::eth_util::{convert_eth_address, secret_key_address, Web3Client};
+use crate::util::eth_util::{secret_key_address, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_types::packed::Script;
 use force_sdk::cell_collector::get_all_live_cells_by_lockscript;
@@ -33,12 +33,14 @@ impl AccountMonitor {
         let force_config = ForceConfig::new(&config_path)?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+        let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let ckb_privkeys = force_config.get_ckb_private_keys(&network)?;
         let eth_privkeys: Vec<String> = force_config.get_ethereum_private_keys(&network)?;
 
         let mut eth_addresses: Vec<Address> = vec![];
         for eth_privkey in eth_privkeys.into_iter() {
-            let eth_private_key = convert_eth_address(&eth_privkey)?;
+            let eth_private_key =
+                ethereum_types::H256::from_slice(hex::decode(eth_privkey)?.as_slice());
             let eth_key = SecretKey::from_slice(&eth_private_key.0)?;
             let from = secret_key_address(&eth_key);
             eth_addresses.push(from);
@@ -49,8 +51,6 @@ impl AccountMonitor {
             let lockscript = parse_privkey(&privkey);
             ckb_lockscripts.push(lockscript);
         }
-
-        let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
         Ok(AccountMonitor {
             web3_client: Web3Client::new(eth_rpc_url),
             generator: Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
