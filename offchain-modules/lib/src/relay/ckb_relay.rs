@@ -12,6 +12,10 @@ use ckb_sdk::HttpRpcClient;
 use ethabi::Token;
 use ethereum_types::U256;
 use force_eth_types::eth_recipient_cell::ETHRecipientDataView;
+use force_sdk::constants::{
+    BURN_TX_MAX_NUM, BURN_TX_MAX_WAITING_BLOCKS, MAINNET_CKB_WAITING_BLOCKS,
+    TESTNET_CKB_WAITING_BLOCKS,
+};
 use log::info;
 use rocksdb::ops::{Get, Put};
 use secp256k1::SecretKey;
@@ -21,6 +25,7 @@ use web3::types::{CallRequest, H160, H256};
 pub struct CKBRelayer {
     pub contract_addr: H160,
     pub priv_key: H256,
+    pub network: String,
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
     pub gas_price: U256,
@@ -31,6 +36,7 @@ pub struct CKBRelayer {
     pub db_path: String,
     pub last_burn_tx_height: u64,
     pub last_submit_height: u64,
+    pub waiting_burn_txs_count: u64,
 }
 
 impl CKBRelayer {
@@ -54,6 +60,11 @@ impl CKBRelayer {
                 multisig_privkeys.len()
             );
         }
+
+        let net = match network.clone() {
+            Some(v) => v,
+            None => String::default(),
+        };
 
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
@@ -83,6 +94,7 @@ impl CKBRelayer {
         let db_path = force_config.ckb_rocksdb_path;
         let last_burn_tx_height = 0;
         let last_submit_height = 0;
+        let waiting_burn_txs_count = 0;
 
         Ok(CKBRelayer {
             ckb_rpc_url,
@@ -91,11 +103,13 @@ impl CKBRelayer {
             db_path,
             last_burn_tx_height,
             last_submit_height,
+            waiting_burn_txs_count,
             contract_addr,
             priv_key,
             ckb_client,
             web3_client,
             gas_price,
+            network: net,
             multisig_privkeys: multisig_privkeys
                 .iter()
                 .map(|&privkey| parse_secret_key(privkey))
@@ -116,11 +130,18 @@ impl CKBRelayer {
             self.db_path.clone(),
         )?;
 
+        let waiting_blocks = match self.network.as_str() {
+            "mainnet" => MAINNET_CKB_WAITING_BLOCKS,
+            _ => TESTNET_CKB_WAITING_BLOCKS,
+        };
         // usually relay every 5000 blocks
-        // burn tx will trigger relay
-        if (self.last_burn_tx_height > self.last_submit_height
-            && ckb_current_height > self.last_burn_tx_height)
-            || ckb_current_height - self.last_submit_height > 5000
+        // 20 burn txs will trigger relay
+        // burn txs can not wait over 100 blocks
+        if ckb_current_height - self.last_submit_height > waiting_blocks
+            || (self.waiting_burn_txs_count >= BURN_TX_MAX_NUM
+                && ckb_current_height > self.last_burn_tx_height)
+            || (ckb_current_height - self.last_burn_tx_height > BURN_TX_MAX_WAITING_BLOCKS
+                && self.waiting_burn_txs_count > 0)
         {
             let merkle_root = self.get_history_merkle_root(
                 self.ckb_init_height,
@@ -141,6 +162,7 @@ impl CKBRelayer {
                 }
             }
             self.last_submit_height = ckb_current_height;
+            self.waiting_burn_txs_count = 0;
             info!("relay headers time elapsed: {:?}", now.elapsed());
         }
 
@@ -286,6 +308,7 @@ impl CKBRelayer {
                         let output_data = tx.inner.outputs_data[0].as_bytes();
                         if ETHRecipientDataView::new(&output_data).is_ok() {
                             self.last_burn_tx_height = index;
+                            self.waiting_burn_txs_count += 1;
                             break;
                         }
                     }

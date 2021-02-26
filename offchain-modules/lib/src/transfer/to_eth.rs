@@ -613,7 +613,7 @@ pub fn generate_ckb_history_tx_root_proof(
         &all_tx_roots,
         &tx_roots_indices.into_iter().collect::<Vec<_>>(),
     )
-    .expect("build proof with verified inputs should be OK");
+    .ok_or_else(|| anyhow!("build proof with verified inputs should be OK"))?;
 
     let mut indices = proof.indices().to_vec();
     indices.sort_by(|a, b| b.cmp(a));
