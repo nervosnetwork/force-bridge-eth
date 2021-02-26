@@ -5,6 +5,7 @@ use force_eth_lib::dapp::CkbIndexer;
 use force_eth_lib::dapp::CkbTxRelay;
 use force_eth_lib::dapp::EthIndexer;
 use force_eth_lib::dapp::EthTxRelayer;
+use force_eth_lib::monitor::account_monitor::AccountMonitor;
 use types::*;
 
 pub mod types;
@@ -16,6 +17,7 @@ pub async fn dapp_handle(command: DappCommand) -> Result<()> {
         DappCommand::CKBIndexer(args) => ckb_indexer(args).await,
         DappCommand::CkbTxRelayer(args) => ckb_tx_relay(args).await,
         DappCommand::EthTxRelayer(args) => eth_tx_relay(args).await,
+        DappCommand::AccountMonitor(args) => account_monitor(args).await,
     }
 }
 
@@ -81,4 +83,24 @@ async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
     )
     .await?;
     eth_tx_relayer.start().await
+}
+
+pub async fn account_monitor(args: AccountMonitorArgs) -> Result<()> {
+    let mut account_monitor = AccountMonitor::new(
+        args.config_path,
+        args.network,
+        args.alarm_url,
+        args.ckb_alarm_balance,
+        args.eth_alarm_balance,
+        args.eth_balance_conservator,
+        args.ckb_balance_conservator,
+    )
+    .await?;
+    loop {
+        let res = account_monitor.start().await;
+        if let Err(err) = res {
+            log::error!("An error occurred during the relay monitor. Err: {:?}", err)
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(args.minute_interval * 60)).await;
+    }
 }

@@ -7,6 +7,7 @@ pub enum DappCommand {
     CKBIndexer(CkbIndexerArgs),
     CkbTxRelayer(CkbTxRelayerArgs),
     EthTxRelayer(EthTxRelayerArgs),
+    AccountMonitor(AccountMonitorArgs),
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -80,4 +81,24 @@ pub struct EthTxRelayerArgs {
     pub minimum_cell_capacity: u64,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
     pub db_path: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct AccountMonitorArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(long, default_value = "100")]
+    pub ckb_alarm_balance: u64,
+    #[clap(long, default_value = "100")]
+    pub eth_alarm_balance: u64,
+    #[clap(long)]
+    pub eth_balance_conservator: String,
+    #[clap(long)]
+    pub ckb_balance_conservator: String,
+    #[clap(long)]
+    pub alarm_url: String,
+    #[clap(long, default_value = "10")]
+    pub minute_interval: u64,
 }
