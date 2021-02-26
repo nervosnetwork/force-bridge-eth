@@ -5,7 +5,7 @@ use crate::util::ckb_util::{covert_to_h256, parse_privkey, parse_privkey_path};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use crate::util::generated::ckb_tx_proof;
-use crate::util::rocksdb::open_rocksdb;
+use crate::util::rocksdb::open_readonly_rocksdb;
 use anyhow::anyhow;
 use anyhow::Result;
 use ckb_sdk::rpc::{BlockView, TransactionView};
@@ -578,7 +578,7 @@ pub fn generate_ckb_history_tx_root_proof(
     let mut tx_roots_indices: Vec<u32> = vec![];
     let mut proof_leaves: Vec<H256> = vec![];
 
-    let db = open_rocksdb(ckb_db_path);
+    let db = open_readonly_rocksdb(ckb_db_path);
     let mut all_tx_roots = vec![];
     for number in init_block_number..=latest_block_number {
         let db_root = db

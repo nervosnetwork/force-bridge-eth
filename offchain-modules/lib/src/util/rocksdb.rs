@@ -272,6 +272,17 @@ pub fn open_rocksdb(path: String) -> Arc<DB> {
     Arc::new(db)
 }
 
+pub fn open_readonly_rocksdb(path: String) -> Arc<ReadOnlyDB> {
+    let db_dir = shellexpand::tilde(path.as_str()).into_owned();
+    let db_path = Path::new(db_dir.as_str());
+
+    if !db_path.exists() {
+        std::fs::create_dir_all(db_path).expect("create db path dir");
+    }
+    let db = ReadOnlyDB::open_default(db_path).expect("open rocksdb");
+    Arc::new(db)
+}
+
 // #[test]
 // fn test_rocksdb() {
 //     let mut db = RocksDBStore::new("~/.force-bridge/test-rocksdb".to_string());
