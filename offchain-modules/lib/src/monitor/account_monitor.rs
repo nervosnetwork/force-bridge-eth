@@ -4,8 +4,10 @@ use crate::util::config::ForceConfig;
 use crate::util::eth_util::{secret_key_address, Web3Client};
 use anyhow::{anyhow, Result};
 use ckb_types::packed::Script;
+use ethereum_types::U256;
 use force_sdk::cell_collector::get_all_live_cells_by_lockscript;
 use secp256k1::SecretKey;
+use std::ops::Div;
 use web3::types::Address;
 
 pub struct AccountMonitor {
@@ -67,15 +69,20 @@ impl AccountMonitor {
 
     pub async fn start(&mut self) -> Result<()> {
         let mut msg = " ".to_string();
+        let eth_decimal: U256 = U256::from(10u128.pow(18));
         for eth_address in self.eth_addresses.iter() {
             let balance = self
                 .web3_client
                 .client()
                 .eth()
                 .balance(*eth_address, None)
-                .await?;
-            let mut eth_balance_msg =
-                format!("{} balance is : {:?}", hex::encode(eth_address), balance);
+                .await?
+                .div(eth_decimal);
+            let mut eth_balance_msg = format!(
+                "{} balance is : {:?} eth",
+                hex::encode(eth_address),
+                balance
+            );
             if balance.as_u64() < self.eth_alarm_balance {
                 eth_balance_msg = format!("{} @{}", eth_balance_msg, self.eth_balance_conservator)
             }
@@ -93,10 +100,11 @@ impl AccountMonitor {
             capacity += live_cells
                 .iter()
                 .map(|c| c.output.capacity.value())
-                .sum::<u64>();
+                .sum::<u64>()
+                .div(10u64.pow(8));
 
             let mut ckb_balance_msg = format!(
-                "{} balance is : {:x}",
+                "{:x} balance is : {:?} ckb",
                 ckb_lockscript.as_reader().calc_script_hash(),
                 capacity,
             );
