@@ -4375,9 +4375,16 @@ name = "sign-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ckb-hash",
+ "ckb-jsonrpc-types",
+ "ckb-sdk",
+ "ckb-types",
  "hex 0.4.2",
  "jsonrpc-http-server",
  "secp256k1 0.17.2",
+ "serde 1.0.118",
+ "serde_derive",
+ "serde_json",
  "web3",
 ]
 

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use secp256k1::{Message, Secp256k1, SecretKey};
 
 pub fn get_secret_key(privkey_string: &str) -> Result<secp256k1::SecretKey> {
