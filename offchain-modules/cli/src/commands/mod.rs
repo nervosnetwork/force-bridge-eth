@@ -14,13 +14,13 @@ use force_eth_lib::transfer::to_eth::{
 use force_eth_lib::util::ckb_tx_generator::Generator;
 use force_eth_lib::util::ckb_util::parse_privkey_path;
 use force_eth_lib::util::config::{self, ForceConfig};
-use force_eth_lib::util::eth_util::convert_eth_address;
+use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
 use force_eth_lib::util::transfer;
 use log::{debug, error, info};
 use serde_json::json;
 use shellexpand::tilde;
 use types::*;
-use web3::types::{H256, U256};
+use web3::types::U256;
 
 pub mod dapp;
 pub mod types;

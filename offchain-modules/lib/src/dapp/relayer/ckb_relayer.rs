@@ -23,6 +23,7 @@ pub struct CkbTxRelay {
     eth_token_locker_addr: String,
     ethereum_rpc_url: String,
     ckb_rpc_url: String,
+    rocksdb_path: String,
     eth_private_key: H256,
     web3_client: Web3Client,
     contract_addr: H160,
@@ -36,6 +37,7 @@ impl CkbTxRelay {
         network: Option<String>,
         db_path: String,
         private_key_path: String,
+        rocksdb_path: String,
     ) -> Result<CkbTxRelay> {
         let force_config = ForceConfig::new(&config_path)?;
         let deployed_contracts = force_config
@@ -57,6 +59,7 @@ impl CkbTxRelay {
             eth_token_locker_addr,
             ethereum_rpc_url,
             ckb_rpc_url,
+            rocksdb_path,
             eth_private_key,
             web3_client,
             contract_addr,
@@ -91,6 +94,7 @@ impl CkbTxRelay {
                 self.ckb_rpc_url.clone(),
                 String::from(self.web3_client.url()),
                 self.contract_addr,
+                self.rocksdb_path.clone(),
             )
             .await?;
             unlock_futures.push(unlock(
