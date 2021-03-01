@@ -118,7 +118,8 @@ integration-ci: setup-dev-env demo-crosschain
 local-ci:
 	git submodule update --init
 	make close-dev-env
-	rm -rf ~/.force-bridge/rocksdb
+	rm -rf ~/.force-bridge/eth-rocksdb
+	rm -rf ~/.force-bridge/ckb-rocksdb
 	test -f ~/.force-bridge/config.toml && mv ~/.force-bridge/config.toml ~/.force-bridge/config_bak_`date "+%Y%m%d-%H%M%S"`.toml || echo 'config not exist'
 	cd offchain-modules && cargo build
 	make init-config
