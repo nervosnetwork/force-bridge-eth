@@ -201,7 +201,7 @@ impl RelayMonitor {
         let header_monitor_msg = self.get_header_monitor_info().await?;
         let account_monitor_msg = self.get_account_monitor_info().await?;
         msg = format!(
-            "{}, {} %0A {} %0A",
+            "{} {} %0A {} %0A",
             msg, header_monitor_msg, account_monitor_msg
         );
         let res = reqwest::get(format!("{}{}", self.alarm_url, msg).as_str())
