@@ -110,12 +110,18 @@ pub fn get_all_live_cells_by_lockscript(
     indexer_client: &mut IndexerRpcClient,
     lockscript: Script,
 ) -> Result<Vec<Cell>, String> {
+    let terminator = |_, cell: &Cell| {
+        if cell.output.type_.is_none() && cell.output_data.is_empty() {
+            return (false, true);
+        }
+        (false, false)
+    };
     let search_key = SearchKey {
         script: lockscript.into(),
         script_type: ScriptType::Lock,
         args_len: None,
     };
-    get_live_cells(indexer_client, search_key, |_, _| (true, true))
+    get_live_cells(indexer_client, search_key, terminator)
 }
 
 pub fn get_live_cells<F: FnMut(usize, &Cell) -> (bool, bool)>(

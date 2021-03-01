@@ -201,7 +201,7 @@ impl RelayMonitor {
         let header_monitor_msg = self.get_header_monitor_info().await?;
         let account_monitor_msg = self.get_account_monitor_info().await?;
         msg = format!(
-            "{}, {} {} %0A",
+            "{}, {} %0A {} %0A",
             msg, header_monitor_msg, account_monitor_msg
         );
         let res = reqwest::get(format!("{}{}", self.alarm_url, msg).as_str())
@@ -262,7 +262,7 @@ impl RelayMonitor {
     pub async fn get_account_monitor_info(&mut self) -> Result<String> {
         let mut msg = " ".to_string();
         let eth_decimal: U256 = U256::from(10u128.pow(18));
-        for eth_address in self.account_monitor_args.eth_addresses.iter() {
+        for (index, eth_address) in self.account_monitor_args.eth_addresses.iter().enumerate() {
             let balance = self
                 .web3_client
                 .client()
@@ -271,7 +271,8 @@ impl RelayMonitor {
                 .await?
                 .div(eth_decimal);
             let mut eth_balance_msg = format!(
-                "{} balance is : {:?} eth",
+                "ethereum_private_keys[{:?}] {} balance is : {:?} eth",
+                index,
                 hex::encode(eth_address),
                 balance
             );
@@ -285,7 +286,8 @@ impl RelayMonitor {
             msg = format!("{} {} %0A", msg, eth_balance_msg);
         }
 
-        for ckb_lockscript in self.account_monitor_args.ckb_lockscripts.iter() {
+        for (index, ckb_lockscript) in self.account_monitor_args.ckb_lockscripts.iter().enumerate()
+        {
             let live_cells = get_all_live_cells_by_lockscript(
                 &mut self.generator.indexer_client,
                 ckb_lockscript.clone(),
@@ -301,7 +303,8 @@ impl RelayMonitor {
             let from_addr_payload: AddressPayload = ckb_lockscript.clone().into();
             let from_addr = Address::new(self.account_monitor_args.ckb_network, from_addr_payload);
             let mut ckb_balance_msg = format!(
-                "{:?} balance is : {:?} ckb",
+                "ckb_private_keys[{:?}] {:?} balance is : {:?} ckb",
+                index,
                 from_addr.to_string(),
                 capacity,
             );
