@@ -10,7 +10,6 @@ use ckb_types::bytes::Bytes;
 use ckb_types::packed;
 use ckb_types::packed::{CellOutput, OutPoint};
 use ckb_types::prelude::Entity;
-use jsonrpc_http_server::jsonrpc_core::serde_json::Map;
 use jsonrpc_http_server::jsonrpc_core::*;
 use jsonrpc_http_server::*;
 use std::collections::HashMap;
@@ -31,25 +30,23 @@ fn main() {
 }
 
 fn sign_ckb_tx(args: Params) -> Result<Value> {
-    let args: Result<Map<String, Value>> = args.parse();
+    println!("args: {:?}", args);
+    let args: Result<Vec<String>> = args.parse();
     if let Ok(params) = args {
-        if !params.clone().contains_key("multi_config")
-            || !params.clone().contains_key("unsigned_tx")
-        {
+        if params.len() != 2 {
             return Err(Error::invalid_params("the request params is invalid."));
         }
-        let multi_conf_raw = params.get("multi_config").unwrap().as_str().unwrap();
+        let multi_conf_raw = params[0].clone();
         let multi_conf: MultisigConf = serde_json::from_str(&multi_conf_raw).unwrap();
         let multi_config = to_multisig_congif(&multi_conf).unwrap();
-        let tx: packed::Transaction = packed::Transaction::new_unchecked(
-            hex::decode(params.get("multi_config").unwrap().as_str().unwrap())
-                .unwrap()
-                .into(),
-        );
+        println!("multi_config: {:?}", multi_conf.clone());
+        let tx: packed::Transaction =
+            packed::Transaction::new_unchecked(hex::decode(params[1].clone()).unwrap().into());
         let tx_view = tx.into_view();
+        println!("tx: {:?}", tx_view);
         let mut tx_helper = TxHelper::new(tx_view);
         tx_helper.add_multisig_config(multi_config);
-        let mut rpc_client = HttpRpcClient::new(String::from(""));
+        let mut rpc_client = HttpRpcClient::new(String::from("http://127.0.0.1:8114"));
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
         let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
@@ -57,34 +54,32 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
                 .map(|(output, _)| output)
         };
         let privkey =
-            get_secret_key("c4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a")
+            get_secret_key("a800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1fe")
                 .map_err(|_| Error::internal_error())?;
         let signer = get_privkey_signer(privkey);
-        let mut result = Map::new();
+        let mut result = vec![];
         for (lock_args, signature) in tx_helper
             .sign_inputs(signer, &mut get_live_cell_fn, true)
             .unwrap()
         {
-            result.insert(
-                hex::encode(lock_args),
-                Value::String(hex::encode(signature)),
-            );
+            result.push(hex::encode(lock_args).into());
+            result.push(hex::encode(signature).into());
         }
-        Ok(Value::Object(result))
+        println!("result: {:?}", result);
+        Ok(Value::Array(result))
     } else {
         Ok(Value::String("hi".into()))
     }
 }
 
 fn sign_eth_tx(args: Params) -> Result<Value> {
-    let args: Result<Map<String, Value>> = args.parse();
+    println!("args: {:?}", args);
+    let args: Result<Vec<String>> = args.parse();
     println!("sign_eth_tx args: {:?}", args);
-    let raw_tx: &Value;
     if let Ok(params) = args {
-        if params.clone().contains_key("raw_tx") {
-            raw_tx = params.get("raw_tx").unwrap();
+        if params.len() == 1 {
             let mut raw_msg = [0u8; 32];
-            let msg = hex::decode(raw_tx.as_str().unwrap()).unwrap();
+            let msg = hex::decode(params[0].clone()).unwrap();
             if msg.len() != 32 {
                 return Err(Error::invalid_params("raw_tx_hash is invalid."));
             }
@@ -94,6 +89,7 @@ fn sign_eth_tx(args: Params) -> Result<Value> {
                     .map_err(|_| Error::internal_error())?;
             let signature =
                 get_msg_signature(&raw_msg, privkey).map_err(|_| Error::internal_error())?;
+            println!("signature: {:?}", hex::encode(signature.clone()));
             return Ok(Value::String(hex::encode(signature)));
         }
     }

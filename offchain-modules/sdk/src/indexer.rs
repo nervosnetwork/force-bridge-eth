@@ -1,6 +1,7 @@
 use ckb_jsonrpc_types::{BlockNumber, Capacity, CellOutput, JsonBytes, OutPoint, Script, Uint32};
 use ckb_types::H256;
 use serde::{Deserialize, Serialize};
+use serde_json::Map;
 
 macro_rules! jsonrpc {
     (
@@ -56,6 +57,49 @@ macro_rules! jsonrpc {
 macro_rules! serialize_parameters {
     () => ( serde_json::Value::Null );
     ($($arg_name:ident,)+) => ( serde_json::to_value(($($arg_name,)+))?)
+}
+
+jsonrpc!(pub struct SignServerRawRpc{
+pub fn sign_eth_tx(&mut self, raw_tx_str: String) -> Option<String>;
+pub fn sign_ckb_tx(&mut self, multisig_conf: String, raw_tx_str: String) -> Option<Vec<String>>;
+});
+
+pub struct SignServerRpcClient {
+    url: String,
+    client: SignServerRawRpc,
+}
+
+impl SignServerRpcClient {
+    pub fn new(url: String) -> SignServerRpcClient {
+        let client = SignServerRawRpc::new(url.as_str());
+        SignServerRpcClient { url, client }
+    }
+
+    pub fn url(&self) -> &str {
+        self.url.as_str()
+    }
+
+    pub fn client(&mut self) -> &mut SignServerRawRpc {
+        &mut self.client
+    }
+
+    pub fn sign_eth_tx(&mut self, raw_tx_str: String) -> Result<Option<String>, String> {
+        self.client
+            .sign_eth_tx(raw_tx_str)
+            .map(|opt| opt.map(Into::into))
+            .map_err(|err| err.to_string())
+    }
+
+    pub fn sign_ckb_tx(
+        &mut self,
+        multisig_conf: String,
+        raw_tx_str: String,
+    ) -> Result<Option<Vec<String>>, String> {
+        self.client
+            .sign_ckb_tx(multisig_conf, raw_tx_str)
+            .map(|opt| opt.map(Into::into))
+            .map_err(|err| err.to_string())
+    }
 }
 
 jsonrpc!(pub struct RawHttpRpcClient {

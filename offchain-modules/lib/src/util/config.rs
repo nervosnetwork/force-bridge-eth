@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::{Deserialize, Serialize};
 use shellexpand::tilde;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use toml::value::{Table, Value};
 

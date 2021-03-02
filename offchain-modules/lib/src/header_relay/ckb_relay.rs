@@ -1,19 +1,14 @@
-use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash, get_msg_signature};
+use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash};
 use crate::util::ckb_proof_helper::CBMT;
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::covert_to_h256;
-use crate::util::eth_util::{
-    convert_eth_address, parse_secret_key, relay_header_transaction, Web3Client,
-};
+use crate::util::eth_util::{convert_eth_address, relay_header_transaction, Web3Client};
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::HttpRpcClient;
 use ethabi::Token;
 use ethereum_types::U256;
+use force_sdk::indexer::SignServerRpcClient;
 use log::info;
-use reqwest::header::HeaderMap;
-use secp256k1::SecretKey;
-use serde_json::{Map, Value};
-use std::collections::HashMap;
 use std::time::Instant;
 use web3::types::{H160, H256};
 
@@ -104,17 +99,12 @@ impl CKBRelayer {
         )?;
 
         let mut signatures: Vec<u8> = vec![];
-        for host in self.hosts.iter() {
-            let ret = sign_eth_tx(host, hex::encode(&headers_msg_hash)).await?;
-            if ret.contains_key("result") {
-                let signature = ret
-                    .get("result")
-                    .ok_or_else(|| anyhow!("the signatures is not exist."))?
-                    .as_str()
-                    .ok_or_else(|| anyhow!("the signature is invalid."))?;
-                info!("msg signatures {:?}", signature);
-                signatures.append(&mut hex::decode(signature).map_err(|err| anyhow!(err))?);
-            }
+        for host in self.hosts.clone() {
+            let signature = sign_eth_tx(host, hex::encode(&headers_msg_hash))
+                .await
+                .map_err(|err| anyhow!(err))?;
+            info!("msg signatures {:?}", signature);
+            signatures.append(&mut hex::decode(signature).map_err(|err| anyhow!(err))?);
         }
 
         let add_headers_abi = add_headers_func.encode_input(&[
@@ -194,28 +184,10 @@ impl CKBRelayer {
     }
 }
 
-async fn sign_eth_tx(
-    host: &String,
-    raw_tx_str: String,
-) -> Result<HashMap<String, Value>, reqwest::Error> {
-    let client = reqwest::Client::new();
-    let mut headers = HeaderMap::new();
-    headers.insert("Content-Type", "application/json".parse().unwrap());
-
-    let mut data: Map<String, Value> = Map::new();
-    data.insert("jsonrpc".into(), Value::String("2.0".into()));
-    data.insert("method".into(), Value::String("sign_eth_tx".into()));
-    data.insert("id".into(), Value::Number(0.into()));
-    let mut params: Map<String, Value> = Map::new();
-    params.insert("raw_tx".into(), Value::String(raw_tx_str));
-    data.insert("params".into(), Value::Object(params));
-
+async fn sign_eth_tx(host: String, raw_tx_str: String) -> Result<String> {
+    let mut client = SignServerRpcClient::new(host);
     Ok(client
-        .post(host)
-        .headers(headers)
-        .json(&data)
-        .send()
-        .await?
-        .json::<HashMap<String, Value>>()
-        .await?)
+        .sign_eth_tx(raw_tx_str)
+        .map_err(|err| anyhow!(err))?
+        .ok_or_else(|| anyhow!(""))?)
 }
