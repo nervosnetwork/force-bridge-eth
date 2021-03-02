@@ -393,4 +393,12 @@ pub struct RelayerMonitorArgs {
     pub db_path: Option<String>,
     #[clap(long, default_value = "all")]
     pub mode: String,
+    #[clap(long, default_value = "100")]
+    pub ckb_alarm_balance: u64,
+    #[clap(long, default_value = "100")]
+    pub eth_alarm_balance: u64,
+    #[clap(long)]
+    pub eth_balance_conservator: String,
+    #[clap(long)]
+    pub ckb_balance_conservator: String,
 }
