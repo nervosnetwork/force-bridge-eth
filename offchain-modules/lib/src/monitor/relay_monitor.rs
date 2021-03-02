@@ -46,7 +46,7 @@ impl AccountMonitorArgs {
     ) -> Result<Self> {
         let ckb_network = if let Some(network) = config_network {
             match network.as_str() {
-                "mainnet "=> NetworkType::Mainnet,
+                "mainnet" => NetworkType::Mainnet,
                 "ropsten" => NetworkType::Testnet,
                 "rinkeby" => NetworkType::Testnet,
                 "docker-dev-chain" => NetworkType::Dev,
