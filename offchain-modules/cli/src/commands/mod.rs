@@ -20,7 +20,7 @@ use log::{debug, error, info};
 use serde_json::json;
 use shellexpand::tilde;
 use types::*;
-use web3::types::{H256, U256};
+use web3::types::U256;
 
 pub mod dapp;
 pub mod types;
@@ -84,7 +84,8 @@ pub async fn init_config(args: InitConfigArgs) -> Result<()> {
         args.ckb_rpc_url,
         args.ckb_indexer_url,
         args.ethereum_rpc_url,
-        args.rocksdb_path,
+        args.eth_rocksdb_path,
+        args.ckb_rocksdb_path,
     )
     .await
 }
@@ -281,6 +282,7 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
         ckb_rpc_url,
         ethereum_rpc_url,
         eth_ckb_chain_addr,
+        force_config.ckb_rocksdb_path,
     )
     .await?;
     println!("proof: {:?}", proof);
@@ -346,6 +348,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         ckb_rpc_url.clone(),
         eth_rpc_url,
         light_client_addr,
+        force_config.ckb_rocksdb_path,
     )
     .await?;
     let result = unlock(
@@ -419,50 +422,18 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
 
 pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     debug!("ckb_relay_handler args: {:?}", &args);
-    let force_config = ForceConfig::new(args.config_path.as_str())?;
-    let deployed_contracts = force_config
-        .deployed_contracts
-        .as_ref()
-        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-
-    if args.hosts.len() < deployed_contracts.ckb_relay_mutlisig_threshold.threshold {
-        bail!(
-            "the mutlisig number is less. expect {}, actual {} ",
-            deployed_contracts.ckb_relay_mutlisig_threshold.threshold,
-            args.hosts.len()
-        );
-    }
-
-    let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
-    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
-    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
-    let priv_key = parse_private_key(&args.private_key_path, &force_config, &args.network)?;
-    // let multisig_privkeys = args
-    //     .mutlisig_privkeys
-    //     .clone()
-    //     .into_iter()
-    //     .map(|k| parse_private_key(&k, &force_config, &args.network))
-    //     .collect::<Result<Vec<H256>>>()?;
-
     let mut ckb_relayer = CKBRelayer::new(
-        ckb_rpc_url,
-        ckb_indexer_url,
-        eth_rpc_url.clone(),
-        priv_key,
-        deployed_contracts.eth_ckb_chain_addr.clone(),
+        args.config_path,
+        args.network,
+        args.private_key_path,
+        // args.mutlisig_privkeys,
         args.gas_price,
         args.hosts,
     )?;
-    let ckb_height = ckb_relayer.get_ckb_contract_deloy_height(
-        deployed_contracts
-            .recipient_typescript
-            .outpoint
-            .tx_hash
-            .clone(),
-    )?;
+
     let mut consecutive_failures = 0;
     while consecutive_failures < 5 {
-        let res = ckb_relayer.start(eth_rpc_url.clone(), ckb_height).await;
+        let res = ckb_relayer.start().await;
         if let Err(err) = res {
             error!("An error occurred during the ckb relay. Err: {:?}", err);
             consecutive_failures += 1;

@@ -21,7 +21,6 @@ use ckb_sdk::constants::{
 use ckb_sdk::HttpRpcClient;
 use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since};
 use secp256k1::SecretKey;
-use serde_json::Map;
 
 pub const CKB_UNITS: u64 = 100_000_000;
 pub const PUBLIC_BRIDGE_CELL: u64 = 1000 * CKB_UNITS;

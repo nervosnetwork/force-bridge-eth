@@ -31,7 +31,8 @@ pub async fn init_config(
     ckb_rpc_url: String,
     ckb_indexer_url: String,
     ethereum_rpc_url: String,
-    rocksdb_path: String,
+    eth_rocksdb_path: String,
+    ckb_rocksdb_path: String,
 ) -> Result<()> {
     let config_path = tilde(config_path.as_str()).into_owned();
     if std::path::Path::new(&config_path).exists() && !is_force {
@@ -79,7 +80,8 @@ pub async fn init_config(
     networks_config.insert(default_network.clone(), Value::Table(network_config));
     let force_cli_config = ForceConfig {
         project_path,
-        rocksdb_path,
+        eth_rocksdb_path,
+        ckb_rocksdb_path,
         default_network,
         networks_config,
         deployed_contracts: None,
@@ -90,7 +92,8 @@ pub async fn init_config(
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct ForceConfig {
     pub project_path: String,
-    pub rocksdb_path: String,
+    pub eth_rocksdb_path: String,
+    pub ckb_rocksdb_path: String,
     pub default_network: String,
     pub deployed_contracts: Option<DeployedContracts>,
     #[serde(serialize_with = "toml::ser::tables_last")]
