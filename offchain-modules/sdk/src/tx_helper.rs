@@ -76,6 +76,7 @@ pub async fn sign_from_multi_key(
     tx: TransactionView,
     rpc_client: &mut HttpRpcClient,
     // privkeys: Vec<&SecretKey>,
+    privkey: &SecretKey,
     hosts: Vec<String>,
     multisig_config: MultisigConfig,
     multisig_conf: String,
@@ -88,7 +89,7 @@ pub async fn sign_from_multi_key(
     let mut tx_helper = TxHelper::new(tx);
     tx_helper.add_multisig_config(multisig_config);
     tx_helper
-        .sign_from_multi_key(get_live_cell_fn, hosts, multisig_conf)
+        .sign_from_multi_key(get_live_cell_fn, privkey, hosts, multisig_conf)
         .await
 }
 
@@ -646,6 +647,7 @@ impl TxHelper {
     pub async fn sign_from_multi_key<F: FnMut(OutPoint, bool) -> Result<CellOutput, String>>(
         &mut self,
         mut get_live_cell_fn: F,
+        privkey: &SecretKey,
         hosts: Vec<String>,
         multisig_conf: String,
     ) -> Result<TransactionView, String> {
@@ -657,14 +659,21 @@ impl TxHelper {
             )
             .await
             .map_err(|err| err.to_string())?;
-            log::info!("res: {:?}", res);
-            if res.len() != 2 {
+            log::info!("get signature from {:?} : {:?}", host, res);
+            if res.len() < 2 {
                 return Err(String::from("invalid signatures"));
             }
-            let lock_arg: Bytes =
-                Bytes::from(hex::decode(res[0].clone()).map_err(|err| err.to_string())?);
-            let signature =
-                Bytes::from(hex::decode(res[1].clone()).map_err(|err| err.to_string())?);
+            for i in 0..res.len() / 2 {
+                let lock_arg: Bytes =
+                    Bytes::from(hex::decode(res[i * 2].clone()).map_err(|err| err.to_string())?);
+                let signature = Bytes::from(
+                    hex::decode(res[i * 2 + 1].clone()).map_err(|err| err.to_string())?,
+                );
+                self.add_signature(lock_arg, signature)?;
+            }
+        }
+        let signer = get_privkey_signer(*privkey);
+        for (lock_arg, signature) in self.sign_inputs(signer, &mut get_live_cell_fn, true)? {
             self.add_signature(lock_arg, signature)?;
         }
         Ok(self

@@ -85,10 +85,6 @@ impl ETHRelayer {
             multisig_conf,
             secret_key,
             hosts: deployed_contracts.multisig_address.hosts.clone(),
-            // multisig_privkeys: multisig_privkeys
-            //     .into_iter()
-            //     .map(|k| parse_privkey_path(&k, &force_config, &network))
-            //     .collect::<Result<Vec<SecretKey>>>()?,
             config: force_config,
         })
     }
@@ -261,12 +257,10 @@ impl ETHRelayer {
             start_height,
             new_latest_height,
         )?;
-
-        // let mut privkeys = vec![&self.secret_key];
-        // privkeys.extend(self.multisig_privkeys.iter());
         let tx = sign_from_multi_key(
             unsigned_tx,
             &mut self.generator.rpc_client,
+            &self.secret_key,
             self.hosts.clone(),
             self.multisig_config.clone(),
             serde_json::to_string(&self.multisig_conf.clone()).map_err(|err| anyhow!(err))?,
