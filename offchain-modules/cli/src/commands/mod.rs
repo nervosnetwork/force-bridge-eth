@@ -90,8 +90,12 @@ pub async fn init_config(args: InitConfigArgs) -> Result<()> {
 }
 
 pub async fn init_multisig_address_handler(args: InitMultiSignAddressArgs) -> Result<()> {
+    if args.multi_address.len() != args.hosts.len() {
+        anyhow::bail!("failed to init multisig address. the length of multi_address and the length of hosts are not equal.")
+    }
     let multi_sign_address = init_multi_sign_address(
         args.multi_address,
+        args.hosts,
         args.require_first_n,
         args.threshold,
         args.config_path,
@@ -421,11 +425,11 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         .as_ref()
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
 
-    if args.mutlisig_privkeys.len() < deployed_contracts.ckb_relay_mutlisig_threshold.threshold {
+    if args.hosts.len() < deployed_contracts.ckb_relay_mutlisig_threshold.threshold {
         bail!(
-            "the mutlisig privkeys number is less. expect {}, actual {} ",
+            "the mutlisig number is less. expect {}, actual {} ",
             deployed_contracts.ckb_relay_mutlisig_threshold.threshold,
-            args.mutlisig_privkeys.len()
+            args.hosts.len()
         );
     }
 
@@ -433,12 +437,12 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
     let priv_key = parse_private_key(&args.private_key_path, &force_config, &args.network)?;
-    let multisig_privkeys = args
-        .mutlisig_privkeys
-        .clone()
-        .into_iter()
-        .map(|k| parse_private_key(&k, &force_config, &args.network))
-        .collect::<Result<Vec<H256>>>()?;
+    // let multisig_privkeys = args
+    //     .mutlisig_privkeys
+    //     .clone()
+    //     .into_iter()
+    //     .map(|k| parse_private_key(&k, &force_config, &args.network))
+    //     .collect::<Result<Vec<H256>>>()?;
 
     let mut ckb_relayer = CKBRelayer::new(
         ckb_rpc_url,
@@ -447,7 +451,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         priv_key,
         deployed_contracts.eth_ckb_chain_addr.clone(),
         args.gas_price,
-        multisig_privkeys,
+        args.hosts,
     )?;
     let ckb_height = ckb_relayer.get_ckb_contract_deloy_height(
         deployed_contracts

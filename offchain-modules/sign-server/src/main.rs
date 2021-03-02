@@ -78,16 +78,17 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
 
 fn sign_eth_tx(args: Params) -> Result<Value> {
     let args: Result<Map<String, Value>> = args.parse();
+    println!("sign_eth_tx args: {:?}", args);
     let raw_tx: &Value;
     if let Ok(params) = args {
         if params.clone().contains_key("raw_tx") {
             raw_tx = params.get("raw_tx").unwrap();
             let mut raw_msg = [0u8; 32];
-            let msg = raw_tx.as_str().unwrap();
+            let msg = hex::decode(raw_tx.as_str().unwrap()).unwrap();
             if msg.len() != 32 {
                 return Err(Error::invalid_params("raw_tx_hash is invalid."));
             }
-            raw_msg.copy_from_slice(&msg.as_bytes());
+            raw_msg.copy_from_slice(&msg.as_slice());
             let privkey =
                 get_secret_key("c4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a")
                     .map_err(|_| Error::internal_error())?;

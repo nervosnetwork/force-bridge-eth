@@ -100,6 +100,8 @@ pub struct InitConfigArgs {
 pub struct InitMultiSignAddressArgs {
     #[clap(long)]
     pub multi_address: Vec<String>,
+    #[clap(long)]
+    pub hosts: Vec<String>,
     #[clap(long, default_value = "2")]
     pub threshold: u8,
     #[clap(long, default_value = "0")]
@@ -315,8 +317,10 @@ pub struct CkbRelayArgs {
     pub max_tx_count: u64,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
+    // #[clap(long)]
+    // pub mutlisig_privkeys: Vec<String>,
     #[clap(long)]
-    pub mutlisig_privkeys: Vec<String>,
+    pub hosts: Vec<String>,
 }
 
 #[derive(Clap, Clone, Debug)]

@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::{Deserialize, Serialize};
 use shellexpand::tilde;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use toml::value::{Table, Value};
 
@@ -126,6 +127,7 @@ pub struct DeployedContracts {
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct MultisigConf {
     pub addresses: Vec<String>,
+    pub hosts: Vec<String>,
     pub require_first_n: u8,
     pub threshold: u8,
 }

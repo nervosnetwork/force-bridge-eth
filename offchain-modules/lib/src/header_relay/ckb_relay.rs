@@ -10,7 +10,10 @@ use ckb_sdk::HttpRpcClient;
 use ethabi::Token;
 use ethereum_types::U256;
 use log::info;
+use reqwest::header::HeaderMap;
 use secp256k1::SecretKey;
+use serde_json::{Map, Value};
+use std::collections::HashMap;
 use std::time::Instant;
 use web3::types::{H160, H256};
 
@@ -20,7 +23,8 @@ pub struct CKBRelayer {
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
     pub gas_price: U256,
-    pub multisig_privkeys: Vec<SecretKey>,
+    // pub multisig_privkeys: Vec<SecretKey>,
+    pub hosts: Vec<String>,
     pub ckb_rpc_url: String,
 }
 
@@ -32,7 +36,7 @@ impl CKBRelayer {
         priv_key: H256,
         eth_ckb_chain_addr: String,
         gas_price: u64,
-        multisig_privkeys: Vec<H256>,
+        hosts: Vec<String>,
     ) -> Result<CKBRelayer> {
         let contract_addr = convert_eth_address(&eth_ckb_chain_addr)?;
         let ckb_client = Generator::new(ckb_rpc_url.clone(), ckb_indexer_url, Default::default())
@@ -47,10 +51,7 @@ impl CKBRelayer {
             ckb_client,
             web3_client,
             gas_price,
-            multisig_privkeys: multisig_privkeys
-                .iter()
-                .map(|&privkey| parse_secret_key(privkey))
-                .collect::<Result<Vec<SecretKey>>>()?,
+            hosts,
         })
     }
 
@@ -103,11 +104,18 @@ impl CKBRelayer {
         )?;
 
         let mut signatures: Vec<u8> = vec![];
-        for &privkey in self.multisig_privkeys.iter() {
-            let mut signature = get_msg_signature(&headers_msg_hash, privkey)?;
-            signatures.append(&mut signature);
+        for host in self.hosts.iter() {
+            let ret = sign_eth_tx(host, hex::encode(&headers_msg_hash)).await?;
+            if ret.contains_key("result") {
+                let signature = ret
+                    .get("result")
+                    .ok_or_else(|| anyhow!("the signatures is not exist."))?
+                    .as_str()
+                    .ok_or_else(|| anyhow!("the signature is invalid."))?;
+                info!("msg signatures {:?}", signature);
+                signatures.append(&mut hex::decode(signature).map_err(|err| anyhow!(err))?);
+            }
         }
-        info!("msg signatures {}", hex::encode(&signatures));
 
         let add_headers_abi = add_headers_func.encode_input(&[
             Token::Uint(init_block_number.into()),
@@ -184,4 +192,30 @@ impl CKBRelayer {
         }
         Ok(CBMT::build_merkle_root(&all_tx_roots))
     }
+}
+
+async fn sign_eth_tx(
+    host: &String,
+    raw_tx_str: String,
+) -> Result<HashMap<String, Value>, reqwest::Error> {
+    let client = reqwest::Client::new();
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", "application/json".parse().unwrap());
+
+    let mut data: Map<String, Value> = Map::new();
+    data.insert("jsonrpc".into(), Value::String("2.0".into()));
+    data.insert("method".into(), Value::String("sign_eth_tx".into()));
+    data.insert("id".into(), Value::Number(0.into()));
+    let mut params: Map<String, Value> = Map::new();
+    params.insert("raw_tx".into(), Value::String(raw_tx_str));
+    data.insert("params".into(), Value::Object(params));
+
+    Ok(client
+        .post(host)
+        .headers(headers)
+        .json(&data)
+        .send()
+        .await?
+        .json::<HashMap<String, Value>>()
+        .await?)
 }
