@@ -123,7 +123,6 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.private_key_path.clone(),
         args.private_key_path,
         args.tx_fee,
-        args.capacity,
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
