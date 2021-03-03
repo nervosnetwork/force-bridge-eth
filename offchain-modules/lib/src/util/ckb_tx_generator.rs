@@ -712,8 +712,12 @@ impl Generator {
             .type_(Some(bridge_typescript).pack())
             .lock(bridge_lockscript)
             .build();
+        let mut output_data = Bytes::new();
+        if !simple_typescript {
+            output_data = bridge_data.as_bytes();
+        }
         for _ in 0..cell_num {
-            tx_helper.add_output(output.clone(), bridge_data.as_bytes());
+            tx_helper.add_output(output.clone(), output_data.clone());
         }
         let tx = tx_helper
             .supply_capacity(

@@ -39,6 +39,7 @@ use std::str::FromStr;
 use web3::types::{H160, H256, U256};
 
 pub const MAX_RETRY_TIMES: u64 = 10;
+pub const MIN_CELL_CAPACITY: u64 = 15700000000;
 
 pub async fn approve(
     config_path: String,
@@ -591,9 +592,15 @@ pub async fn get_or_create_bridge_cell(
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
         .map_err(|e| anyhow!(e))?
         .into();
-    let capacity: u64 = HumanCapacity::from_str(&capacity)
-        .map_err(|e| anyhow!(e))?
-        .into();
+
+    let capacity: u64 = if simple_typescript {
+        MIN_CELL_CAPACITY
+    } else {
+        HumanCapacity::from_str(&capacity)
+            .map_err(|e| anyhow!(e))?
+            .into()
+    };
+
     let eth_contract_address =
         convert_eth_address(deployed_contracts.eth_token_locker_addr.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
