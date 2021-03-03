@@ -30,20 +30,23 @@ fn main() {
 }
 
 fn sign_ckb_tx(args: Params) -> Result<Value> {
-    println!("args: {:?}", args);
+    log::info!("sign_ckb_tx request params: {:?}", args);
     let args: Result<Vec<String>> = args.parse();
     if let Ok(params) = args {
         if params.len() != 2 {
             return Err(Error::invalid_params("the request params is invalid."));
         }
         let multi_conf_raw = params[0].clone();
-        let multi_conf: MultisigConf = serde_json::from_str(&multi_conf_raw).unwrap();
-        let multi_config = to_multisig_congif(&multi_conf).unwrap();
-        println!("multi_config: {:?}", multi_conf.clone());
-        let tx: packed::Transaction =
-            packed::Transaction::new_unchecked(hex::decode(params[1].clone()).unwrap().into());
+        let multi_conf: MultisigConf = serde_json::from_str(&multi_conf_raw)
+            .map_err(|_| Error::invalid_params("invalid multi_conf."))?;
+        let multi_config = to_multisig_congif(&multi_conf).map_err(|_| Error::internal_error())?;
+        log::info!("multi_config: {:?}", multi_conf.clone());
+        let tx: packed::Transaction = packed::Transaction::new_unchecked(
+            hex::decode(params[1].clone())
+                .map_err(|_| Error::internal_error())?
+                .into(),
+        );
         let tx_view = tx.into_view();
-        println!("tx: {:?}", tx_view);
         let mut tx_helper = TxHelper::new(tx_view);
         tx_helper.add_multisig_config(multi_config);
         let mut rpc_client = HttpRpcClient::new(String::from("http://127.0.0.1:8114"));
@@ -60,26 +63,28 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
         let mut result = vec![];
         for (lock_args, signature) in tx_helper
             .sign_inputs(signer, &mut get_live_cell_fn, true)
-            .unwrap()
+            .map_err(|_| Error::internal_error())?
         {
             result.push(hex::encode(lock_args).into());
             result.push(hex::encode(signature).into());
         }
-        println!("result: {:?}", result);
+        log::info!("sign_ckb_tx result: {:?}", result);
         Ok(Value::Array(result))
     } else {
-        Ok(Value::String("hi".into()))
+        Err(Error::invalid_params(
+            "invalid params. expect string array.",
+        ))
     }
 }
 
 fn sign_eth_tx(args: Params) -> Result<Value> {
-    println!("args: {:?}", args);
+    log::info!("sign_eth_tx request params: {:?}", args);
     let args: Result<Vec<String>> = args.parse();
-    println!("sign_eth_tx args: {:?}", args);
     if let Ok(params) = args {
         if params.len() == 1 {
             let mut raw_msg = [0u8; 32];
-            let msg = hex::decode(params[0].clone()).unwrap();
+            let msg = hex::decode(params[0].clone())
+                .map_err(|_| Error::invalid_params("raw_tx_hash is invalid"))?;
             if msg.len() != 32 {
                 return Err(Error::invalid_params("raw_tx_hash is invalid."));
             }
@@ -89,9 +94,11 @@ fn sign_eth_tx(args: Params) -> Result<Value> {
                     .map_err(|_| Error::internal_error())?;
             let signature =
                 get_msg_signature(&raw_msg, privkey).map_err(|_| Error::internal_error())?;
-            println!("signature: {:?}", hex::encode(signature.clone()));
+            log::info!("signature: {:?}", hex::encode(signature.clone()));
             return Ok(Value::String(hex::encode(signature)));
         }
     }
-    Err(Error::invalid_params("invalid params"))
+    Err(Error::invalid_params(
+        "invalid params. expect string array.",
+    ))
 }

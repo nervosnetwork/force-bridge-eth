@@ -87,9 +87,15 @@ pub async fn sign_from_multi_key(
             .map(|(output, _)| output)
     };
     let mut tx_helper = TxHelper::new(tx);
-    tx_helper.add_multisig_config(multisig_config);
+    tx_helper.add_multisig_config(multisig_config.clone());
     tx_helper
-        .sign_from_multi_key(get_live_cell_fn, privkey, hosts, multisig_conf)
+        .sign_from_multi_key(
+            get_live_cell_fn,
+            privkey,
+            hosts,
+            multisig_conf,
+            multisig_config.threshold,
+        )
         .await
 }
 
@@ -650,27 +656,22 @@ impl TxHelper {
         privkey: &SecretKey,
         hosts: Vec<String>,
         multisig_conf: String,
+        threshold: u8,
     ) -> Result<TransactionView, String> {
+        let mut signature_number = 0;
         for host in hosts.clone() {
-            let res = sign_ckb_tx(
-                host,
-                multisig_conf.clone(),
-                hex::encode(self.transaction.data().as_bytes().to_vec()),
-            )
-            .await
-            .map_err(|err| err.to_string())?;
-            log::info!("get signature from {:?} : {:?}", host, res);
-            if res.len() < 2 {
-                return Err(String::from("invalid signatures"));
+            if signature_number >= threshold {
+                break;
             }
-            for i in 0..res.len() / 2 {
-                let lock_arg: Bytes =
-                    Bytes::from(hex::decode(res[i * 2].clone()).map_err(|err| err.to_string())?);
-                let signature = Bytes::from(
-                    hex::decode(res[i * 2 + 1].clone()).map_err(|err| err.to_string())?,
-                );
-                self.add_signature(lock_arg, signature)?;
+            let result = self
+                .collect_signatures(host.clone(), multisig_conf.clone())
+                .await;
+            if result.is_ok() {
+                signature_number += 1;
             }
+        }
+        if signature_number < threshold {
+            return Err(String::from("did not collect enough ckb signatures"));
         }
         let signer = get_privkey_signer(*privkey);
         for (lock_arg, signature) in self.sign_inputs(signer, &mut get_live_cell_fn, true)? {
@@ -679,6 +680,32 @@ impl TxHelper {
         Ok(self
             .build_tx(&mut get_live_cell_fn, true)
             .map_err(|err| err.to_string())?)
+    }
+
+    async fn collect_signatures(
+        &mut self,
+        host: String,
+        multisig_conf: String,
+    ) -> Result<(), String> {
+        let res = sign_ckb_tx(
+            host.clone(),
+            multisig_conf.clone(),
+            hex::encode(self.transaction.data().as_bytes().to_vec()),
+        )
+        .await
+        .map_err(|err| err.to_string())?;
+        log::info!("get signature from {:?} : {:?}", host, res.clone());
+        if res.len() < 2 {
+            return Err(String::from("invalid signatures"));
+        }
+        for i in 0..res.len() / 2 {
+            let lock_arg: Bytes =
+                Bytes::from(hex::decode(res[i * 2].clone()).map_err(|err| err.to_string())?);
+            let signature =
+                Bytes::from(hex::decode(res[i * 2 + 1].clone()).map_err(|err| err.to_string())?);
+            self.add_signature(lock_arg, signature)?;
+        }
+        Ok(())
     }
 }
 

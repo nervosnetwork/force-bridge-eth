@@ -38,6 +38,7 @@ pub struct CKBRelayer {
     pub last_burn_tx_height: u64,
     pub last_submit_height: u64,
     pub waiting_burn_txs_count: u64,
+    pub threshold: usize,
 }
 
 impl CKBRelayer {
@@ -112,6 +113,7 @@ impl CKBRelayer {
             gas_price,
             hosts,
             network: net,
+            threshold: deployed_contracts.ckb_relay_mutlisig_threshold.threshold,
         })
     }
 
@@ -191,14 +193,44 @@ impl CKBRelayer {
             history_tx_root,
         )?;
 
+        // This can be optimized to collect signatures through multiple threads to improve efficiency.
         let mut signatures: Vec<u8> = vec![];
+        let mut signature_number = 0;
         for host in self.hosts.clone() {
-            let signature = sign_eth_tx(host, hex::encode(&headers_msg_hash))
-                .await
-                .map_err(|err| anyhow!(err))?;
-            info!("msg signatures {:?}", signature);
-            signatures.append(&mut hex::decode(signature).map_err(|err| anyhow!(err))?);
+            if signature_number >= self.threshold {
+                break;
+            }
+            let result = sign_eth_tx(host, hex::encode(&headers_msg_hash)).await;
+            if result.is_ok() {
+                signatures.append(&mut hex::decode(result.unwrap()).map_err(|err| anyhow!(err))?);
+            }
+            signature_number += 1;
         }
+        if signature_number < self.threshold {
+            anyhow::bail!("did not collect enough eth signatures");
+        }
+        // let m = Arc::new(Mutex::new(vec![]));
+        // for host in self.hosts.clone() {
+        //     thread::spawn(move || {
+        //         let mut signatures = m.lock().unwrap();
+        //         let signature = sign_eth_tx(host, hex::encode(&headers_msg_hash))
+        //             .await
+        //             .unwrap();
+        //         signatures.push(signature);
+        //     });
+        // }
+        // loop {
+        //     let signatures = m.lock().unwrap();
+        //     if signatures.len() >= 2 {
+        //         break;
+        //     }
+        //     info!(
+        //         "waiting to collect more signatures. expect: {:?}, current: {:?}",
+        //         2,
+        //         signatures.len()
+        //     );
+        //     tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        // }
 
         let add_headers_abi = add_headers_func.encode_input(&[
             Token::Uint(init_block_number.into()),

@@ -4381,6 +4381,7 @@ dependencies = [
  "ckb-types",
  "hex 0.4.2",
  "jsonrpc-http-server",
+ "log",
  "secp256k1 0.17.2",
  "serde 1.0.118",
  "serde_derive",
