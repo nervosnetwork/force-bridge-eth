@@ -440,7 +440,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         } else {
             consecutive_failures = 0;
         }
-        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+        tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
     }
     bail!("5 consecutive failures when relay headers")
 }

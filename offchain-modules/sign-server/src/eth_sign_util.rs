@@ -1,8 +1,14 @@
 use anyhow::Result;
 use secp256k1::{Message, Secp256k1, SecretKey};
 
-pub fn get_secret_key(privkey_string: &str) -> Result<secp256k1::SecretKey> {
-    let privkey_bytes = hex::decode(clear_0x(privkey_string))?;
+pub fn get_secret_key(path: &str) -> Result<secp256k1::SecretKey> {
+    let content = std::fs::read_to_string(path)?;
+    let privkey_string = content
+        .split_whitespace()
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("File is empty"))?
+        .to_string();
+    let privkey_bytes = hex::decode(clear_0x(privkey_string.as_str()))?;
     Ok(secp256k1::SecretKey::from_slice(&privkey_bytes)?)
 }
 

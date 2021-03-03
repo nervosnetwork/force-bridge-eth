@@ -203,10 +203,15 @@ impl CKBRelayer {
             let result = sign_eth_tx(host, hex::encode(&headers_msg_hash)).await;
             if result.is_ok() {
                 signatures.append(&mut hex::decode(result.unwrap()).map_err(|err| anyhow!(err))?);
+                signature_number += 1;
             }
-            signature_number += 1;
         }
         if signature_number < self.threshold {
+            log::error!(
+                "did not collect enough eth signatures. expect: {:?}, actual: {:?}",
+                self.threshold,
+                signature_number
+            );
             anyhow::bail!("did not collect enough eth signatures");
         }
         // let m = Arc::new(Mutex::new(vec![]));

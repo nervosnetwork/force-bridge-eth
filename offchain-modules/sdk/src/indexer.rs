@@ -60,7 +60,7 @@ macro_rules! serialize_parameters {
 
 jsonrpc!(pub struct SignServerRawRpc{
 pub fn sign_eth_tx(&mut self, raw_tx_str: String) -> Option<String>;
-pub fn sign_ckb_tx(&mut self, multisig_conf: String, raw_tx_str: String) -> Option<Vec<String>>;
+pub fn sign_ckb_tx(&mut self, multisig_conf: String, raw_tx_str: String, ckb_rpc_url: String) -> Option<Vec<String>>;
 });
 
 pub struct SignServerRpcClient {
@@ -93,9 +93,10 @@ impl SignServerRpcClient {
         &mut self,
         multisig_conf: String,
         raw_tx_str: String,
+        ckb_rpc_url: String,
     ) -> Result<Option<Vec<String>>, String> {
         self.client
-            .sign_ckb_tx(multisig_conf, raw_tx_str)
+            .sign_ckb_tx(multisig_conf, raw_tx_str, ckb_rpc_url)
             .map(|opt| opt.map(Into::into))
             .map_err(|err| err.to_string())
     }

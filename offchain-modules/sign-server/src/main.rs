@@ -15,6 +15,7 @@ use jsonrpc_http_server::*;
 use std::collections::HashMap;
 
 fn main() {
+    env_logger::init();
     let mut io = IoHandler::default();
     io.add_method("sign_ckb_tx", sign_ckb_tx);
     io.add_method("sign_eth_tx", sign_eth_tx);
@@ -33,7 +34,7 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
     log::info!("sign_ckb_tx request params: {:?}", args);
     let args: Result<Vec<String>> = args.parse();
     if let Ok(params) = args {
-        if params.len() != 2 {
+        if params.len() != 3 {
             return Err(Error::invalid_params("the request params is invalid."));
         }
         let multi_conf_raw = params[0].clone();
@@ -49,7 +50,7 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
         let tx_view = tx.into_view();
         let mut tx_helper = TxHelper::new(tx_view);
         tx_helper.add_multisig_config(multi_config);
-        let mut rpc_client = HttpRpcClient::new(String::from("http://127.0.0.1:8114"));
+        let mut rpc_client = HttpRpcClient::new(String::from(params[2].clone()));
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
         let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
@@ -57,8 +58,7 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
                 .map(|(output, _)| output)
         };
         let privkey =
-            get_secret_key("a800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1fe")
-                .map_err(|_| Error::internal_error())?;
+            get_secret_key("/tmp/.sign_server/ckb_key").map_err(|_| Error::internal_error())?;
         let signer = get_privkey_signer(privkey);
         let mut result = vec![];
         for (lock_args, signature) in tx_helper
@@ -90,8 +90,7 @@ fn sign_eth_tx(args: Params) -> Result<Value> {
             }
             raw_msg.copy_from_slice(&msg.as_slice());
             let privkey =
-                get_secret_key("c4ad657963930fbff2e9de3404b30a4e21432c89952ed430b56bf802945ed37a")
-                    .map_err(|_| Error::internal_error())?;
+                get_secret_key("/tmp/.sign_server/eth_key").map_err(|_| Error::internal_error())?;
             let signature =
                 get_msg_signature(&raw_msg, privkey).map_err(|_| Error::internal_error())?;
             log::info!("signature: {:?}", hex::encode(signature.clone()));
