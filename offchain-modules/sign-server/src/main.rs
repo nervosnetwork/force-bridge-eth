@@ -30,6 +30,7 @@ fn main() {
     server.wait();
 }
 
+#[allow(clippy::mutable_key_type)]
 fn sign_ckb_tx(args: Params) -> Result<Value> {
     log::info!("sign_ckb_tx request params: {:?}", args);
     let args: Result<Vec<String>> = args.parse();
@@ -41,7 +42,7 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
         let multi_conf: MultisigConf = serde_json::from_str(&multi_conf_raw)
             .map_err(|_| Error::invalid_params("invalid multi_conf."))?;
         let multi_config = to_multisig_congif(&multi_conf).map_err(|_| Error::internal_error())?;
-        log::info!("multi_config: {:?}", multi_conf.clone());
+        log::info!("multi_config: {:?}", multi_conf);
         let tx: packed::Transaction = packed::Transaction::new_unchecked(
             hex::decode(params[1].clone())
                 .map_err(|_| Error::internal_error())?
@@ -50,7 +51,7 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
         let tx_view = tx.into_view();
         let mut tx_helper = TxHelper::new(tx_view);
         tx_helper.add_multisig_config(multi_config);
-        let mut rpc_client = HttpRpcClient::new(String::from(params[2].clone()));
+        let mut rpc_client = HttpRpcClient::new(params[2].clone());
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
         let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {

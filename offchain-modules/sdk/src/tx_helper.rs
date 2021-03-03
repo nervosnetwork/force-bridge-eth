@@ -95,7 +95,7 @@ pub async fn sign_from_multi_key(
             hosts,
             multisig_conf,
             multisig_config.threshold,
-            String::from(url),
+            url,
         )
         .await
 }
@@ -681,7 +681,7 @@ impl TxHelper {
         }
         Ok(self
             .build_tx(&mut get_live_cell_fn, true)
-            .map_err(|err| err.to_string())?)
+            .map_err(|err| err)?)
     }
 
     async fn collect_signatures(
@@ -697,8 +697,8 @@ impl TxHelper {
             ckb_rpc_url,
         )
         .await
-        .map_err(|err| err.to_string())?;
-        log::info!("get signature from {:?} : {:?}", host, res.clone());
+        .map_err(|err| err)?;
+        log::info!("get signature from {:?} : {:?}", host, res);
         if res.len() < 2 {
             return Err(String::from("invalid signatures"));
         }
@@ -722,7 +722,7 @@ async fn sign_ckb_tx(
     let mut client = SignServerRpcClient::new(host);
     client
         .sign_ckb_tx(multisig_conf, raw_tx_str, ckb_rpc_url)
-        .map_err(|err| err.to_string())?
+        .map_err(|err| err)?
         .ok_or_else(|| String::from("the signature is not exist."))
 }
 
