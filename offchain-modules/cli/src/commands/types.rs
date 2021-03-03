@@ -318,6 +318,8 @@ pub struct EthRelayArgs {
     pub private_key_path: String,
     #[clap(long)]
     pub multisig_privkeys: Vec<String>,
+    #[clap(long, default_value = "15")]
+    pub confirm: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -336,6 +338,8 @@ pub struct CkbRelayArgs {
     pub gas_price: u64,
     #[clap(long)]
     pub mutlisig_privkeys: Vec<String>,
+    #[clap(long, default_value = "15")]
+    pub confirm: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
