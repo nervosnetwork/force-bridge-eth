@@ -21,7 +21,8 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 
 pub const REPLAY_RESIST_CELL_NUMBER: usize = 500;
 const REFRESH_RATE: usize = 60; // 60/100
-const REPLAY_RESIST_CELL_CAPACITY: &str = "315";
+
+// const REPLAY_RESIST_CELL_CAPACITY: &str = "315";
 
 #[derive(Clone)]
 pub struct DappState {
@@ -113,7 +114,6 @@ impl DappState {
             privkey,
             self.mint_privkey.clone(),
             self.create_bridge_cell_fee.clone(),
-            REPLAY_RESIST_CELL_CAPACITY.to_string(),
             token.to_string(),
             "".to_string(),
             0,

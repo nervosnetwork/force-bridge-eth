@@ -564,7 +564,6 @@ pub async fn get_or_create_bridge_cell(
     sender_privkey_path: String,
     owner_privkey_path: String,
     tx_fee: String,
-    capacity: String,
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
@@ -591,9 +590,7 @@ pub async fn get_or_create_bridge_cell(
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
         .map_err(|e| anyhow!(e))?
         .into();
-    let capacity: u64 = HumanCapacity::from_str(&capacity)
-        .map_err(|e| anyhow!(e))?
-        .into();
+
     let eth_contract_address =
         convert_eth_address(deployed_contracts.eth_token_locker_addr.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
@@ -658,7 +655,6 @@ pub async fn get_or_create_bridge_cell(
     let unsigned_tx = generator
         .create_bridge_cell(
             tx_fee,
-            capacity,
             from_lockscript,
             owner_lockscript,
             bridge_typescript,
