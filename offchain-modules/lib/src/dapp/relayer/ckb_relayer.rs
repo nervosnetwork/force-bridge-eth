@@ -118,26 +118,6 @@ impl CkbTxRelay {
                 true,
             ));
         }
-        // for (i, tx_record) in unlock_tasks.iter().enumerate() {
-        //     info!("burn tx wait to unlock: {:?} ", tx_record.ckb_burn_tx_hash);
-        //     let proof_info = get_ckb_proof_info(
-        //         &tx_record.ckb_burn_tx_hash,
-        //         self.ckb_rpc_url.clone(),
-        //         String::from(self.web3_client.url()),
-        //         self.contract_addr,
-        //         self.rocksdb_path.clone(),
-        //     )
-        //     .await?;
-        //     unlock_futures.push(unlock(
-        //         self.eth_private_key,
-        //         self.ethereum_rpc_url.clone(),
-        //         self.eth_token_locker_addr.clone(),
-        //         proof_info,
-        //         0,
-        //         nonce.add(i),
-        //         true,
-        //     ));
-        // }
         if !unlock_futures.is_empty() {
             let now = Instant::now();
             let unlock_count = unlock_futures.len();
