@@ -5,7 +5,7 @@ use force_eth_lib::header_relay::eth_relay::{wait_header_sync_success, ETHRelaye
 use force_eth_lib::monitor::relay_monitor::{AccountMonitorArgs, RelayMonitor};
 use force_eth_lib::transfer::to_ckb::{
     self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
-    lock_eth, lock_token, send_eth_spv_proof_tx,
+    lock_eth, lock_token, recycle_bridge_cell, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
@@ -55,6 +55,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
         SubCommand::RelayerMonitor(args) => relayer_monitor(args).await,
+        SubCommand::RecycleBridgeCell(args) => recycle_bridge_cell_handler(args).await,
         SubCommand::Dapp(dapp_command) => dapp_handle(dapp_command).await,
     }
 }
@@ -135,6 +136,21 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         &args.recipient_address, &outpoint_hex
     );
     println!("{}", json!({ "outpoint": outpoint_hex[0] }));
+    Ok(())
+}
+
+pub async fn recycle_bridge_cell_handler(args: RecycleBridgeCellArgs) -> Result<()> {
+    // let mut outpoint_confs: Vec<String> = vec![];
+    // outpoint_confs.push(args.outpoint);
+    let tx_hash = recycle_bridge_cell(
+        args.config_path,
+        args.network,
+        args.tx_fee,
+        args.private_key_path,
+        args.outpoint,
+    )
+    .await?;
+    info!("recycle bridge cell successfully for {}", tx_hash,);
     Ok(())
 }
 

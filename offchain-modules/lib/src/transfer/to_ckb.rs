@@ -1,7 +1,7 @@
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
-    build_lockscript_from_address, clear_0x, create_bridge_lockscript, parse_privkey,
-    parse_privkey_path, ETHSPVProofJson,
+    build_lockscript_from_address, clear_0x, create_bridge_lockscript, get_secret_key,
+    parse_privkey, parse_privkey_path, ETHSPVProofJson,
 };
 use crate::util::config::{
     CellScript, DeployedContracts, ForceConfig, MultisigConf, OutpointConf, ScriptConf,
@@ -822,4 +822,40 @@ fn deploy_without_typeid(
     )?;
     let tx = sign(tx, rpc_client, privkey)?;
     Ok((tx, type_code_hashes))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn recycle_bridge_cell(
+    config_path: String,
+    network: Option<String>,
+    tx_fee: String,
+    ckb_privkey: String,
+    outpoints: String,
+) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let rpc_url = force_config.get_ckb_rpc_url(&network)?;
+    let indexer_url = force_config.get_ckb_indexer_url(&network)?;
+    let mut generator = Generator::new(rpc_url, indexer_url, deployed_contracts.clone())
+        .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+    ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
+        .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+
+    let privkey = get_secret_key(&ckb_privkey)?;
+    let from_lockscript = parse_privkey(&privkey);
+
+    let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
+        .map_err(|e| anyhow!(e))?
+        .into();
+    let unsigned_tx = generator
+        .recycle_bridge_cell_tx(from_lockscript, outpoints, tx_fee)
+        .map_err(|e| anyhow!("failed to build transfer token tx: {}", e))?;
+
+    generator
+        .sign_and_send_transaction(unsigned_tx, privkey)
+        .await
 }
