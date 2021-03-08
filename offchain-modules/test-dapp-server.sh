@@ -7,7 +7,7 @@ export RUST_BACKTRACE=1
 export RUST_LOG=info,force=debug
 
 # install pm2
-npm i pm2 -g
+sudo npm i pm2 -g
 
 # project root directory
 PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
