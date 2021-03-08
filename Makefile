@@ -132,6 +132,7 @@ local-ci:
 	make integration-ci
 
 github-ci:
+	make close-dev-env
 	rm -rf ~/.force-bridge/eth-rocksdb
 	rm -rf ~/.force-bridge/ckb-rocksdb
 	cd offchain-modules && cargo build
