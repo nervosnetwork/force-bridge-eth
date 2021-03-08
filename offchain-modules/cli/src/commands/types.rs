@@ -64,11 +64,15 @@ pub struct RecycleBridgeCellArgs {
     #[clap(long)]
     pub network: Option<String>,
     #[clap(short = 'k', long)]
-    pub private_key_path: String,
+    pub private_key_path: Option<String>,
+    #[clap(long)]
+    pub private_key: Option<String>,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
-    #[clap(short = 'o', long)]
-    pub outpoint: String,
+    #[clap(long)]
+    pub outpoints: Option<Vec<String>>,
+    #[clap(long, default_value = "2000")]
+    pub max_recycle_count: u64,
 }
 
 #[derive(Clap, Clone, Debug)]

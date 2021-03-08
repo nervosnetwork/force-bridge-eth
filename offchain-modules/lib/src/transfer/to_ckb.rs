@@ -1,7 +1,7 @@
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
-    build_lockscript_from_address, clear_0x, create_bridge_lockscript, get_secret_key,
-    parse_privkey, parse_privkey_path, ETHSPVProofJson,
+    build_lockscript_from_address, clear_0x, create_bridge_lockscript, parse_privkey,
+    parse_privkey_path, ETHSPVProofJson,
 };
 use crate::util::config::{
     CellScript, DeployedContracts, ForceConfig, MultisigConf, OutpointConf, ScriptConf,
@@ -23,7 +23,7 @@ use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::ETHAddress;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeArgs;
-use force_sdk::cell_collector::collect_bridge_cells;
+use force_sdk::cell_collector::{collect_bridge_cells, get_all_bridge_live_cells_by_script};
 use force_sdk::constants::TYPE_ID;
 use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::tx_helper::{sign, MultisigConfig, TxHelper};
@@ -826,36 +826,74 @@ fn deploy_without_typeid(
 
 #[allow(clippy::too_many_arguments)]
 pub async fn recycle_bridge_cell(
-    config_path: String,
-    network: Option<String>,
+    deployed_contracts: &DeployedContracts,
+    rpc_url: String,
+    indexer_url: String,
     tx_fee: String,
-    ckb_privkey: String,
-    outpoints: String,
+    private_key: SecretKey,
+    recycle_outpoints_op: Option<Vec<String>>,
+    max_recycle_count: u64,
 ) -> Result<String> {
-    let force_config = ForceConfig::new(config_path.as_str())?;
-    let deployed_contracts = force_config
-        .deployed_contracts
-        .as_ref()
-        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-    let rpc_url = force_config.get_ckb_rpc_url(&network)?;
-    let indexer_url = force_config.get_ckb_indexer_url(&network)?;
     let mut generator = Generator::new(rpc_url, indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
     ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         .await
         .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
 
-    let privkey = get_secret_key(&ckb_privkey)?;
-    let from_lockscript = parse_privkey(&privkey);
-
+    let from_lockscript = parse_privkey(&private_key);
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
         .map_err(|e| anyhow!(e))?
         .into();
+    let mut outpoints = vec![];
+
+    match recycle_outpoints_op {
+        None => {
+            let bridge_typescript_args = from_lockscript.calc_script_hash();
+            let bridge_typescript: Script = Script::new_builder()
+                .code_hash(Byte32::from_slice(
+                    &hex::decode(&deployed_contracts.simple_bridge_typescript.code_hash).unwrap(),
+                )?)
+                .hash_type(deployed_contracts.simple_bridge_typescript.hash_type.into())
+                .args(bridge_typescript_args.as_bytes().pack())
+                .build();
+            let live_bridge_cells = get_all_bridge_live_cells_by_script(
+                &mut generator.indexer_client,
+                bridge_typescript,
+            )
+            .map_err(|err| anyhow!(err))?;
+
+            for live_bridge_cell in live_bridge_cells.into_iter() {
+                outpoints.push(live_bridge_cell.out_point.into());
+                if outpoints.len() > max_recycle_count as usize {
+                    break;
+                }
+            }
+        }
+        Some(recycle_outpoints) => {
+            for recycle_outpoint in recycle_outpoints {
+                let outpoint = OutPoint::from_slice(
+                    hex::decode(&recycle_outpoint)
+                        .map_err(|e| {
+                            anyhow!(format!("decode replay_resist_outpoint fail, err: {}", e))
+                        })?
+                        .as_slice(),
+                )
+                .map_err(|e| {
+                    anyhow!(
+                "irreparable error: wrong replay resist cell outpoint format in recycle bridge cell: {:?}",
+                e
+            )
+                })?;
+                outpoints.push(outpoint);
+            }
+        }
+    }
+
     let unsigned_tx = generator
         .recycle_bridge_cell_tx(from_lockscript, outpoints, tx_fee)
-        .map_err(|e| anyhow!("failed to build transfer token tx: {}", e))?;
+        .map_err(|e| anyhow!("failed to build recycle bridge tx: {}", e))?;
 
     generator
-        .sign_and_send_transaction(unsigned_tx, privkey)
+        .sign_and_send_transaction(unsigned_tx, private_key)
         .await
 }

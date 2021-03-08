@@ -12,7 +12,7 @@ use force_eth_lib::transfer::to_eth::{
     wait_block_submit,
 };
 use force_eth_lib::util::ckb_tx_generator::Generator;
-use force_eth_lib::util::ckb_util::parse_privkey_path;
+use force_eth_lib::util::ckb_util::{get_secret_key, parse_privkey_path};
 use force_eth_lib::util::config::{self, ForceConfig};
 use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
 use force_eth_lib::util::transfer;
@@ -140,16 +140,37 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
 }
 
 pub async fn recycle_bridge_cell_handler(args: RecycleBridgeCellArgs) -> Result<()> {
-    // let mut outpoint_confs: Vec<String> = vec![];
-    // outpoint_confs.push(args.outpoint);
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+
+    let private_key = match args.private_key_path {
+        None => match args.private_key {
+            None => bail!("the recycle private key should be provided"),
+            Some(privkey) => get_secret_key(&privkey)?,
+        },
+        Some(privkey_path) => match args.private_key {
+            None => parse_privkey_path(&privkey_path, &force_config, &args.network.clone())?,
+            Some(_) => bail!(
+                "Duplicate privkey. the private-key params has been provided by private-key-path"
+            ),
+        },
+    };
     let tx_hash = recycle_bridge_cell(
-        args.config_path,
-        args.network,
+        deployed_contracts,
+        ckb_rpc_url,
+        ckb_indexer_url,
         args.tx_fee,
-        args.private_key_path,
-        args.outpoint,
+        private_key,
+        args.outpoints,
+        args.max_recycle_count,
     )
-    .await?;
+    .await
+    .map_err(|e| anyhow!("Failed to recycle bridge cell. {:?}", e))?;
     info!("recycle bridge cell successfully for {}", tx_hash,);
     Ok(())
 }

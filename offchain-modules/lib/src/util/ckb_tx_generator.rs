@@ -36,7 +36,7 @@ use serde::export::Clone;
 use shellexpand::tilde;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::ops::{Add, Sub};
+use std::ops::Add;
 use web3::types::{Block, BlockHeader};
 
 pub const MAIN_HEADER_CACHE_LIMIT: usize = 500;
@@ -938,82 +938,67 @@ impl Generator {
     pub fn recycle_bridge_cell_tx(
         &mut self,
         from_lockscript: Script,
-        // recycle_all: bool,
-        recycle_outpoints: String,
+        recycle_outpoints: Vec<OutPoint>,
         tx_fee: u64,
     ) -> Result<TransactionView> {
+        info!(
+            "the outpoints which wait to be recycled: {:?}",
+            recycle_outpoints
+        );
         let mut helper = TxHelper::default();
 
-        let outpoints = vec![
+        let dep_outpoints = vec![
             self.deployed_contracts.bridge_lockscript.outpoint.clone(),
-            self.deployed_contracts.bridge_typescript.outpoint.clone(),
             self.deployed_contracts
                 .simple_bridge_typescript
                 .outpoint
                 .clone(),
-            self.deployed_contracts.sudt.outpoint.clone(),
         ];
-        self.add_cell_deps(&mut helper, outpoints)
+        self.add_cell_deps(&mut helper, dep_outpoints)
             .map_err(|err| anyhow!(err))?;
 
         // add input
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
+
+        let mut all_bridge_capacity: u64 = 0;
         let rpc_client = &mut self.rpc_client;
+
         let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
             get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
 
-        let mut all_bridge_capacity: u64 = 0;
-
-        // for replay_resist_outpoint in outpoints {
-        let outpoint = OutPoint::from_slice(
-            hex::decode(&recycle_outpoints)
-                .map_err(|e| anyhow!(format!("decode replay_resist_outpoint fail, err: {}", e)))?
-                .as_slice(),
-        )
-        .map_err(|e| {
-            anyhow!(
-                "irreparable error: wrong replay resist cell outpoint format in lock event: {:?}",
-                e
-            )
-        })?;
-        helper
-            .add_input(
-                outpoint.clone(),
-                None,
-                &mut get_live_cell_fn,
-                &self.genesis_info,
-                true,
-            )
-            .map_err(|err| {
-                if err.contains("Invalid cell status") {
-                    anyhow!("irreparable error: {:?}", err)
-                } else {
-                    anyhow!(err)
-                }
-            })?;
-
-        let (bridge_cell, _bridge_cell_data) =
-            get_live_cell_with_cache(&mut live_cell_cache, &mut self.rpc_client, outpoint, true)
-                .map_err(|e| {
-                    anyhow!(
-                        "irreparable error: replay resist cell outpoint status is dead: {:?}",
-                        e
-                    )
+        for outpoint in recycle_outpoints {
+            let output = get_live_cell_fn(outpoint.clone(), false).map_err(|e| anyhow!(e))?;
+            let bridge_cell_capacity: u64 = output.capacity().unpack();
+            info!("the bridge cell capacity : {:?}", bridge_cell_capacity);
+            all_bridge_capacity = all_bridge_capacity.add(bridge_cell_capacity);
+            helper
+                .add_input(
+                    outpoint.clone(),
+                    None,
+                    &mut get_live_cell_fn,
+                    &self.genesis_info.clone(),
+                    true,
+                )
+                .map_err(|err| {
+                    if err.contains("Invalid cell status") {
+                        anyhow!("irreparable error: {:?}", err)
+                    } else {
+                        anyhow!(err)
+                    }
                 })?;
-        let bridge_cell_capacity: u64 = bridge_cell.capacity().unpack();
-        all_bridge_capacity = all_bridge_capacity.add(bridge_cell_capacity);
-        // }
+        }
 
-        // add output
-        let output_capacity = all_bridge_capacity.sub(tx_fee);
+        // the owner need provide the cell for tx_fee and simple bridge cell verify
+        info!("recycle capacity : {:?}", all_bridge_capacity);
         let recycle_cell = CellOutput::new_builder()
-            .capacity(output_capacity.pack())
+            .capacity(all_bridge_capacity.pack())
             .lock(from_lockscript.clone())
             .build();
 
+        // add output
         helper.add_output(recycle_cell, Bytes::new());
 
         // add witness
