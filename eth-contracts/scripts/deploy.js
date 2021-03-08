@@ -87,7 +87,7 @@ async function deploy() {
   await sleep(waitingSeconds);
 
   // deploy TokenLocker
-  const numConfirmations = 1;
+  const numConfirmations = 0;
   factory = await ethers.getContractFactory(
     'contracts/TokenLocker.sol:TokenLocker'
   );

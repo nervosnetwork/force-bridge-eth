@@ -399,6 +399,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         args.network,
         args.private_key_path,
         args.multisig_privkeys,
+        args.confirm,
     )?;
     loop {
         let res = eth_relayer.start().await;
@@ -418,6 +419,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         args.private_key_path,
         args.mutlisig_privkeys,
         args.gas_price,
+        args.confirm,
     )?;
 
     let mut consecutive_failures = 0;

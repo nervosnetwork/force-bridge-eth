@@ -1,4 +1,4 @@
-use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{
     parse_cell, parse_main_chain_headers, parse_merkle_cell_data, parse_privkey_path,
 };
@@ -35,6 +35,7 @@ pub struct ETHRelayer {
     pub multisig_config: MultisigConfig,
     pub multisig_privkeys: Vec<SecretKey>,
     pub secret_key: SecretKey,
+    pub confirm: u64,
 }
 
 impl ETHRelayer {
@@ -43,6 +44,7 @@ impl ETHRelayer {
         network: Option<String>,
         priv_key_path: String,
         multisig_privkeys: Vec<String>,
+        confirm: u64,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -87,6 +89,7 @@ impl ETHRelayer {
                 .map(|k| parse_privkey_path(&k, &force_config, &network))
                 .collect::<Result<Vec<SecretKey>>>()?,
             config: force_config,
+            confirm,
         })
     }
 
@@ -178,6 +181,10 @@ impl ETHRelayer {
             .block_number()
             .await?
             .as_u64();
+        if tip_header_number <= self.confirm {
+            info!("waiting for tip_header_number reach confirm limit. tip_header_number: {}, confirm: {}", tip_header_number, self.confirm);
+            return Ok(latest_submit_header_number);
+        }
         if latest_submit_header_number >= tip_header_number {
             info!("waiting for new eth header. tip_header_number: {}, latest_submit_header_number: {}", tip_header_number, latest_submit_header_number);
             return Ok(latest_submit_header_number);
@@ -199,7 +206,7 @@ impl ETHRelayer {
             0 => {
                 let rocksdb_store = rocksdb::RocksDBStore::new(db_path.clone());
                 (
-                    tip_header_number,
+                    tip_header_number - self.confirm,
                     rocksdb::SMT::new(sparse_merkle_tree::H256::zero(), rocksdb_store),
                 )
             }
@@ -215,7 +222,8 @@ impl ETHRelayer {
             }
         };
 
-        let mut index = tip_header_number;
+        let confirmed_header_number = tip_header_number - self.confirm;
+        let mut index = confirmed_header_number;
         while index >= start_height {
             let block_number = U64([index]);
 
@@ -246,11 +254,11 @@ impl ETHRelayer {
         log::info!(
             "start relaying headers from {} to {}",
             index + 1,
-            tip_header_number
+            confirmed_header_number
         );
 
         let new_merkle_root = smt_tree.root().as_slice();
-        let new_latest_height = tip_header_number;
+        let new_latest_height = confirmed_header_number;
         let unsigned_tx = self.generator.generate_eth_light_client_tx_naive(
             from_lockscript.clone(),
             cell.clone(),
@@ -274,17 +282,17 @@ impl ETHRelayer {
             log::error!(
                 "relay eth header from {} to {} failed! err: {}",
                 last_cell_latest_height,
-                tip_header_number,
+                confirmed_header_number,
                 e
             );
         } else {
             let rocksdb_store = smt_tree.store_mut();
             rocksdb_store.commit();
             info!(
-                "Successfully relayed the headers from {} to {}",
-                index, tip_header_number
+                "Successfully relayed the headers from {} to {}, tip header {}",
+                index, confirmed_header_number, tip_header_number
             );
-            latest_submit_header_number = tip_header_number;
+            latest_submit_header_number = confirmed_header_number;
         }
         Ok(latest_submit_header_number)
     }
@@ -530,9 +538,7 @@ pub async fn wait_header_sync_success(
         best_block_height.copy_from_slice(latest_height_raw);
         let best_block_height = u64::from_le_bytes(best_block_height);
 
-        if best_block_height > header.number
-            && (best_block_height - header.number) as usize >= CONFIRM
-        {
+        if best_block_height >= header.number {
             break;
         }
 

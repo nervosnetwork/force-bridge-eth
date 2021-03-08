@@ -350,18 +350,6 @@ fn test_mint_mode_eth_cell_data_invalid() {
 }
 
 #[test]
-#[should_panic(expected = "header is not confirmed on light client yet")]
-fn test_mint_mode_header_not_confirm() {
-    let mut mint_test_params = get_correct_params();
-    mint_test_params.latest_number = 50;
-
-    let mock = generate_mint_mode_mock(mint_test_params);
-    let adapter = crate::adapter::ChainAdapter { chain: mock };
-
-    _verify(adapter);
-}
-
-#[test]
 #[should_panic(expected = "replay_resist_cell_id not exists in inputs")]
 fn test_mint_mode_replay_resist_cell_not_exist() {
     let mut mint_test_params = get_correct_params();
