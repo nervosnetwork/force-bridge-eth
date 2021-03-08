@@ -564,12 +564,12 @@ pub async fn get_or_create_bridge_cell(
     sender_privkey_path: String,
     owner_privkey_path: String,
     tx_fee: String,
-    capacity: String,
     eth_token_address_str: String,
     recipient_address: String,
     bridge_fee: u128,
     simple_typescript: bool,
     cell_num: usize,
+    is_create: bool,
 ) -> Result<Vec<String>> {
     let force_config = ForceConfig::new(config_path.as_str())?;
     let deployed_contracts = force_config
@@ -591,9 +591,7 @@ pub async fn get_or_create_bridge_cell(
     let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
         .map_err(|e| anyhow!(e))?
         .into();
-    let capacity: u64 = HumanCapacity::from_str(&capacity)
-        .map_err(|e| anyhow!(e))?
-        .into();
+
     let eth_contract_address =
         convert_eth_address(deployed_contracts.eth_token_locker_addr.as_str())?;
     let eth_token_address = convert_eth_address(eth_token_address_str.as_str())?;
@@ -651,14 +649,13 @@ pub async fn get_or_create_bridge_cell(
         .into_iter()
         .map(|cell| hex::encode(OutPoint::from(cell.out_point).as_slice()))
         .collect();
-    if cells.len() >= cell_num {
+    if cells.len() >= cell_num && !is_create {
         log::info!("get enough live bridge cells from ckb chain");
         return Ok(cells);
     }
     let unsigned_tx = generator
         .create_bridge_cell(
             tx_fee,
-            capacity,
             from_lockscript,
             owner_lockscript,
             bridge_typescript,

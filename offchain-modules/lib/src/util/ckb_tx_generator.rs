@@ -722,7 +722,6 @@ impl Generator {
     pub fn create_bridge_cell(
         &mut self,
         tx_fee: u64,
-        capacity: u64,
         from_lockscript: Script,
         owner_lockscript: Script,
         bridge_typescript: Script,
@@ -753,12 +752,16 @@ impl Generator {
             .build();
         // build output
         let output = CellOutput::new_builder()
-            .capacity(capacity.pack())
+            // .capacity(capacity.pack())
             .type_(Some(bridge_typescript).pack())
             .lock(bridge_lockscript)
             .build();
+        let mut output_data = Bytes::new();
+        if !simple_typescript {
+            output_data = bridge_data.as_bytes();
+        }
         for _ in 0..cell_num {
-            tx_helper.add_output(output.clone(), bridge_data.as_bytes());
+            tx_helper.add_output_with_auto_capacity(output.clone(), output_data.clone());
         }
         let tx = tx_helper
             .supply_capacity(

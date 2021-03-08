@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Result};
 use dapp::dapp_handle;
 use force_eth_lib::header_relay::ckb_relay::CKBRelayer;
 use force_eth_lib::header_relay::eth_relay::{wait_header_sync_success, ETHRelayer};
-use force_eth_lib::monitor::relay_monitor::RelayMonitor;
+use force_eth_lib::monitor::relay_monitor::{AccountMonitorArgs, RelayMonitor};
 use force_eth_lib::transfer::to_ckb::{
     self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
     lock_eth, lock_token, send_eth_spv_proof_tx,
@@ -125,12 +125,12 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.private_key_path.clone(),
         args.private_key_path,
         args.tx_fee,
-        args.capacity,
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
         args.simple_typescript,
         1,
+        false,
     )
     .await?;
     info!(
@@ -450,6 +450,18 @@ pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
     let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+    let ckb_privkeys = force_config.get_ckb_private_keys(&args.network)?;
+    let eth_privkeys: Vec<String> = force_config.get_ethereum_private_keys(&args.network)?;
+    let account_monitor_args = AccountMonitorArgs::new(
+        ckb_privkeys,
+        eth_privkeys,
+        args.ckb_alarm_balance,
+        args.eth_alarm_balance,
+        args.eth_balance_conservator,
+        args.ckb_balance_conservator,
+        &args.network,
+    )
+    .await?;
     let mut relay_monitor = RelayMonitor::new(
         ckb_rpc_url,
         ckb_indexer_url,
@@ -468,6 +480,7 @@ pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
         args.eth_indexer_conservator,
         args.ckb_indexer_conservator,
         args.db_path,
+        account_monitor_args,
     )
     .await?;
     loop {
