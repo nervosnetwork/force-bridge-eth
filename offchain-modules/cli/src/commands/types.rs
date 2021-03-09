@@ -72,7 +72,7 @@ pub struct RecycleBridgeCellArgs {
     #[clap(long)]
     pub outpoints: Option<Vec<String>>,
     #[clap(long, default_value = "2000")]
-    pub max_recycle_count: u64,
+    pub max_recycle_count: usize,
 }
 
 #[derive(Clap, Clone, Debug)]

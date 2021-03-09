@@ -969,6 +969,8 @@ impl Generator {
                 .map(|(output, _)| output)
         };
 
+        let mut outpoint_lock_tmp: Script = Default::default();
+
         for outpoint in recycle_outpoints {
             let output = get_live_cell_fn(outpoint.clone(), false).map_err(|e| anyhow!(e))?;
             let bridge_cell_capacity: u64 = output.capacity().unpack();
@@ -989,6 +991,20 @@ impl Generator {
                         anyhow!(err)
                     }
                 })?;
+            // add witness
+            let outpoint_lock = output.lock();
+            if outpoint_lock.as_slice() != outpoint_lock_tmp.as_slice() {
+                let witness = MintTokenWitness::new_builder().mode(Byte::new(1u8)).build();
+                let witness_args = WitnessArgs::new_builder()
+                    .lock(Some(witness.as_bytes()).pack())
+                    .build();
+                helper.transaction = helper
+                    .transaction
+                    .as_advanced_builder()
+                    .witness(witness_args.as_bytes().pack())
+                    .build();
+                outpoint_lock_tmp = outpoint_lock;
+            }
         }
 
         // the owner need provide the cell for tx_fee and simple bridge cell verify
@@ -1000,19 +1016,6 @@ impl Generator {
 
         // add output
         helper.add_output(recycle_cell, Bytes::new());
-
-        // add witness
-        {
-            let witness = MintTokenWitness::new_builder().mode(Byte::new(1u8)).build();
-            let witness_args = WitnessArgs::new_builder()
-                .lock(Some(witness.as_bytes()).pack())
-                .build();
-            helper.transaction = helper
-                .transaction
-                .as_advanced_builder()
-                .witness(witness_args.as_bytes().pack())
-                .build();
-        }
 
         let tx = helper
             .supply_capacity(

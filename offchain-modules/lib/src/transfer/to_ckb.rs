@@ -832,7 +832,7 @@ pub async fn recycle_bridge_cell(
     tx_fee: String,
     private_key: SecretKey,
     recycle_outpoints_op: Option<Vec<String>>,
-    max_recycle_count: u64,
+    max_recycle_count: usize,
 ) -> Result<String> {
     let mut generator = Generator::new(rpc_url, indexer_url, deployed_contracts.clone())
         .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
@@ -864,9 +864,6 @@ pub async fn recycle_bridge_cell(
 
             for live_bridge_cell in live_bridge_cells.into_iter() {
                 outpoints.push(live_bridge_cell.out_point.into());
-                if outpoints.len() > max_recycle_count as usize {
-                    break;
-                }
             }
         }
         Some(recycle_outpoints) => {
@@ -887,6 +884,21 @@ pub async fn recycle_bridge_cell(
                 outpoints.push(outpoint);
             }
         }
+    }
+
+    while outpoints.len() > max_recycle_count {
+        let outpoint_slice = outpoints.split_off(outpoints.len() - max_recycle_count);
+        let unsigned_tx = generator
+            .recycle_bridge_cell_tx(from_lockscript.clone(), outpoint_slice, tx_fee)
+            .map_err(|e| anyhow!("failed to build recycle bridge tx: {}", e))?;
+
+        let tx_hash = generator
+            .sign_and_send_transaction(unsigned_tx, private_key)
+            .await?;
+
+        info!("recycle bridge cell successfully for {}", tx_hash,);
+        // wait for ckb indexer sync block
+        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
     }
 
     let unsigned_tx = generator
