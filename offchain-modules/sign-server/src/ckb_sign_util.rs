@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use ckb_hash::{blake2b_256, new_blake2b};
 use ckb_jsonrpc_types as rpc_types;
 use ckb_sdk::constants::{MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_HASH};
-use ckb_sdk::{Address, HttpRpcClient, MultisigConfig, SECP256K1};
+use ckb_sdk::{Address, AddressPayload, HttpRpcClient, MultisigConfig, SECP256K1};
 use ckb_types::bytes::{Bytes, BytesMut};
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script, Transaction, WitnessArgs};
@@ -137,6 +137,12 @@ impl TxHelper {
         }
         witnesses
     }
+}
+
+pub fn generate_from_lockscript(from_privkey: SecretKey) -> Result<Script> {
+    let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
+    let address_payload = AddressPayload::from_pubkey(&from_public_key);
+    Ok(Script::from(&address_payload))
 }
 
 pub fn get_privkey_signer(privkey: SecretKey) -> SignerFn {

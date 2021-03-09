@@ -2,14 +2,15 @@ mod ckb_sign_util;
 mod eth_sign_util;
 
 use crate::ckb_sign_util::{
-    get_live_cell_with_cache, get_privkey_signer, to_multisig_congif, MultisigConf, TxHelper,
+    generate_from_lockscript, get_live_cell_with_cache, get_privkey_signer, to_multisig_congif,
+    MultisigConf, TxHelper,
 };
 use crate::eth_sign_util::{get_msg_signature, get_secret_key};
 use ckb_sdk::HttpRpcClient;
 use ckb_types::bytes::Bytes;
-use ckb_types::packed;
 use ckb_types::packed::{CellOutput, OutPoint};
 use ckb_types::prelude::Entity;
+use ckb_types::{packed, H256};
 use jsonrpc_http_server::jsonrpc_core::*;
 use jsonrpc_http_server::*;
 use std::collections::HashMap;
@@ -48,18 +49,51 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
                 .map_err(|_| Error::internal_error())?
                 .into(),
         );
+        let mut rpc_client = HttpRpcClient::new(params[2].clone());
         let tx_view = tx.into_view();
+        // log::info!(
+        //     "tx: \n{}",
+        //     serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(
+        //         tx_view.clone()
+        //     ))
+        //     .unwrap()
+        // );
+        let privkey =
+            get_secret_key("/tmp/.sign_server/ckb_key").map_err(|_| Error::internal_error())?;
+        for item in tx_view.inputs() {
+            let op = item.previous_output();
+            let hash = H256::from_slice(op.tx_hash().raw_data().to_vec().as_slice())
+                .map_err(|_| Error::internal_error())?;
+            let tx = rpc_client
+                .get_transaction(hash)
+                .map_err(|_| Error::internal_error())?
+                .ok_or_else(|| Error::internal_error())?
+                .transaction;
+            let mut index = [0u8; 4];
+            index.copy_from_slice(op.index().raw_data().to_vec().as_slice());
+            let cell_output = &tx.inner.outputs[u32::from_le_bytes(index) as usize];
+            let lockscript = cell_output.lock.clone();
+            let script: packed::Script = packed::Script::from(lockscript);
+            let from_scirpt =
+                generate_from_lockscript(privkey).map_err(|_| Error::internal_error())?;
+            if script.as_slice() == from_scirpt.as_slice() {
+                // current transaction has the cell of the signer and refuses to sign
+                log::warn!("the current transaction is at risk of being attacked");
+                return Err(Error::invalid_params(
+                    "invalid params. the current transaction is at risk of being attacked.",
+                ));
+            }
+        }
         let mut tx_helper = TxHelper::new(tx_view);
         tx_helper.add_multisig_config(multi_config);
-        let mut rpc_client = HttpRpcClient::new(params[2].clone());
+
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
         let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
             get_live_cell_with_cache(&mut live_cell_cache, &mut rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
-        let privkey =
-            get_secret_key("/tmp/.sign_server/ckb_key").map_err(|_| Error::internal_error())?;
+
         let signer = get_privkey_signer(privkey);
         let mut result = vec![];
         for (lock_args, signature) in tx_helper
