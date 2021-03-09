@@ -5,7 +5,7 @@ use crate::util::ckb_util::{
 use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::Witness;
 use crate::util::eth_util::convert_to_header_rlp;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
@@ -945,6 +945,9 @@ impl Generator {
             "the outpoints which wait to be recycled: {:?}",
             recycle_outpoints
         );
+        if recycle_outpoints.is_empty() {
+            bail!("the outpoints which need to recycle is null")
+        }
         let mut helper = TxHelper::default();
 
         let dep_outpoints = vec![
