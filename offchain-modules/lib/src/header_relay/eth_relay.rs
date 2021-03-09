@@ -313,7 +313,7 @@ impl ETHRelayer {
                     e
                 ),
             }
-            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            tokio::time::delay_for(std::time::Duration::from_secs(60)).await;
         }
     }
 
