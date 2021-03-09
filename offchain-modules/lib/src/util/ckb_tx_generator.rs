@@ -968,10 +968,10 @@ impl Generator {
             get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
                 .map(|(output, _)| output)
         };
+        let mut add_witnesses = HashMap::new();
 
         let mut outpoint_lock_tmp: Script = Default::default();
-
-        for outpoint in recycle_outpoints {
+        for (i, outpoint) in recycle_outpoints.iter().enumerate() {
             let output = get_live_cell_fn(outpoint.clone(), false).map_err(|e| anyhow!(e))?;
             let bridge_cell_capacity: u64 = output.capacity().unpack();
             info!("the bridge cell capacity : {:?}", bridge_cell_capacity);
@@ -998,11 +998,7 @@ impl Generator {
                 let witness_args = WitnessArgs::new_builder()
                     .lock(Some(witness.as_bytes()).pack())
                     .build();
-                helper.transaction = helper
-                    .transaction
-                    .as_advanced_builder()
-                    .witness(witness_args.as_bytes().pack())
-                    .build();
+                add_witnesses.insert(i, witness_args.as_bytes().pack());
                 outpoint_lock_tmp = outpoint_lock;
             }
         }
@@ -1014,6 +1010,17 @@ impl Generator {
             .lock(from_lockscript.clone())
             .build();
 
+        // put witness to witnesses
+        let mut witnesses = helper.init_witnesses();
+        for (index, witness) in add_witnesses {
+            witnesses[index] = witness;
+        }
+
+        helper.transaction = helper
+            .transaction
+            .as_advanced_builder()
+            .witnesses(witnesses)
+            .build();
         // add output
         helper.add_output(recycle_cell, Bytes::new());
 
