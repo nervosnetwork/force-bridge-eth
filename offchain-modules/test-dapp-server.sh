@@ -108,8 +108,8 @@ stress_test(){
 }
 
 #stop_mysql
-start_mysql
-sleep 10
+#start_mysql
+#sleep 10
 #stop_service
 #start_header_relay
 start_server
