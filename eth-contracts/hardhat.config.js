@@ -57,7 +57,7 @@ module.exports = {
                 version: "0.5.10",
                 settings: {
                     optimizer: {
-                        enabled: false,
+                        enabled: true,
                         runs: 200
                     }
                 }
@@ -66,7 +66,7 @@ module.exports = {
                 version: "0.6.6",
                 settings: {
                     optimizer: {
-                        enabled: false,
+                        enabled: true,
                         runs: 200
                     }
                 }
@@ -84,7 +84,7 @@ module.exports = {
                 version: "0.8.0",
                 settings: {
                     optimizer: {
-                        enabled: false,
+                        enabled: true,
                         runs: 200
                     }
                 }
