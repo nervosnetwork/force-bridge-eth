@@ -4,7 +4,6 @@ use crate::dapp::db::eth_relayer::{
 };
 use crate::transfer::to_ckb::send_eth_spv_proof_tx;
 use crate::util::ckb_tx_generator::Generator;
-use force_eth_types::config::CONFIRM;
 use crate::util::ckb_util::{get_eth_client_tip_number, parse_privkey_path, ETHSPVProofJson};
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, bail, Result};
@@ -15,6 +14,7 @@ use ckb_types::core::Capacity;
 use ckb_types::packed::{CellOutput, OutPoint, Script};
 use ckb_types::prelude::Pack;
 use ckb_types::H256;
+use force_eth_types::config::CONFIRM;
 use force_sdk::cell_collector::get_capacity_cells_for_mint;
 use force_sdk::tx_helper::TxHelper;
 use force_sdk::util::ensure_indexer_sync;
