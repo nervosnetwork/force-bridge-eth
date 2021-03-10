@@ -2,8 +2,8 @@ mod ckb_sign_util;
 mod eth_sign_util;
 
 use crate::ckb_sign_util::{
-    generate_from_lockscript, get_live_cell_with_cache, get_privkey_signer, to_multisig_congif,
-    MultisigConf, TxHelper,
+    generate_from_lockscript, get_live_cell_with_cache, get_privkey_signer, parse_merkle_cell_data,
+    to_multisig_congif, MultisigConf, TxHelper,
 };
 use crate::eth_sign_util::{get_msg_signature, get_secret_key};
 use ckb_sdk::HttpRpcClient;
@@ -84,6 +84,17 @@ fn sign_ckb_tx(args: Params) -> Result<Value> {
                 ));
             }
         }
+        // verify the original signature
+        let cell_output_data = tx_view.outputs_data().get_unchecked(0).raw_data();
+        let (start_height, latest_height, merkle_root) =
+            parse_merkle_cell_data(cell_output_data.to_vec())
+                .map_err(|_| Error::internal_error())?;
+        log::info!(
+            "start_height: {:?}, latest_height: {:?}, merkle_root: {:?}",
+            start_height,
+            latest_height,
+            merkle_root
+        );
         let mut tx_helper = TxHelper::new(tx_view);
         tx_helper.add_multisig_config(multi_config);
 

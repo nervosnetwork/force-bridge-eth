@@ -16,6 +16,7 @@ ckb-jsonrpc-types = { git = "https://github.com/nervosnetwork/ckb", tag = "v0.36
 ckb-types = { git = "https://github.com/nervosnetwork/ckb", tag = "v0.36.0-rc2" }
 ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-cli", tag = "v0.36.0" }
 ckb-hash = { git = "https://github.com/nervosnetwork/ckb", tag = "v0.36.0-rc2" }
+force-eth-types = { path = "../../ckb-contracts/types" }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["rc"] }
 serde_derive = "1.0"

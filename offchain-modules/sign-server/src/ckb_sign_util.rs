@@ -8,6 +8,7 @@ use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
 use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script, Transaction, WitnessArgs};
 use ckb_types::prelude::*;
 use ckb_types::{h256, packed, H160, H256};
+use force_eth_types::generated::eth_header_cell::ETHHeaderCellMerkleDataReader;
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -323,6 +324,24 @@ pub fn get_live_cell(
                 cell_status, out_point
             )
         })
+}
+
+pub fn parse_merkle_cell_data(data: Vec<u8>) -> Result<(u64, u64, [u8; 32])> {
+    ETHHeaderCellMerkleDataReader::verify(&data, false).map_err(|err| anyhow!(err))?;
+    let eth_cell_data_reader = ETHHeaderCellMerkleDataReader::new_unchecked(&data);
+
+    let mut merkle_root = [0u8; 32];
+    merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
+
+    let mut last_cell_latest_height_raw = [0u8; 8];
+    last_cell_latest_height_raw.copy_from_slice(eth_cell_data_reader.latest_height().raw_data());
+    let last_cell_latest_height = u64::from_le_bytes(last_cell_latest_height_raw);
+
+    let mut start_height_raw = [0u8; 8];
+    start_height_raw.copy_from_slice(eth_cell_data_reader.start_height().raw_data());
+    let start_height = u64::from_le_bytes(start_height_raw);
+
+    Ok((start_height, last_cell_latest_height, merkle_root))
 }
 
 pub type SignerFn = Box<

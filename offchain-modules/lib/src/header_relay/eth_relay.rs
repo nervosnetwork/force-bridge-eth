@@ -257,6 +257,13 @@ impl ETHRelayer {
             start_height,
             new_latest_height,
         )?;
+        log::info!(
+            "tx: \n{}",
+            serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(
+                unsigned_tx.clone()
+            ))
+            .unwrap()
+        );
         let tx = sign_from_multi_key(
             unsigned_tx,
             &mut self.generator.rpc_client,
@@ -312,7 +319,7 @@ impl ETHRelayer {
                     e
                 ),
             }
-            tokio::time::delay_for(std::time::Duration::from_secs(300)).await;
+            tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
         }
     }
 
@@ -323,7 +330,7 @@ impl ETHRelayer {
     //     if !ckb_cell_data.is_empty() {
     //         let (headers, _) = parse_main_chain_headers(ckb_cell_data)?;
     //         un_confirmed_headers = headers;
-    //         index = (un_confirmed_headers.len() - 1) as isize;
+    //         index = (un_confirm ed_headers.len() - 1) as isize;
     //     }
     //     let mut number: U64;
     //     let mut current_block: Block<H256>;
