@@ -294,6 +294,12 @@ contract TokenLocker {
             front = (front + 1) % queueLength;
 
             if (currentIndex == 0) {
+                // ensure that all lemmas and leaves are consumed
+                require(
+                    lemmasPosition == lemmasLength && front == end,
+                    "invalid historyTxRootProof, Not all of lemmas and leaves are consumed"
+                );
+
                 break;
             }
 
