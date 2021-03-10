@@ -25,6 +25,12 @@ build-all:
 	cd offchain-modules && cargo build
 	cd offchain-modules/eth-proof && npm install
 
+build-all-prod:
+	cd ckb-contracts && capsule build --release
+	cd eth-contracts && yarn install
+	cd offchain-modules && cargo build --release
+	cd offchain-modules/eth-proof && npm install
+
 start-docker-network:
 	cd docker && docker-compose up -d
 	sleep 5

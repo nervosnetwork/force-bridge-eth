@@ -48,8 +48,8 @@ pub struct CreateBridgeCellArgs {
     pub recipient_address: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
-    #[clap(long, default_value = "315")]
-    pub capacity: String,
+    // #[clap(long, default_value = "315")]
+    // pub capacity: String,
     #[clap(long, default_value = "0")]
     pub bridge_fee: u128,
     #[clap(short = 's', long)]
@@ -393,4 +393,12 @@ pub struct RelayerMonitorArgs {
     pub db_path: Option<String>,
     #[clap(long, default_value = "all")]
     pub mode: String,
+    #[clap(long, default_value = "100")]
+    pub ckb_alarm_balance: u64,
+    #[clap(long, default_value = "100")]
+    pub eth_alarm_balance: u64,
+    #[clap(long)]
+    pub eth_balance_conservator: String,
+    #[clap(long)]
+    pub ckb_balance_conservator: String,
 }

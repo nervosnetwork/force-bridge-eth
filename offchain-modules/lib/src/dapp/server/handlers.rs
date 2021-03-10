@@ -52,6 +52,7 @@ pub async fn init_token(
             args.token_address.as_str(),
             REPLAY_RESIST_CELL_NUMBER,
             data.init_token_privkey.clone(),
+            false,
         )
         .await
         .map_err(|e| RpcError::ServerError(format!("get or create bridge cell error: {}", e)))?;
