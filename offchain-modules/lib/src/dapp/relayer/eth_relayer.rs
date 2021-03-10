@@ -3,7 +3,8 @@ use crate::dapp::db::eth_relayer::{
     store_mint_tasks, update_relayed_tx, MintTask,
 };
 use crate::transfer::to_ckb::send_eth_spv_proof_tx;
-use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_tx_generator::Generator;
+use force_eth_types::config::CONFIRM;
 use crate::util::ckb_util::{get_eth_client_tip_number, parse_privkey_path, ETHSPVProofJson};
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, bail, Result};
