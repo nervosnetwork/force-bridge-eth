@@ -18,7 +18,6 @@ use force_sdk::util::send_tx_sync_with_response;
 use log::{debug, info};
 use molecule::prelude::Reader;
 use secp256k1::SecretKey;
-use serde::export::Clone;
 use shellexpand::tilde;
 use sparse_merkle_tree::traits::Value;
 use std::ops::Add;

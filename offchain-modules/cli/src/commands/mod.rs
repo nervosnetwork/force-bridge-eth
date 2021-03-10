@@ -14,13 +14,13 @@ use force_eth_lib::transfer::to_eth::{
 use force_eth_lib::util::ckb_tx_generator::Generator;
 use force_eth_lib::util::ckb_util::parse_privkey_path;
 use force_eth_lib::util::config::{self, ForceConfig};
-use force_eth_lib::util::eth_util::convert_eth_address;
+use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
 use force_eth_lib::util::transfer;
 use log::{debug, error, info};
 use serde_json::json;
 use shellexpand::tilde;
 use types::*;
-use web3::types::{H256, U256};
+use web3::types::U256;
 
 pub mod dapp;
 pub mod types;
@@ -286,11 +286,13 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
 }
 
 pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
+    let force_config = ForceConfig::new(&args.config_path)?;
+    let eth_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let eth_private_key = parse_private_key(&args.private_key_path, &force_config, &args.network)?;
     debug!("unlock_handler args: {:?}", &args);
     let result = unlock(
-        args.config_path,
-        args.network,
-        args.private_key_path,
+        eth_private_key,
+        eth_url,
         args.to,
         args.proof,
         args.gas_price,
@@ -339,15 +341,15 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     let proof = get_ckb_proof_info(
         &ckb_tx_hash,
         ckb_rpc_url.clone(),
-        eth_rpc_url,
+        eth_rpc_url.clone(),
         light_client_addr,
-        force_config.ckb_rocksdb_path,
+        force_config.ckb_rocksdb_path.clone(),
     )
     .await?;
+    let eth_private_key = parse_private_key(&args.eth_privkey_path, &force_config, &args.network)?;
     let result = unlock(
-        args.config_path.clone(),
-        args.network,
-        args.eth_privkey_path,
+        eth_private_key,
+        eth_rpc_url,
         deployed_contracts.eth_token_locker_addr.clone(),
         proof,
         args.gas_price,

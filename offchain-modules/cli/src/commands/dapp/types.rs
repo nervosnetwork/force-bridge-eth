@@ -64,6 +64,8 @@ pub struct CkbTxRelayerArgs {
     pub private_key_path: String,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
     pub db_path: String,
+    #[clap(long, default_value = "~/.force-bridge/ckb-rocksdb")]
+    pub rocksdb_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]

@@ -20,7 +20,6 @@ use force_sdk::util::ensure_indexer_sync;
 use log::{debug, info};
 use rocksdb::ops::Get;
 use secp256k1::{Message, Secp256k1, SecretKey};
-use serde::export::Clone;
 use std::str::FromStr;
 use web3::signing::keccak256;
 use web3::types::H160;
@@ -211,19 +210,15 @@ pub async fn wait_block_submit(
 
 #[allow(clippy::too_many_arguments)]
 pub async fn unlock(
-    config_path: String,
-    network: Option<String>,
-    key_path: String,
+    eth_private_key: ethereum_types::H256,
+    eth_url: String,
     to: String,
     proof: String,
     gas_price: u64,
     asec_nonce: U256,
     wait: bool,
 ) -> Result<String> {
-    let force_config = ForceConfig::new(config_path.as_str())?;
-    let eth_url = force_config.get_ethereum_rpc_url(&network)?;
     let to = convert_eth_address(&to)?;
-    let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
     let mut rpc_client = Web3Client::new(eth_url);
     info!("unlock proof: {}", &proof);
     let proof = hex::decode(proof).map_err(|err| anyhow!(err))?;
