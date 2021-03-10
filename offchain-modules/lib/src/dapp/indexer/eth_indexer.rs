@@ -26,7 +26,7 @@ use shellexpand::tilde;
 use sqlx::MySqlPool;
 use web3::types::{Block, H256, U64};
 
-pub const ETH_CHAIN_CONFIRMED: usize = 15;
+pub const ETH_CHAIN_CONFIRMED: usize = 100;
 
 pub struct EthIndexer<T> {
     pub config_path: String,
