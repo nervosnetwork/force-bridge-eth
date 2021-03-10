@@ -42,3 +42,6 @@ actix-cors = "0.5"
 sqlx = { version = "0.4.0", features = [ "mysql", "runtime-actix-native-tls" ] }
 rand = "0.7.3"
 reqwest = { version = "0.10", features = ["blocking", "json"] }
+rocksdb = { package = "ckb-rocksdb", version = "0.14.1", features = ["snappy"] }
+sparse-merkle-tree = { version = "0.3.1-pre", default-features = false }
+merkle-cbt = "0.2.2"

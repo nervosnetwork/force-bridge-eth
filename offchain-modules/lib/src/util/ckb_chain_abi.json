@@ -1,55 +1,37 @@
 [
   {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
         "indexed": true,
         "internalType": "uint64",
-        "name": "blockNumber",
+        "name": "startBlockNumber",
         "type": "uint64"
       },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "BlockHashAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
       {
         "indexed": true,
         "internalType": "uint64",
-        "name": "blockNumber",
+        "name": "endBlockNumber",
         "type": "uint64"
       },
       {
         "indexed": false,
         "internalType": "bytes32",
-        "name": "blockHash",
+        "name": "HistoryTxRoot",
         "type": "bytes32"
       }
     ],
-    "name": "BlockHashReverted",
+    "name": "HistoryTxRootAdded",
     "type": "event"
   },
   {
     "inputs": [],
-    "name": "CHAIN_VERSION",
+    "name": "ADD_HISTORY_TX_ROOT_TYPEHASH",
     "outputs": [
       {
-        "internalType": "uint32",
+        "internalType": "bytes32",
         "name": "",
-        "type": "uint32"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -57,12 +39,12 @@
   },
   {
     "inputs": [],
-    "name": "CanonicalGcThreshold",
+    "name": "DOMAIN_SEPARATOR",
     "outputs": [
       {
-        "internalType": "uint64",
+        "internalType": "bytes32",
         "name": "",
-        "type": "uint64"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -70,12 +52,38 @@
   },
   {
     "inputs": [],
-    "name": "FinalizedGcThreshold",
+    "name": "NAME_712",
     "outputs": [
       {
-        "internalType": "uint64",
+        "internalType": "string",
         "name": "",
-        "type": "uint64"
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "SIGNATURE_SIZE",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "VALIDATORS_SIZE_LIMIT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -83,27 +91,46 @@
   },
   {
     "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "_initBlockNumber",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_latestBlockNumber",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "_historyTxRoot",
+        "type": "bytes32"
+      },
       {
         "internalType": "bytes",
-        "name": "data",
+        "name": "signatures",
         "type": "bytes"
       }
     ],
-    "name": "addHeaders",
+    "name": "addHistoryTxRoot",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs": [],
+    "name": "getHistoryTxRootInfo",
+    "outputs": [
       {
         "internalType": "uint64",
-        "name": "blockNumber",
+        "name": "",
         "type": "uint64"
-      }
-    ],
-    "name": "getCanonicalHeaderHash",
-    "outputs": [
+      },
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      },
       {
         "internalType": "bytes32",
         "name": "",
@@ -114,77 +141,13 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "getCanonicalTransactionsRoot",
+    "inputs": [],
+    "name": "historyTxRoot",
     "outputs": [
       {
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "blockNumber",
-        "type": "uint64"
-      }
-    ],
-    "name": "getHeadersByNumber",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "",
-        "type": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getLatestBlockNumber",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getLatestEpoch",
-    "outputs": [
-      {
-        "internalType": "uint64",
-        "name": "",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "governance",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -206,27 +169,17 @@
   {
     "inputs": [
       {
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
+        "internalType": "address[]",
+        "name": "validators",
+        "type": "address[]"
       },
       {
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint64",
-        "name": "finalizedGcThreshold",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "canonicalGcThreshold",
-        "type": "uint64"
+        "internalType": "uint256",
+        "name": "multisigThreshold",
+        "type": "uint256"
       }
     ],
-    "name": "initWithHeader",
+    "name": "initialize",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -258,54 +211,38 @@
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs": [],
+    "name": "multisigThreshold_",
+    "outputs": [
       {
-        "internalType": "uint64",
-        "name": "_latestBlockNumber",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "spvBlockNumber",
-        "type": "uint64"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "transactionsRoot",
-        "type": "bytes32"
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
-    "name": "mockForProveTxExist",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
       {
+        "internalType": "bytes32",
+        "name": "msgHash",
+        "type": "bytes32"
+      },
+      {
         "internalType": "bytes",
-        "name": "txProofData",
+        "name": "signatures",
         "type": "bytes"
       },
       {
-        "internalType": "uint64",
-        "name": "numConfirmations",
-        "type": "uint64"
+        "internalType": "uint256",
+        "name": "threshold",
+        "type": "uint256"
       }
     ],
-    "name": "proveTxExist",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
+    "name": "validatorsApprove",
+    "outputs": [],
     "stateMutability": "view",
     "type": "function"
   }

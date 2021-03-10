@@ -1,9 +1,11 @@
+use crate::util::ckb_proof_helper::CBMT as CKB_CBMT;
 use crate::util::ckb_tx_generator::{Generator, CONFIRM};
-use crate::util::ckb_types::CkbTxProof;
+use crate::util::ckb_types::{CKBHistoryTxProof, CKBHistoryTxRootProof, CKBUnlockTokenParam};
 use crate::util::ckb_util::{covert_to_h256, parse_privkey, parse_privkey_path};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use crate::util::generated::ckb_tx_proof;
+use crate::util::rocksdb::open_readonly_rocksdb;
 use anyhow::anyhow;
 use anyhow::Result;
 use ckb_sdk::rpc::{BlockView, TransactionView};
@@ -16,6 +18,7 @@ use ethabi::{Function, Param, ParamType, Token};
 use ethereum_types::U256;
 use force_sdk::util::ensure_indexer_sync;
 use log::{debug, info};
+use rocksdb::ops::Get;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::export::Clone;
 use std::str::FromStr;
@@ -208,36 +211,33 @@ pub async fn wait_block_submit(
 
 #[allow(clippy::too_many_arguments)]
 pub async fn unlock(
-    eth_private_key: ethereum_types::H256,
-    eth_url: String,
+    config_path: String,
+    network: Option<String>,
+    key_path: String,
     to: String,
-    tx_proof: String,
-    raw_tx: String,
+    proof: String,
     gas_price: u64,
     asec_nonce: U256,
     wait: bool,
 ) -> Result<String> {
+    let force_config = ForceConfig::new(config_path.as_str())?;
+    let eth_url = force_config.get_ethereum_rpc_url(&network)?;
     let to = convert_eth_address(&to)?;
+    let eth_private_key = parse_private_key(&key_path, &force_config, &network)?;
     let mut rpc_client = Web3Client::new(eth_url);
-    let proof = hex::decode(tx_proof).map_err(|err| anyhow!(err))?;
-    let tx_info = hex::decode(raw_tx).map_err(|err| anyhow!(err))?;
+    info!("unlock proof: {}", &proof);
+    let proof = hex::decode(proof).map_err(|err| anyhow!(err))?;
 
     let function = Function {
         name: "unlockToken".to_owned(),
-        inputs: vec![
-            Param {
-                name: "ckbTxProof".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "ckbTx".to_owned(),
-                kind: ParamType::Bytes,
-            },
-        ],
+        inputs: vec![Param {
+            name: "proof".to_owned(),
+            kind: ParamType::Bytes,
+        }],
         outputs: vec![],
         constant: false,
     };
-    let tokens = [Token::Bytes(proof), Token::Bytes(tx_info)];
+    let tokens = [Token::Bytes(proof)];
     let input_data = function.encode_input(&tokens)?;
     let res = rpc_client
         .send_transaction(
@@ -256,11 +256,19 @@ pub async fn unlock(
 
 pub fn get_add_ckb_headers_func() -> Function {
     Function {
-        name: "addHeaders".to_owned(),
+        name: "addHistoryTxRoot".to_owned(),
         inputs: vec![
             Param {
-                name: "tinyHeaders".to_owned(),
-                kind: ParamType::Array(Box::new(ParamType::Bytes)),
+                name: "_initBlockNumber".to_owned(),
+                kind: ParamType::Uint(64),
+            },
+            Param {
+                name: "_latestBlockNumber".to_owned(),
+                kind: ParamType::Uint(64),
+            },
+            Param {
+                name: "_historyTxRoot".to_owned(),
+                kind: ParamType::FixedBytes(32),
             },
             Param {
                 name: "signatures".to_owned(),
@@ -298,42 +306,65 @@ pub fn get_init_ckb_headers_func() -> Function {
     }
 }
 
-pub fn get_ckb_proof_info(tx_hash_str: &str, rpc_url: String) -> Result<(String, String)> {
-    let tx_hash = covert_to_h256(tx_hash_str)?;
-    let mut rpc_client = HttpRpcClient::new(rpc_url.clone());
-    let tx: packed::Transaction = rpc_client
-        .get_transaction(tx_hash.clone())
-        .map_err(|e| anyhow!("failed to get tx {}, err: {}", &tx_hash, e))?
-        .ok_or_else(|| anyhow!("failed to get tx : {}", &tx_hash))?
-        .transaction
-        .inner
-        .into();
-
-    let mol_hex_tx = hex::encode(tx.raw().as_slice());
-    debug!("mol hex raw tx : {:?} ", mol_hex_tx);
-
-    let ckb_tx_proof = parse_ckb_proof(tx_hash_str, rpc_url)?;
-    let mol_tx_proof: ckb_tx_proof::CkbTxProof = ckb_tx_proof.into();
-    let mol_hex_header = hex::encode(mol_tx_proof.as_bytes().as_ref());
-    debug!("mol hex header: {:?} ", mol_hex_header);
-    Ok((mol_hex_header, mol_hex_tx))
+pub async fn get_ckb_proof_info(
+    tx_hash_str: &str,
+    ckb_rpc_url: String,
+    eth_rpc_url: String,
+    contract_addr: web3::types::Address,
+    ckb_db_path: String,
+) -> Result<String> {
+    let ckb_tx_proof = parse_ckb_proof(
+        tx_hash_str,
+        ckb_rpc_url,
+        eth_rpc_url,
+        contract_addr,
+        ckb_db_path,
+    )
+    .await?;
+    debug!("ckb_tx_proof: {:?}", ckb_tx_proof);
+    let mol_tx_proof: ckb_tx_proof::CKBUnlockTokenParam = ckb_tx_proof.into();
+    let mol_hex_tx_proof = hex::encode(mol_tx_proof.as_bytes().as_ref());
+    info!(
+        "unlock, tx_hash: {}, proof: {}",
+        tx_hash_str, &mol_hex_tx_proof
+    );
+    Ok(mol_hex_tx_proof)
 }
 
-pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof> {
+pub async fn parse_ckb_proof(
+    tx_hash_str: &str,
+    rpc_url: String,
+    eth_rpc_url: String,
+    contract_addr: web3::types::Address,
+    ckb_db_path: String,
+) -> Result<CKBUnlockTokenParam> {
+    let mut web3_client = Web3Client::new(eth_rpc_url);
+    let init_block_number = web3_client
+        .get_contract_height("initBlockNumber", contract_addr)
+        .await
+        .map_err(|e| anyhow!("get init_block_number err: {:?}", e))?;
+    let latest_block_number = web3_client
+        .get_contract_height("latestBlockNumber", contract_addr)
+        .await
+        .map_err(|e| anyhow!("get latest_block_number err: {:?}", e))?;
+
     let tx_hash = covert_to_h256(tx_hash_str)?;
     let mut rpc_client = HttpRpcClient::new(rpc_url);
-    let retrieved_block_hash = rpc_client
+    let retrieved_tx = rpc_client
         .get_transaction(tx_hash.clone())
         .map_err(|e| anyhow!("failed to get ckb tx: {}", e))?
-        .ok_or_else(|| anyhow!("Transaction {:#x} not exists", tx_hash))?
+        .ok_or_else(|| anyhow!("Transaction {:#x} not exists", tx_hash))?;
+    let retrieved_block_hash = retrieved_tx
         .tx_status
         .block_hash
         .ok_or_else(|| anyhow!("Transaction {:#x} not yet in block", tx_hash))?;
+    let tx: packed::Transaction = retrieved_tx.transaction.inner.into();
 
     let retrieved_block = rpc_client
         .get_block(retrieved_block_hash.clone())
         .map_err(|e| anyhow!("failed to get ckb block: {}", e))?
         .ok_or_else(|| anyhow!("block is none"))?;
+    let block_number = retrieved_block.header.inner.number;
 
     let tx_index = get_tx_index(&tx_hash, &retrieved_block)
         .ok_or_else(|| anyhow!("tx_hash not in retrieved_block"))? as u32;
@@ -353,11 +384,8 @@ pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof>
     )
     .ok_or_else(|| anyhow!("build proof with verified inputs should be OK"))?;
 
-    // tx_merkle_index means the tx index in transactions merkle tree of the block
-    Ok(CkbTxProof {
-        block_hash: retrieved_block_hash,
-        block_number: retrieved_block.header.inner.number,
-        tx_hash,
+    let tx_proof = CKBHistoryTxProof {
+        block_number,
         tx_merkle_index: (tx_index + tx_num as u32 - 1) as u16,
         witnesses_root: calc_witnesses_root(retrieved_block.transactions).unpack(),
         lemmas: proof
@@ -365,7 +393,26 @@ pub fn parse_ckb_proof(tx_hash_str: &str, rpc_url: String) -> Result<CkbTxProof>
             .iter()
             .map(|lemma| Unpack::<H256>::unpack(lemma))
             .collect(),
-    })
+        raw_transaction: tx.raw().as_bytes(),
+    };
+    let history_tx_root_proof = generate_ckb_history_tx_root_proof(
+        init_block_number,
+        latest_block_number,
+        vec![block_number],
+        ckb_db_path,
+    )?;
+    let new_latest_block_number = web3_client
+        .get_contract_height("latestBlockNumber", contract_addr)
+        .await
+        .map_err(|e| anyhow!("get latest_block_number err: {:?}", e))?;
+    if latest_block_number != new_latest_block_number {
+        return Err(anyhow!("ckb light client latest_block_number changed"));
+    }
+    let proof = CKBUnlockTokenParam {
+        history_tx_root_proof,
+        tx_proofs: vec![tx_proof],
+    };
+    Ok(proof)
 }
 
 pub fn get_tx_index(tx_hash: &H256, block: &BlockView) -> Option<usize> {
@@ -477,12 +524,12 @@ pub async fn get_balance(
 pub fn get_msg_hash(
     chain_id: U256,
     contract_addr: H160,
-    headers_data: Vec<Token>,
+    init_block_number: u64,
+    latest_block_number: u64,
+    history_tx_root: [u8; 32],
 ) -> Result<[u8; 32]> {
     let ckb_light_client_name = "Force Bridge CKBChain";
     let vesion = "1";
-    let add_headers_func_name = "AddHeaders(bytes[] tinyHeaders)";
-    let pack_number = 1901;
     let eip712_domain =
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
 
@@ -496,18 +543,20 @@ pub fn get_msg_hash(
 
     let domain_separator = keccak256(domain_data.as_slice());
 
-    let add_headers_type_hash = keccak256(add_headers_func_name.as_bytes());
+    let add_headers_type_hash =
+        hex::decode("0eeee1be1069b2c737b19f6c3510ceeed099af9ee1f5985109f117ce0524ca10")?;
     let msg = ethabi::encode(&[
-        Token::FixedBytes(Vec::from(add_headers_type_hash)),
-        Token::Array(headers_data),
+        Token::FixedBytes(add_headers_type_hash),
+        Token::Uint(init_block_number.into()),
+        Token::Uint(latest_block_number.into()),
+        Token::FixedBytes(history_tx_root.to_vec()),
     ]);
 
     let msg_data_hash = keccak256(&msg);
 
     info!("msg_data_hash {:?}  \n", hex::encode(msg_data_hash));
     let data = format!(
-        "{}{}{}",
-        pack_number,
+        "1901{}{}",
         hex::encode(domain_separator),
         hex::encode(msg_data_hash)
     );
@@ -528,4 +577,63 @@ pub fn get_msg_signature(msg_hash: &[u8], eth_key: SecretKey) -> Result<Vec<u8>>
     let mut signature = sig_bytes.to_vec();
     signature.push(sig_v as u8);
     Ok(signature)
+}
+
+pub fn generate_ckb_history_tx_root_proof(
+    init_block_number: u64,
+    latest_block_number: u64,
+    block_numbers: Vec<u64>,
+    ckb_db_path: String,
+) -> Result<CKBHistoryTxRootProof> {
+    let mut tx_roots_indices: Vec<u32> = vec![];
+    let mut proof_leaves: Vec<H256> = vec![];
+
+    let db = open_readonly_rocksdb(ckb_db_path);
+    let mut all_tx_roots = vec![];
+    for number in init_block_number..=latest_block_number {
+        let db_root = db
+            .get(number.to_le_bytes())
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("db ckb root should not be none"))?;
+        let mut db_root_raw = [0u8; 32];
+        db_root_raw.copy_from_slice(db_root.as_ref());
+        all_tx_roots.push(db_root_raw);
+    }
+
+    for number in block_numbers {
+        if number < init_block_number || number > latest_block_number {
+            return Err(anyhow!(
+                "block number {} not yet between init_block_number {} and latest_block_number {}",
+                number,
+                init_block_number,
+                latest_block_number
+            ));
+        }
+
+        let index = (number - init_block_number) as u32;
+        tx_roots_indices.push(index);
+        proof_leaves.push(all_tx_roots[index as usize].clone().into())
+    }
+
+    let tx_roots_num = latest_block_number - init_block_number + 1;
+    // dbg!(format!("{:#x}", retrieved_block_hash));
+    dbg!(format!("tx_roots_num: {}", tx_roots_num));
+
+    let proof = CKB_CBMT::build_merkle_proof(
+        &all_tx_roots,
+        &tx_roots_indices.into_iter().collect::<Vec<_>>(),
+    )
+    .ok_or_else(|| anyhow!("build proof with verified inputs should be OK"))?;
+
+    let mut indices = proof.indices().to_vec();
+    indices.sort_by(|a, b| b.cmp(a));
+    proof_leaves.reverse();
+
+    Ok(CKBHistoryTxRootProof {
+        init_block_number,
+        latest_block_number,
+        indices: indices.iter().map(|i| *i as u64).collect(),
+        proof_leaves,
+        lemmas: proof.lemmas().iter().map(|&p| p.into()).collect(),
+    })
 }

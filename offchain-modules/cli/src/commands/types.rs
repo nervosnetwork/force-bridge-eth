@@ -54,6 +54,8 @@ pub struct CreateBridgeCellArgs {
     pub bridge_fee: u128,
     #[clap(short = 's', long)]
     pub simple_typescript: bool,
+    #[clap(long)]
+    pub force_create: bool,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -92,6 +94,10 @@ pub struct InitConfigArgs {
     pub ckb_indexer_url: String,
     #[clap(long, default_value = "http://127.0.0.1:8545")]
     pub ethereum_rpc_url: String,
+    #[clap(long, default_value = "~/.force-bridge/eth-rocksdb")]
+    pub eth_rocksdb_path: String,
+    #[clap(long, default_value = "~/.force-bridge/ckb-rocksdb")]
+    pub ckb_rocksdb_path: String,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -280,9 +286,7 @@ pub struct UnlockArgs {
     #[clap(short, long)]
     pub to: String,
     #[clap(long)]
-    pub tx_proof: String,
-    #[clap(long)]
-    pub tx_info: String,
+    pub proof: String,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
     #[clap(long)]
@@ -299,6 +303,8 @@ pub struct EthRelayArgs {
     pub private_key_path: String,
     #[clap(long)]
     pub multisig_privkeys: Vec<String>,
+    #[clap(long, default_value = "15")]
+    pub confirm: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -317,6 +323,8 @@ pub struct CkbRelayArgs {
     pub gas_price: u64,
     #[clap(long)]
     pub mutlisig_privkeys: Vec<String>,
+    #[clap(long, default_value = "15")]
+    pub confirm: u64,
 }
 
 #[derive(Clap, Clone, Debug)]

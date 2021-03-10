@@ -62,10 +62,7 @@ fn calc_eth_bridge_lock_hash(
         )
         .build();
 
-    let mut bytes_vec = vec![];
-    for item in args.as_slice().iter() {
-        bytes_vec.push(Byte::new(*item));
-    }
+    let bytes_vec = args.as_slice().iter().map(|b| Byte::new(*b)).collect();
 
     let eth_bridge_lockscript = Script::new_builder()
         .code_hash(
