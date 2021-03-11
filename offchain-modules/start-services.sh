@@ -76,6 +76,7 @@ else
   ${FORCE_CLI} eth-relay --network "${FORCE_NETWORK}" -k 1 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 fi
 
+sleep 10
 start_mysql
 sleep 10
 start_indexer

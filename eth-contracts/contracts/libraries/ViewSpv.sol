@@ -18,7 +18,7 @@ library ViewSpv {
         CKBUnlockTokenParam,
         CKBHistoryTxRootProof,
         CKBHistoryTxProof,
-        CKBHistoryTxProofVec, 
+        CKBHistoryTxProofVec,
 
         // ckb tx
         RawTx,
@@ -38,7 +38,7 @@ library ViewSpv {
         memView.assertType(uint40(t));
         _;
     }
-    
+
     // @notice         Index a H256 array.
     // @dev            Errors on overruns
     // @param _arr     The H256 array
@@ -77,7 +77,7 @@ library ViewSpv {
     }
 
     function rawTransaction(bytes29 _input) internal pure typeAssert(_input, SpvTypes.CKBHistoryTxProof) returns (bytes29) {
-        uint256 startIndex = _input.indexLEUint(20, 4);
+        uint256 startIndex = _input.indexLEUint(20, 4) + 4;
         uint256 inputLength = _input.len();
         return _input.slice(startIndex, inputLength - startIndex, uint40(SpvTypes.RawTx));
     }
@@ -143,7 +143,7 @@ library ViewSpv {
             return _input.slice(start, end - start, uint40(SpvTypes.CKBHistoryTxProof));
         }
     }
-    
+
     // ckb tx view
     function outputs(bytes29 _input) internal pure typeAssert(_input, SpvTypes.RawTx) returns (bytes29) {
         uint256 startIndex = _input.indexLEUint(20, 4);
