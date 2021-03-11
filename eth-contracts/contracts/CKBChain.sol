@@ -6,11 +6,12 @@ import {TypedMemView} from "./libraries/TypedMemView.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
+import {EIP712} from "./libraries/EIP712.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "./test/console.sol";
 
-contract CKBChain is ICKBSpv {
+contract CKBChain is ICKBSpv, EIP712 {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
@@ -23,7 +24,6 @@ contract CKBChain is ICKBSpv {
     uint public constant SIGNATURE_SIZE = 65;
     uint public constant VALIDATORS_SIZE_LIMIT = 20;
     string public constant NAME_712 = "Force Bridge CKBChain";
-    bytes32 public DOMAIN_SEPARATOR;
     // if the number of verified signatures has reached `multisigThreshold_`, validators approve the tx
     uint public multisigThreshold_;
     address[] validators_;
@@ -102,27 +102,14 @@ contract CKBChain is ICKBSpv {
         require(verifiedNum >= threshold, "signatures not verified");
     }
 
+    constructor() EIP712(NAME_712, "1") {}
+
     function initialize(
         address[] memory validators,
         uint multisigThreshold
     ) public {
         require(!initialized, "Contract instance has already been initialized");
         initialized = true;
-
-        // set DOMAIN_SEPARATOR
-        uint chainId;
-        assembly {
-            chainId := chainid()
-        }
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes(NAME_712)),
-                keccak256(bytes("1")),
-                chainId,
-                address(this)
-            )
-        );
 
         // set validators
         require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
@@ -139,7 +126,7 @@ contract CKBChain is ICKBSpv {
         bytes32 msgHash = keccak256(
             abi.encodePacked(
                 "\x19\x01", // solium-disable-line
-                DOMAIN_SEPARATOR,
+                _domainSeparatorV4(),
                 keccak256(abi.encode(ADD_HISTORY_TX_ROOT_TYPEHASH, _initBlockNumber, _latestBlockNumber, _historyTxRoot))
             )
         );
@@ -157,5 +144,9 @@ contract CKBChain is ICKBSpv {
 
     function getHistoryTxRootInfo() override external view returns (uint64, uint64, bytes32) {
         return (initBlockNumber, latestBlockNumber, historyTxRoot);
+    }
+
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _domainSeparatorV4();
     }
 }
