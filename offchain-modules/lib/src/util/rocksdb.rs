@@ -1,7 +1,7 @@
 use force_eth_types::hasher::Blake2bHasher;
 use rocksdb::ops::{Delete, Get, Open, WriteOps};
 use rocksdb::{ReadOnlyDB, WriteBatch, DB};
-use serde::export::{Clone, Into};
+// use serde::export::{Clone, Into};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sparse_merkle_tree::error::Error;
 use sparse_merkle_tree::traits::{Store, Value};
