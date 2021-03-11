@@ -37,6 +37,7 @@ pub struct CKBRelayer {
     pub last_burn_tx_height: u64,
     pub last_submit_height: u64,
     pub waiting_burn_txs_count: u64,
+    pub confirm: u64,
 }
 
 impl CKBRelayer {
@@ -46,6 +47,7 @@ impl CKBRelayer {
         priv_key_path: String,
         multisig_privkeys: Vec<String>,
         gas_price: u64,
+        confirm: u64,
     ) -> Result<CKBRelayer> {
         let force_config = ForceConfig::new(config_path.as_str())?;
         let deployed_contracts = force_config
@@ -109,6 +111,7 @@ impl CKBRelayer {
             ckb_client,
             web3_client,
             gas_price,
+            confirm,
             network: net,
             multisig_privkeys: multisig_privkeys
                 .iter()
@@ -124,12 +127,20 @@ impl CKBRelayer {
             .get_tip_block_number()
             .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
 
-        self.stroe_history_transaction_root(
+        self.store_history_transaction_root(
             self.ckb_init_height,
             ckb_current_height,
             self.db_path.clone(),
         )?;
 
+        if ckb_current_height <= self.confirm {
+            info!(
+                "ckb_current_height {:?} not reach confirm: {:?}",
+                ckb_current_height, self.confirm
+            );
+            return Ok(());
+        }
+        let confirmed_height = ckb_current_height - self.confirm;
         let waiting_blocks = match self.network.as_str() {
             "mainnet" => MAINNET_CKB_WAITING_BLOCKS,
             _ => TESTNET_CKB_WAITING_BLOCKS,
@@ -137,20 +148,20 @@ impl CKBRelayer {
         // usually relay every 5000 blocks
         // 20 burn txs will trigger relay
         // burn txs can not wait over 100 blocks
-        if ckb_current_height - self.last_submit_height > waiting_blocks
+        if confirmed_height - self.last_submit_height > waiting_blocks
             || (self.waiting_burn_txs_count >= BURN_TX_MAX_NUM
-                && ckb_current_height > self.last_burn_tx_height)
-            || (ckb_current_height - self.last_burn_tx_height > BURN_TX_MAX_WAITING_BLOCKS
+                && confirmed_height >= self.last_burn_tx_height)
+            || (confirmed_height - self.last_burn_tx_height > BURN_TX_MAX_WAITING_BLOCKS
                 && self.waiting_burn_txs_count > 0)
         {
             let merkle_root = self.get_history_merkle_root(
                 self.ckb_init_height,
-                ckb_current_height,
+                confirmed_height,
                 self.db_path.clone(),
             )?;
             let nonce = self.web3_client.get_eth_nonce(&self.priv_key).await?;
             let sign_tx = self
-                .relay_headers(self.ckb_init_height, ckb_current_height, merkle_root, nonce)
+                .relay_headers(self.ckb_init_height, confirmed_height, merkle_root, nonce)
                 .await?;
             let task_future = relay_header_transaction(self.eth_rpc_url.clone(), sign_tx);
             let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(1800));
@@ -161,7 +172,7 @@ impl CKBRelayer {
                     bail!("relay headers timeout");
                 }
             }
-            self.last_submit_height = ckb_current_height;
+            self.last_submit_height = confirmed_height;
             self.waiting_burn_txs_count = 0;
             info!("relay headers time elapsed: {:?}", now.elapsed());
         }
@@ -285,7 +296,7 @@ impl CKBRelayer {
         Ok(CBMT::build_merkle_root(&all_tx_roots))
     }
 
-    pub fn stroe_history_transaction_root(
+    pub fn store_history_transaction_root(
         &mut self,
         start_height: u64,
         latest_height: u64,
