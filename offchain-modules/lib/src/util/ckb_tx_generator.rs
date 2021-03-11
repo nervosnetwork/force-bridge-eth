@@ -33,7 +33,6 @@ use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
 use log::info;
 use rand::Rng;
 use secp256k1::SecretKey;
-use serde::export::Clone;
 use shellexpand::tilde;
 use std::collections::HashMap;
 use std::convert::TryFrom;
