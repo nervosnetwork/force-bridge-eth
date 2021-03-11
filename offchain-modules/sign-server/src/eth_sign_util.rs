@@ -1,5 +1,8 @@
 use anyhow::Result;
 use secp256k1::{Message, Secp256k1, SecretKey};
+use web3::transports::Http;
+use web3::types::{Block, BlockId, H256};
+use web3::Web3;
 
 pub fn get_secret_key(path: &str) -> Result<secp256k1::SecretKey> {
     let content = std::fs::read_to_string(path)?;
@@ -31,5 +34,35 @@ pub fn clear_0x(s: &str) -> &str {
         &s[2..]
     } else {
         s
+    }
+}
+
+pub struct Web3Client {
+    url: String,
+    client: Web3<Http>,
+}
+
+impl Web3Client {
+    pub fn new(url: String) -> Web3Client {
+        let client = {
+            let transport = web3::transports::Http::new(url.as_str()).expect("new transport");
+            web3::Web3::new(transport)
+        };
+        Web3Client { url, client }
+    }
+
+    // pub fn url(&self) -> &str {
+    //     self.url.as_str()
+    // }
+    // pub fn client(&mut self) -> &mut Web3<Http> {
+    //     &mut self.client
+    // }
+
+    pub async fn get_block(&mut self, hash_or_number: BlockId) -> Result<Block<H256>> {
+        let block = self.client.eth().block(hash_or_number).await?;
+        match block {
+            Some(block) => Ok(block),
+            None => anyhow::bail!("the block is not exist."),
+        }
     }
 }

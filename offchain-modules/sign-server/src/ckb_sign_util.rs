@@ -5,7 +5,9 @@ use ckb_sdk::constants::{MULTISIG_TYPE_HASH, SECP_SIGNATURE_SIZE, SIGHASH_TYPE_H
 use ckb_sdk::{Address, AddressPayload, HttpRpcClient, MultisigConfig, SECP256K1};
 use ckb_types::bytes::{Bytes, BytesMut};
 use ckb_types::core::{ScriptHashType, TransactionBuilder, TransactionView};
-use ckb_types::packed::{Byte32, CellOutput, OutPoint, Script, Transaction, WitnessArgs};
+use ckb_types::packed::{
+    Byte32, CellOutput, OutPoint, Script, ScriptReader, Transaction, WitnessArgs,
+};
 use ckb_types::prelude::*;
 use ckb_types::{h256, packed, H160, H256};
 use force_eth_types::generated::eth_header_cell::ETHHeaderCellMerkleDataReader;
@@ -370,4 +372,12 @@ pub fn to_multisig_congif(conf: &MultisigConf) -> Result<MultisigConfig> {
         MultisigConfig::new_with(sighash_addresses, conf.require_first_n, conf.threshold)
             .map_err(|err| anyhow!(err))?;
     Ok(multisig_config)
+}
+
+pub fn parse_cell(cell: &str) -> Result<Script> {
+    let cell_bytes =
+        hex::decode(cell).map_err(|e| anyhow!("cell shoule be hex format, err: {}", e))?;
+    ScriptReader::verify(&cell_bytes, false).map_err(|e| anyhow!("cell decoding err: {}", e))?;
+    let cell_typescript = Script::new_unchecked(cell_bytes.into());
+    Ok(cell_typescript)
 }
