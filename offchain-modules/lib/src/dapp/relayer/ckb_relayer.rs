@@ -1,4 +1,4 @@
-use crate::transfer::to_eth::unlock;
+use crate::transfer::to_eth::{get_ckb_proof_info, unlock};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
 use anyhow::{anyhow, Result};
@@ -15,13 +15,15 @@ use tokio::time::Duration;
 pub struct UnlockTask {
     pub id: u32,
     pub ckb_burn_tx_hash: String,
-    pub ckb_spv_proof: String,
+    // pub ckb_spv_proof: String,
     pub ckb_raw_tx: String,
 }
 
 pub struct CkbTxRelay {
     eth_token_locker_addr: String,
     ethereum_rpc_url: String,
+    ckb_rpc_url: String,
+    rocksdb_path: String,
     eth_private_key: H256,
     web3_client: Web3Client,
     contract_addr: H160,
@@ -35,6 +37,7 @@ impl CkbTxRelay {
         network: Option<String>,
         db_path: String,
         private_key_path: String,
+        rocksdb_path: String,
     ) -> Result<CkbTxRelay> {
         let force_config = ForceConfig::new(&config_path)?;
         let deployed_contracts = force_config
@@ -48,12 +51,15 @@ impl CkbTxRelay {
         let contract_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr.clone())?;
         let token_locker_addr = convert_eth_address(&eth_token_locker_addr)?;
         let mut web3_client = Web3Client::new(ethereum_rpc_url.clone());
+        let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let confirm_num = web3_client
             .get_locker_contract_confirm("numConfirmations_", token_locker_addr)
             .await?;
         Ok(CkbTxRelay {
             eth_token_locker_addr,
             ethereum_rpc_url,
+            ckb_rpc_url,
+            rocksdb_path,
             eth_private_key,
             web3_client,
             contract_addr,
@@ -83,12 +89,19 @@ impl CkbTxRelay {
             .await?;
         for (i, tx_record) in unlock_tasks.iter().enumerate() {
             info!("burn tx wait to unlock: {:?} ", tx_record.ckb_burn_tx_hash);
+            let proof_info = get_ckb_proof_info(
+                &tx_record.ckb_burn_tx_hash,
+                self.ckb_rpc_url.clone(),
+                String::from(self.web3_client.url()),
+                self.contract_addr,
+                self.rocksdb_path.clone(),
+            )
+            .await?;
             unlock_futures.push(unlock(
                 self.eth_private_key,
                 self.ethereum_rpc_url.clone(),
                 self.eth_token_locker_addr.clone(),
-                tx_record.ckb_spv_proof.clone(),
-                tx_record.ckb_raw_tx.clone(),
+                proof_info,
                 0,
                 nonce.add(i),
                 true,
@@ -125,7 +138,7 @@ pub async fn get_unlock_tasks(
     height: u64,
 ) -> Result<Vec<UnlockTask>> {
     let sql = r#"
-SELECT id, ckb_burn_tx_hash, ckb_spv_proof, ckb_raw_tx
+SELECT id, ckb_burn_tx_hash, ckb_raw_tx
 FROM ckb_to_eth
 WHERE status = 'pending' AND ckb_block_number + ? < ?
     "#;

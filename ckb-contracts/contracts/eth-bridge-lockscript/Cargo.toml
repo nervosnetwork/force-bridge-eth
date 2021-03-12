@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 eth-bridge-lockscript-lib = { path = "../../lib/eth-bridge-lockscript-lib", default_features = false }
-ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
+ckb-std = "0.7.2"
 contracts-helper = { path = "../../contracts-helper", default_features = false }
 
 [profile.release]

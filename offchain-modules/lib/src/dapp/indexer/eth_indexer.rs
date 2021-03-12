@@ -8,9 +8,10 @@ use crate::dapp::db::indexer::{
 };
 use crate::dapp::indexer::IndexerFilter;
 use crate::transfer::to_ckb::to_eth_spv_proof_json;
-use crate::util::ckb_util::{clear_0x, parse_cell, parse_main_chain_headers};
+use crate::util::ckb_util::{clear_0x, parse_cell, parse_merkle_cell_data};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_hex_to_h256, Web3Client};
+use crate::util::generated::ckb_tx_proof::CKBUnlockTokenParamReader;
 use anyhow::{anyhow, Result};
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types::Uint128;
@@ -18,6 +19,7 @@ use ethabi::{Function, Param, ParamType};
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use log::info;
+use molecule::prelude::Reader;
 use rusty_receipt_proof_maker::types::UnlockEvent;
 use rusty_receipt_proof_maker::{
     generate_eth_proof, parse_event, parse_unlock_event, types::EthSpvProof,
@@ -26,7 +28,7 @@ use shellexpand::tilde;
 use sqlx::MySqlPool;
 use web3::types::{Block, H256, U64};
 
-pub const ETH_CHAIN_CONFIRMED: usize = 15;
+pub const ETH_CHAIN_CONFIRMED: usize = 100;
 
 pub struct EthIndexer<T> {
     pub config_path: String,
@@ -76,12 +78,14 @@ impl<T: IndexerFilter> EthIndexer<T> {
             .ok_or_else(|| anyhow!("the cell is not exist"))?;
         let ckb_cell_data = cell.output_data.as_bytes().to_vec();
         if !ckb_cell_data.is_empty() {
-            let (un_confirmed_headers, _) = parse_main_chain_headers(ckb_cell_data)?;
-            let best_block_height = un_confirmed_headers[un_confirmed_headers.len() - 1]
-                .number
-                .ok_or_else(|| anyhow!("the number is not exist"))?
-                .as_u64();
-            return Ok(best_block_height);
+            let (start_height, latest_height, _) = parse_merkle_cell_data(ckb_cell_data.to_vec())?;
+            log::info!(
+                "get_light_client_height start_height: {:?}, latest_height: {:?}",
+                start_height,
+                latest_height
+            );
+
+            return Ok(latest_height);
         }
         anyhow::bail!("waiting for the block confirmed!")
     }
@@ -106,12 +110,14 @@ impl<T: IndexerFilter> EthIndexer<T> {
         let mut height_info = get_height_info(&self.db, 1 as u8).await?;
         if height_info.height == 0 {
             // height info init.
+            log::info!("init cross chain height info.");
             height_info.height = self.get_light_client_height_with_loop().await;
         }
         let mut start_block_number = height_info.height + 1;
         let mut unconfirmed_blocks = get_eth_unconfirmed_blocks(&self.db).await?;
         if unconfirmed_blocks.is_empty() {
             // init unconfirmed_blocks
+            log::info!("init eth unconfirmed blocks.");
             self.init_eth_unconfirmed_blocks(&mut unconfirmed_blocks, start_block_number)
                 .await?;
         }
@@ -161,6 +167,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                         (unconfirmed_blocks.len() - 1) as isize,
                     )
                     .await?;
+                log::info!("find the common ancestor block: {:?}", block);
                 start_block_number = block
                     .number
                     .ok_or_else(|| anyhow!("invalid block number"))?
@@ -402,6 +409,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             };
             records.push(record);
         }
+        info!("handle lock event. records: {:?}", records);
         Ok(())
     }
 
@@ -485,24 +493,27 @@ impl<T: IndexerFilter> EthIndexer<T> {
             let input = tx.unwrap().input;
             let function = Function {
                 name: "unlockToken".to_owned(),
-                inputs: vec![
-                    Param {
-                        name: "ckbTxProof".to_owned(),
-                        kind: ParamType::Bytes,
-                    },
-                    Param {
-                        name: "ckbTx".to_owned(),
-                        kind: ParamType::Bytes,
-                    },
-                ],
+                inputs: vec![Param {
+                    name: "proof".to_owned(),
+                    kind: ParamType::Bytes,
+                }],
                 outputs: vec![],
                 constant: false,
             };
+            info!("input: {:?}", hex::encode(input.0.clone()));
             let input_data = function.decode_input(input.0[4..].as_ref())?;
-            let ckb_tx = input_data[1].clone();
-            let tx_raw = &ckb_tx.to_bytes();
-            if tx_raw.is_some() {
-                let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
+            let ckb_tx_proof_token = input_data[0].clone();
+            let ckb_tx_proof_raw = ckb_tx_proof_token.to_bytes();
+            if let Some(ckb_tx_proof_raw) = ckb_tx_proof_raw {
+                let raw_data = &ckb_tx_proof_raw;
+                CKBUnlockTokenParamReader::verify(raw_data, false).map_err(|err| anyhow!(err))?;
+                let ckb_tx_proof_reader = CKBUnlockTokenParamReader::new_unchecked(raw_data);
+                let ckb_tx_proof_vec = ckb_tx_proof_reader.tx_proofs();
+                let raw_tx = ckb_tx_proof_vec
+                    .get_unchecked(0)
+                    .raw_transaction()
+                    .raw_data();
+                let ckb_tx_hash = blake2b_256(raw_tx);
                 let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
                 if !is_ckb_to_eth_record_exist(&self.db, ckb_tx_hash_str.as_str()).await? {
                     info!("the burn tx is not exist. waiting for ckb indexer reach sync status.");
@@ -517,6 +528,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 ));
             }
         }
+        info!("handle lock event. unlock_datas: {:?}", unlock_datas);
         Ok(())
     }
 
@@ -556,32 +568,36 @@ impl<T: IndexerFilter> EthIndexer<T> {
 
 #[test]
 fn test_decode() {
-    let input = "0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000aaaa0000001c0000001e0000002600000046000000660000008600000002003d0000000000000087665cdcc219b392791360a8077fb12e37a43554434f1694026a2ad4ecae078ea4f6038b2f6b634d0aa46cd45be2880cf89153f7866aa7e857f91e4f60da69e584635bda360a131d909a63dd21b4ff2f757edcfbb0e43748520959c37aac910b01000000404bb346c38c5efb4471763d1c7771085bea1c3bd4d9d8509d8f692f8e43e80600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000039d9d0300001c00000020000000b8000000bc00000018010000d50200000000000004000000e287ea8bc97eceaf3420e780b7341c739128da626b1d4158923820727ada5e7a0000000000e287ea8bc97eceaf3420e780b7341c739128da626b1d4158923820727ada5e7a0200000000e287ea8bc97eceaf3420e780b7341c739128da626b1d4158923820727ada5e7a0400000000a777fd1964ffa98a7b0b6c09ff71691705d84d5ed1badfb14271a3a870bdd06b000000000100000000020000000000000000000000fd6edeff40306873d838681e8020aee3ac5080c63a1235de3102767ec6a0d3750000000000000000000000005edca2d744b6eaa347de7ff0edcd2e6e88ab8f2836bcbd0df0940026956e5f810a000000bd01000010000000a60000005c0100009600000010000000180000006100000000ba1dd205000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000a4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c35000000100000003000000031000000ed0df97ea89ce848b20479194c9eb50cda612837f2db516b828ffeea61473ff30000000000b600000010000000180000006100000000c817a804000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000a4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171c55000000100000003000000031000000e1e354d6d643ad42724d40967e334984534e0367405c5ae42a9d7d63d77df4190020000000b5ff94e85f04396cf5b852446eb75d8880cad4d94a1c17d0e5cd70470e6c2ba86100000010000000180000006100000080e4c47b606dc11b490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000a4bf8e4c7f6f65f35dd3cc30c8fc45c8e99a171cc800000010000000b0000000c40000009c000000403a53a7dfa7a4ab022e53feff11232b3140407d0000000000000000000000000000000000000000cd62e77cfe0386343c15c13528675aae9925d7ae88d9ffc645fef37c2097140cdc2923726d4efe16131e76e85757b446138e39ceda6d3ad483fb11a5619e65035c3139acdb17c26e73647b7f0ac62a4036ca4e720200000000000000000000000000000001000000000000000000000000000000100000005a00000000000000000000000000000000000000000000";
+    let input = "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000577770500000c000000480100003c01000018000000200000002800000034000000580000004b00000000000000a40000000000000001000000a90000000000000001000000782d8a68f24bdc29ea9f8d4ef334391190e229c2079e6150811f81aeb8b55c0607000000c7827748235752a23cbaa0d810d3b837aa11048a8bb482c9d258de4c67ee0f663d1e5decde7ab9e16195a2aba2b071c73cd5580a0032f53b5a5a5d42d3fcfc6ddbb3dad17f27e80feb483584bdc5e20cf184ff95ec8763075d45dd5d4ba5656aa6ae6fa8a846b61b421e50ef37f272fcee11560ae0ef713c2fac84ba67b0752703609c4f2f0ffc7d718c9ba7b9acc4f0363f7f958733b255a9457b2f56b3949632adac6318e47c26f8f11790d7922bd701e8fa01fdc882d1afa2275ee1ab0857403fd148f1e598c92f68a77ba3ab4b686ec8511b44fe78fd1861b598aa0b33642f040000080000002704000018000000200000002200000042000000860000009b000000000000000300e28c25a04a8fd84706a09152b989ce4962c30e9d101857b25e2d0f883c48c032020000001162207f8e96dea1fd5f9b89fc33ba77f9762a8cb40ccad4b94a625f80bb02188c7af64779e83de233ed0f415fe77d83aa104ae9b35ee0850d0bc7be9d6af5909d0300009d0300001c00000020000000b8000000bc00000018010000d502000000000000040000001b9015427d92d2ba3986283c7f6777e63673bd9ed67dc73d4e6f607890646a0200000000001b9015427d92d2ba3986283c7f6777e63673bd9ed67dc73d4e6f607890646a0202000000001b9015427d92d2ba3986283c7f6777e63673bd9ed67dc73d4e6f607890646a020500000000a777fd1964ffa98a7b0b6c09ff71691705d84d5ed1badfb14271a3a870bdd06b0000000001000000000200000000000000000000002b67e7490b251e8c21430e4d0ab43586894baf1674dc6543ec24729bafd3b5e1000000000000000000000000979bb5b6f365dd03908d0995c2c2ed535cbf5d6effddd4a0cab3e6a0bed0b43d00000000bd01000010000000a60000005c0100009600000010000000180000006100000000ba1dd205000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000f2a237e5342a0a826326e109b630609456d83c7635000000100000003000000031000000ad5d462324bfc392652ffe2e9cccdfa9ed9f967559acd3883d533e11ff7e5a590000000000b600000010000000180000006100000000c817a804000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000f2a237e5342a0a826326e109b630609456d83c7655000000100000003000000031000000e1e354d6d643ad42724d40967e334984534e0367405c5ae42a9d7d63d77df41900200000006b3dc6dedae32451fa5024eb5e015176a46a878830e9d65cb79879033611e1ab61000000100000001800000061000000809ebde010000000490000001000000030000000310000009bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce80114000000f2a237e5342a0a826326e109b630609456d83c76c800000010000000b0000000c40000009c00000017c4b5ce0605f63732bfd175fece7ac6b4620fd2000000000000000000000000000000000000000071bb832290b2b79f50e728af846ea9af0fc15a5364fbfb7225e76ca26155b9ec2cbcb6e25c5d49991343ed1ab1536f1b0d429d72ff63902f8814169b4a3fd8850b9c0bca06c21fe6664cc872c604bede1d633535020000000000000000000000000000000100000000000000000000000000000010000000fe7fb7952f5feb0d000000000000000000000000000000000000000000";
     let input_bin = hex::decode(input).unwrap();
     let function = Function {
         name: "unlockToken".to_owned(),
-        inputs: vec![
-            Param {
-                name: "ckbTxProof".to_owned(),
-                kind: ParamType::Bytes,
-            },
-            Param {
-                name: "ckbTx".to_owned(),
-                kind: ParamType::Bytes,
-            },
-        ],
+        inputs: vec![Param {
+            name: "proof".to_owned(),
+            kind: ParamType::Bytes,
+        }],
         outputs: vec![],
         constant: false,
     };
     let input_data = function.decode_input(input_bin.as_slice()).unwrap();
-    let ckb_tx = input_data[1].clone();
-    let tx_raw = &ckb_tx.to_bytes();
-    if tx_raw.is_some() {
-        let ckb_tx_hash = blake2b_256(tx_raw.as_ref().unwrap().as_slice());
-        let hash = hex::encode(ckb_tx_hash);
+    let ckb_tx_proof_token = input_data[0].clone();
+    let ckb_tx_proof_raw = ckb_tx_proof_token.to_bytes();
+    if let Some(ckb_tx_proof_raw) = ckb_tx_proof_raw {
+        let raw_data = &ckb_tx_proof_raw;
+        CKBUnlockTokenParamReader::verify(raw_data, false)
+            .map_err(|err| anyhow!(err))
+            .unwrap();
+        let ckb_tx_proof_reader = CKBUnlockTokenParamReader::new_unchecked(raw_data);
+        let ckb_tx_proof_vec = ckb_tx_proof_reader.tx_proofs();
+        let raw_tx = ckb_tx_proof_vec
+            .get_unchecked(0)
+            .raw_transaction()
+            .raw_data();
+        let ckb_tx_hash = blake2b_256(raw_tx);
+        let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
         assert_eq!(
-            hash,
-            "a4f6038b2f6b634d0aa46cd45be2880cf89153f7866aa7e857f91e4f60da69e5"
-        )
+            ckb_tx_hash_str,
+            "406aed83854743378b9b5a6809be9b28e8eb54035a1ab622fb00ce8b7b9e8548"
+        );
     }
 }

@@ -6,6 +6,9 @@ set -o xtrace
 export RUST_BACKTRACE=1
 export RUST_LOG=info,force=debug
 
+# install pm2
+#sudo npm i pm2 -g
+
 # project root directory
 PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 FORCE_CLI=${PROJECT_DIR}/offchain-modules/target/debug/force-eth-cli
@@ -79,6 +82,19 @@ start_tx_relay(){
   ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > ${FORCE_LOG_PATH}/eth-tx-relayer.log 2>&1 &
 }
 
+#start_server(){
+#  cd ${OFFCHAIN}
+#  pm2 start --name force-server "${FORCE_CLI} dapp server  --ckb-private-key-path ${CKB_MINT_PRIVKY}  --listen-url 0.0.0.0:3003 --db-path ${DB_PATH}"
+#}
+#
+#start_tx_relay(){
+#  cd ${OFFCHAIN}
+#  pm2 start --name ckb-indexer "${FORCE_CLI} dapp ckb-indexer --db-path ${DB_PATH}"
+#  pm2 start --name eth-indexer "${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH}"
+#  pm2 start --name ckb-tx-relayer "${FORCE_CLI} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY}"
+#  pm2 start --name eth-tx-relayer "${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} "
+#}
+
 start_header_relay(){
   pm2 start --name ckb-header-relay "${FORCE_CLI} ckb-relay -k ${HEADER_RELAY_PRIVKEY} --per-amount 10  --max-tx-count 10 --mutlisig-privkeys  0"
   pm2 start --name eth-header-relay "${FORCE_CLI} eth-relay -k ${HEADER_RELAY_PRIVKEY} --multisig-privkeys 1"
@@ -92,8 +108,8 @@ stress_test(){
 }
 
 #stop_mysql
-start_mysql
-sleep 10
+#start_mysql
+#sleep 10
 #stop_service
 #start_header_relay
 start_server

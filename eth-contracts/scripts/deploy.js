@@ -1,12 +1,24 @@
 const fs = require('fs');
 const TOML = require('@iarna/toml');
 const EthUtil = require('ethereumjs-util');
-const {
-  deployUpgradableContractFirstTimeByWallet,
-  ckbBlake2b,
-} = require('../test/utils');
+const { upgrades } = require('hardhat');
+const { sleep, ckbBlake2b, log } = require('../test/utils');
 
 async function main() {
+  const retryTimes = 20;
+  for (let i = 0; i < retryTimes; i++) {
+    try {
+      await deploy();
+      log(`deploy success!`);
+      break;
+    } catch (e) {
+      log(e);
+      log('retry deploy times: ', i);
+    }
+  }
+}
+
+async function deploy() {
   // get force config
   const forceConfigPath = process.env.FORCE_CONFIG_PATH;
   const network = process.env.FORCE_NETWORK;
@@ -34,14 +46,16 @@ async function main() {
   let lightClientTypescriptHash = ckbBlake2b(
     deployedContracts.light_client_cell_script.cell_script
   );
+  console.error(`lightClientTypescriptHash: `, lightClientTypescriptHash);
 
   const wallet = new ethers.Wallet(
     '0x' + network_config.ethereum_private_keys[0],
     provider
   );
   const adminAddress = wallet.address;
+  console.error(`adminAddress : `, adminAddress);
 
-  // deploy ckbChainV2
+  // deploy ckbChain
   const validators = network_config.ethereum_private_keys
     .slice(0, 2)
     .map((privateKey) => {
@@ -54,40 +68,54 @@ async function main() {
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);
 
-  // deploy CKBChainV2
-  const canonicalGcThreshold = 40000;
-  let CKBChainV2 = await deployUpgradableContractFirstTimeByWallet(
-    wallet,
-    'contracts/CKBChainV2Storage.sol:CKBChainV2Storage',
-    'contracts/CKBChainV2Logic.sol:CKBChainV2Logic',
-    adminAddress,
-    canonicalGcThreshold,
-    validators,
-    multisigThreshold
+  let factory = await ethers.getContractFactory(
+    'contracts/CKBChain.sol:CKBChain'
   );
-  const ckbChainV2Addr = CKBChainV2.address;
+  let CKBChain = await upgrades.deployProxy(
+    factory,
+    [validators, multisigThreshold],
+    {
+      initializer: 'initialize',
+      unsafeAllowCustomTypes: true,
+      unsafeAllowLinkedLibraries: true,
+    }
+  );
+  const CKBChainAddr = CKBChain.address;
+  console.error('CKBChain address: ', CKBChainAddr);
+  const waitingSeconds = 20;
+  console.error(`waiting ${waitingSeconds} seconds`);
+  await sleep(waitingSeconds);
 
   // deploy TokenLocker
-  const numConfirmations = 10;
-  const locker = await deployUpgradableContractFirstTimeByWallet(
-    wallet,
-    'contracts/TokenLockerStorage.sol:TokenLockerStorage',
-    'contracts/TokenLockerLogic.sol:TokenLockerLogic',
-    adminAddress,
-    ckbChainV2Addr,
-    numConfirmations,
-    '0x' + recipient_typescript_code_hash,
-    recipientCellTypescriptHashType,
-    lightClientTypescriptHash,
-    '0x' + bridge_lockscript_code_hash
+  const numConfirmations = 0;
+  factory = await ethers.getContractFactory(
+    'contracts/TokenLocker.sol:TokenLocker'
+  );
+  const locker = await upgrades.deployProxy(
+    factory,
+    [
+      CKBChainAddr,
+      numConfirmations,
+      '0x' + recipient_typescript_code_hash,
+      recipientCellTypescriptHashType,
+      lightClientTypescriptHash,
+      '0x' + bridge_lockscript_code_hash,
+    ],
+    {
+      initializer: 'initialize',
+      unsafeAllowCustomTypes: true,
+      unsafeAllowLinkedLibraries: true,
+    }
   );
 
   const lockerAddr = locker.address;
   console.error('tokenLocker address: ', lockerAddr);
+  console.error(`waiting ${waitingSeconds} seconds`);
+  await sleep(waitingSeconds);
 
   // write eth address to settings
   deployedContracts.eth_token_locker_addr = lockerAddr;
-  deployedContracts.eth_ckb_chain_addr = ckbChainV2Addr;
+  deployedContracts.eth_ckb_chain_addr = CKBChainAddr;
   deployedContracts.ckb_relay_mutlisig_threshold.threshold = multisigThreshold;
   const new_config = TOML.stringify(forceConfig);
   fs.writeFileSync(forceConfigPath, new_config);

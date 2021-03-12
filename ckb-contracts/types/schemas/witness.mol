@@ -1,20 +1,53 @@
 import basic;
 
+/*
+
+MintTokenWitness fields description.
+- mode
+  - 0: mint mode, user can mint token with the proof provided
+  - others: manage mode, user can charge capacity or destroy this cell,
+            and the tx can not contains associated sudt in outputs.
+- spv_proof
+  - It is serialized bytes with molecule itself. The structure is defined in ETHSPVProof.
+- cell_dep_index_list
+  - It is a u8 array to specify the cell deps indies we used. For now it contains only 1 element, which is the index of
+    light client cell in cell deps.
+- merkle_proof
+  - It is the sparse merkle tree inclusion proof of the eth header. We only have the sparse merkle tree root in light
+    client cell. This proof proves that the header in ETHSPVProof does exist in the light client. The bytes here is
+    the [CompiledMerkleProof](https://github.com/jjyr/sparse-merkle-tree/blob/master/src/merkle_proof.rs#L297).
+
+
+ETHSPVProof fields description.
+- header_data
+  - The rlp encoded bytes of raw Ethereum header.
+- receipt_data
+  - The rlp encoded bytes of receipt data.
+- receipt_index
+  - Receipt index in the block.
+- log_index
+  - Log index of the lock event log we want.
+- proof
+  - The receipt proof that proves receipt data is valid.
+
+references:
+- https://github.com/blockchainsllc/in3-legacy/wiki/Ethereum-Verification-and-MerkleProof#receipt-proof
+- https://eth.wiki/en/fundamentals/patricia-tree
+
+*/
+
 table MintTokenWitness {
-    // unlock mode:
-    // 0: mint mode, user can mint token with the proof provided
-    // 1: manage mode, user can charge capacity or destroy this cell,
-    //    and the tx can not contains associated sudt in outputs.
     mode: byte,
     spv_proof: Bytes,
     cell_dep_index_list: Bytes,
+    merkle_proof: Bytes,
 }
 
 table ETHSPVProof {
     log_index: Uint64,
-    log_entry_data: Bytes,
     receipt_index: Uint64,
     receipt_data: Bytes,
     header_data: Bytes,
     proof: BytesVec,
 }
+

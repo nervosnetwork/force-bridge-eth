@@ -6,31 +6,63 @@ use ckb_types::{
 use serde::{Deserialize, Serialize};
 
 use crate::util::generated::ckb_tx_proof;
+use ckb_types::bytes::Bytes;
 use ckb_types::prelude::Builder;
 use molecule::prelude::Byte;
 
-// tx_merkle_index == index in transactions merkle tree of the block
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
-pub struct CkbTxProof {
-    pub tx_merkle_index: u16,
+pub struct CKBHistoryTxProof {
     pub block_number: u64,
-    pub block_hash: H256,
-    pub tx_hash: H256,
+    pub tx_merkle_index: u16,
     pub witnesses_root: H256,
+    pub lemmas: Vec<H256>,
+    pub raw_transaction: Bytes,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct CKBHistoryTxRootProof {
+    pub init_block_number: u64,
+    pub latest_block_number: u64,
+    pub indices: Vec<u64>,
+    pub proof_leaves: Vec<H256>,
     pub lemmas: Vec<H256>,
 }
 
-// CKBChain   CkbTxProof
-// TokenLocker  unlockToken( CkbTxProof, RawTransaction + funding_input_index + extra )
-impl From<CkbTxProof> for ckb_tx_proof::CkbTxProof {
-    fn from(json: CkbTxProof) -> Self {
-        let CkbTxProof {
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct CKBUnlockTokenParam {
+    pub history_tx_root_proof: CKBHistoryTxRootProof,
+    pub tx_proofs: Vec<CKBHistoryTxProof>,
+}
+
+impl From<CKBUnlockTokenParam> for ckb_tx_proof::CKBUnlockTokenParam {
+    fn from(data: CKBUnlockTokenParam) -> Self {
+        ckb_tx_proof::CKBUnlockTokenParam::new_builder()
+            .history_tx_root_proof(data.history_tx_root_proof.into())
+            .tx_proofs(data.tx_proofs.into())
+            .build()
+    }
+}
+
+impl From<CKBHistoryTxRootProof> for ckb_tx_proof::CKBHistoryTxRootProof {
+    fn from(proof: CKBHistoryTxRootProof) -> Self {
+        ckb_tx_proof::CKBHistoryTxRootProof::new_builder()
+            .latest_block_number(proof.latest_block_number.into())
+            .init_block_number(proof.init_block_number.into())
+            .indices(proof.indices.into())
+            .lemmas(proof.lemmas.into())
+            .proof_leaves(proof.proof_leaves.into())
+            .build()
+    }
+}
+
+impl From<CKBHistoryTxProof> for ckb_tx_proof::CKBHistoryTxProof {
+    fn from(json: CKBHistoryTxProof) -> Self {
+        let CKBHistoryTxProof {
             tx_merkle_index,
             block_number,
-            block_hash,
-            tx_hash,
             witnesses_root,
             lemmas,
+            raw_transaction,
         } = json;
 
         let mol_lemmas_vec: Vec<ckb_tx_proof::Byte32> = lemmas
@@ -42,13 +74,42 @@ impl From<CkbTxProof> for ckb_tx_proof::CkbTxProof {
             .set(mol_lemmas_vec)
             .build();
 
-        ckb_tx_proof::CkbTxProof::new_builder()
+        ckb_tx_proof::CKBHistoryTxProof::new_builder()
             .tx_merkle_index(tx_merkle_index.into())
             .block_number(block_number.into())
-            .block_hash(block_hash.pack().into())
-            .tx_hash(tx_hash.pack().into())
             .witnesses_root(witnesses_root.pack().into())
             .lemmas(mol_lemmas)
+            .raw_transaction(raw_transaction.pack().as_bytes().into())
+            .build()
+    }
+}
+
+impl From<Bytes> for ckb_tx_proof::Bytes {
+    fn from(b: Bytes) -> Self {
+        Self::new_unchecked(b)
+    }
+}
+
+impl From<Vec<CKBHistoryTxProof>> for ckb_tx_proof::CKBHistoryTxProofVec {
+    fn from(data: Vec<CKBHistoryTxProof>) -> Self {
+        Self::new_builder()
+            .set(data.into_iter().map(|v| v.into()).collect())
+            .build()
+    }
+}
+
+impl From<Vec<H256>> for ckb_tx_proof::Byte32Vec {
+    fn from(data: Vec<H256>) -> Self {
+        Self::new_builder()
+            .set(data.into_iter().map(|v| v.pack().into()).collect())
+            .build()
+    }
+}
+
+impl From<Vec<u64>> for ckb_tx_proof::Uint64Vec {
+    fn from(data: Vec<u64>) -> Self {
+        Self::new_builder()
+            .set(data.into_iter().map(|v| v.into()).collect())
             .build()
     }
 }

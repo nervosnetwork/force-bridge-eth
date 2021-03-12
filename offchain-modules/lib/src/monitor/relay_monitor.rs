@@ -1,6 +1,6 @@
 use crate::dapp::db::indexer::get_height_info;
 use crate::util::ckb_tx_generator::Generator;
-use crate::util::ckb_util::{get_secret_key, parse_cell, parse_main_chain_headers, parse_privkey};
+use crate::util::ckb_util::{get_secret_key, parse_cell, parse_merkle_cell_data, parse_privkey};
 use crate::util::eth_util::{convert_eth_address, secret_key_address, Web3Client};
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::{Address, AddressPayload, NetworkType};
@@ -338,16 +338,8 @@ impl RelayMonitor {
             .map_err(|e| anyhow!("get live cell fail: {}", e))?
             .ok_or_else(|| anyhow!("eth header cell not exist"))?;
 
-        let (un_confirmed_headers, _) =
-            parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
-                .map_err(|e| anyhow!("parse header data fail: {}", e))?;
-
-        let best_header = un_confirmed_headers
-            .last()
-            .ok_or_else(|| anyhow!("header is none"))?;
-        let eth_light_client_height = best_header
-            .number
-            .ok_or_else(|| anyhow!("header number is none"))?;
+        let (_, eth_light_client_height, _) =
+            parse_merkle_cell_data(cell.output_data.as_bytes().to_vec())?;
 
         let ckb_diff = ckb_current_height - ckb_light_client_height;
         let eth_diff = eth_current_height.sub(eth_light_client_height).as_u64();
