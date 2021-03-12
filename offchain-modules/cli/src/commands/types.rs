@@ -31,6 +31,7 @@ pub enum SubCommand {
     EthRelay(EthRelayArgs),
     CkbRelay(CkbRelayArgs),
     RelayerMonitor(RelayerMonitorArgs),
+    RecycleBridgeCell(RecycleBridgeCellArgs),
     Dapp(DappCommand),
 }
 
@@ -54,6 +55,22 @@ pub struct CreateBridgeCellArgs {
     pub bridge_fee: u128,
     #[clap(short = 's', long)]
     pub simple_typescript: bool,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct RecycleBridgeCellArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+    #[clap(long)]
+    pub outpoints: Option<Vec<String>>,
+    #[clap(long, default_value = "5000")]
+    pub max_recycle_count: usize,
 }
 
 #[derive(Clap, Clone, Debug)]
