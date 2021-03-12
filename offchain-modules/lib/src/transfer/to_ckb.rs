@@ -653,6 +653,11 @@ pub async fn get_or_create_bridge_cell(
         log::info!("get enough live bridge cells from ckb chain");
         return Ok(cells);
     }
+    let cell_num = if is_create {
+        cell_num
+    } else {
+      cell_num - cells.len()
+    };
     let unsigned_tx = generator
         .create_bridge_cell(
             tx_fee,
