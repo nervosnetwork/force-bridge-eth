@@ -2,12 +2,28 @@ array Byte32 [byte; 32];
 array Uint16 [byte; 2];
 array Uint64 [byte; 8];
 vector Byte32Vec <Byte32>;
+vector Uint64Vec <Uint64>;
+vector Bytes <byte>;
 
-table CkbTxProof {
-    tx_merkle_index:        Uint16,
-    block_number:           Uint64,
-    block_hash:             Byte32,
-    tx_hash:                Byte32,
-    witnesses_root:         Byte32,
+table CKBHistoryTxProof {
+    block_number:               Uint64,
+    tx_merkle_index:            Uint16,
+    witnesses_root:             Byte32,
+    lemmas:                     Byte32Vec,
+    raw_transaction:            Bytes,
+}
+
+table CKBHistoryTxRootProof {
+    init_block_number:      Uint64,
+    latest_block_number:    Uint64,
+    indices:                Uint64Vec,
+    proof_leaves:           Byte32Vec,
     lemmas:                 Byte32Vec,
+}
+
+vector CKBHistoryTxProofVec <CKBHistoryTxProof>;
+
+table CKBUnlockTokenParam {
+    history_tx_root_proof:  CKBHistoryTxRootProof,
+    tx_proofs: CKBHistoryTxProofVec,
 }

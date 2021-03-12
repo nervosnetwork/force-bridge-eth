@@ -1,41 +1,5 @@
 [
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "ckbSpvAddress",
-        "type": "address"
-      },
-      {
-        "internalType": "uint64",
-        "name": "numConfirmations",
-        "type": "uint64"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "recipientCellTypescriptCodeHash",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint8",
-        "name": "typescriptHashType",
-        "type": "uint8"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "lightClientTypescriptHash",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "bridgeCellLockscriptCodeHash",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
@@ -182,6 +146,57 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "ckbSpvAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint64",
+        "name": "numConfirmations",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "recipientCellTypescriptCodeHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "typescriptHashType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "lightClientTypescriptHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "bridgeCellLockscriptCodeHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "initialized",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "lightClientTypescriptHash_",
     "outputs": [
@@ -303,12 +318,7 @@
     "inputs": [
       {
         "internalType": "bytes",
-        "name": "ckbTxProof",
-        "type": "bytes"
-      },
-      {
-        "internalType": "bytes",
-        "name": "ckbTx",
+        "name": "proof",
         "type": "bytes"
       }
     ],

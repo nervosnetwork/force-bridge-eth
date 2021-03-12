@@ -17,8 +17,8 @@ use force_eth_types::eth_recipient_cell::ETHAddress;
 use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
 use force_eth_types::generated::eth_header_cell::{
-    DoubleNodeWithMerkleProof, ETHHeaderCellDataReader, ETHHeaderInfo, ETHHeaderInfoReader,
-    MerkleProof,
+    DoubleNodeWithMerkleProof, ETHHeaderCellDataReader, ETHHeaderCellMerkleDataReader,
+    ETHHeaderInfo, ETHHeaderInfoReader, MerkleProof,
 };
 use force_eth_types::generated::{basic, witness};
 use force_sdk::cell_collector::get_live_cell_by_typescript;
@@ -183,16 +183,17 @@ pub fn get_eth_client_tip_number(
     let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
         .map_err(|e| anyhow!("get live cell fail: {}", e))?
         .ok_or_else(|| anyhow!("eth header cell not exist"))?;
-    let (un_confirmed_headers, _) = parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
-        .map_err(|e| anyhow!("parse header data fail: {}", e))?;
-    let best_header = un_confirmed_headers
-        .last()
-        .ok_or_else(|| anyhow!("header is none"))?;
-    let best_number = best_header
-        .number
-        .ok_or_else(|| anyhow!("header number is none"))?
-        .as_u64();
-    Ok(best_number)
+    // let (un_confirmed_headers, _) = parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
+    //     .map_err(|e| anyhow!("parse header data fail: {}", e))?;
+    // let best_header = un_confirmed_headers
+    //     .last()
+    //     .ok_or_else(|| anyhow!("header is none"))?;
+    // let best_number = best_header
+    //     .number
+    //     .ok_or_else(|| anyhow!("header number is none"))?
+    //     .as_u64();
+    let (_, latest_height, _) = parse_merkle_cell_data(cell.output_data.as_bytes().to_vec())?;
+    Ok(latest_height)
 }
 
 pub fn parse_cell(cell: &str) -> Result<Script> {
@@ -264,6 +265,24 @@ pub fn parse_main_chain_headers(data: Vec<u8>) -> Result<(Vec<BlockHeader>, Vec<
     }
     un_confirmed.reverse();
     Ok((un_confirmed, confirmed))
+}
+
+pub fn parse_merkle_cell_data(data: Vec<u8>) -> Result<(u64, u64, [u8; 32])> {
+    ETHHeaderCellMerkleDataReader::verify(&data, false).map_err(|err| anyhow!(err))?;
+    let eth_cell_data_reader = ETHHeaderCellMerkleDataReader::new_unchecked(&data);
+
+    let mut merkle_root = [0u8; 32];
+    merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
+
+    let mut last_cell_latest_height_raw = [0u8; 8];
+    last_cell_latest_height_raw.copy_from_slice(eth_cell_data_reader.latest_height().raw_data());
+    let last_cell_latest_height = u64::from_le_bytes(last_cell_latest_height_raw);
+
+    let mut start_height_raw = [0u8; 8];
+    start_height_raw.copy_from_slice(eth_cell_data_reader.start_height().raw_data());
+    let start_height = u64::from_le_bytes(start_height_raw);
+
+    Ok((start_height, last_cell_latest_height, merkle_root))
 }
 
 pub fn create_bridge_lockscript(
@@ -351,7 +370,6 @@ impl TryFrom<ETHSPVProofJson> for witness::ETHSPVProof {
         }
         Ok(witness::ETHSPVProof::new_builder()
             .log_index(proof.log_index.into())
-            .log_entry_data(hex::decode(clear_0x(&proof.log_entry_data))?.into())
             .receipt_index(proof.receipt_index.into())
             .receipt_data(hex::decode(clear_0x(&proof.receipt_data))?.into())
             .header_data(hex::decode(clear_0x(&proof.header_data))?.into())
@@ -372,6 +390,7 @@ pub fn clear_0x(s: &str) -> &str {
 pub struct EthWitness {
     pub cell_dep_index_list: Vec<u8>,
     pub spv_proof: ETHSPVProofJson,
+    pub compiled_merkle_proof: Vec<u8>,
 }
 
 impl EthWitness {
@@ -385,6 +404,7 @@ impl EthWitness {
         let witness_data = witness::MintTokenWitness::new_builder()
             .spv_proof(spv_proof.into())
             .cell_dep_index_list(self.cell_dep_index_list.clone().into())
+            .merkle_proof(self.compiled_merkle_proof.clone().into())
             .build();
         let witness = WitnessArgs::new_builder()
             .lock(Some(witness_data.as_bytes()).pack())

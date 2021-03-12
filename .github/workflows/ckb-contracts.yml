@@ -23,6 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: check audit
+        run: |
+          cargo install --force cargo-audit
+          for c in $(ls contracts); do echo "enter $c"; cd contracts/$c; cargo audit; echo "audit done"; cd ../..; done
       - name: Cache cargo crate and target
         id: cache-contract-target
         uses: actions/cache@v2
@@ -53,10 +57,3 @@ jobs:
       - run: cargo clippy --all --tests -- -D warnings
       - run: capsule build
       - run: cargo test -- --nocapture
-      - name: install-tarpaulin
-        if: steps.cache-contract-target.outputs.cache-hit != 'true'
-        run: cargo install cargo-tarpaulin -f
-      - name: lib code coverage
-        run: |
-          export CODECOV_TOKEN=${{secrets.CODECOV_TOKEN}}
-          bash ./ckb_script_coverage.sh
