@@ -25,8 +25,8 @@ use force_eth_types::generated::eth_header_cell::{
     ETHChain, ETHHeaderCellData, ETHHeaderCellMerkleData, ETHHeaderCellMerkleDataReader,
     ETHHeaderInfo, ETHHeaderInfoReader,
 };
-use force_eth_types::hasher::Blake2bHasher;
 use force_eth_types::generated::witness::MintTokenWitness;
+use force_eth_types::hasher::Blake2bHasher;
 use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
