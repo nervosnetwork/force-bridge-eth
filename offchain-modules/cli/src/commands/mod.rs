@@ -130,8 +130,8 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.recipient_address.clone(),
         args.bridge_fee,
         args.simple_typescript,
-        1,
-        false,
+        args.number,
+        args.force_create,
     )
     .await?;
     info!(
@@ -334,7 +334,6 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
 pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
     let force_config = ForceConfig::new(args.config_path.as_str())?;
-    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let deployed_contracts = force_config
@@ -359,7 +358,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
 
     let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     wait_block_submit(
-        ethereum_rpc_url.clone(),
+        eth_rpc_url.clone(),
         ckb_rpc_url.clone(),
         light_client_addr,
         ckb_tx_hash.clone(),
@@ -369,14 +368,14 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     let proof = get_ckb_proof_info(
         &ckb_tx_hash,
         ckb_rpc_url.clone(),
-        eth_rpc_url,
+        eth_rpc_url.clone(),
         light_client_addr,
         force_config.ckb_rocksdb_path,
     )
     .await?;
     let result = unlock(
         eth_private_key,
-        ethereum_rpc_url,
+        eth_rpc_url,
         deployed_contracts.eth_token_locker_addr.clone(),
         proof,
         args.gas_price,
