@@ -656,7 +656,7 @@ pub async fn get_or_create_bridge_cell(
     let cell_num = if is_create {
         cell_num
     } else {
-      cell_num - cells.len()
+        cell_num - cells.len()
     };
     let unsigned_tx = generator
         .create_bridge_cell(
