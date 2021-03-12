@@ -64,9 +64,7 @@ pub struct RecycleBridgeCellArgs {
     #[clap(long)]
     pub network: Option<String>,
     #[clap(short = 'k', long)]
-    pub private_key_path: Option<String>,
-    #[clap(long)]
-    pub private_key: Option<String>,
+    pub private_key_path: String,
     #[clap(long, default_value = "0.1")]
     pub tx_fee: String,
     #[clap(long)]

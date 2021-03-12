@@ -12,7 +12,7 @@ use force_eth_lib::transfer::to_eth::{
     wait_block_submit,
 };
 use force_eth_lib::util::ckb_tx_generator::Generator;
-use force_eth_lib::util::ckb_util::{get_secret_key, parse_privkey_path};
+use force_eth_lib::util::ckb_util::parse_privkey_path;
 use force_eth_lib::util::config::{self, ForceConfig};
 use force_eth_lib::util::eth_util::{convert_eth_address, parse_private_key};
 use force_eth_lib::util::transfer;
@@ -148,18 +148,8 @@ pub async fn recycle_bridge_cell_handler(args: RecycleBridgeCellArgs) -> Result<
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
 
-    let private_key = match args.private_key_path {
-        None => match args.private_key {
-            None => bail!("the recycle private key should be provided"),
-            Some(privkey) => get_secret_key(&privkey)?,
-        },
-        Some(privkey_path) => match args.private_key {
-            None => parse_privkey_path(&privkey_path, &force_config, &args.network.clone())?,
-            Some(_) => bail!(
-                "Duplicate privkey. the private-key params has been provided by private-key-path"
-            ),
-        },
-    };
+    let private_key =
+        parse_privkey_path(&args.private_key_path, &force_config, &args.network.clone())?;
     let tx_hash = recycle_bridge_cell(
         deployed_contracts,
         ckb_rpc_url,
