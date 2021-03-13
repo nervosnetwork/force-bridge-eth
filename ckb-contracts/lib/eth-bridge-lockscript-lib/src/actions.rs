@@ -7,8 +7,9 @@ use eth_spv_lib::ethspv;
 use force_eth_types::config::CONFIRM;
 use force_eth_types::eth_lock_event::ETHLockEvent;
 use force_eth_types::generated::eth_bridge_lock_cell::ETHBridgeLockArgs;
-use force_eth_types::generated::eth_header_cell::{ETHHeaderCellDataReader, ETHHeaderInfoReader};
+use force_eth_types::generated::eth_header_cell::ETHHeaderCellMerkleDataReader;
 use force_eth_types::generated::witness::{ETHSPVProofReader, MintTokenWitnessReader};
+use force_eth_types::hasher::Blake2bHasher;
 use molecule::prelude::*;
 use std::convert::TryInto;
 
@@ -17,11 +18,15 @@ use std::convert::TryInto;
 /// which means put an identical cell in output with higher capacity.
 pub fn verify_manage_mode<T: Adapter>(data_loader: &T) {
     let udt_script = data_loader.get_associated_udt_script();
+    debug!("slice {:?}", udt_script.as_slice());
     if data_loader.typescript_exists_in_outputs(udt_script.as_slice()) {
         panic!("mint sudt is forbidden in owner mode");
     }
 }
 
+/// In mint mode, we will verify that we mint correct amount of sudt for correct recipient.
+/// 1. Verify the witness is valid and parse the lock event for later usage.
+/// 2. Verify the mint logic is valid based on the lock event of ETH and tx data.
 pub fn verify_mint_token<T: Adapter>(data_loader: &T, witness: &MintTokenWitnessReader) {
     let (dep_index, eth_receipt_info) = verify_witness(data_loader, witness);
     verify_eth_receipt_info(data_loader, dep_index, eth_receipt_info);
@@ -29,9 +34,8 @@ pub fn verify_mint_token<T: Adapter>(data_loader: &T, witness: &MintTokenWitness
 
 /// Verify eth witness data.
 /// 1. Verify that the header of the user's cross-chain tx is on the main chain.
-/// 2. Verify that the user's cross-chain transaction is legal and really exists (based spv proof).
+/// 2. Verify that the user's cross-chain transaction is legal and really exists (based on spv proof).
 /// 3. Get ETHLockEvent from spv proof.
-///
 fn verify_witness<T: Adapter>(
     data_loader: &T,
     witness: &MintTokenWitnessReader,
@@ -41,7 +45,8 @@ fn verify_witness<T: Adapter>(
     let cell_dep_index_list = witness.cell_dep_index_list().raw_data();
     assert_eq!(cell_dep_index_list.len(), 1);
 
-    let lock_event = verify_eth_spv_proof(data_loader, proof, cell_dep_index_list);
+    let merkle_proof = witness.merkle_proof().raw_data();
+    let lock_event = verify_eth_spv_proof(data_loader, proof, cell_dep_index_list, merkle_proof);
     (cell_dep_index_list[0], lock_event)
 }
 
@@ -50,23 +55,24 @@ fn verify_witness<T: Adapter>(
 /// 2. Verify that the user's cross-chain transaction is legal and really exists (based spv proof).
 /// @param data is used to get the real lock address.
 /// @param proof is the spv proof data for cross-chain tx.
-/// @param cell_dep_index_list is used to get the headers oracle information to verify the cross-chain tx is really exists on the main chain.
+/// @param cell_dep_index_list is used to get headers from light client cell to verify the cross-chain tx really exists on the main chain.
 ///
 fn verify_eth_spv_proof<T: Adapter>(
     data_loader: &T,
     proof: &[u8],
     cell_dep_index_list: &[u8],
+    merkle_proof: &[u8],
 ) -> ETHLockEvent {
     if ETHSPVProofReader::verify(proof, false).is_err() {
         panic!("eth spv proof is invalid")
     }
     let proof_reader = ETHSPVProofReader::new_unchecked(proof);
-    let header_data = proof_reader.header_data().raw_data().to_vec();
-    let header: BlockHeader = rlp::decode(header_data.as_slice()).expect("invalid header data");
+    let header: BlockHeader =
+        rlp::decode(proof_reader.header_data().raw_data()).expect("invalid header data");
     // debug!("the spv proof header data: {:?}", header);
 
     //verify the header is on main chain.
-    verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list);
+    verify_eth_header_on_main_chain(data_loader, &header, cell_dep_index_list, merkle_proof);
 
     get_eth_receipt_info(proof_reader, header)
 }
@@ -75,6 +81,7 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
     data_loader: &T,
     header: &BlockHeader,
     cell_dep_index_list: &[u8],
+    merkle_proof: &[u8],
 ) {
     debug!("cell_dep_index_list: {:?}", cell_dep_index_list);
     let dep_data = data_loader
@@ -82,59 +89,45 @@ fn verify_eth_header_on_main_chain<T: Adapter>(
         .expect("load cell dep data failed");
     debug!("dep data is {:?}", &dep_data);
 
-    if ETHHeaderCellDataReader::verify(&dep_data, false).is_err() {
+    if ETHHeaderCellMerkleDataReader::verify(&dep_data, false).is_err() {
         panic!("eth cell data invalid");
     }
 
-    let eth_cell_data_reader = ETHHeaderCellDataReader::new_unchecked(&dep_data);
+    let eth_cell_data_reader = ETHHeaderCellMerkleDataReader::new_unchecked(&dep_data);
     debug!("eth_cell_data_reader: {:?}", eth_cell_data_reader);
-    let tail_raw = eth_cell_data_reader
-        .headers()
-        .main()
-        .get_unchecked(eth_cell_data_reader.headers().main().len() - 1)
-        .raw_data();
-    if ETHHeaderInfoReader::verify(&tail_raw, false).is_err() {
-        panic!("header info invalid");
-    }
-    let tail_info_reader = ETHHeaderInfoReader::new_unchecked(&tail_raw);
-    let tail_info_raw = tail_info_reader.header().raw_data();
-    let tail: BlockHeader =
-        rlp::decode(tail_info_raw.to_vec().as_slice()).expect("invalid tail info.");
-    if header.number > tail.number {
-        panic!("header is not on mainchain, header number too big");
-    }
-    let offset = (tail.number - header.number) as usize;
 
-    if offset < CONFIRM {
-        panic!("header is not confirmed");
-    }
-    if offset > eth_cell_data_reader.headers().main().len() - 1 {
-        panic!("header is not on mainchain, header number is too small");
+    let mut light_client_latest_height = [0u8; 8];
+    light_client_latest_height.copy_from_slice(eth_cell_data_reader.latest_height().raw_data());
+    let light_client_latest_height: u64 = u64::from_le_bytes(light_client_latest_height);
+
+    if header.number + CONFIRM as u64 > light_client_latest_height {
+        panic!("header is not confirmed on light client yet");
     }
 
-    //confirmed headers only store header hash
-    let header_hash = eth_cell_data_reader
-        .headers()
-        .main()
-        .get_unchecked(eth_cell_data_reader.headers().main().len() - 1 - offset)
-        .raw_data()
-        .as_ref();
+    let mut merkle_root = [0u8; 32];
+    merkle_root.copy_from_slice(eth_cell_data_reader.merkle_root().raw_data());
 
-    if header_hash != header.hash.expect("invalid hash").0.as_bytes() {
-        panic!("header is not on mainchain, target not in eth data");
-    }
+    let compiled_merkle_proof = sparse_merkle_tree::CompiledMerkleProof(merkle_proof.to_vec());
+
+    let mut compiled_leaves = vec![];
+
+    let mut leaf_index = [0u8; 32];
+    leaf_index[..8].copy_from_slice(header.number.to_le_bytes().as_ref());
+
+    let mut leaf_value = [0u8; 32];
+    leaf_value.copy_from_slice(header.hash.expect("header hash is none").0.as_bytes());
+
+    compiled_leaves.push((leaf_index.into(), leaf_value.into()));
+
+    assert!(compiled_merkle_proof
+        .verify::<Blake2bHasher>(&merkle_root.into(), compiled_leaves)
+        .expect("verify compiled proof"));
 }
 
 fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) -> ETHLockEvent {
     let mut log_index = [0u8; 8];
     log_index.copy_from_slice(proof_reader.log_index().raw_data());
     debug!("log_index is {:?}", &log_index);
-
-    let log_entry_data = proof_reader.log_entry_data().raw_data().to_vec();
-    debug!(
-        "log_entry_data is {:?}",
-        hex::encode(&log_entry_data.as_slice())
-    );
 
     let receipt_data = proof_reader.receipt_data().raw_data().to_vec();
     debug!(
@@ -152,29 +145,15 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
     }
     debug!("proof: {:?}", hex::encode(proof[0].clone()));
 
-    debug!(
-        "log_entry data is {:?}",
-        hex::encode(log_entry_data.as_slice())
-    );
-    let log_entry: LogEntry =
-        rlp::decode(log_entry_data.as_slice()).expect("rlp decode log_entry failed");
-    debug!("log_entry is {:?}", &log_entry);
-
-    // let receipt: Receipt = rlp::decode(receipt_data.as_slice()).expect("rlp decode receipt failed");
-    // debug!("receipt_data is {:?}", &receipt);
-
-    if !ethspv::verify_log_entry(
-        u64::from_le_bytes(log_index),
-        log_entry_data,
+    // it will panic inside the function if the proof is invalid
+    let receipt = ethspv::verify_log_entry(
         u64::from_le_bytes(receipt_index),
         receipt_data,
         header.receipts_root,
         proof,
-    ) {
-        panic!("wrong merkle proof");
-    }
-
-    let eth_receipt_info = ETHLockEvent::parse_from_event_data(&log_entry);
+    );
+    let log_entry = &receipt.logs[u64::from_le_bytes(log_index) as usize];
+    let eth_receipt_info = ETHLockEvent::parse_from_event_data(log_entry);
     debug!("log data eth_receipt_info: {:?}", eth_receipt_info);
     eth_receipt_info
 }
@@ -184,7 +163,7 @@ fn get_eth_receipt_info(proof_reader: ETHSPVProofReader, header: BlockHeader) ->
 /// 2. verify contract_address equals to args.contract_address.
 /// 3. Verify token_address equals to args.token_address.
 /// 4. Verify dep cell typescript hash equals to args.light_client_typescript_hash.
-/// 4. Verify ckb_recipient_address get a number of token_amount cToken.
+/// 5. Verify ckb_recipient_address get a number of token_amount cToken.
 fn verify_eth_receipt_info<T: Adapter>(
     data_loader: &T,
     dep_index: u8,

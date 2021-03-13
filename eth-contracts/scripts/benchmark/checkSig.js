@@ -66,7 +66,7 @@ const main = async () => {
 
   // addHeaders without Blake2b
   // log(`---------------addHeaders without Blake2b`);
-  // await benchmark("contracts/CKBChainV3.sol:CKBChainV3")
+  // await benchmark("contracts/CKBChain.sol:CKBChain")
   // log(`---------------end\r\n\r\n`);
 };
 

@@ -1,6 +1,7 @@
 const { ecsign, toRpcSig } = require('ethereumjs-util');
 const { blake2b, PERSONAL } = require('@nervosnetwork/ckb-sdk-utils');
 const { keccak256, defaultAbiCoder, solidityPack } = ethers.utils;
+const BN = require('bn.js');
 
 async function sleep(seconds) {
   // console.log(`waiting for block confirmations, about ${seconds}s`)
@@ -147,6 +148,20 @@ const runErrorCase = async (txPromise, expectErrorMsg) => {
   }
 };
 
+const retryPromise = async (txPromise, times) => {
+  let res = null;
+  for (let i = 0; i < times; i++) {
+    try {
+      res = await txPromise;
+      return res;
+    } catch (e) {
+      log(`send tx failed, retry ${i}`, e);
+      await sleep(2);
+    }
+  }
+  return res;
+};
+
 const getMsgHashForSetNewCkbSpv = (
   DOMAIN_SEPARATOR,
   typeHash,
@@ -190,12 +205,68 @@ const getMsgHashForAddHeaders = (DOMAIN_SEPARATOR, typeHash, headersData) => {
   );
 };
 
+const getMsgHashForAddHistoryTxRoot = (
+  DOMAIN_SEPARATOR,
+  typeHash,
+  initBlockNumber,
+  latestBlockNumber,
+  historyTxRoot
+) => {
+  return keccak256(
+    solidityPack(
+      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
+      [
+        '0x19',
+        '0x01',
+        DOMAIN_SEPARATOR,
+        keccak256(
+          defaultAbiCoder.encode(
+            ['bytes32', 'uint64', 'uint64', 'bytes32'],
+            [typeHash, initBlockNumber, latestBlockNumber, historyTxRoot]
+          )
+        ),
+      ]
+    )
+  );
+};
+
 const ckbBlake2b = (hexStr) => {
   let str = hexStr.startsWith('0x') ? hexStr.slice(2) : hexStr;
   const instance = blake2b(32, null, null, PERSONAL);
   const input = new Uint8Array(Buffer.from(str, 'hex'));
   instance.update(input);
   return '0x' + instance.digest('hex');
+};
+
+const fixedLengthLe = (str, targetLen = 8) => {
+  const len = str.length;
+  return str + '0'.repeat(targetLen - len);
+};
+
+const clear0x = (hexStr) => {
+  return hexStr.startsWith('0x') ? hexStr.slice(2) : hexStr;
+};
+
+const getMockTinyHeaderParam = (
+  blockNumber,
+  blockHash,
+  txRoot = 'f'.repeat(64)
+) => {
+  let tinyHeaderHex = '0x';
+
+  // 1. number
+  const numberBN = new BN(blockNumber);
+  const buf = numberBN.toBuffer();
+  const leHexNumber = buf.reverse().toString('hex');
+  tinyHeaderHex += fixedLengthLe(leHexNumber, 16);
+
+  // 2. blockHash
+  tinyHeaderHex += clear0x(blockHash);
+
+  // 3. txRoot
+  tinyHeaderHex += clear0x(txRoot);
+
+  return [tinyHeaderHex];
 };
 
 const { log } = console;
@@ -214,5 +285,10 @@ module.exports = {
   runErrorCase,
   getMsgHashForSetNewCkbSpv,
   getMsgHashForAddHeaders,
+  getMsgHashForAddHistoryTxRoot,
   ckbBlake2b,
+  retryPromise,
+  fixedLengthLe,
+  getMockTinyHeaderParam,
+  clear0x,
 };

@@ -65,6 +65,7 @@ async fn ckb_tx_relay(args: CkbTxRelayerArgs) -> Result<()> {
         args.network,
         args.db_path,
         args.private_key_path,
+        args.rocksdb_path,
     )
     .await?;
     ckb_tx_relay.start().await
