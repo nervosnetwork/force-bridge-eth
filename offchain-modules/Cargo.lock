@@ -4386,6 +4386,7 @@ dependencies = [
  "env_logger",
  "force-eth-types",
  "force-sdk",
+ "futures 0.3.8",
  "hex 0.4.2",
  "jsonrpc-http-server",
  "log",

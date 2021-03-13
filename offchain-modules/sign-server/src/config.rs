@@ -8,6 +8,9 @@ pub struct SignServerConfig {
     pub db_path: String,
     pub ckb_private_key_path: String,
     pub eth_private_key_path: String,
+    pub cell_script: String,
+    pub eth_rpc_url: String,
+    pub ckb_indexer_url: String,
 }
 
 impl SignServerConfig {
