@@ -19,9 +19,10 @@ use sqlx::mysql::MySqlPool;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-pub const REPLAY_RESIST_CELL_NUMBER: usize = 500;
-const REFRESH_RATE: usize = 60; // 60/100
-const REPLAY_RESIST_CELL_CAPACITY: &str = "315";
+pub const REPLAY_RESIST_CELL_NUMBER: usize = 1000;
+const REFRESH_RATE: usize = 100; // 100/100
+
+// const REPLAY_RESIST_CELL_CAPACITY: &str = "315";
 
 #[derive(Clone)]
 pub struct DappState {
@@ -106,6 +107,7 @@ impl DappState {
         token: &str,
         cell_num: usize,
         privkey: String,
+        is_create: bool,
     ) -> Result<Vec<String>> {
         to_ckb::get_or_create_bridge_cell(
             self.config_path.clone(),
@@ -113,12 +115,12 @@ impl DappState {
             privkey,
             self.mint_privkey.clone(),
             self.create_bridge_cell_fee.clone(),
-            REPLAY_RESIST_CELL_CAPACITY.to_string(),
             token.to_string(),
             "".to_string(),
             0,
             true,
             cell_num,
+            is_create,
         )
         .await
     }
@@ -127,13 +129,31 @@ impl DappState {
         let fresh_cells = self
             .get_or_create_bridge_cell(
                 token,
-                REPLAY_RESIST_CELL_NUMBER * 2,
+                REPLAY_RESIST_CELL_NUMBER,
                 self.refresh_cell_privkey.clone(),
+                false,
             )
             .await?;
-        let (delete_cells, add_cells) = self
+        let (delete_cells, add_cells, available_cells_number) = self
             .prepare_cell_modification(fresh_cells, token.to_string())
             .await?;
+        let (delete_cells, add_cells, _) = if add_cells.len() + available_cells_number
+            < REPLAY_RESIST_CELL_NUMBER
+        {
+            log::warn!("need force create bridge cells: add_cells number {:?}, available_cells number {:?}", add_cells.len(), available_cells_number);
+            let fresh_cells = self
+                .get_or_create_bridge_cell(
+                    token,
+                    REPLAY_RESIST_CELL_NUMBER,
+                    self.refresh_cell_privkey.clone(),
+                    true,
+                )
+                .await?;
+            self.prepare_cell_modification(fresh_cells, token.to_string())
+                .await?
+        } else {
+            (delete_cells, add_cells, available_cells_number)
+        };
         add_replay_resist_cells(&self.db, &add_cells, &token).await?;
         log::info!(
             "refresh cells, token {:?}, add number: {:?}",
@@ -153,7 +173,7 @@ impl DappState {
         &self,
         fresh_cells: Vec<String>,
         token: String,
-    ) -> Result<(Vec<u64>, Vec<String>)> {
+    ) -> Result<(Vec<u64>, Vec<String>, usize)> {
         let available_cells = get_replay_resist_cells(&self.db, &token, "available").await?;
         let used_cells = get_replay_resist_cells(&self.db, &token, "used").await?;
         let used_cell_outpoints: Vec<String> = used_cells
@@ -175,7 +195,7 @@ impl DappState {
                 !used_cell_outpoints.contains(cell) && !available_cells_outpoints.contains(cell)
             })
             .collect();
-        Ok((delete_cells, add_cells))
+        Ok((delete_cells, add_cells, available_cells.len()))
     }
 }
 

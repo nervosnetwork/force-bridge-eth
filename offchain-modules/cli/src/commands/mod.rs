@@ -2,10 +2,10 @@ use anyhow::{anyhow, bail, Result};
 use dapp::dapp_handle;
 use force_eth_lib::header_relay::ckb_relay::CKBRelayer;
 use force_eth_lib::header_relay::eth_relay::{wait_header_sync_success, ETHRelayer};
-use force_eth_lib::monitor::relay_monitor::RelayMonitor;
+use force_eth_lib::monitor::relay_monitor::{AccountMonitorArgs, RelayMonitor};
 use force_eth_lib::transfer::to_ckb::{
     self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
-    lock_eth, lock_token, send_eth_spv_proof_tx,
+    lock_eth, lock_token, recycle_bridge_cell, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
@@ -55,6 +55,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::EthRelay(args) => eth_relay_handler(args).await,
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
         SubCommand::RelayerMonitor(args) => relayer_monitor(args).await,
+        SubCommand::RecycleBridgeCell(args) => recycle_bridge_cell_handler(args).await,
         SubCommand::Dapp(dapp_command) => dapp_handle(dapp_command).await,
     }
 }
@@ -125,12 +126,12 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         args.private_key_path.clone(),
         args.private_key_path,
         args.tx_fee,
-        args.capacity,
         args.eth_token_address,
         args.recipient_address.clone(),
         args.bridge_fee,
         args.simple_typescript,
-        1,
+        args.number,
+        args.force_create,
     )
     .await?;
     info!(
@@ -138,6 +139,32 @@ pub async fn create_bridge_cell_handler(args: CreateBridgeCellArgs) -> Result<()
         &args.recipient_address, &outpoint_hex
     );
     println!("{}", json!({ "outpoint": outpoint_hex[0] }));
+    Ok(())
+}
+
+pub async fn recycle_bridge_cell_handler(args: RecycleBridgeCellArgs) -> Result<()> {
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+
+    let private_key =
+        parse_privkey_path(&args.private_key_path, &force_config, &args.network.clone())?;
+    let tx_hash = recycle_bridge_cell(
+        deployed_contracts,
+        ckb_rpc_url,
+        ckb_indexer_url,
+        args.tx_fee,
+        private_key,
+        args.outpoints,
+        args.max_recycle_count,
+    )
+    .await
+    .map_err(|e| anyhow!("Failed to recycle bridge cell. {:?}", e))?;
+    info!("recycle bridge cell successfully for {}", tx_hash,);
     Ok(())
 }
 
@@ -307,7 +334,6 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
 pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
     debug!("transfer_from_ckb_handler args: {:?}", &args);
     let force_config = ForceConfig::new(args.config_path.as_str())?;
-    let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let deployed_contracts = force_config
@@ -332,7 +358,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
 
     let lock_contract_addr = convert_eth_address(&deployed_contracts.eth_token_locker_addr)?;
     wait_block_submit(
-        ethereum_rpc_url.clone(),
+        eth_rpc_url.clone(),
         ckb_rpc_url.clone(),
         light_client_addr,
         ckb_tx_hash.clone(),
@@ -342,14 +368,14 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     let proof = get_ckb_proof_info(
         vec![ckb_tx_hash],
         ckb_rpc_url.clone(),
-        eth_rpc_url,
+        eth_rpc_url.clone(),
         light_client_addr,
         force_config.ckb_rocksdb_path,
     )
     .await?;
     let result = unlock(
         eth_private_key,
-        ethereum_rpc_url,
+        eth_rpc_url.clone(),
         deployed_contracts.eth_token_locker_addr.clone(),
         proof,
         args.gas_price,
@@ -406,6 +432,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         args.network,
         args.private_key_path,
         args.multisig_privkeys,
+        args.confirm,
     )?;
     loop {
         let res = eth_relayer.start().await;
@@ -425,6 +452,7 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         args.private_key_path,
         args.mutlisig_privkeys,
         args.gas_price,
+        args.confirm,
     )?;
 
     let mut consecutive_failures = 0;
@@ -450,6 +478,18 @@ pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
     let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+    let ckb_privkeys = force_config.get_ckb_private_keys(&args.network)?;
+    let eth_privkeys: Vec<String> = force_config.get_ethereum_private_keys(&args.network)?;
+    let account_monitor_args = AccountMonitorArgs::new(
+        ckb_privkeys,
+        eth_privkeys,
+        args.ckb_alarm_balance,
+        args.eth_alarm_balance,
+        args.eth_balance_conservator,
+        args.ckb_balance_conservator,
+        &args.network,
+    )
+    .await?;
     let mut relay_monitor = RelayMonitor::new(
         ckb_rpc_url,
         ckb_indexer_url,
@@ -468,6 +508,7 @@ pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
         args.eth_indexer_conservator,
         args.ckb_indexer_conservator,
         args.db_path,
+        account_monitor_args,
     )
     .await?;
     loop {

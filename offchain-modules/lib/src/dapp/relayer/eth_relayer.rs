@@ -3,7 +3,7 @@ use crate::dapp::db::eth_relayer::{
     store_mint_tasks, update_relayed_tx, MintTask,
 };
 use crate::transfer::to_ckb::send_eth_spv_proof_tx;
-use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{get_eth_client_tip_number, parse_privkey_path, ETHSPVProofJson};
 use crate::util::config::ForceConfig;
 use anyhow::{anyhow, bail, Result};
@@ -247,11 +247,12 @@ impl EthTxRelayer {
             &mut generator,
             force_contracts.light_client_cell_script.cell_script,
         )?;
-        if tip_number > (CONFIRM as u64) {
-            Ok(tip_number - (CONFIRM as u64))
-        } else {
-            Ok(0)
-        }
+        Ok(tip_number)
+        // if tip_number > (CONFIRM as u64) {
+        //     Ok(tip_number - (CONFIRM as u64))
+        // } else {
+        //     Ok(0)
+        // }
     }
 
     async fn get_generator(&self) -> Result<Generator> {

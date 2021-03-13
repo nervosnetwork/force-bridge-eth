@@ -9,17 +9,6 @@ fn test_correct_tx() {
     case_runner::run_test(case);
 }
 
-// witness header number is 45
-#[test]
-fn test_tx_when_witness_header_is_not_confirmed() {
-    let mut case = get_correct_case();
-    let CellDepView::ETHBridgeLockCellDep(cell_dep) = &mut case.cell_deps[0];
-    // replace block to block 40
-    cell_dep.latest_height = 50;
-    case.expect_return_error_info = "header is not confirmed".to_string();
-    case_runner::run_test(case);
-}
-
 #[test]
 fn test_tx_when_sudt_extra_mismatch() {
     let mut case = get_correct_case();
@@ -61,7 +50,7 @@ fn get_correct_case() -> TestCase {
     ])
     .unwrap();
     let correct_light_client_typescript_hash: [u8; 32] = [
-        52, 158, 65, 143, 167, 248, 194, 75, 200, 242, 95, 73, 221, 60, 246, 28, 139, 210, 203,
+        52u8, 158, 65, 143, 167, 248, 194, 75, 200, 242, 95, 73, 221, 60, 246, 28, 139, 210, 203,
         136, 221, 30, 25, 173, 112, 208, 117, 149, 43, 155, 143, 223,
     ];
 

@@ -6,6 +6,9 @@ set -o xtrace
 export RUST_BACKTRACE=1
 export RUST_LOG=info,force=debug
 
+# install pm2
+#sudo npm i pm2 -g
+
 # project root directory
 PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 FORCE_CLI=${PROJECT_DIR}/offchain-modules/target/debug/force-eth-cli
@@ -86,8 +89,8 @@ start_tx_relay(){
 #
 #start_tx_relay(){
 #  cd ${OFFCHAIN}
-#  pm2 start --name ckb-indexer "${FORCE_CLI} dapp ckb-indexer --db-path ${DB_PATH} --ckb-rpc-url ${CKB_URL} --ckb-indexer-url ${INDEXER_URL}"
-#  pm2 start --name eth-indexer "${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH} --ckb-indexer-url ${INDEXER_URL}"
+#  pm2 start --name ckb-indexer "${FORCE_CLI} dapp ckb-indexer --db-path ${DB_PATH}"
+#  pm2 start --name eth-indexer "${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH}"
 #  pm2 start --name ckb-tx-relayer "${FORCE_CLI} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY}"
 #  pm2 start --name eth-tx-relayer "${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} "
 #}
@@ -105,8 +108,8 @@ stress_test(){
 }
 
 #stop_mysql
-start_mysql
-sleep 10
+#start_mysql
+#sleep 10
 #stop_service
 #start_header_relay
 start_server

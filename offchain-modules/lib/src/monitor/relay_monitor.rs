@@ -1,13 +1,15 @@
 use crate::dapp::db::indexer::get_height_info;
 use crate::util::ckb_tx_generator::Generator;
-use crate::util::ckb_util::{parse_cell, parse_main_chain_headers};
-use crate::util::eth_util::{convert_eth_address, Web3Client};
+use crate::util::ckb_util::{get_secret_key, parse_cell, parse_merkle_cell_data, parse_privkey};
+use crate::util::eth_util::{convert_eth_address, secret_key_address, Web3Client};
 use anyhow::{anyhow, bail, Result};
+use ckb_sdk::{Address, AddressPayload, NetworkType};
 use ckb_types::packed::Script;
-use ethereum_types::H160;
-use force_sdk::cell_collector::get_live_cell_by_typescript;
+use ethereum_types::{H160, U256};
+use force_sdk::cell_collector::{get_all_live_cells_by_lockscript, get_live_cell_by_typescript};
+use secp256k1::SecretKey;
 use sqlx::MySqlPool;
-use std::ops::Sub;
+use std::ops::{Div, Sub};
 
 pub struct RelayMonitor {
     web3_client: Web3Client,
@@ -18,6 +20,67 @@ pub struct RelayMonitor {
     eth_alarm_number: u64,
     header_args: Option<HeaderMonitorArgs>,
     indexer_args: Option<IndexerMonitorArgs>,
+    account_monitor_args: AccountMonitorArgs,
+}
+
+#[derive(Debug, Clone)]
+pub struct AccountMonitorArgs {
+    eth_addresses: Vec<H160>,
+    ckb_lockscripts: Vec<Script>,
+    ckb_alarm_balance: u64,
+    eth_alarm_balance: u64,
+    eth_balance_conservator: String,
+    ckb_balance_conservator: String,
+    ckb_network: NetworkType,
+}
+
+impl AccountMonitorArgs {
+    pub async fn new(
+        ckb_privkeys: Vec<String>,
+        eth_privkeys: Vec<String>,
+        ckb_alarm_balance: u64,
+        eth_alarm_balance: u64,
+        eth_balance_conservator: String,
+        ckb_balance_conservator: String,
+        config_network: &Option<String>,
+    ) -> Result<Self> {
+        let ckb_network = if let Some(network) = config_network {
+            match network.as_str() {
+                "mainnet" => NetworkType::Mainnet,
+                "ropsten" => NetworkType::Testnet,
+                "rinkeby" => NetworkType::Testnet,
+                "docker-dev-chain" => NetworkType::Dev,
+                _ => NetworkType::Dev,
+            }
+        } else {
+            NetworkType::Dev
+        };
+
+        let mut eth_addresses: Vec<H160> = vec![];
+        for eth_privkey in eth_privkeys.into_iter() {
+            let eth_private_key =
+                ethereum_types::H256::from_slice(hex::decode(eth_privkey)?.as_slice());
+            let eth_key = SecretKey::from_slice(&eth_private_key.0)?;
+            let from = secret_key_address(&eth_key);
+            eth_addresses.push(from);
+        }
+        let mut ckb_lockscripts: Vec<Script> = vec![];
+        for ckb_privkey in ckb_privkeys.into_iter() {
+            let privkey = get_secret_key(&ckb_privkey)?;
+            let lockscript = parse_privkey(&privkey);
+            ckb_lockscripts.push(lockscript);
+        }
+
+        Ok(AccountMonitorArgs {
+            eth_addresses,
+            ckb_lockscripts,
+            ckb_alarm_balance,
+            eth_alarm_balance,
+            eth_balance_conservator,
+            ckb_balance_conservator,
+            ckb_network,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +115,7 @@ impl RelayMonitor {
         eth_indexer_conservator: Option<Vec<String>>,
         ckb_indexer_conservator: Option<Vec<String>>,
         db_path: Option<String>,
+        account_monitor_args: AccountMonitorArgs,
     ) -> Result<RelayMonitor> {
         let web3_client = Web3Client::new(eth_rpc_url);
         let generator = Generator::new(ckb_rpc_url, ckb_indexer_url, Default::default())
@@ -129,11 +193,28 @@ impl RelayMonitor {
             eth_alarm_number,
             header_args,
             indexer_args,
+            account_monitor_args,
         });
     }
 
     #[allow(clippy::too_many_arguments)]
     pub async fn start(&mut self) -> Result<()> {
+        let mut msg = " ".to_string();
+        let header_monitor_msg = self.get_header_monitor_info().await?;
+        let account_monitor_msg = self.get_account_monitor_info().await?;
+        msg = format!(
+            "{} {} %0A {} %0A",
+            msg, header_monitor_msg, account_monitor_msg
+        );
+        let res = reqwest::get(format!("{}{}", self.alarm_url, msg).as_str())
+            .await?
+            .text()
+            .await?;
+        log::info!("{:?}", res);
+        Ok(())
+    }
+
+    pub async fn get_header_monitor_info(&mut self) -> Result<String> {
         let mut msg = " ".to_string();
         match self.mode.as_str() {
             "all" => {
@@ -178,15 +259,68 @@ impl RelayMonitor {
 
             _ => bail!("the mode arg is wrong in monitor"),
         }
-
-        let res = reqwest::get(format!("{}{}", self.alarm_url, msg).as_str())
-            .await?
-            .text()
-            .await?;
-        log::info!("{:?}", res);
-        Ok(())
+        Ok(msg)
     }
+    pub async fn get_account_monitor_info(&mut self) -> Result<String> {
+        let mut msg = " ".to_string();
+        let eth_decimal: U256 = U256::from(10u128.pow(18));
+        for (index, eth_address) in self.account_monitor_args.eth_addresses.iter().enumerate() {
+            let balance = self
+                .web3_client
+                .client()
+                .eth()
+                .balance(*eth_address, None)
+                .await?
+                .div(eth_decimal);
+            let mut eth_balance_msg = format!(
+                "ethereum_private_keys[{:?}] {} balance is : {:?} eth",
+                index,
+                hex::encode(eth_address),
+                balance
+            );
+            if balance.as_u64() < self.account_monitor_args.eth_alarm_balance {
+                eth_balance_msg = format!(
+                    "{} @{}",
+                    eth_balance_msg, self.account_monitor_args.eth_balance_conservator
+                )
+            }
+            log::info!("eth balance info : {}", eth_balance_msg);
+            msg = format!("{} {} %0A", msg, eth_balance_msg);
+        }
 
+        for (index, ckb_lockscript) in self.account_monitor_args.ckb_lockscripts.iter().enumerate()
+        {
+            let live_cells = get_all_live_cells_by_lockscript(
+                &mut self.generator.indexer_client,
+                ckb_lockscript.clone(),
+            )
+            .map_err(|err| anyhow!(err))?;
+            let mut capacity = 0;
+            capacity += live_cells
+                .iter()
+                .map(|c| c.output.capacity.value())
+                .sum::<u64>()
+                .div(10u64.pow(8));
+
+            let from_addr_payload: AddressPayload = ckb_lockscript.clone().into();
+            let from_addr = Address::new(self.account_monitor_args.ckb_network, from_addr_payload);
+            let mut ckb_balance_msg = format!(
+                "ckb_private_keys[{:?}] {:?} balance is : {:?} ckb",
+                index,
+                from_addr.to_string(),
+                capacity,
+            );
+            if capacity < self.account_monitor_args.ckb_alarm_balance {
+                ckb_balance_msg = format!(
+                    "{} @{}",
+                    ckb_balance_msg, self.account_monitor_args.ckb_balance_conservator
+                )
+            }
+            log::info!("ckb balance info : {}", ckb_balance_msg);
+            msg = format!("{} {} %0A", msg, ckb_balance_msg);
+        }
+        Ok(msg)
+    }
     pub async fn get_header_height(&mut self, args: HeaderMonitorArgs) -> Result<String> {
         let ckb_light_client_height = self
             .web3_client
@@ -204,16 +338,8 @@ impl RelayMonitor {
             .map_err(|e| anyhow!("get live cell fail: {}", e))?
             .ok_or_else(|| anyhow!("eth header cell not exist"))?;
 
-        let (un_confirmed_headers, _) =
-            parse_main_chain_headers(cell.output_data.as_bytes().to_vec())
-                .map_err(|e| anyhow!("parse header data fail: {}", e))?;
-
-        let best_header = un_confirmed_headers
-            .last()
-            .ok_or_else(|| anyhow!("header is none"))?;
-        let eth_light_client_height = best_header
-            .number
-            .ok_or_else(|| anyhow!("header number is none"))?;
+        let (_, eth_light_client_height, _) =
+            parse_merkle_cell_data(cell.output_data.as_bytes().to_vec())?;
 
         let ckb_diff = ckb_current_height - ckb_light_client_height;
         let eth_diff = eth_current_height.sub(eth_light_client_height).as_u64();

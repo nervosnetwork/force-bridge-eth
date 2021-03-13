@@ -106,6 +106,42 @@ pub fn get_capacity_cells_for_mint(
     get_live_cells(indexer_client, search_key, terminator)
 }
 
+pub fn get_all_live_cells_by_lockscript(
+    indexer_client: &mut IndexerRpcClient,
+    lockscript: Script,
+) -> Result<Vec<Cell>, String> {
+    let terminator = |_, cell: &Cell| {
+        if cell.output.type_.is_none() && cell.output_data.is_empty() {
+            return (false, true);
+        }
+        (false, false)
+    };
+    let search_key = SearchKey {
+        script: lockscript.into(),
+        script_type: ScriptType::Lock,
+        args_len: None,
+    };
+    get_live_cells(indexer_client, search_key, terminator)
+}
+
+pub fn get_all_bridge_live_cells_by_script(
+    indexer_client: &mut IndexerRpcClient,
+    script: Script,
+) -> Result<Vec<Cell>, String> {
+    let terminator = |_, cell: &Cell| {
+        if cell.output_data.is_empty() {
+            return (false, true);
+        }
+        (false, false)
+    };
+    let search_key = SearchKey {
+        script: script.into(),
+        script_type: ScriptType::Type,
+        args_len: None,
+    };
+    get_live_cells(indexer_client, search_key, terminator)
+}
+
 pub fn get_live_cells<F: FnMut(usize, &Cell) -> (bool, bool)>(
     indexer_client: &mut IndexerRpcClient,
     search_key: SearchKey,
