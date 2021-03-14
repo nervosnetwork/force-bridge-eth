@@ -89,6 +89,9 @@ impl CkbTxRelay {
             .get_eth_nonce(&self.eth_private_key)
             .await?;
         // let mut proofs = vec![];
+        if unlock_tasks.is_empty() {
+            return Ok(());
+        }
         for i in 0..=unlock_tasks.len() / BATCH_UNLOCK_LIMIT {
             let tasks: &[UnlockTask];
             if BATCH_UNLOCK_LIMIT * (i + 1) > unlock_tasks.len() {
