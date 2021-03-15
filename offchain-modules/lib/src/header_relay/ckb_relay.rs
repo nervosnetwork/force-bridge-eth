@@ -4,7 +4,7 @@ use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::covert_to_h256;
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{
-    convert_eth_address, parse_private_key, parse_secret_key, relay_header_transaction, Web3Client,
+    convert_eth_address, parse_private_key, relay_header_transaction, Web3Client,
 };
 use crate::util::rocksdb::open_rocksdb;
 use anyhow::{anyhow, bail, Result};

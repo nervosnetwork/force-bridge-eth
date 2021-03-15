@@ -10,8 +10,6 @@ use crate::ckb_sign_util::{
 };
 use crate::config::SignServerConfig;
 use crate::eth_sign_util::{get_msg_signature, get_secret_key, Web3Client};
-// use crate::rocksdb_store::{RocksDBStore, RocksDBValue};
-use crate::rocksdb_store::{RocksDBStore, RocksDBValue};
 use crate::types::{Opts, ServerArgs, SubCommand};
 use anyhow::{anyhow, Result};
 use ckb_sdk::HttpRpcClient;
@@ -24,7 +22,6 @@ use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use jsonrpc_http_server::jsonrpc_core::{Error, IoHandler, Params, Value};
 use jsonrpc_http_server::{AccessControlAllowOrigin, DomainsValidation, ServerBuilder};
-use rocksdb::ops::{Get, Put};
 use shellexpand::tilde;
 use std::collections::HashMap;
 use web3::types::U64;
@@ -106,9 +103,6 @@ pub async fn verify_merkle_root(
                 start_height,
                 merkle_root.clone(),
             );
-            // if latest_height != start_height {
-            //     anyhow::bail!("invalid start height.")
-            // }
             let rocksdb_store = rocksdb_store::RocksDBStore::open(config.db_path.clone());
             rocksdb_store::SMT::new(merkle_root.into(), rocksdb_store)
         }
@@ -150,68 +144,7 @@ pub async fn verify_merkle_root(
         anyhow::bail!("the merkle root is in valid.");
     }
     Ok(())
-
-    // let (start_height, latest_height, merkle_root) =
-    //     parse_merkle_cell_data(last_cell_output_data.to_vec())?;
-    // last_cell_latest_height = latest_height;
-    // let rocksdb_store = rocksdb_store::RocksDBStore::open(config.db_path.clone());
-    // let mut smt_tree = rocksdb_store::SMT::new(merkle_root.into(), rocksdb_store.clone());
 }
-
-// pub async fn indexer_handle(args: IndexerArgs) -> Result<()> {
-//     let config_path = tilde(CONFIG_PATH).into_owned();
-//     let config =
-//         SignServerConfig::new(config_path.as_str()).map_err(|_| Error::internal_error())?;
-//     let mut eth_client = Web3Client::new(args.eth_rpc_url);
-//     let mut indexer_client = IndexerRpcClient::new(args.ckb_indexer_url);
-//     let cell_script = parse_cell(args.cell_script.as_str())?;
-//     let cell = get_live_cell_by_typescript(&mut indexer_client, cell_script.clone())
-//         .map_err(|err| anyhow::anyhow!(err))?
-//         .ok_or_else(|| anyhow::anyhow!("no cell found"))?;
-//
-//     let last_cell_output_data = cell.output_data.as_bytes();
-//
-//     let mut last_cell_latest_height = 0u64;
-//     if last_cell_output_data.len() == 0 {
-//         anyhow::bail!("eth light client cell is not initialized")
-//     }
-//
-//     let (start_height, latest_height, merkle_root) =
-//         parse_merkle_cell_data(last_cell_output_data.to_vec())?;
-//     last_cell_latest_height = latest_height;
-//     let rocksdb_store = rocksdb_store::RocksDBStore::open(config.db_path.clone());
-//     let mut smt_tree = rocksdb_store::SMT::new(merkle_root.into(), rocksdb_store.clone());
-//     let rocksdb = rocksdb_store
-//         .db
-//         .ok_or_else(|| anyhow!("db is not exist."))?;
-//     // (
-//     //     start_height,
-//     //     rocksdb_store::SMT::new(merkle_root.into(), rocksdb_store.clone()),
-//     //     rocksdb_store
-//     //         .db
-//     //         .ok_or_else(|| anyhow!("db is not exist."))?,
-//     // );
-//     loop {
-//         let block_number = U64([start_height]);
-//         let mut key = [0u8; 32];
-//         let mut height = [0u8; 8];
-//         height.copy_from_slice(start_height.to_le_bytes().as_ref());
-//         key[..8].clone_from_slice(&height);
-//
-//         let chain_block = eth_client.get_block(block_number.into()).await?;
-//         let chain_block_hash = chain_block
-//             .hash
-//             .ok_or_else(|| anyhow!("the block number is not exist."))?;
-//         smt_tree
-//             .update(key.into(), chain_block_hash.0.into())
-//             .map_err(|err| anyhow::anyhow!(err))?;
-//         let rocksdb_store = smt_tree.store_mut();
-//         rocksdb_store.commit();
-//         rocksdb
-//             .put(key, smt_tree.root().as_slice())
-//             .map_err(|err| anyhow!(err))?;
-//     }
-// }
 
 #[allow(clippy::mutable_key_type)]
 fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value> {
@@ -237,13 +170,13 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
         );
         let mut rpc_client = HttpRpcClient::new(params[2].clone());
         let tx_view = tx.into_view();
-        // log::info!(
-        //     "tx: \n{}",
-        //     serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(
-        //         tx_view.clone()
-        //     ))
-        //     .unwrap()
-        // );
+        log::info!(
+            "tx: \n{}",
+            serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(
+                tx_view.clone()
+            ))
+            .unwrap()
+        );
         let privkey = get_secret_key(
             tilde(config.ckb_private_key_path.as_str())
                 .into_owned()
@@ -257,7 +190,7 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
             let tx = rpc_client
                 .get_transaction(hash)
                 .map_err(|_| Error::internal_error())?
-                .ok_or_else(|| Error::internal_error())?
+                .ok_or_else(Error::internal_error)?
                 .transaction;
             let mut index = [0u8; 4];
             index.copy_from_slice(op.index().raw_data().to_vec().as_slice());
@@ -286,24 +219,9 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
             merkle_root
         );
         let f = verify_merkle_root(config, start_height, latest_height, merkle_root);
-        // executor::block_on(f).map_err(|_| Error::internal_error())?;
-
         use tokio::runtime::Runtime;
         let mut rt = Runtime::new().unwrap();
         rt.block_on(f).map_err(|_| Error::internal_error())?;
-        // let f = verify_merkle_root(config, start_height, latest_height, merkle_root)
-        //     .await
-        //     .map_err(|_| Error::internal_error())?;
-        // let rocksdb_store: RocksDBStore<RocksDBValue> =
-        //     rocksdb_store::RocksDBStore::open(config.db_path.clone());
-        // let rocksdb = rocksdb_store.db.ok_or_else(|| Error::internal_error())?;
-        // let v = rocksdb
-        //     .get(latest_height.to_le_bytes())
-        //     .map_err(|_| Error::internal_error())?
-        //     .ok_or_else(|| Error::internal_error())?;
-        // let value = v.as_ref();
-        // log::info!("left: {:?}, right: {:?}", merkle_root, value,);
-
         let mut tx_helper = TxHelper::new(tx_view);
         tx_helper.add_multisig_config(multi_config);
 

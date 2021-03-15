@@ -1,4 +1,4 @@
-use crate::util::ckb_tx_generator::{Generator, CONFIRM};
+use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{parse_cell, parse_merkle_cell_data, parse_privkey_path};
 use crate::util::config::{ForceConfig, MultisigConf};
 use crate::util::eth_util::Web3Client;
@@ -19,7 +19,6 @@ use secp256k1::SecretKey;
 // use serde::export::Clone;
 use shellexpand::tilde;
 use sparse_merkle_tree::traits::Value;
-use std::ops::Add;
 use std::str::FromStr;
 use web3::types::{Block, BlockHeader, U64};
 

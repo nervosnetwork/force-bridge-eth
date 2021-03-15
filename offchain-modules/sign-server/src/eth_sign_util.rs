@@ -38,7 +38,7 @@ pub fn clear_0x(s: &str) -> &str {
 }
 
 pub struct Web3Client {
-    url: String,
+    _url: String,
     client: Web3<Http>,
 }
 
@@ -48,15 +48,8 @@ impl Web3Client {
             let transport = web3::transports::Http::new(url.as_str()).expect("new transport");
             web3::Web3::new(transport)
         };
-        Web3Client { url, client }
+        Web3Client { _url: url, client }
     }
-
-    // pub fn url(&self) -> &str {
-    //     self.url.as_str()
-    // }
-    // pub fn client(&mut self) -> &mut Web3<Http> {
-    //     &mut self.client
-    // }
 
     pub async fn get_block(&mut self, hash_or_number: BlockId) -> Result<Block<H256>> {
         let block = self.client.eth().block(hash_or_number).await?;
