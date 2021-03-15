@@ -301,7 +301,7 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let proof = get_ckb_proof_info(
-        &args.tx_hash,
+        vec![args.tx_hash],
         ckb_rpc_url,
         ethereum_rpc_url,
         eth_ckb_chain_addr,
@@ -366,7 +366,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     )
     .await?;
     let proof = get_ckb_proof_info(
-        &ckb_tx_hash,
+        vec![ckb_tx_hash],
         ckb_rpc_url.clone(),
         eth_rpc_url.clone(),
         light_client_addr,
@@ -375,7 +375,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     .await?;
     let result = unlock(
         eth_private_key,
-        eth_rpc_url,
+        eth_rpc_url.clone(),
         deployed_contracts.eth_token_locker_addr.clone(),
         proof,
         args.gas_price,
