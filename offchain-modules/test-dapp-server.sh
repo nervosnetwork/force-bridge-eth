@@ -103,7 +103,7 @@ start_header_relay(){
 
 stress_test(){
     cd ${PROJECT_DIR}/demo && rm -rf dex-crosschain-bot
-    git clone https://github.com/fpChan/dex-crosschain-bot && cd dex-crosschain-bot  && git checkout local && yarn
+    git clone https://github.com/fpChan/dex-crosschain-bot && cd dex-crosschain-bot  && git checkout local-test && yarn
     yarn send && rm -rf dex-crosschain-bot
 }
 
