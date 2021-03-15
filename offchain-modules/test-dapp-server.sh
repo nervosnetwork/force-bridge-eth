@@ -84,8 +84,8 @@ start_tx_relay(){
 
 start_rocksdb_relay() {
   cd ${OFFCHAIN}
-  ${FORCE_CLI} dapp ckb-rocksdb-relay > ${FORCE_LOG_PATH}/ckb-rocksdb-relayer.log 2>&1 &
-  ${FORCE_CLI} dapp eth-rocksdb-relay > ${FORCE_LOG_PATH}/eth-rocksdb-relayer.log 2>&1 &
+  ${FORCE_CLI} dapp ckb-rocksdb-relayer > ${FORCE_LOG_PATH}/ckb-rocksdb-relayer.log 2>&1 &
+  ${FORCE_CLI} dapp eth-rocksdb-relayer > ${FORCE_LOG_PATH}/eth-rocksdb-relayer.log 2>&1 &
 }
 
 #start_server(){
