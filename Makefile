@@ -1,10 +1,15 @@
 FORCE_CLI := ./offchain-modules/target/debug/force-eth-cli
+FORCE_CLI_OFFCHAIN := target/debug/force-eth-cli
 
 .EXPORT_ALL_VARIABLES:
 
 FORCE_CONFIG_PATH=${HOME}/.force-bridge/config.toml
 RUST_BACKTRACE=1
 RUST_LOG=warn,force=info
+DB_PATH=mysql://root:@127.0.0.1:3306/${DB_NAME}
+DB_NAME=forcedb
+CKB_MINT_PRIVKY=2
+ETH_UNLOCK_PRIVKEY=2
 
 ci: modules-ci integration-ci
 
@@ -25,6 +30,12 @@ build-all:
 	cd offchain-modules && cargo build
 	cd offchain-modules/eth-proof && npm install
 
+build-all-prod:
+	cd ckb-contracts && capsule build --release
+	cd eth-contracts && yarn install
+	cd offchain-modules && cargo build --release
+	cd offchain-modules/eth-proof && npm install
+
 start-docker-network:
 	cd docker && docker-compose up -d
 	sleep 5
@@ -43,11 +54,11 @@ deploy-ckb-sudt:
 
 deploy-eth:
 	cd eth-contracts \
-	&& npx hardhat run ./scripts/deploy.js
+	&& npx hardhat run ./scripts/deploy.js --network ci
 
 deploy-erc20:
 	cd eth-contracts \
-	&& npx hardhat run ./scripts/deploy-erc20.js > ~/.force-bridge/erc20-contracts.json
+	&& npx hardhat run ./scripts/deploy-erc20.js --network ci > ~/.force-bridge/erc20-contracts.json
 
 deploy-contracts: deploy-ckb deploy-eth
 
@@ -73,9 +84,17 @@ restart-eth2ckb-relay:
 
 restart-relay: restart-ckb2eth-relay restart-eth2ckb-relay
 
+start-tx-relay:
+	cd offchain-modules \
+	&& pm2 start --name force-server "${FORCE_CLI_OFFCHAIN} dapp server  --server-private-key-path 4 5  --mint-private-key-path ${CKB_MINT_PRIVKY} --listen-url 0.0.0.0:3003 --db-path ${DB_PATH}" \
+    && pm2 start --name ckb-indexer "${FORCE_CLI_OFFCHAIN} dapp ckb-indexer --db-path ${DB_PATH}" \
+    && pm2 start --name eth-indexer "${FORCE_CLI_OFFCHAIN} dapp eth-indexer --db-path ${DB_PATH}" \
+    && pm2 start --name ckb-tx-relayer "${FORCE_CLI_OFFCHAIN} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY}" \
+    && pm2 start --name eth-tx-relayer "${FORCE_CLI_OFFCHAIN} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY}"
+
 start-force-server:
 	cd offchain-modules \
-	&& pm2 start --name force-server "./target/debug/force-eth-cli server  --ckb-private-key-path 2 --eth-private-key-path 2 --listen-url 0.0.0.0:3003"
+	&& pm2 start --name force-server "${FORCE_CLI_OFFCHAIN} server  --ckb-private-key-path 2 --eth-private-key-path 2 --listen-url 0.0.0.0:3003"
 
 restart-force-server:
 	pm2 restart force-server
@@ -103,13 +122,18 @@ close-dev-env: stop-demo-services remove-docker-network
 integration-ci: setup-dev-env demo-crosschain
 
 local-ci:
+	git submodule update --init
 	make close-dev-env
+	rm -rf ~/.force-bridge/eth-rocksdb
+	rm -rf ~/.force-bridge/ckb-rocksdb
 	test -f ~/.force-bridge/config.toml && mv ~/.force-bridge/config.toml ~/.force-bridge/config_bak_`date "+%Y%m%d-%H%M%S"`.toml || echo 'config not exist'
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
 
 github-ci:
+	rm -rf ~/.force-bridge/eth-rocksdb
+	rm -rf ~/.force-bridge/ckb-rocksdb
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
@@ -126,5 +150,9 @@ build-docker:
 fmt:
 	make -C offchain-modules fmt
 	make -C ckb-contracts fmt
+
+coverage-test:
+	cd ckb-contracts && bash ckb_script_coverage.sh
+	cd eth-contracts && yarn install && bash eth_script_coverage.sh
 
 .PHONY: demo

@@ -648,6 +648,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake2b-ref"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88756126a7634ad9c13ed0a6da9aa3376a6b7000eb5fcdbb89d153196326bbcd"
+
+[[package]]
 name = "blake2b-rs"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -817,6 +823,9 @@ name = "cc"
 version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8dae9c4b8fedcae85592ba623c4fd08cfdab3e3b72d6df780c6ead964a69bfff"
+dependencies = [
+ "rayon",
+]
 
 [[package]]
 name = "cfg-if"
@@ -957,6 +966,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-librocksdb-sys"
+version = "6.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "995341a6dea5f0d8ff4570bebbde3691349842d2c671472e09ea2ee2e3e0b083"
+dependencies = [
+ "cc",
+ "glob",
+ "libc",
+]
+
+[[package]]
 name = "ckb-logger"
 version = "0.36.0-pre"
 source = "git+https://github.com/nervosnetwork/ckb?tag=v0.36.0-rc2#38aacb54991e07294ad3073037fd24a4074ceaa3"
@@ -1025,6 +1045,17 @@ dependencies = [
  "serde 1.0.118",
  "tempfile",
  "walkdir",
+]
+
+[[package]]
+name = "ckb-rocksdb"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "809a3a50c82a5fd7429c5141e64d8c4c37451ceb25fe3b51fce7fd5d929ad521"
+dependencies = [
+ "ckb-librocksdb-sys",
+ "libc",
+ "tempfile",
 ]
 
 [[package]]
@@ -1378,14 +1409,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-channel"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dca26ee1f8d361640700bde38b2c37d8c22b3ce2d360e1fc1c74ea4b0aa7d775"
+dependencies = [
+ "cfg-if 1.0.0",
+ "crossbeam-utils 0.8.1",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f02af974daeee82218205558e51ec8768b48cf524bd01d550abe5573a608285"
 dependencies = [
- "crossbeam-epoch",
+ "crossbeam-epoch 0.8.2",
  "crossbeam-utils 0.7.2",
  "maybe-uninit",
+]
+
+[[package]]
+name = "crossbeam-deque"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94af6efb46fef72616855b036a624cf27ba656ffc9be1b9a3c931cfc7749a9a9"
+dependencies = [
+ "cfg-if 1.0.0",
+ "crossbeam-epoch 0.9.1",
+ "crossbeam-utils 0.8.1",
 ]
 
 [[package]]
@@ -1399,7 +1451,21 @@ dependencies = [
  "crossbeam-utils 0.7.2",
  "lazy_static",
  "maybe-uninit",
- "memoffset",
+ "memoffset 0.5.6",
+ "scopeguard",
+]
+
+[[package]]
+name = "crossbeam-epoch"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1aaa739f95311c2c7887a76863f500026092fb1dce0161dab577e559ef3569d"
+dependencies = [
+ "cfg-if 1.0.0",
+ "const_fn",
+ "crossbeam-utils 0.8.1",
+ "lazy_static",
+ "memoffset 0.6.1",
  "scopeguard",
 ]
 
@@ -1636,7 +1702,7 @@ dependencies = [
  "ethereum-types",
  "rlp",
  "rlp-derive",
- "sha2 0.8.2",
+ "sha2 0.9.3",
  "sha3",
 ]
 
@@ -1813,6 +1879,7 @@ dependencies = [
  "anyhow",
  "ckb-hash",
  "ckb-jsonrpc-types",
+ "ckb-rocksdb",
  "ckb-sdk",
  "ckb-types",
  "cmd_lib",
@@ -1828,6 +1895,7 @@ dependencies = [
  "futures 0.3.8",
  "hex 0.4.2",
  "log",
+ "merkle-cbt",
  "molecule",
  "rand 0.7.3",
  "reqwest 0.10.10",
@@ -1838,6 +1906,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "shellexpand",
+ "sparse-merkle-tree",
  "sqlx",
  "tiny-keccak 2.0.2",
  "tokio 0.2.24",
@@ -1849,11 +1918,13 @@ dependencies = [
 name = "force-eth-types"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
+ "blake2b-ref",
+ "cfg-if 1.0.0",
  "eth-spv-lib",
  "ethereum-types",
  "molecule",
  "no-std-compat",
+ "sparse-merkle-tree",
 ]
 
 [[package]]
@@ -2123,6 +2194,12 @@ name = "gimli"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
+
+[[package]]
+name = "glob"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
 
 [[package]]
 name = "gloo-timers"
@@ -2731,6 +2808,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memoffset"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "157b4208e3059a8f9e78d559edc658e13df41410cb3ae03979c83130067fdd87"
+dependencies = [
+ "autocfg 1.0.1",
+]
+
+[[package]]
 name = "merkle-cbt"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3188,9 +3274,9 @@ dependencies = [
 
 [[package]]
 name = "pem"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4c220d01f863d13d96ca82359d1e81e64a7c6bf0637bcde7b2349630addf0c6"
+checksum = "fd56cbd21fea48d0c440b41cd69c589faacade08c992d9a54e471b79d0fd13eb"
 dependencies = [
  "base64 0.13.0",
  "once_cell",
@@ -3628,6 +3714,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "rayon"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b0d8e0819fadc20c74ea8373106ead0600e3a67ef1fe8da56e39b9ae7275674"
+dependencies = [
+ "autocfg 1.0.1",
+ "crossbeam-deque 0.8.0",
+ "either",
+ "rayon-core",
+]
+
+[[package]]
+name = "rayon-core"
+version = "1.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ab346ac5921dc62ffa9f89b7a773907511cdfa5490c572ae9be1be33e8afa4a"
+dependencies = [
+ "crossbeam-channel 0.5.0",
+ "crossbeam-deque 0.8.0",
+ "crossbeam-utils 0.8.1",
+ "lazy_static",
+ "num_cpus",
+]
+
+[[package]]
 name = "rdrand"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3795,7 +3906,7 @@ dependencies = [
  "num-traits 0.2.14",
  "pem",
  "rand 0.7.3",
- "sha2 0.9.2",
+ "sha2 0.9.3",
  "simple_asn1",
  "subtle 2.4.0",
  "thiserror",
@@ -4137,9 +4248,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e7aab86fe2149bad8c507606bdb3f4ef5e7b2380eb92350f56122cca72a42a8"
+checksum = "fa827a14b29ab7f44778d14a88d3cb76e949c45083f7dbfa507d0cb699dc12de"
 dependencies = [
  "block-buffer 0.9.0",
  "cfg-if 1.0.0",
@@ -4267,6 +4378,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sparse-merkle-tree"
+version = "0.3.1-pre"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "319827f79e565c18099ef900023e7bcc3ebf8ca9ae8d5bf9b28df87f5ef19a34"
+dependencies = [
+ "cfg-if 0.1.10",
+]
+
+[[package]]
 name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4330,7 +4450,7 @@ dependencies = [
  "rand 0.7.3",
  "rsa",
  "sha-1",
- "sha2 0.9.2",
+ "sha2 0.9.3",
  "smallvec 1.5.1",
  "sqlformat",
  "sqlx-rt",
@@ -4352,7 +4472,7 @@ dependencies = [
  "heck",
  "proc-macro2 1.0.24",
  "quote 1.0.7",
- "sha2 0.9.2",
+ "sha2 0.9.3",
  "sqlx-core",
  "sqlx-rt",
  "syn 1.0.54",
@@ -4866,7 +4986,7 @@ version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df720b6581784c118f0eb4310796b12b1d242a7eb95f716a8367855325c25f89"
 dependencies = [
- "crossbeam-deque",
+ "crossbeam-deque 0.7.3",
  "crossbeam-queue",
  "crossbeam-utils 0.7.2",
  "futures 0.1.30",

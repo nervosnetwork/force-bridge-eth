@@ -4,7 +4,7 @@ use super::REPLAY_RESIST_CELL_NUMBER;
 use super::{DappState, ReplayResistTask};
 use crate::dapp::db::server::{self as db, add_replay_resist_cells, is_token_replay_resist_init};
 use crate::util::ckb_util::{
-    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_main_chain_headers,
+    build_lockscript_from_address, get_sudt_type_script, parse_cell, parse_merkle_cell_data,
 };
 use crate::util::eth_util::{
     build_lock_eth_payload, build_lock_token_payload, convert_eth_address, make_transaction,
@@ -52,6 +52,7 @@ pub async fn init_token(
             args.token_address.as_str(),
             REPLAY_RESIST_CELL_NUMBER,
             data.init_token_privkey.clone(),
+            false,
         )
         .await
         .map_err(|e| RpcError::ServerError(format!("get or create bridge cell error: {}", e)))?;
@@ -438,17 +439,11 @@ pub async fn get_best_block_height(
             let cell = get_live_cell_by_typescript(&mut generator.indexer_client, script)
                 .map_err(|e| RpcError::ServerError(format!("get live cell fail: {:?}", e)))?
                 .ok_or_else(|| RpcError::ServerError("eth client cell not exist".to_string()))?;
-            let (un_confirmed_headers, _) =
-                parse_main_chain_headers(cell.output_data.as_bytes().to_vec()).map_err(|e| {
-                    RpcError::ServerError(format!("parse header data fail: {:?}", e))
-                })?;
-            let best_header = un_confirmed_headers
-                .last()
-                .ok_or_else(|| RpcError::ServerError("header is none".to_string()))?;
-            let best_block_number = best_header
-                .number
-                .ok_or_else(|| RpcError::ServerError("header number is none".to_string()))?;
-            Ok(HttpResponse::Ok().json(Uint64::from(best_block_number.as_u64())))
+            let ckb_cell_data = cell.output_data.as_bytes().to_vec();
+            let (_, latest_height, _) = parse_merkle_cell_data(ckb_cell_data).map_err(|e| {
+                RpcError::ServerError(format!("parse merkle cell data fail: {:?}", e))
+            })?;
+            Ok(HttpResponse::Ok().json(Uint64::from(latest_height)))
         }
         _ => {
             return Err(RpcError::BadRequest(

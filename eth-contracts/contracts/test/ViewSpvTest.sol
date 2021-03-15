@@ -11,28 +11,45 @@ contract ViewSpvTest {
     using TypedMemView for bytes29;
     using ViewSpv for bytes29;
 
-    // members in CKBTxProof
-    function txMerkleIndex(bytes memory _input) public pure returns (uint16) {
-        return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).txMerkleIndex();
+    // members in CKBHistoryTxProof
+    function txBlockNumber(bytes memory _input) public pure returns (uint64) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof)).txBlockNumber();
     }
 
-    function blockNumber(bytes memory _input) public pure returns (uint64) {
-        return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).spvBlockNumber();
+    function historyTxMerkleIndex(bytes memory _input) public pure returns (uint16) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof)).historyTxMerkleIndex();
     }
 
-    function blockHash(bytes memory _input) public pure returns (bytes32) {
-        return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).blockHash();
+    function historyWitnessesRoot(bytes memory _input) public pure returns (bytes32) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof)).historyWitnessesRoot();
     }
 
-    function txHash(bytes memory _input) public pure returns (bytes32) {
-        return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).txHash();
+    function historyLemmas(bytes memory _input) public view returns (bytes memory) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof)).historyLemmas().clone();
     }
 
-    function witnessesRoot(bytes memory _input) public pure returns (bytes32) {
-        return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).witnessesRoot();
+    function rawTransaction(bytes memory _input) public view returns (bytes memory) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxProof)).rawTransaction().clone();
     }
 
-    function lemmas(bytes memory _input) public view returns (bytes memory) {
-        return _input.ref(uint40(ViewSpv.SpvTypes.CKBTxProof)).lemmas().clone();
+    // members in CkbHistoryTxRootProof
+    function initBlockNumber(bytes memory _input) public pure returns (uint64) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).initBlockNumber();
+    }
+
+    function latestBlockNumber(bytes memory _input) public pure returns (uint64) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).latestBlockNumber();
+    }
+
+    function indices(bytes memory _input) public view returns (bytes memory) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).indices().clone();
+    }
+
+    function proofLeaves(bytes memory _input) public view returns (bytes memory) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).proofLeaves().clone();
+    }
+
+    function txRootLemmas(bytes memory _input) public view returns (bytes memory) {
+        return _input.ref(uint40(ViewSpv.SpvTypes.CKBHistoryTxRootProof)).txRootLemmas().clone();
     }
 }

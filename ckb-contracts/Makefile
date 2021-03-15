@@ -9,6 +9,10 @@ fmt:
 	cargo fmt
 	for c in $$(ls contracts); do echo "enter $$c"; cd contracts/$$c; cargo fmt; echo "fmt done"; cd ../..; done
 
+update-and-audit:
+	cargo update
+	for c in $$(ls contracts); do echo "enter $$c"; cd contracts/$$c; cargo update; cargo audit; echo "update and audit scan done"; cd ../..; done
+
 build-contract:
 	capsule build
 

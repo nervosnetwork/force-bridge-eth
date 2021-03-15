@@ -58,7 +58,7 @@ const benchmarkWithGc = async (factoryPath) => {
     );
 
     // check if addHeaders success
-    let actualTipNumber = await contract.callStatic.getLatestBlockNumber();
+    let actualTipNumber = await contract.callStatic.latestBlockNumber();
     log(`current tipBlockNumber: ${actualTipNumber}\r\n`);
   }
 };

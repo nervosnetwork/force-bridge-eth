@@ -33,7 +33,7 @@ async function main() {
       '0x93a9faceb827e8a431217f0e5fc6068c14cc62ac4cf73752ed4e9135adc364c8',
     `${res} !== 0x93a9faceb827e8a431217f0e5fc6068c14cc62ac4cf73752ed4e9135adc364c8`
   );
-  console.log('ckbBlake2b res: ', res);
+  console.log('TestBlake2b success');
 }
 
 // We recommend this pattern to be able to use async/await everywhere

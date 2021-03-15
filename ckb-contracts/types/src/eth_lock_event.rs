@@ -1,6 +1,6 @@
 #![allow(clippy::erasing_op)]
 #![allow(clippy::identity_op)]
-use eth_spv_lib::eth_types::LogEntry;
+
 /// Associated eth event:
 ///
 /// event Locked(
@@ -12,6 +12,12 @@ use eth_spv_lib::eth_types::LogEntry;
 ///     bytes replayResistOutpoint,
 ///     bytes sudtExtraData
 /// );
+///
+/// references:
+/// - https://ethereum.github.io/yellowpaper/paper.pdf
+/// - https://docs.soliditylang.org/en/latest/abi-spec.html?highlight=event#events
+///
+use eth_spv_lib::eth_types::LogEntry;
 use ethereum_types::U256;
 use std::convert::TryInto;
 use std::prelude::v1::*;

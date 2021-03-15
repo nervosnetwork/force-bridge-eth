@@ -10,6 +10,6 @@ default = ["std"]
 std = ["mockall"]
 
 [dependencies]
-ckb-std = { git = "https://github.com/nervosnetwork/ckb-std", rev = "b56b362" }
-mockall = { version = "0.8", optional = true }
+ckb-std = "0.7.2"
+mockall = { version = "0.9", optional = true }
 no-std-compat = { version = "0.4.1", features = [ "alloc" ] }

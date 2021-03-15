@@ -5,12 +5,13 @@ use crate::util::ckb_util::{
 use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::Witness;
 use crate::util::eth_util::convert_to_header_rlp;
-use anyhow::{anyhow, Result};
+use crate::util::rocksdb;
+use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
-use ckb_types::packed::HeaderVec;
-use ckb_types::prelude::{Builder, Entity, Pack, Reader};
+use ckb_types::packed::{HeaderVec, WitnessArgs};
+use ckb_types::prelude::{Builder, Entity, Pack, Reader, Unpack};
 use ckb_types::{
     bytes::Bytes,
     packed::{self, Byte32, CellDep, CellOutput, OutPoint, Script},
@@ -21,16 +22,19 @@ use force_eth_types::generated::basic;
 use force_eth_types::generated::basic::BytesVec;
 use force_eth_types::generated::eth_bridge_type_cell::ETHBridgeTypeData;
 use force_eth_types::generated::eth_header_cell::{
-    ETHChain, ETHHeaderCellData, ETHHeaderInfo, ETHHeaderInfoReader,
+    ETHChain, ETHHeaderCellData, ETHHeaderCellMerkleData, ETHHeaderCellMerkleDataReader,
+    ETHHeaderInfo, ETHHeaderInfoReader,
 };
+use force_eth_types::generated::witness::MintTokenWitness;
+use force_eth_types::hasher::Blake2bHasher;
 use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
 use log::info;
+use molecule::prelude::Byte;
 use rand::Rng;
 use secp256k1::SecretKey;
-use serde::export::Clone;
 use shellexpand::tilde;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -71,7 +75,9 @@ impl Generator {
         &mut self,
         from_lockscript: Script,
         cell: Cell,
-        headers: &[Block<ethereum_types::H256>],
+        merkle_root: &[u8],
+        start_height: u64,
+        latest_height: u64,
     ) -> Result<TransactionView> {
         let mut rng = rand::thread_rng();
         let tx_fee = rng.gen_range(ONE_CKB / 2000, ONE_CKB / 1000);
@@ -111,27 +117,13 @@ impl Generator {
             .lock(cell_output.lock())
             .type_(cell_output.type_())
             .build();
-        let mut main_chain_data: Vec<basic::Bytes> = vec![];
-        for (i, header) in headers.iter().enumerate() {
-            let data = if i + CONFIRM < headers.len() {
-                header.hash.unwrap().as_bytes().to_vec().into()
-            } else {
-                let header_rlp = convert_to_header_rlp(header)?;
-                let header_info = ETHHeaderInfo::new_builder()
-                    .header(hex::decode(header_rlp)?.into())
-                    .total_difficulty(header.total_difficulty.unwrap().as_u64().into())
-                    .hash(basic::Byte32::from_slice(header.hash.unwrap().as_bytes()).unwrap())
-                    .build();
-                header_info.as_slice().to_vec().into()
-            };
-            main_chain_data.push(data);
-        }
-        let output_data = ETHHeaderCellData::new_builder()
-            .headers(
-                ETHChain::new_builder()
-                    .main(BytesVec::new_builder().set(main_chain_data).build())
-                    .build(),
+
+        let output_data = ETHHeaderCellMerkleData::new_builder()
+            .merkle_root(
+                basic::Byte32::from_slice(merkle_root).expect("merkle root should be right"),
             )
+            .start_height(start_height.into())
+            .latest_height(latest_height.into())
             .build()
             .as_bytes();
         helper.add_output_with_auto_capacity(output, output_data);
@@ -419,7 +411,7 @@ impl Generator {
             .deployed_contracts
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-
+        let db_path = force_cli_config.eth_rocksdb_path;
         // add cell deps.
         let cell_script = parse_cell(
             deployed_contracts
@@ -430,6 +422,15 @@ impl Generator {
         let cell = get_live_cell_by_typescript(&mut self.indexer_client, cell_script)
             .map_err(|err| anyhow!(err))?
             .ok_or_else(|| anyhow!("no cell found for cell dep"))?;
+        let cell_merkle_root = {
+            let cell_data = cell.output_data.as_bytes();
+            let eth_header_cell_data = ETHHeaderCellMerkleDataReader::new_unchecked(cell_data);
+            let merkle_root = eth_header_cell_data.merkle_root().raw_data();
+
+            let mut merkle_root_raw = [0u8; 32];
+            merkle_root_raw.copy_from_slice(merkle_root);
+            merkle_root_raw
+        };
         let mut builder = helper.transaction.as_advanced_builder();
         builder = builder.cell_dep(
             CellDep::new_builder()
@@ -549,9 +550,54 @@ impl Generator {
         helper.add_output(bridge_cell, bridge_cell_data);
         // add witness
         {
+            let header: eth_spv_lib::eth_types::BlockHeader = rlp::decode(
+                hex::decode(eth_proof.header_data.as_str())
+                    .unwrap()
+                    .to_vec()
+                    .as_slice(),
+            )
+            .unwrap();
+            let mut key = [0u8; 32];
+            let mut height = [0u8; 8];
+            height.copy_from_slice(header.number.to_le_bytes().as_ref());
+            key[..8].clone_from_slice(&height);
+
+            let rocksdb_store = rocksdb::RocksDBStore::open_readonly(db_path);
+            let smt_tree = rocksdb::SMT::new(cell_merkle_root.into(), rocksdb_store);
+
+            let block_hash: [u8; 32] = smt_tree
+                .get(&key.into())
+                .map_err(|err| anyhow::anyhow!(err))?
+                .into();
+            let merkle_proof = smt_tree
+                .merkle_proof(vec![key.into()])
+                .map_err(|err| anyhow::anyhow!(err))?;
+            let compiled_merkle_proof = merkle_proof
+                .compile(vec![(key.into(), block_hash.into())])
+                .map_err(|err| anyhow::anyhow!(err))?;
+
+            {
+                let mut compiled_leaves = vec![];
+
+                let mut leaf_index = [0u8; 32];
+                leaf_index[..8].copy_from_slice(header.number.to_le_bytes().as_ref());
+
+                let mut leaf_value = [0u8; 32];
+                leaf_value.copy_from_slice(header.hash.expect("header hash is none").0.as_bytes());
+
+                compiled_leaves.push((leaf_index.into(), leaf_value.into()));
+                if !compiled_merkle_proof
+                    .verify::<Blake2bHasher>(&cell_merkle_root.into(), compiled_leaves)
+                    .expect("verify")
+                {
+                    return Err(anyhow!("pre merkle proof verify fail"));
+                }
+            }
+
             let witness = EthWitness {
                 cell_dep_index_list: vec![0],
                 spv_proof: eth_proof.clone(),
+                compiled_merkle_proof: compiled_merkle_proof.0,
             }
             .as_bytes();
             helper.transaction = helper
@@ -930,5 +976,110 @@ impl Generator {
             .await
             .map_err(|e| anyhow!(e))?;
         Ok(hex::encode(tx.hash().as_slice()))
+    }
+
+    #[allow(clippy::mutable_key_type)]
+    pub fn recycle_bridge_cell_tx(
+        &mut self,
+        from_lockscript: Script,
+        recycle_outpoints: Vec<OutPoint>,
+        tx_fee: u64,
+    ) -> Result<TransactionView> {
+        info!(
+            "the outpoints which wait to be recycled: {:?}",
+            recycle_outpoints
+        );
+        if recycle_outpoints.is_empty() {
+            bail!("the outpoints which need to recycle is null")
+        }
+        let mut helper = TxHelper::default();
+
+        let dep_outpoints = vec![
+            self.deployed_contracts.bridge_lockscript.outpoint.clone(),
+            self.deployed_contracts
+                .simple_bridge_typescript
+                .outpoint
+                .clone(),
+        ];
+        self.add_cell_deps(&mut helper, dep_outpoints)
+            .map_err(|err| anyhow!(err))?;
+
+        // add input
+        let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
+            Default::default();
+
+        let mut all_bridge_capacity: u64 = 0;
+        let rpc_client = &mut self.rpc_client;
+
+        let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+            get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+                .map(|(output, _)| output)
+        };
+        let mut add_witnesses = HashMap::new();
+
+        let mut outpoint_lock_tmp: Script = Default::default();
+        for (i, outpoint) in recycle_outpoints.iter().enumerate() {
+            let output = get_live_cell_fn(outpoint.clone(), false).map_err(|e| anyhow!(e))?;
+            let bridge_cell_capacity: u64 = output.capacity().unpack();
+            info!("the bridge cell capacity : {:?}", bridge_cell_capacity);
+            all_bridge_capacity = all_bridge_capacity.add(bridge_cell_capacity);
+            helper
+                .add_input(
+                    outpoint.clone(),
+                    None,
+                    &mut get_live_cell_fn,
+                    &self.genesis_info.clone(),
+                    true,
+                )
+                .map_err(|err| {
+                    if err.contains("Invalid cell status") {
+                        anyhow!("irreparable error: {:?}", err)
+                    } else {
+                        anyhow!(err)
+                    }
+                })?;
+            // add witness
+            let outpoint_lock = output.lock();
+            if outpoint_lock.as_slice() != outpoint_lock_tmp.as_slice() {
+                let witness = MintTokenWitness::new_builder().mode(Byte::new(1u8)).build();
+                let witness_args = WitnessArgs::new_builder()
+                    .lock(Some(witness.as_bytes()).pack())
+                    .build();
+                add_witnesses.insert(i, witness_args.as_bytes().pack());
+                outpoint_lock_tmp = outpoint_lock;
+            }
+        }
+
+        // the owner need provide the cell for tx_fee and simple bridge cell verify
+        info!("recycle capacity : {:?}", all_bridge_capacity);
+        let recycle_cell = CellOutput::new_builder()
+            .capacity(all_bridge_capacity.pack())
+            .lock(from_lockscript.clone())
+            .build();
+
+        // put witness to witnesses
+        let mut witnesses = helper.init_witnesses();
+        for (index, witness) in add_witnesses {
+            witnesses[index] = witness;
+        }
+
+        helper.transaction = helper
+            .transaction
+            .as_advanced_builder()
+            .witnesses(witnesses)
+            .build();
+        // add output
+        helper.add_output(recycle_cell, Bytes::new());
+
+        let tx = helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self.genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
+        Ok(tx)
     }
 }
