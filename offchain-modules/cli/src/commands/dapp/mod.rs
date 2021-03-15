@@ -1,5 +1,7 @@
 use anyhow::Result;
 use force_eth_lib::dapp::indexer::DexFilter;
+use force_eth_lib::dapp::rocksdb::ckb_rocksdb::CkbRocksdb;
+use force_eth_lib::dapp::rocksdb::eth_rocksdb::EthRocksdb;
 use force_eth_lib::dapp::server::start;
 use force_eth_lib::dapp::CkbIndexer;
 use force_eth_lib::dapp::CkbTxRelay;
@@ -16,6 +18,8 @@ pub async fn dapp_handle(command: DappCommand) -> Result<()> {
         DappCommand::CKBIndexer(args) => ckb_indexer(args).await,
         DappCommand::CkbTxRelayer(args) => ckb_tx_relay(args).await,
         DappCommand::EthTxRelayer(args) => eth_tx_relay(args).await,
+        DappCommand::CkbRocksdbRelayer(args) => ckb_rocksdb_relay(args).await,
+        DappCommand::EthRocksdbRelayer(args) => eth_rocksdb_relay(args).await,
     }
 }
 
@@ -79,7 +83,20 @@ async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
         args.mint_concurrency,
         args.minimum_cell_capacity,
         args.db_path,
+        args.rocksdb_path,
     )
     .await?;
     eth_tx_relayer.start().await
+}
+
+async fn ckb_rocksdb_relay(args: CkbRocksdbRelayerArgs) -> Result<()> {
+    let mut ckb_rocksdb_relayer =
+        CkbRocksdb::new(args.config_path, args.network, args.rocksdb_path).await?;
+    ckb_rocksdb_relayer.loop_relay_rocksdb().await
+}
+
+async fn eth_rocksdb_relay(args: EthRocksdbRelayerArgs) -> Result<()> {
+    let mut eth_rocksdb_relayer =
+        EthRocksdb::new(args.config_path, args.network, args.rocksdb_path).await?;
+    eth_rocksdb_relayer.loop_relay_rocksdb().await
 }

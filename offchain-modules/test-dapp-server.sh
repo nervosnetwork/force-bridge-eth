@@ -82,6 +82,12 @@ start_tx_relay(){
   ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > ${FORCE_LOG_PATH}/eth-tx-relayer.log 2>&1 &
 }
 
+start_rocksdb_relay() {
+  cd ${OFFCHAIN}
+  ${FORCE_CLI} dapp ckb-rocksdb-relay > ${FORCE_LOG_PATH}/ckb-rocksdb-relayer.log 2>&1 &
+  ${FORCE_CLI} dapp eth-rocksdb-relay > ${FORCE_LOG_PATH}/eth-rocksdb-relayer.log 2>&1 &
+}
+
 #start_server(){
 #  cd ${OFFCHAIN}
 #  pm2 start --name force-server "${FORCE_CLI} dapp server  --ckb-private-key-path ${CKB_MINT_PRIVKY}  --listen-url 0.0.0.0:3003 --db-path ${DB_PATH}"
@@ -114,6 +120,7 @@ stress_test(){
 #start_header_relay
 start_server
 sleep 3
+start_rocksdb_relay
 start_tx_relay
 
 stress_test

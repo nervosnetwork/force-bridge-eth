@@ -276,6 +276,7 @@ pub async fn to_eth_spv_proof_json(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn send_eth_spv_proof_tx_single(
     generator: &mut Generator,
     config_path: String,
@@ -284,12 +285,14 @@ pub async fn send_eth_spv_proof_tx_single(
     from_lockscript: Script,
     from_privkey: SecretKey,
     manual_capacity_cell: Option<OutPoint>,
+    rocksdb_path: String,
 ) -> Result<ckb_types::H256> {
     let unsigned_tx = generator.generate_eth_spv_tx(
         config_path.clone(),
         from_lockscript.clone(),
         eth_proof,
         manual_capacity_cell,
+        rocksdb_path,
     )?;
     let tx =
         sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
@@ -318,6 +321,7 @@ pub async fn send_eth_spv_proof_tx(
     eth_proof: &ETHSPVProofJson,
     from_privkey: SecretKey,
     manual_capacity_cell: Option<OutPoint>,
+    rocksdb_path: String,
 ) -> Result<ckb_types::H256> {
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
@@ -332,6 +336,7 @@ pub async fn send_eth_spv_proof_tx(
             from_lockscript.clone(),
             from_privkey,
             manual_capacity_cell.clone(),
+            rocksdb_path.clone(),
         )
         .await;
         match result {

@@ -262,6 +262,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         &eth_proof,
         from_privkey,
         None,
+        force_config.eth_rocksdb_path,
     )
     .await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);

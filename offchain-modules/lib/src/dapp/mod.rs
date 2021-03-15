@@ -1,6 +1,7 @@
 pub mod db;
 pub mod indexer;
 pub mod relayer;
+pub mod rocksdb;
 pub mod server;
 
 pub use indexer::ckb_indexer::CkbIndexer;

@@ -35,6 +35,7 @@ pub struct EthTxRelayer {
     pub db_pool: MySqlPool,
     pub mint_concurrency: u64,
     pub minimum_cell_capacity: u64,
+    pub rocksdb_path: String,
 }
 
 impl EthTxRelayer {
@@ -45,6 +46,7 @@ impl EthTxRelayer {
         mint_concurrency: u64,
         minimum_cell_capacity: u64,
         db_url: String,
+        rocksdb_path: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -62,6 +64,7 @@ impl EthTxRelayer {
             db_pool,
             mint_concurrency,
             minimum_cell_capacity: minimum_cell_capacity * ONE_CKB,
+            rocksdb_path,
         })
     }
 
@@ -166,6 +169,7 @@ impl EthTxRelayer {
             &lock_tx_proof,
             self.private_key,
             Some(capacity_cell.clone()),
+            self.rocksdb_path.clone(),
         )
         .await
     }
