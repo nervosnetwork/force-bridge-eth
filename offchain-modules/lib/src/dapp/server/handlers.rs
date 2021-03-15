@@ -453,6 +453,37 @@ pub async fn get_best_block_height(
     }
 }
 
+#[post("/recycle_recipient")]
+pub async fn recycle_recipient_cell_handler(
+    data: web::Data<DappState>,
+    args: web::Json<Value>,
+) -> actix_web::Result<HttpResponse, RpcError> {
+    let args: RecycleRecipientCellArgs = serde_json::from_value(args.into_inner())
+        .map_err(|e| RpcError::BadRequest(format!("invalid args: {}", e)))?;
+    log::info!("burn args: {:?}", args);
+
+    let from_lockscript = Script::from(
+        Address::from_str(args.from_lockscript_addr.as_str())
+            .map_err(|e| RpcError::BadRequest(format!("ckb_address to script fail: {}", e)))?
+            .payload(),
+    );
+    let mut generator = data
+        .get_generator()
+        .await
+        .map_err(|e| RpcError::ServerError(format!("get_generator: {:?}", e)))?;
+    let tx_fee: u64 =
+        HumanCapacity::from_str(&args.tx_fee.clone().unwrap_or_else(|| "0.0001".to_string()))
+            .map_err(|e| RpcError::BadRequest(format!("tx fee invalid: {}", e)))?
+            .into();
+    let tx = generator
+        .recycle_eth_recipient_cell_tx(from_lockscript, tx_fee)
+        .map_err(|e| {
+            RpcError::ServerError(format!("generate recycle recipient tx error: {}", e))
+        })?;
+    let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
+    Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
+}
+
 #[get("/")]
 pub async fn index() -> impl Responder {
     "Nervos force bridge dapp server API endpoint"

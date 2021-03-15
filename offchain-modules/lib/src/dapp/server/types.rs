@@ -48,6 +48,12 @@ pub struct BurnArgs {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RecycleRecipientCellArgs {
+    pub from_lockscript_addr: String,
+    pub tx_fee: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BurnResult {
     pub raw_tx: TransactionView,
 }
