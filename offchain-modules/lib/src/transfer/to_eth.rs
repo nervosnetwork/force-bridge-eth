@@ -20,7 +20,6 @@ use force_sdk::util::ensure_indexer_sync;
 use log::{debug, info};
 use rocksdb::ops::Get;
 use secp256k1::{Message, Secp256k1, SecretKey};
-use serde::export::Clone;
 use std::str::FromStr;
 use web3::signing::keccak256;
 use web3::types::H160;

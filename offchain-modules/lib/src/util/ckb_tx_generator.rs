@@ -6,12 +6,12 @@ use crate::util::config::{DeployedContracts, ForceConfig, OutpointConf};
 use crate::util::eth_proof_helper::Witness;
 use crate::util::eth_util::convert_to_header_rlp;
 use crate::util::rocksdb;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use ckb_sdk::constants::ONE_CKB;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::{BlockView, Capacity, DepType, TransactionView};
-use ckb_types::packed::HeaderVec;
-use ckb_types::prelude::{Builder, Entity, Pack, Reader};
+use ckb_types::packed::{HeaderVec, WitnessArgs};
+use ckb_types::prelude::{Builder, Entity, Pack, Reader, Unpack};
 use ckb_types::{
     bytes::Bytes,
     packed::{self, Byte32, CellDep, CellOutput, OutPoint, Script},
@@ -25,15 +25,16 @@ use force_eth_types::generated::eth_header_cell::{
     ETHChain, ETHHeaderCellData, ETHHeaderCellMerkleData, ETHHeaderCellMerkleDataReader,
     ETHHeaderInfo, ETHHeaderInfoReader,
 };
+use force_eth_types::generated::witness::MintTokenWitness;
 use force_eth_types::hasher::Blake2bHasher;
 use force_sdk::cell_collector::{collect_sudt_amount, get_live_cell_by_typescript};
 use force_sdk::indexer::{Cell, IndexerRpcClient};
 use force_sdk::tx_helper::{sign, TxHelper};
 use force_sdk::util::{get_live_cell_with_cache, send_tx_sync};
 use log::info;
+use molecule::prelude::Byte;
 use rand::Rng;
 use secp256k1::SecretKey;
-use serde::export::Clone;
 use shellexpand::tilde;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -975,5 +976,110 @@ impl Generator {
             .await
             .map_err(|e| anyhow!(e))?;
         Ok(hex::encode(tx.hash().as_slice()))
+    }
+
+    #[allow(clippy::mutable_key_type)]
+    pub fn recycle_bridge_cell_tx(
+        &mut self,
+        from_lockscript: Script,
+        recycle_outpoints: Vec<OutPoint>,
+        tx_fee: u64,
+    ) -> Result<TransactionView> {
+        info!(
+            "the outpoints which wait to be recycled: {:?}",
+            recycle_outpoints
+        );
+        if recycle_outpoints.is_empty() {
+            bail!("the outpoints which need to recycle is null")
+        }
+        let mut helper = TxHelper::default();
+
+        let dep_outpoints = vec![
+            self.deployed_contracts.bridge_lockscript.outpoint.clone(),
+            self.deployed_contracts
+                .simple_bridge_typescript
+                .outpoint
+                .clone(),
+        ];
+        self.add_cell_deps(&mut helper, dep_outpoints)
+            .map_err(|err| anyhow!(err))?;
+
+        // add input
+        let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
+            Default::default();
+
+        let mut all_bridge_capacity: u64 = 0;
+        let rpc_client = &mut self.rpc_client;
+
+        let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+            get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+                .map(|(output, _)| output)
+        };
+        let mut add_witnesses = HashMap::new();
+
+        let mut outpoint_lock_tmp: Script = Default::default();
+        for (i, outpoint) in recycle_outpoints.iter().enumerate() {
+            let output = get_live_cell_fn(outpoint.clone(), false).map_err(|e| anyhow!(e))?;
+            let bridge_cell_capacity: u64 = output.capacity().unpack();
+            info!("the bridge cell capacity : {:?}", bridge_cell_capacity);
+            all_bridge_capacity = all_bridge_capacity.add(bridge_cell_capacity);
+            helper
+                .add_input(
+                    outpoint.clone(),
+                    None,
+                    &mut get_live_cell_fn,
+                    &self.genesis_info.clone(),
+                    true,
+                )
+                .map_err(|err| {
+                    if err.contains("Invalid cell status") {
+                        anyhow!("irreparable error: {:?}", err)
+                    } else {
+                        anyhow!(err)
+                    }
+                })?;
+            // add witness
+            let outpoint_lock = output.lock();
+            if outpoint_lock.as_slice() != outpoint_lock_tmp.as_slice() {
+                let witness = MintTokenWitness::new_builder().mode(Byte::new(1u8)).build();
+                let witness_args = WitnessArgs::new_builder()
+                    .lock(Some(witness.as_bytes()).pack())
+                    .build();
+                add_witnesses.insert(i, witness_args.as_bytes().pack());
+                outpoint_lock_tmp = outpoint_lock;
+            }
+        }
+
+        // the owner need provide the cell for tx_fee and simple bridge cell verify
+        info!("recycle capacity : {:?}", all_bridge_capacity);
+        let recycle_cell = CellOutput::new_builder()
+            .capacity(all_bridge_capacity.pack())
+            .lock(from_lockscript.clone())
+            .build();
+
+        // put witness to witnesses
+        let mut witnesses = helper.init_witnesses();
+        for (index, witness) in add_witnesses {
+            witnesses[index] = witness;
+        }
+
+        helper.transaction = helper
+            .transaction
+            .as_advanced_builder()
+            .witnesses(witnesses)
+            .build();
+        // add output
+        helper.add_output(recycle_cell, Bytes::new());
+
+        let tx = helper
+            .supply_capacity(
+                &mut self.rpc_client,
+                &mut self.indexer_client,
+                from_lockscript,
+                &self.genesis_info,
+                tx_fee,
+            )
+            .map_err(|err| anyhow!(err))?;
+        Ok(tx)
     }
 }
