@@ -66,6 +66,22 @@ impl Generator {
         })
     }
 
+    pub fn with_genesis(
+        rpc_url: String,
+        indexer_url: String,
+        genesis_info: GenesisInfo,
+        settings: DeployedContracts,
+    ) -> Result<Self> {
+        let rpc_client = HttpRpcClient::new(rpc_url);
+        let indexer_client = IndexerRpcClient::new(indexer_url);
+        Ok(Self {
+            rpc_client,
+            indexer_client,
+            genesis_info,
+            deployed_contracts: settings,
+        })
+    }
+
     #[allow(clippy::mutable_key_type)]
     pub fn generate_eth_light_client_tx_naive(
         &mut self,
