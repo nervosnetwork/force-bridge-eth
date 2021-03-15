@@ -12,6 +12,8 @@ use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::Web3Client;
 use actix_web::{App, HttpServer};
 use anyhow::{anyhow, bail, Result};
+use ckb_sdk::{GenesisInfo, HttpRpcClient};
+use ckb_types::core::BlockView;
 use force_sdk::util::ensure_indexer_sync;
 use handlers::*;
 use shellexpand::tilde;
@@ -36,6 +38,7 @@ pub struct DappState {
     pub indexer_url: String,
     pub ckb_rpc_url: String,
     pub eth_rpc_url: String,
+    pub genesis_info: GenesisInfo,
     pub db: MySqlPool,
     pub replay_resist_sender: mpsc::Sender<ReplayResistTask>,
     pub init_token_mutex: Arc<Mutex<i32>>,
@@ -61,6 +64,15 @@ impl DappState {
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let indexer_url = force_config.get_ckb_indexer_url(&network)?;
+
+        let mut rpc_client = HttpRpcClient::new(ckb_rpc_url.clone());
+        let genesis_block: BlockView = rpc_client
+            .get_block_by_number(0)
+            .map_err(|err| anyhow!(err))?
+            .ok_or_else(|| anyhow!("Can not get genesis block?"))?
+            .into();
+        let genesis_info = GenesisInfo::from_block(&genesis_block).map_err(|err| anyhow!(err))?;
+
         if server_privkey_path.len() != 2 {
             bail!("invalid args: ckb private key path length should be 2");
         }
@@ -71,6 +83,7 @@ impl DappState {
             indexer_url,
             ckb_rpc_url,
             eth_rpc_url,
+            genesis_info,
             init_token_privkey: server_privkey_path[0].clone(),
             refresh_cell_privkey: server_privkey_path[1].clone(),
             mint_privkey: mint_privkey_path,
@@ -86,15 +99,16 @@ impl DappState {
     }
 
     pub async fn get_generator(&self) -> Result<Generator> {
-        let mut generator = Generator::new(
+        let mut generator = Generator::with_genesis(
             self.ckb_rpc_url.clone(),
             self.indexer_url.clone(),
+            self.genesis_info.clone(),
             self.deployed_contracts.clone(),
         )
         .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
-        ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
-            .await
-            .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+        // ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        //     .await
+        //     .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
         Ok(generator)
     }
 
