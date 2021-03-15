@@ -1093,13 +1093,11 @@ impl Generator {
     ) -> Result<TransactionView> {
         let mut helper = TxHelper::default();
 
-        let dep_outpoints = vec![
-            self.deployed_contracts
-                .recipient_typescript
-                .outpoint
-                .clone(),
-            self.deployed_contracts.sudt.outpoint.clone(),
-        ];
+        let dep_outpoints = vec![self
+            .deployed_contracts
+            .recipient_typescript
+            .outpoint
+            .clone()];
         self.add_cell_deps(&mut helper, dep_outpoints)
             .map_err(|err| anyhow!(err))?;
 
