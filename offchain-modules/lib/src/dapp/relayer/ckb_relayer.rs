@@ -1,4 +1,4 @@
-use crate::dapp::relayer::BATCH_UNLOCK_LIMIT;
+use crate::dapp::relayer::{BATCH_UNLOCK_LIMIT, TOTAL_UNLOCK_LIMIT};
 use crate::transfer::to_eth::{get_ckb_proof_info, unlock};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
@@ -154,11 +154,12 @@ pub async fn get_unlock_tasks(
     let sql = r#"
 SELECT id, ckb_burn_tx_hash, ckb_raw_tx
 FROM ckb_to_eth
-WHERE status = 'pending' AND ckb_block_number + ? < ?
+WHERE status = 'pending' AND ckb_block_number + ? < ? limit ?
     "#;
     let tasks = sqlx::query_as::<_, UnlockTask>(sql)
         .bind(confirm)
         .bind(height)
+        .bind(TOTAL_UNLOCK_LIMIT)
         .fetch_all(pool)
         .await?;
     Ok(tasks)
