@@ -6,12 +6,11 @@ import {TypedMemView} from "./libraries/TypedMemView.sol";
 import {ViewCKB} from "./libraries/ViewCKB.sol";
 import {ICKBSpv} from "./interfaces/ICKBSpv.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
-import {EIP712} from "./libraries/EIP712.sol";
 
 // tools below just for test, they will be removed before production ready
 //import "./test/console.sol";
 
-contract CKBChain is ICKBSpv, EIP712 {
+contract CKBChain is ICKBSpv {
     using TypedMemView for bytes;
     using TypedMemView for bytes29;
     using ViewCKB for bytes29;
@@ -24,6 +23,17 @@ contract CKBChain is ICKBSpv, EIP712 {
     uint public constant SIGNATURE_SIZE = 65;
     uint public constant VALIDATORS_SIZE_LIMIT = 20;
     string public constant NAME_712 = "Force Bridge CKBChain";
+
+    /* solhint-disable var-name-mixedcase */
+    // Cache the domain separator as an immutable value, but also store the chain id that it corresponds to, in order to
+    // invalidate the cached domain separator if the chain id changes.
+    bytes32 private _CACHED_DOMAIN_SEPARATOR;
+    uint256 private _CACHED_CHAIN_ID;
+
+    bytes32 private _HASHED_NAME;
+    bytes32 private _HASHED_VERSION;
+    bytes32 private _TYPE_HASH;
+
     // if the number of verified signatures has reached `multisigThreshold_`, validators approve the tx
     uint public multisigThreshold_;
     address[] validators_;
@@ -102,14 +112,22 @@ contract CKBChain is ICKBSpv, EIP712 {
         require(verifiedNum >= threshold, "signatures not verified");
     }
 
-    constructor() EIP712(NAME_712, "1") {}
-
     function initialize(
         address[] memory validators,
         uint multisigThreshold
     ) public {
         require(!initialized, "Contract instance has already been initialized");
         initialized = true;
+
+        // set DOMAIN_SEPARATOR
+        bytes32 hashedName = keccak256(bytes(NAME_712));
+        bytes32 hashedVersion = keccak256(bytes("1"));
+        bytes32 typeHash = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+        _HASHED_NAME = hashedName;
+        _HASHED_VERSION = hashedVersion;
+        _CACHED_CHAIN_ID = _getChainId();
+        _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(typeHash, hashedName, hashedVersion);
+        _TYPE_HASH = typeHash;
 
         // set validators
         require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
@@ -148,5 +166,36 @@ contract CKBChain is ICKBSpv, EIP712 {
 
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();
+    }
+
+    function _buildDomainSeparator(bytes32 typeHash, bytes32 name, bytes32 version) private view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                typeHash,
+                name,
+                version,
+                _getChainId(),
+                address(this)
+            )
+        );
+    }
+
+    /**
+     * @dev Returns the domain separator for the current chain.
+     */
+    function _domainSeparatorV4() internal view virtual returns (bytes32) {
+        if (_getChainId() == _CACHED_CHAIN_ID) {
+            return _CACHED_DOMAIN_SEPARATOR;
+        } else {
+            return _buildDomainSeparator(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION);
+        }
+    }
+
+    function _getChainId() private view returns (uint256 chainId) {
+        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            chainId := chainid()
+        }
     }
 }
