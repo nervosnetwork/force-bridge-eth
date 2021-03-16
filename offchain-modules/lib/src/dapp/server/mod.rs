@@ -14,6 +14,7 @@ use actix_web::{App, HttpServer};
 use anyhow::{anyhow, bail, Result};
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::BlockView;
+use force_sdk::indexer::IndexerRpcClient;
 use force_sdk::util::ensure_indexer_sync;
 use handlers::*;
 use shellexpand::tilde;
@@ -112,6 +113,9 @@ impl DappState {
         // ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
         //     .await
         //     .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+        if *self.is_indexer_sync.read().await == false {
+            bail!("ckb indexer is not sync");
+        }
         Ok(generator)
     }
 
@@ -228,7 +232,7 @@ pub async fn start(
     db_path: String,
 ) -> Result<()> {
     let (sender, mut receiver) = mpsc::channel(lock_api_channel_bound);
-    let is_indexer_sync = Arc::new(RwLock::new(false));
+    let is_indexer_sync = Arc::new(RwLock::new(true));
     let dapp_state = DappState::new(
         config_path,
         network,
@@ -240,9 +244,37 @@ pub async fn start(
         sender.clone(),
     )
     .await?;
+
+    let rpc_url_1 = dapp_state.ckb_rpc_url.clone();
+    let indexer_url_1 = dapp_state.indexer_url.clone();
+    tokio::spawn(async move {
+        let mut rpc_client = HttpRpcClient::new(rpc_url_1);
+        let mut indexer_client = IndexerRpcClient::new(indexer_url_1);
+        loop {
+            tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
+            let rpc_tip = rpc_client.get_tip_block_number();
+            if rpc_tip.is_err() {
+                log::error!("ckb rpc client get tip block number error: {}", rpc_tip.unwrap_err());
+                continue
+            }
+            let rpc_tip = rpc_tip.unwrap();
+            let indexer_tip = indexer_client
+                .get_tip();
+            if indexer_tip.is_err() {
+                log::error!("ckb rpc client get tip block number error: {}", indexer_tip.unwrap_err());
+                continue
+            }
+            let indexer_tip = indexer_tip.unwrap().map(|t| t.block_number.value())
+                .unwrap_or(0);
+            log::info!("rpc_tip: {}, indexer_tip: {}", rpc_tip, indexer_tip);
+            if indexer_tip < rpc_tip - 5 {
+               let mut is_sync = is_indexer_sync.write().await;
+                *is_sync = false;
+            }
+        }
+    });
+
     let dapp_state_for_receiver = dapp_state.clone();
-
-
     tokio::spawn(async move {
         log::info!("start repaly resist cell channel receiver");
         let is_refreshing_replay_resist_cell = Arc::new(Mutex::new(false));
