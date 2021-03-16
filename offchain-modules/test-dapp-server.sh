@@ -109,7 +109,7 @@ start_header_relay(){
 
 stress_test(){
     cd ${PROJECT_DIR}/demo && rm -rf dex-crosschain-bot
-    git clone https://github.com/fpChan/dex-crosschain-bot && cd dex-crosschain-bot  && git checkout local && yarn
+    git clone https://github.com/JacobDenver007/dex-crosschain-bot.git && cd dex-crosschain-bot  && yarn
     yarn send && rm -rf dex-crosschain-bot
 }
 
@@ -121,6 +121,7 @@ stress_test(){
 start_server
 sleep 3
 start_rocksdb_relay
+sleep 10
 start_tx_relay
 
 stress_test
