@@ -106,9 +106,9 @@ impl DappState {
             self.deployed_contracts.clone(),
         )
         .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
-        // ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
-        //     .await
-        //     .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+        ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+            .await
+            .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
         Ok(generator)
     }
 
