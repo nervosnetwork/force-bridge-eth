@@ -39,8 +39,10 @@ contract CKBChain is ICKBSpv {
     address[] validators_;
 
     // CKBChainV3-----------------------------
-    // ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256("AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)");
-    bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x0eeee1be1069b2c737b19f6c3510ceeed099af9ee1f5985109f117ce0524ca10;
+    // ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256("AddHistoryTxRoot(uint64 startBlockNumber,uint64 endBlockNumber,bytes32 historyTxRoot)");
+    bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x3034b56d53b83d7fa8d7de85bc8b34650e1adf572ed6ef2b046f0b3d2fa56202;
+    // SET_NEW_VALIDATORS_TYPEHASH = keccak256("SetNewValidators(address[] validators,uint256 multisigThreshold)");
+    bytes32 public constant SET_NEW_VALIDATORS_TYPEHASH = 0xcbd4c02d5944efd80f2743ec9efb0974e5c17fcc2ab518f0cd84286814e3071d;
     bytes32 public historyTxRoot;
     mapping(bytes32 => bytes32) verifiedTxRoots;
 
@@ -68,12 +70,12 @@ contract CKBChain is ICKBSpv {
      * @notice             @dev signatures are a multiple of 65 bytes and are densely packed.
      * @param signatures   The signatures bytes array
      */
-    function validatorsApprove(bytes32 msgHash, bytes memory signatures, uint threshold) public view {
+    function validatorsApprove(bytes32 msgHash, bytes memory signatures) public view {
         require(signatures.length % SIGNATURE_SIZE == 0, "invalid signatures");
 
         // 1. check length of signature
         uint length = signatures.length / SIGNATURE_SIZE;
-        require(length >= threshold, "length of signatures must greater than threshold");
+        require(length >= multisigThreshold_, "length of signatures must greater than threshold");
 
         // 3. check number of verified signatures >= threshold
         uint verifiedNum = 0;
@@ -104,12 +106,12 @@ contract CKBChain is ICKBSpv {
             // recoveredAddress verified
             validatorIndexVisited[validatorIndex] = true;
             verifiedNum++;
-            if (verifiedNum >= threshold) {
+            if (verifiedNum >= multisigThreshold_) {
                 return;
             }
         }
 
-        require(verifiedNum >= threshold, "signatures not verified");
+        require(verifiedNum >= multisigThreshold_, "signatures not verified");
     }
 
     function initialize(
@@ -130,10 +132,28 @@ contract CKBChain is ICKBSpv {
         _TYPE_HASH = typeHash;
 
         // set validators
-        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
-        validators_ = validators;
-        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
-        multisigThreshold_ = multisigThreshold;
+        _setNewValidators(validators, multisigThreshold);
+    }
+
+    function setNewValidators(
+        address[] calldata validators,
+        uint256 multisigThreshold,
+        bytes calldata signatures
+    ) external {
+        // 1. calc msgHash
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01", // solium-disable-line
+                _domainSeparatorV4(),
+                keccak256(abi.encode(SET_NEW_VALIDATORS_TYPEHASH, validators, multisigThreshold))
+            )
+        );
+
+        // 2. validatorsApprove
+        validatorsApprove(msgHash, signatures);
+
+        // 3. _setNewValidators
+        _setNewValidators(validators, multisigThreshold);
     }
 
     // CKBChainV3-----------------------------
@@ -152,7 +172,7 @@ contract CKBChain is ICKBSpv {
         );
 
         // 2. validatorsApprove
-        validatorsApprove(msgHash, signatures, multisigThreshold_);
+        validatorsApprove(msgHash, signatures);
 
         initBlockNumber = _initBlockNumber;
         latestBlockNumber = _latestBlockNumber;
@@ -168,6 +188,17 @@ contract CKBChain is ICKBSpv {
 
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();
+    }
+
+    function _setNewValidators(
+        address[] memory validators,
+        uint multisigThreshold
+    ) internal {
+        // set validators
+        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
+        validators_ = validators;
+        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
+        multisigThreshold_ = multisigThreshold;
     }
 
     function _buildDomainSeparator(bytes32 typeHash, bytes32 name, bytes32 version) private view returns (bytes32) {
