@@ -819,6 +819,13 @@ impl Generator {
         light_client_typescript_hash
             .copy_from_slice(cell_script.calc_script_hash().raw_data().as_ref());
 
+        // add input
+        let all_recipient_capacity =
+            self.add_recipient_outpoint_to_input(&mut helper, from_lockscript.clone())?;
+        if all_recipient_capacity == 0 {
+            info!("there is no recipient cell")
+        }
+
         // gen output of eth_recipient cell
         {
             let mut eth_bridge_lock_code_hash = [0u8; 32];
@@ -1101,54 +1108,11 @@ impl Generator {
         self.add_cell_deps(&mut helper, dep_outpoints)
             .map_err(|err| anyhow!(err))?;
 
-        let recipient_typescript_code_hash =
-            hex::decode(&self.deployed_contracts.recipient_typescript.code_hash)
-                .map_err(|err| anyhow!(err))?;
-        let recipient_typescript: Script = Script::new_builder()
-            .code_hash(Byte32::from_slice(&recipient_typescript_code_hash)?)
-            .hash_type(
-                self.deployed_contracts
-                    .recipient_typescript
-                    .hash_type
-                    .into(),
-            )
-            .build();
-        let live_recipient_cells = get_recipient_cell(
-            &mut self.indexer_client,
-            from_lockscript.clone(),
-            recipient_typescript,
-        )
-        .map_err(|err| anyhow!(err))?;
-
         // add input
-        let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
-            Default::default();
-
-        let rpc_client = &mut self.rpc_client;
-
-        let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
-            get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
-                .map(|(output, _)| output)
-        };
-        let mut all_recipient_capacity: u64 = 0;
-
-        for cell in live_recipient_cells.into_iter() {
-            all_recipient_capacity = all_recipient_capacity.add(cell.output.capacity.value());
-            helper
-                .add_input(
-                    cell.out_point.into(),
-                    None,
-                    &mut get_live_cell_fn,
-                    &self.genesis_info.clone(),
-                    true,
-                )
-                .map_err(|err| {
-                    if err.contains("Invalid cell status") {
-                        anyhow!("irreparable error: {:?}", err)
-                    } else {
-                        anyhow!(err)
-                    }
-                })?;
+        let all_recipient_capacity =
+            self.add_recipient_outpoint_to_input(&mut helper, from_lockscript.clone())?;
+        if all_recipient_capacity == 0 {
+            bail!("there is no recipient cell to recycle")
         }
 
         let recycle_cell = CellOutput::new_builder()
@@ -1169,5 +1133,59 @@ impl Generator {
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
+    }
+
+    #[allow(clippy::mutable_key_type)]
+    pub fn add_recipient_outpoint_to_input(
+        &mut self,
+        helper: &mut TxHelper,
+        recipient_owner_lockscript: Script,
+    ) -> Result<u64> {
+        let recipient_typescript_code_hash =
+            hex::decode(&self.deployed_contracts.recipient_typescript.code_hash)
+                .map_err(|err| anyhow!(err))?;
+        let recipient_typescript: Script = Script::new_builder()
+            .code_hash(Byte32::from_slice(&recipient_typescript_code_hash)?)
+            .hash_type(
+                self.deployed_contracts
+                    .recipient_typescript
+                    .hash_type
+                    .into(),
+            )
+            .build();
+        let live_recipient_cells = get_recipient_cell(
+            &mut self.indexer_client,
+            recipient_owner_lockscript,
+            recipient_typescript,
+        )
+        .map_err(|err| anyhow!(err))?;
+
+        let mut all_recipient_capacity: u64 = 0;
+        let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
+            Default::default();
+        let rpc_client = &mut self.rpc_client;
+        let mut get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
+            get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
+                .map(|(output, _)| output)
+        };
+        for cell in live_recipient_cells.into_iter() {
+            all_recipient_capacity = all_recipient_capacity.add(cell.output.capacity.value());
+            helper
+                .add_input(
+                    cell.out_point.into(),
+                    None,
+                    &mut get_live_cell_fn,
+                    &self.genesis_info.clone(),
+                    true,
+                )
+                .map_err(|err| {
+                    if err.contains("Invalid cell status") {
+                        anyhow!("irreparable error: {:?}", err)
+                    } else {
+                        anyhow!(err)
+                    }
+                })?;
+        }
+        Ok(all_recipient_capacity)
     }
 }
