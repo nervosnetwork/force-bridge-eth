@@ -75,7 +75,7 @@ impl EthRocksdb {
 
             if latest_height <= latest_submit_height {
                 log::info!("waiting for new block.");
-                tokio::time::delay_for(std::time::Duration::from_secs(20)).await;
+                tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
                 continue;
             }
             latest_submit_height = self

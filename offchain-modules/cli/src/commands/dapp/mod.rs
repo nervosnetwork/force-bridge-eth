@@ -92,11 +92,29 @@ async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
 async fn ckb_rocksdb_relay(args: CkbRocksdbRelayerArgs) -> Result<()> {
     let mut ckb_rocksdb_relayer =
         CkbRocksdb::new(args.config_path, args.network, args.rocksdb_path).await?;
-    ckb_rocksdb_relayer.loop_relay_rocksdb().await
+    loop {
+        let res = ckb_rocksdb_relayer.loop_relay_rocksdb().await;
+        if let Err(err) = res {
+            log::error!(
+                "An error occurred during the ckb_rocksdb_relayer. Err: {:?}",
+                err
+            )
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+    }
 }
 
 async fn eth_rocksdb_relay(args: EthRocksdbRelayerArgs) -> Result<()> {
     let mut eth_rocksdb_relayer =
         EthRocksdb::new(args.config_path, args.network, args.rocksdb_path).await?;
-    eth_rocksdb_relayer.loop_relay_rocksdb().await
+    loop {
+        let res = eth_rocksdb_relayer.loop_relay_rocksdb().await;
+        if let Err(err) = res {
+            log::error!(
+                "An error occurred during the ckb_rocksdb_relayer. Err: {:?}",
+                err
+            )
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+    }
 }
