@@ -140,6 +140,8 @@ contract CKBChain is ICKBSpv {
     function addHistoryTxRoot(uint64 _initBlockNumber, uint64 _latestBlockNumber, bytes32 _historyTxRoot, bytes calldata signatures)
     external
     {
+        require(_latestBlockNumber > latestBlockNumber, "latestBlockNumber should be strictly incremental");
+
         // 1. calc msgHash
         bytes32 msgHash = keccak256(
             abi.encodePacked(
