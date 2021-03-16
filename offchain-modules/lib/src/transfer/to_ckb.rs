@@ -915,3 +915,30 @@ pub async fn recycle_bridge_cell(
         .sign_and_send_transaction(unsigned_tx, private_key)
         .await
 }
+
+#[allow(clippy::too_many_arguments)]
+pub async fn recycle_recipient_cell(
+    deployed_contracts: &DeployedContracts,
+    rpc_url: String,
+    indexer_url: String,
+    tx_fee: String,
+    private_key: SecretKey,
+) -> Result<String> {
+    let mut generator = Generator::new(rpc_url, indexer_url, deployed_contracts.clone())
+        .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+    ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
+        .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+
+    let from_lockscript = parse_privkey(&private_key);
+    let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
+        .map_err(|e| anyhow!(e))?
+        .into();
+    let unsigned_tx = generator
+        .recycle_eth_recipient_cell_tx(from_lockscript, tx_fee)
+        .map_err(|e| anyhow!("failed to build recycle recipient tx: {}", e))?;
+
+    generator
+        .sign_and_send_transaction(unsigned_tx, private_key)
+        .await
+}
