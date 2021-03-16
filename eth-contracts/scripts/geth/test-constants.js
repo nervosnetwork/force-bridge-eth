@@ -21,12 +21,12 @@ async function main() {
 
   const ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256(
     toUtf8Bytes(
-      'AddHistoryTxRoot(uint64 startBlockNumber,uint64 endBlockNumber,bytes32 historyTxRoot)'
+      'AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)'
     )
   );
   const SET_NEW_VALIDATORS_TYPEHASH = keccak256(
     toUtf8Bytes(
-      'SetNewValidators(address[] validators,uint256 multisigThreshold)'
+      'SetNewValidators(address[] validators, uint256 multisigThreshold)'
     )
   );
 

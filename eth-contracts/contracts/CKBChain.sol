@@ -39,10 +39,10 @@ contract CKBChain is ICKBSpv {
     address[] validators_;
 
     // CKBChainV3-----------------------------
-    // ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256("AddHistoryTxRoot(uint64 startBlockNumber,uint64 endBlockNumber,bytes32 historyTxRoot)");
-    bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x3034b56d53b83d7fa8d7de85bc8b34650e1adf572ed6ef2b046f0b3d2fa56202;
-    // SET_NEW_VALIDATORS_TYPEHASH = keccak256("SetNewValidators(address[] validators,uint256 multisigThreshold)");
-    bytes32 public constant SET_NEW_VALIDATORS_TYPEHASH = 0xcbd4c02d5944efd80f2743ec9efb0974e5c17fcc2ab518f0cd84286814e3071d;
+    // ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256("AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)");
+    bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x0eeee1be1069b2c737b19f6c3510ceeed099af9ee1f5985109f117ce0524ca10;
+    // SET_NEW_VALIDATORS_TYPEHASH = keccak256("SetNewValidators(address[] validators, uint256 multisigThreshold)");
+    bytes32 public constant SET_NEW_VALIDATORS_TYPEHASH = 0x2dbb88776b74460392119c32a74db39f2a5cd7dd954f3934412fcadb945fdab3;
     bytes32 public historyTxRoot;
     mapping(bytes32 => bytes32) verifiedTxRoots;
 
