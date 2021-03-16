@@ -19,7 +19,7 @@ use handlers::*;
 use shellexpand::tilde;
 use sqlx::mysql::MySqlPool;
 use std::sync::Arc;
-use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::sync::{mpsc, oneshot, Mutex, RwLock};
 
 pub const REPLAY_RESIST_CELL_NUMBER: usize = 1000;
 const REFRESH_RATE: usize = 100; // 100/100
@@ -39,6 +39,7 @@ pub struct DappState {
     pub ckb_rpc_url: String,
     pub eth_rpc_url: String,
     pub genesis_info: GenesisInfo,
+    pub is_indexer_sync: Arc<RwLock<bool>>,
     pub db: MySqlPool,
     pub replay_resist_sender: mpsc::Sender<ReplayResistTask>,
     pub init_token_mutex: Arc<Mutex<i32>>,
@@ -56,6 +57,7 @@ impl DappState {
         server_privkey_path: Vec<String>,
         mint_privkey_path: String,
         create_bridge_cell_fee: String,
+        is_indexer_sync: Arc<RwLock<bool>>,
         db_path: String,
         replay_resist_sender: mpsc::Sender<ReplayResistTask>,
     ) -> Result<Self> {
@@ -84,6 +86,7 @@ impl DappState {
             ckb_rpc_url,
             eth_rpc_url,
             genesis_info,
+            is_indexer_sync,
             init_token_privkey: server_privkey_path[0].clone(),
             refresh_cell_privkey: server_privkey_path[1].clone(),
             mint_privkey: mint_privkey_path,
@@ -225,17 +228,20 @@ pub async fn start(
     db_path: String,
 ) -> Result<()> {
     let (sender, mut receiver) = mpsc::channel(lock_api_channel_bound);
+    let is_indexer_sync = Arc::new(RwLock::new(false));
     let dapp_state = DappState::new(
         config_path,
         network,
         server_private_key_path,
         mint_private_key_path,
         create_bridge_cell_fee,
+        is_indexer_sync.clone(),
         db_path,
         sender.clone(),
     )
     .await?;
     let dapp_state_for_receiver = dapp_state.clone();
+
 
     tokio::spawn(async move {
         log::info!("start repaly resist cell channel receiver");
