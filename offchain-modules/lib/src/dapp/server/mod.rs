@@ -250,6 +250,7 @@ pub async fn start(
     tokio::spawn(async move {
         let mut rpc_client = HttpRpcClient::new(rpc_url_1);
         let mut indexer_client = IndexerRpcClient::new(indexer_url_1);
+        log::info!("start ensure ckb indexer sync");
         loop {
             tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
             let rpc_tip = rpc_client.get_tip_block_number();
@@ -266,7 +267,7 @@ pub async fn start(
             }
             let indexer_tip = indexer_tip.unwrap().map(|t| t.block_number.value())
                 .unwrap_or(0);
-            log::info!("rpc_tip: {}, indexer_tip: {}", rpc_tip, indexer_tip);
+            log::info!("ensure ckb indexer sync: rpc_tip: {}, indexer_tip: {}", rpc_tip, indexer_tip);
             if indexer_tip < rpc_tip - 5 {
                let mut is_sync = is_indexer_sync.write().await;
                 *is_sync = false;
