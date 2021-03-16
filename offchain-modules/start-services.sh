@@ -45,6 +45,14 @@ start_indexer() {
   ${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/eth-indexer.log 2>&1 &
 }
 
+start_sign_server() {
+  cd ${PROJECT_DIR}/offchain-modules/sign-server
+  rm -rf conf/rocksdb
+  RUST_LOG=info cargo run server > ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+}
+
+start_sign_server
+
 while [[ $# -gt 0 ]]
 do
 key="$1"
