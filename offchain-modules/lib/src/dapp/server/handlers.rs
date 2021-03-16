@@ -460,7 +460,7 @@ pub async fn recycle_recipient_cell_handler(
 ) -> actix_web::Result<HttpResponse, RpcError> {
     let args: RecycleRecipientCellArgs = serde_json::from_value(args.into_inner())
         .map_err(|e| RpcError::BadRequest(format!("invalid args: {}", e)))?;
-    log::info!("burn args: {:?}", args);
+    log::info!("recycle recipient cell args: {:?}", args);
 
     let from_lockscript = Script::from(
         Address::from_str(args.from_lockscript_addr.as_str())
