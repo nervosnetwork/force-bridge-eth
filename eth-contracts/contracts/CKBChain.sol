@@ -196,8 +196,8 @@ contract CKBChain is ICKBSpv {
     ) internal {
         // set validators
         require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
-        validators_ = validators;
         require(multisigThreshold <= validators.length, "invalid multisigThreshold");
+        validators_ = validators;
         multisigThreshold_ = multisigThreshold;
     }
 
