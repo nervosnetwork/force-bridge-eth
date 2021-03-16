@@ -10,6 +10,7 @@ pub struct SignServerConfig {
     pub eth_private_key_path: String,
     pub cell_script: String,
     pub eth_rpc_url: String,
+    pub ckb_rpc_url: String,
     pub ckb_indexer_url: String,
 }
 

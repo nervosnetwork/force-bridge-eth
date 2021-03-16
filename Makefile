@@ -96,6 +96,10 @@ start-force-server:
 	cd offchain-modules \
 	&& pm2 start --name force-server "${FORCE_CLI_OFFCHAIN} server  --ckb-private-key-path 2 --eth-private-key-path 2 --listen-url 0.0.0.0:3003"
 
+start-sign-server:
+	cd offchain-modules/sign-server \
+	&& rm -rf conf/rocksdb && pm2 start --name sign-server "RUST_LOG=info cargo run server"
+
 restart-force-server:
 	pm2 restart force-server
 
@@ -126,9 +130,11 @@ local-ci:
 	make close-dev-env
 	rm -rf ~/.force-bridge/eth-rocksdb
 	rm -rf ~/.force-bridge/ckb-rocksdb
+	rm -rf ~/.force-bridge/ckb-rocksdb
 	test -f ~/.force-bridge/config.toml && mv ~/.force-bridge/config.toml ~/.force-bridge/config_bak_`date "+%Y%m%d-%H%M%S"`.toml || echo 'config not exist'
 	cd offchain-modules && cargo build
 	make init-config
+	make start-sign-server
 	make integration-ci
 
 github-ci:
@@ -137,6 +143,7 @@ github-ci:
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
+	make start-sign-server
 	make test-dapp-server
 
 demo-crosschain:

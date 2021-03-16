@@ -30,7 +30,6 @@ pub struct ETHRelayer {
     pub config_path: String,
     pub config: ForceConfig,
     pub multisig_config: MultisigConfig,
-    // pub multisig_privkeys: Vec<SecretKey>,
     pub multisig_conf: MultisigConf,
     pub hosts: Vec<String>,
     pub secret_key: SecretKey,
@@ -326,7 +325,7 @@ impl ETHRelayer {
                     e
                 ),
             }
-            tokio::time::delay_for(std::time::Duration::from_secs(300)).await;
+            tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
         }
     }
 

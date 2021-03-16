@@ -26,7 +26,7 @@ use shellexpand::tilde;
 use std::collections::HashMap;
 use web3::types::U64;
 
-pub const CONFIG_PATH: &str = "~/.sign_server/config.toml";
+pub const CONFIG_PATH: &str = "conf/config.toml";
 
 fn main() -> Result<()> {
     env_logger::init();
@@ -44,7 +44,6 @@ fn main() -> Result<()> {
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
         SubCommand::Server(args) => server_handle(args).await,
-        // SubCommand::Indexer(args) => indexer_handle(args).await,
     }
 }
 
@@ -55,6 +54,7 @@ pub async fn server_handle(args: ServerArgs) -> Result<()> {
         eth_private_key_path: args.eth_private_key_path,
         cell_script: args.cell_script,
         eth_rpc_url: args.eth_rpc_url,
+        ckb_rpc_url: args.ckb_rpc_url,
         ckb_indexer_url: args.ckb_indexer_url,
     };
     let config_path = tilde(CONFIG_PATH).into_owned();
@@ -155,7 +155,7 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
     log::info!("sign_ckb_tx request params: {:?}", args);
     let args: Result<Vec<String>> = args.parse();
     if let Ok(params) = args {
-        if params.len() != 3 {
+        if params.len() != 2 {
             return Err(Error::invalid_params("the request params is invalid."));
         }
         let multi_conf_raw = params[0].clone();
@@ -168,7 +168,7 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
                 .map_err(|_| Error::internal_error())?
                 .into(),
         );
-        let mut rpc_client = HttpRpcClient::new(params[2].clone());
+        let mut rpc_client = HttpRpcClient::new(config.ckb_rpc_url.clone());
         let tx_view = tx.into_view();
         log::info!(
             "tx: \n{}",

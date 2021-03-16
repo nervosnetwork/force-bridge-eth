@@ -80,7 +80,6 @@ pub async fn sign_from_multi_key(
     multisig_config: MultisigConfig,
     multisig_conf: String,
 ) -> Result<TransactionView, String> {
-    let url = rpc_client.url().to_owned();
     let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> = Default::default();
     let get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
         get_live_cell_with_cache(&mut live_cell_cache, rpc_client, out_point, with_data)
@@ -95,7 +94,6 @@ pub async fn sign_from_multi_key(
             hosts,
             multisig_conf,
             multisig_config.threshold,
-            url,
         )
         .await
 }
@@ -658,7 +656,6 @@ impl TxHelper {
         hosts: Vec<String>,
         multisig_conf: String,
         threshold: u8,
-        ckb_rpc_url: String,
     ) -> Result<TransactionView, String> {
         let mut signature_number = 0;
         for host in hosts.clone() {
@@ -666,7 +663,7 @@ impl TxHelper {
                 break;
             }
             let result = self
-                .collect_signatures(host.clone(), multisig_conf.clone(), ckb_rpc_url.clone())
+                .collect_signatures(host.clone(), multisig_conf.clone())
                 .await;
             if result.is_ok() {
                 signature_number += 1;
@@ -688,13 +685,11 @@ impl TxHelper {
         &mut self,
         host: String,
         multisig_conf: String,
-        ckb_rpc_url: String,
     ) -> Result<(), String> {
         let res = sign_ckb_tx(
             host.clone(),
             multisig_conf.clone(),
             hex::encode(self.transaction.data().as_bytes().to_vec()),
-            ckb_rpc_url,
         )
         .await
         .map_err(|err| err)?;
@@ -717,11 +712,10 @@ async fn sign_ckb_tx(
     host: String,
     multisig_conf: String,
     raw_tx_str: String,
-    ckb_rpc_url: String,
 ) -> Result<Vec<String>, String> {
     let mut client = SignServerRpcClient::new(host);
     client
-        .sign_ckb_tx(multisig_conf, raw_tx_str, ckb_rpc_url)
+        .sign_ckb_tx(multisig_conf, raw_tx_str)
         .map_err(|err| err)?
         .ok_or_else(|| String::from("the signature is not exist."))
 }
