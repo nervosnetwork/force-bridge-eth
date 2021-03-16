@@ -28,14 +28,13 @@ use shellexpand::tilde;
 use sqlx::MySqlPool;
 use web3::types::{Block, H256, U64};
 
-pub const ETH_CHAIN_CONFIRMED: usize = 100;
-
 pub struct EthIndexer<T> {
     pub config_path: String,
     pub eth_client: Web3Client,
     pub db: MySqlPool,
     pub indexer_client: IndexerRpcClient,
     pub indexer_filter: T,
+    pub confirmed: usize,
 }
 
 impl<T: IndexerFilter> EthIndexer<T> {
@@ -44,6 +43,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
         network: Option<String>,
         db_path: String,
         indexer_filter: T,
+        confirmed: usize,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -58,6 +58,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             db,
             indexer_client,
             indexer_filter,
+            confirmed,
         })
     }
 
@@ -202,8 +203,8 @@ impl<T: IndexerFilter> EthIndexer<T> {
         start_block_number: u64,
     ) -> Result<()> {
         let mut start = 0;
-        if start_block_number > ETH_CHAIN_CONFIRMED as u64 {
-            start = start_block_number - ETH_CHAIN_CONFIRMED as u64;
+        if start_block_number > self.confirmed as u64 {
+            start = start_block_number - self.confirmed as u64;
         }
         let blocks = self
             .eth_client
@@ -215,7 +216,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 .ok_or_else(|| anyhow!("the number is not exist."))?
                 .as_u64();
             let record = EthUnConfirmedBlock {
-                id: number % ETH_CHAIN_CONFIRMED as u64,
+                id: number % self.confirmed as u64,
                 number,
                 hash: hex::encode(item.hash.ok_or_else(|| anyhow!("the hash is not exist."))?),
             };
@@ -295,19 +296,17 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 .hash
                 .ok_or_else(|| anyhow!("the block is not exist"))?,
         );
-        if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
+        if unconfirmed_blocks.len() < self.confirmed {
             unconfirmed_block = EthUnConfirmedBlock {
-                id: *start_block_number % ETH_CHAIN_CONFIRMED as u64,
+                id: *start_block_number % self.confirmed as u64,
                 number: *start_block_number,
                 hash: hash_str,
             };
         } else {
-            unconfirmed_block = get_eth_unconfirmed_block(
-                &self.db,
-                *start_block_number % ETH_CHAIN_CONFIRMED as u64,
-            )
-            .await?
-            .ok_or_else(|| anyhow!("the block is not exist"))?;
+            unconfirmed_block =
+                get_eth_unconfirmed_block(&self.db, *start_block_number % self.confirmed as u64)
+                    .await?
+                    .ok_or_else(|| anyhow!("the block is not exist"))?;
             unconfirmed_block.number = *start_block_number;
             unconfirmed_block.hash = hash_str;
         }
@@ -365,7 +364,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             client_height: light_client_height,
         };
         update_cross_chain_height_info(&mut db_tx, &height_info).await?;
-        if unconfirmed_blocks.len() < ETH_CHAIN_CONFIRMED {
+        if unconfirmed_blocks.len() < self.confirmed {
             insert_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?
         } else {
             update_eth_unconfirmed_block(&mut db_tx, &unconfirmed_block).await?;
