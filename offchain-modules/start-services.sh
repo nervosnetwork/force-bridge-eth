@@ -53,8 +53,8 @@ start_sign_server() {
   rm -rf conf/rocksdb
   RUST_LOG=info cargo run server --cell_script "${cell_script}"> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
   sleep 5
-  sign_server_log=`cat ${FORCE_LOG_PATH}/sign-server.log`
-  echo ${sign_server_log}
+  cat ${FORCE_LOG_PATH}/sign-server.log
+#  echo ${sign_server_log}
 }
 
 start_sign_server
@@ -91,10 +91,9 @@ else
 fi
 
 sleep 30
-eth_relayer_log=`cat ${FORCE_LOG_PATH}/eth-relayer.log`
-echo ${eth_relayer_log}
-sign_server_log=`cat ${FORCE_LOG_PATH}/sign-server.log`
-echo ${sign_server_log}
+cat ${FORCE_LOG_PATH}/eth-relayer.log
+#echo ${eth_relayer_log}
+cat ${FORCE_LOG_PATH}/sign-server.log
 #start_mysql
 #sleep 10
 #start_indexer
