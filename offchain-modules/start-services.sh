@@ -54,8 +54,7 @@ start_sign_server() {
   cp ${PROJECT_DIR}/offchain-modules/target/debug/sign-server .
   ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
   sleep 5
-  cat ${FORCE_LOG_PATH}/sign-server.log
-#  echo ${sign_server_log}
+#  cat ${FORCE_LOG_PATH}/sign-server.log
 }
 
 start_sign_server
@@ -91,10 +90,10 @@ else
   ${FORCE_CLI} eth-relay --network "${FORCE_NETWORK}" -k 1 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 fi
 
-sleep 10
-cat ${FORCE_LOG_PATH}/eth-relayer.log
-#echo ${eth_relayer_log}
-cat ${FORCE_LOG_PATH}/sign-server.log
-#start_mysql
 #sleep 10
-#start_indexer
+#cat ${FORCE_LOG_PATH}/eth-relayer.log
+##echo ${eth_relayer_log}
+#cat ${FORCE_LOG_PATH}/sign-server.log
+start_mysql
+sleep 10
+start_indexer
