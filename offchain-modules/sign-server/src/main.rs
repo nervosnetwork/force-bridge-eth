@@ -1,7 +1,6 @@
 mod ckb_sign_util;
 mod config;
 mod eth_sign_util;
-mod rocksdb_store;
 mod types;
 
 use crate::ckb_sign_util::{
@@ -15,20 +14,25 @@ use anyhow::{anyhow, Result};
 use ckb_sdk::HttpRpcClient;
 use ckb_types::bytes::Bytes;
 use ckb_types::core::TransactionView;
+use ckb_types::packed;
 use ckb_types::packed::{CellOutput, OutPoint};
 use ckb_types::prelude::Entity;
-use ckb_types::{packed, H256};
 use clap::Clap;
+use force_eth_types::hasher::Blake2bHasher;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use jsonrpc_http_server::jsonrpc_core::{Error, IoHandler, Params, Value};
 use jsonrpc_http_server::{AccessControlAllowOrigin, DomainsValidation, ServerBuilder};
 use secp256k1::SecretKey;
 use shellexpand::tilde;
+use sparse_merkle_tree::default_store::DefaultStore;
+use sparse_merkle_tree::SparseMerkleTree;
+use sparse_merkle_tree::H256;
 use std::collections::HashMap;
 use web3::types::U64;
 
 pub const CONFIG_PATH: &str = "conf/config.toml";
+type SMT = SparseMerkleTree<Blake2bHasher, H256, DefaultStore<H256>>;
 
 fn main() -> Result<()> {
     env_logger::init();
@@ -193,7 +197,7 @@ fn asset_security_verification(
 ) -> Result<()> {
     for item in tx_view.inputs() {
         let op = item.previous_output();
-        let hash = H256::from_slice(op.tx_hash().raw_data().to_vec().as_slice())
+        let hash = ckb_types::H256::from_slice(op.tx_hash().raw_data().to_vec().as_slice())
             .map_err(|err| anyhow!(err))?;
         let tx = rpc_client
             .get_transaction(hash)
@@ -235,10 +239,7 @@ pub async fn verify_merkle_root(config: SignServerConfig, tx_view: TransactionVi
     let last_cell_output_data = cell.output_data.as_bytes();
     log::info!("last_cell_output_data: {:?}", last_cell_output_data);
     let mut smt_tree = match last_cell_output_data.len() {
-        0 => {
-            let rocksdb_store = rocksdb_store::RocksDBStore::new(config.db_path.clone());
-            rocksdb_store::SMT::new(sparse_merkle_tree::H256::zero(), rocksdb_store)
-        }
+        0 => SMT::default(),
         _ => {
             let (_, latest_height, merkle_root) =
                 parse_merkle_cell_data(last_cell_output_data.to_vec())?;
@@ -248,8 +249,7 @@ pub async fn verify_merkle_root(config: SignServerConfig, tx_view: TransactionVi
                 start_height,
                 merkle_root.clone(),
             );
-            let rocksdb_store = rocksdb_store::RocksDBStore::open(config.db_path.clone());
-            rocksdb_store::SMT::new(merkle_root.into(), rocksdb_store)
+            SparseMerkleTree::new(merkle_root.into(), DefaultStore::default())
         }
     };
     let mut index = end_height;
