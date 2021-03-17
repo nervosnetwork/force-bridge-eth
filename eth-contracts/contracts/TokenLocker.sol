@@ -169,8 +169,6 @@ contract TokenLocker {
             require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
             uint256 receivedAmount = bridgeAmount - bridgeFee;
 
-            require(!recipientAddress.isContract(), "recipient from unlockToken should not be contract");
-
             // address(0) means `ether` here
             if (tokenAddress == address(0)) {
                 payable(recipientAddress).transfer(receivedAmount);
