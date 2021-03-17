@@ -11,14 +11,14 @@ use sparse_merkle_tree::traits::Value;
 use std::path::Path;
 use web3::types::U64;
 
-pub struct EthRocksdb {
+pub struct EthHeaderIndexer {
     pub config_path: String,
     pub eth_client: Web3Client,
     pub indexer_client: IndexerRpcClient,
     pub rocksdb_path: String,
 }
 
-impl EthRocksdb {
+impl EthHeaderIndexer {
     pub async fn new(
         config_path: String,
         network: Option<String>,
@@ -30,7 +30,7 @@ impl EthRocksdb {
         let eth_client = Web3Client::new(eth_rpc_url);
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let indexer_client = IndexerRpcClient::new(ckb_indexer_url);
-        Ok(EthRocksdb {
+        Ok(EthHeaderIndexer {
             config_path,
             eth_client,
             indexer_client,

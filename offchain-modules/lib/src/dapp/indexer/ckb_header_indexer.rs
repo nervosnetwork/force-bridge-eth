@@ -9,7 +9,7 @@ use force_sdk::indexer::IndexerRpcClient;
 use rocksdb::ops::{Get, Put};
 use shellexpand::tilde;
 
-pub struct CkbRocksdb {
+pub struct CkbHeaderIndexer {
     pub config_path: String,
     pub rpc_client: HttpRpcClient,
     pub indexer_client: IndexerRpcClient,
@@ -18,7 +18,7 @@ pub struct CkbRocksdb {
     pub rocksdb_path: String,
 }
 
-impl CkbRocksdb {
+impl CkbHeaderIndexer {
     pub async fn new(
         config_path: String,
         network: Option<String>,
@@ -49,7 +49,7 @@ impl CkbRocksdb {
                 .clone(),
         )?;
 
-        Ok(CkbRocksdb {
+        Ok(CkbHeaderIndexer {
             config_path,
             rpc_client,
             indexer_client,

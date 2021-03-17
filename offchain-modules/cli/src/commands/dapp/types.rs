@@ -7,8 +7,8 @@ pub enum DappCommand {
     CKBIndexer(CkbIndexerArgs),
     CkbTxRelayer(CkbTxRelayerArgs),
     EthTxRelayer(EthTxRelayerArgs),
-    CkbRocksdbRelayer(CkbRocksdbRelayerArgs),
-    EthRocksdbRelayer(EthRocksdbRelayerArgs),
+    CkbHeaderIndexer(CkbHeaderIndexerArgs),
+    EthHeaderIndexer(EthHeaderIndexerArgs),
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -91,7 +91,7 @@ pub struct EthTxRelayerArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct CkbRocksdbRelayerArgs {
+pub struct CkbHeaderIndexerArgs {
     #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
@@ -101,7 +101,7 @@ pub struct CkbRocksdbRelayerArgs {
 }
 
 #[derive(Clap, Clone, Debug)]
-pub struct EthRocksdbRelayerArgs {
+pub struct EthHeaderIndexerArgs {
     #[clap(long, default_value = "~/.force-bridge/config.toml")]
     pub config_path: String,
     #[clap(long)]
