@@ -66,7 +66,7 @@ init-light-client:
 	${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
 
 init-multi-address:
-	${FORCE_CLI} init-multi-sign-address -k 1 --multi-address  ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk --threshold 1 --hosts http://127.0.0.1:3030
+	${FORCE_CLI} init-multi-sign-address -k 1 --multi-address  ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk --threshold 1 --hosts http://127.0.0.1:3031
 
 ckb2eth-relay:
 	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 1 --per-amount 5"

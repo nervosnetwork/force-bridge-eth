@@ -67,7 +67,7 @@ pub async fn server_handle(args: ServerArgs) -> Result<()> {
         .cors(DomainsValidation::AllowOnly(vec![
             AccessControlAllowOrigin::Null,
         ]))
-        .start_http(&"127.0.0.1:3030".parse().unwrap())
+        .start_http(&"127.0.0.1:3031".parse().unwrap())
         .expect("Unable to start RPC server");
 
     server.wait();
