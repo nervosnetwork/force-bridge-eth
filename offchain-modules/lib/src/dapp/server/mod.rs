@@ -15,7 +15,6 @@ use anyhow::{anyhow, bail, Result};
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::BlockView;
 use force_sdk::indexer::IndexerRpcClient;
-use force_sdk::util::ensure_indexer_sync;
 use handlers::*;
 use shellexpand::tilde;
 use sqlx::mysql::MySqlPool;
@@ -24,8 +23,6 @@ use tokio::sync::{mpsc, oneshot, Mutex, RwLock};
 
 pub const REPLAY_RESIST_CELL_NUMBER: usize = 1000;
 const REFRESH_RATE: usize = 100; // 100/100
-
-// const REPLAY_RESIST_CELL_CAPACITY: &str = "315";
 
 #[derive(Clone)]
 pub struct DappState {
@@ -52,6 +49,7 @@ pub struct ReplayResistTask {
 }
 
 impl DappState {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         config_path: String,
         network: Option<String>,
@@ -103,17 +101,14 @@ impl DappState {
     }
 
     pub async fn get_generator(&self) -> Result<Generator> {
-        let mut generator = Generator::with_genesis(
+        let generator = Generator::with_genesis(
             self.ckb_rpc_url.clone(),
             self.indexer_url.clone(),
             self.genesis_info.clone(),
             self.deployed_contracts.clone(),
         )
         .map_err(|e| anyhow!("new geneartor fail, err: {}", e))?;
-        // ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
-        //     .await
-        //     .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
-        if *self.is_indexer_sync.read().await == false {
+        if !(*self.is_indexer_sync.read().await) {
             bail!("ckb indexer is not sync");
         }
         Ok(generator)
@@ -245,32 +240,45 @@ pub async fn start(
     )
     .await?;
 
-    let rpc_url_1 = dapp_state.ckb_rpc_url.clone();
-    let indexer_url_1 = dapp_state.indexer_url.clone();
+    let rpc_url_for_ensure_indexer_sync = dapp_state.ckb_rpc_url.clone();
+    let indexer_url_for_ensure_indexer_sync = dapp_state.indexer_url.clone();
     tokio::spawn(async move {
-        let mut rpc_client = HttpRpcClient::new(rpc_url_1);
-        let mut indexer_client = IndexerRpcClient::new(indexer_url_1);
-        log::info!("start ensure ckb indexer sync");
+        let mut rpc_client = HttpRpcClient::new(rpc_url_for_ensure_indexer_sync);
+        let mut indexer_client = IndexerRpcClient::new(indexer_url_for_ensure_indexer_sync);
+        log::info!("start ensure ckb indexer sync task");
         loop {
             tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
             let rpc_tip = rpc_client.get_tip_block_number();
             if rpc_tip.is_err() {
-                log::error!("ckb rpc client get tip block number error: {}", rpc_tip.unwrap_err());
-                continue
+                log::error!(
+                    "ckb rpc client get tip block number error: {}",
+                    rpc_tip.unwrap_err()
+                );
+                continue;
             }
             let rpc_tip = rpc_tip.unwrap();
-            let indexer_tip = indexer_client
-                .get_tip();
+            let indexer_tip = indexer_client.get_tip();
             if indexer_tip.is_err() {
-                log::error!("ckb rpc client get tip block number error: {}", indexer_tip.unwrap_err());
-                continue
+                log::error!("ckb indexer get tip error: {}", indexer_tip.unwrap_err());
+                continue;
             }
-            let indexer_tip = indexer_tip.unwrap().map(|t| t.block_number.value())
+            let indexer_tip = indexer_tip
+                .unwrap()
+                .map(|t| t.block_number.value())
                 .unwrap_or(0);
-            log::info!("ensure ckb indexer sync: rpc_tip: {}, indexer_tip: {}", rpc_tip, indexer_tip);
             if indexer_tip < rpc_tip - 5 {
-               let mut is_sync = is_indexer_sync.write().await;
-                *is_sync = false;
+                log::error!(
+                    "ckb indexer is not sync: rpc_tip: {}, indexer_tip: {}",
+                    rpc_tip,
+                    indexer_tip
+                );
+                if *is_indexer_sync.read().await {
+                    let mut is_sync = is_indexer_sync.write().await;
+                    *is_sync = false;
+                }
+            } else if !(*is_indexer_sync.read().await) {
+                let mut is_sync = is_indexer_sync.write().await;
+                *is_sync = true;
             }
         }
     });
