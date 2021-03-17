@@ -82,10 +82,10 @@ start_tx_relay(){
   ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > /home/runner/work/force-bridge-eth/eth-tx-relayer.log 2>&1 &
 }
 
-start_rocksdb_relay() {
+start_header_indexer_relay() {
   cd ${OFFCHAIN}
-  ${FORCE_CLI} dapp ckb-rocksdb-relayer > ${FORCE_LOG_PATH}/ckb-rocksdb-relayer.log 2>&1 &
-  ${FORCE_CLI} dapp eth-rocksdb-relayer > ${FORCE_LOG_PATH}/eth-rocksdb-relayer.log 2>&1 &
+  ${FORCE_CLI} dapp ckb-header-indexer > ${FORCE_LOG_PATH}/ckb-header-indexer.log 2>&1 &
+  ${FORCE_CLI} dapp eth-header-indexer > ${FORCE_LOG_PATH}/eth-header-indexer.log 2>&1 &
 }
 
 #start_server(){
