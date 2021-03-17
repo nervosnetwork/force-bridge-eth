@@ -51,7 +51,10 @@ start_sign_server() {
   echo ${cell_script}
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   rm -rf conf/rocksdb
-  cargo run server --cell_script ${cell_script}> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  RUST_LOG=info cargo run server --cell_script ${cell_script}> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  sleep 10
+  sign_server_log=`cat ${FORCE_LOG_PATH}/sign-server.log`
+  echo ${sign_server_log}
 }
 
 start_sign_server
