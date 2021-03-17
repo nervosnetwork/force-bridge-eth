@@ -402,6 +402,7 @@ impl Generator {
         from_lockscript: Script,
         eth_proof: &ETHSPVProofJson,
         manual_capacity_cell: Option<OutPoint>,
+        rocksdb_path: String,
     ) -> Result<TransactionView> {
         let mut rng = rand::thread_rng();
         let tx_fee = rng.gen_range(ONE_CKB / 4, ONE_CKB / 2);
@@ -413,7 +414,6 @@ impl Generator {
             .deployed_contracts
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
-        let db_path = force_cli_config.eth_rocksdb_path;
         // add cell deps.
         let cell_script = parse_cell(
             deployed_contracts
@@ -564,7 +564,7 @@ impl Generator {
             height.copy_from_slice(header.number.to_le_bytes().as_ref());
             key[..8].clone_from_slice(&height);
 
-            let rocksdb_store = rocksdb::RocksDBStore::open_readonly(db_path);
+            let rocksdb_store = rocksdb::RocksDBStore::open_readonly(rocksdb_path);
             let smt_tree = rocksdb::SMT::new(cell_merkle_root.into(), rocksdb_store);
 
             let block_hash: [u8; 32] = smt_tree
