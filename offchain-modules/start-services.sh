@@ -8,6 +8,7 @@ set -o xtrace
 
 export RUST_BACKTRACE=1
 export RUST_LOG=info,force=debug
+export FORCE_CONFIG_PATH=~/.force-bridge/config.toml
 
 PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 FORCE_CLI=${PROJECT_DIR}/offchain-modules/target/debug/force-eth-cli
@@ -46,12 +47,11 @@ start_indexer() {
 }
 
 start_sign_server() {
+  cell_script=`cat ${FORCE_CONFIG_PATH}|grep "cell_script" | awk '{print $3}'`
+  echo ${cell_script}
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   rm -rf conf/rocksdb
-  cargo run server > ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
-  sleep 8
-  lock_eth_hash=`cat ${FORCE_LOG_PATH}/sign-server.log`
-  echo $lock_eth_hash
+  cargo run server --cell_script "${cell_script}"> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
 }
 
 start_sign_server
@@ -87,6 +87,6 @@ else
   ${FORCE_CLI} eth-relay --network "${FORCE_NETWORK}" -k 1 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 fi
 
-start_mysql
-sleep 10
-start_indexer
+#start_mysql
+#sleep 10
+#start_indexer
