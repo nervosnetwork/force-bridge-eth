@@ -48,12 +48,11 @@ start_indexer() {
 }
 
 start_sign_server() {
-  cell_script=`cat ${FORCE_CONFIG_PATH}|grep "cell_script" | awk '{print $3}'`
+  cell_script=`cat ${FORCE_CONFIG_PATH}|grep "cell_script" | awk '{print $3}' | sed 's/\"//g'`
   echo ${cell_script}
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   cp ${PROJECT_DIR}/offchain-modules/target/debug/sign-server .
-  rm -rf conf/rocksdb
-  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --cell-script "${cell_script}"> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
   sleep 5
   cat ${FORCE_LOG_PATH}/sign-server.log
 #  echo ${sign_server_log}
@@ -92,7 +91,7 @@ else
   ${FORCE_CLI} eth-relay --network "${FORCE_NETWORK}" -k 1 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 fi
 
-sleep 60
+sleep 10
 cat ${FORCE_LOG_PATH}/eth-relayer.log
 #echo ${eth_relayer_log}
 cat ${FORCE_LOG_PATH}/sign-server.log
