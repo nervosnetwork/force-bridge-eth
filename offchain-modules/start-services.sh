@@ -51,8 +51,8 @@ start_sign_server() {
   echo ${cell_script}
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   rm -rf conf/rocksdb
-  RUST_LOG=info cargo run server --cell_script ${cell_script}> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
-  sleep 10
+  RUST_LOG=info cargo run server --cell_script "${cell_script}"> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  sleep 5
   sign_server_log=`cat ${FORCE_LOG_PATH}/sign-server.log`
   echo ${sign_server_log}
 }
@@ -90,6 +90,11 @@ else
   ${FORCE_CLI} eth-relay --network "${FORCE_NETWORK}" -k 1 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 fi
 
+sleep 30
+eth_relayer_log=`cat ${FORCE_LOG_PATH}/eth-relayer.log`
+echo ${eth_relayer_log}
+sign_server_log=`cat ${FORCE_LOG_PATH}/sign-server.log`
+echo ${sign_server_log}
 #start_mysql
 #sleep 10
 #start_indexer
