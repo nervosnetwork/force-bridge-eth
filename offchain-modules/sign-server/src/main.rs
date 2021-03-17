@@ -194,8 +194,8 @@ fn asset_security_verification(
     privkey: SecretKey,
     rpc_client: &mut HttpRpcClient,
 ) -> Result<()> {
-    for item in tx_view.inputs() {
-        let op = item.previous_output();
+    for i in 0..tx_view.inputs().len() {
+        let op = tx_view.inputs().get_unchecked(i).previous_output();
         let hash = ckb_types::H256::from_slice(op.tx_hash().raw_data().to_vec().as_slice())
             .map_err(|err| anyhow!(err))?;
         let tx = rpc_client
@@ -213,6 +213,15 @@ fn asset_security_verification(
             // current transaction has the cell of the signer and refuses to sign
             log::warn!("the current transaction is at risk of being attacked");
             anyhow::bail!("invalid params. the current transaction is at risk of being attacked.");
+        }
+        if i == 0 {
+            // check input output lockscript.
+            let output = tx_view.outputs().get_unchecked(0);
+            let expect_lockscript = output.lock();
+            if script.as_slice() != expect_lockscript.as_slice() {
+                log::warn!("the tx lockscript is invalid.");
+                anyhow::bail!("invalid params. the tx lockscript is invalid.");
+            }
         }
     }
     Ok(())
@@ -254,7 +263,6 @@ pub async fn verify_merkle_root(config: SignServerConfig, tx_view: TransactionVi
     let mut index = end_height;
     while index >= start_height {
         let block_number = U64([index]);
-
         let mut key = [0u8; 32];
         let mut height = [0u8; 8];
         height.copy_from_slice(index.to_le_bytes().as_ref());
@@ -267,19 +275,6 @@ pub async fn verify_merkle_root(config: SignServerConfig, tx_view: TransactionVi
         smt_tree
             .update(key.into(), chain_block_hash.0.into())
             .map_err(|err| anyhow::anyhow!(err))?;
-
-        // let db_block_hash = smt_tree
-        //     .get(&key.into())
-        //     .map_err(|err| anyhow::anyhow!(err))?;
-
-        // if db_block_hash.to_h256().as_slice() != chain_block_hash.0.as_ref() {
-        //     smt_tree
-        //         .update(key.into(), chain_block_hash.0.into())
-        //         .map_err(|err| anyhow::anyhow!(err))?;
-        //     log::info!("sync eth block {} to cache", index);
-        // } else {
-        //     break;
-        // }
         index -= 1;
     }
     let merkle_root = smt_tree.root().as_slice();
