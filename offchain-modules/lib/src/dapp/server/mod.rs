@@ -298,6 +298,7 @@ pub async fn start(
             .service(get_crosschain_history)
             .service(get_sudt_balance)
             .service(get_best_block_height)
+            .service(recycle_recipient_cell_handler)
             .service(settings)
             .service(index)
     })
