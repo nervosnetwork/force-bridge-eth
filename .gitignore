@@ -10,3 +10,5 @@ demo/eth-proof
 demo/vendor
 offchain-modules/data/proof_data.json
 offchain-modules/data/proof_data_temp.json
+offchain-modules/stress_test/node_modules
+offchain-modules/stress_test/package-lock.json

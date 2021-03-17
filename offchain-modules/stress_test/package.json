@@ -1,0 +1,21 @@
+{
+  "name": "stress_test",
+  "version": "1.0.0",
+  "description": "stress_test crosschain",
+  "main": "index.js",
+  "repository": "git@github.com:kellyshang/dex-crosschain-bot.git",
+  "author": "kellyshang <https://github.com/kellyshang>",
+  "license": "MIT",
+  "scripts": {
+    "send": "node src/crosschain/index.js",
+    "indexer": "node src/crosschain/ckb_lumos.js"
+  },
+  "dependencies": {
+    "@ckb-lumos/indexer": "0.14.1",
+    "@nervosnetwork/ckb-sdk-core": "^0.38.2",
+    "axios": "^0.21.0",
+    "bignumber.js": "^9.0.1",
+    "web3": "^1.3.0",
+    "@lay2/pw-core": "^0.3.12"
+  }
+}
