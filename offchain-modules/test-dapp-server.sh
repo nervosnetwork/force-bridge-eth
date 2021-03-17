@@ -120,7 +120,7 @@ stress_test(){
 #start_header_relay
 start_server
 sleep 3
-start_rocksdb_relay
+start_header_indexer_relay
 sleep 10
 start_tx_relay
 
