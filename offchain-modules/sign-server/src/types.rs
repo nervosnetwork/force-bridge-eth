@@ -15,8 +15,6 @@ pub enum SubCommand {
 
 #[derive(Clap, Clone, Debug)]
 pub struct ServerArgs {
-    #[clap(long, default_value = "conf/rocksdb")]
-    pub db_path: String,
     #[clap(short = 'c', default_value = "conf/ckb_key")]
     pub ckb_private_key_path: String,
     #[clap(short = 'e', default_value = "conf/eth_key")]

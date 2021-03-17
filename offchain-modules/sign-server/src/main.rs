@@ -55,7 +55,6 @@ pub async fn handler(opt: Opts) -> Result<()> {
 
 pub async fn server_handle(args: ServerArgs) -> Result<()> {
     let config = SignServerConfig {
-        db_path: args.db_path,
         ckb_private_key_path: args.ckb_private_key_path,
         eth_private_key_path: args.eth_private_key_path,
         cell_script: args.cell_script,

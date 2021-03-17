@@ -53,7 +53,7 @@ start_sign_server() {
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   cp ${PROJECT_DIR}/offchain-modules/target/debug/sign-server .
   rm -rf conf/rocksdb
-  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --cell_script "${cell_script}"> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --cell-script "${cell_script}"> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
   sleep 5
   cat ${FORCE_LOG_PATH}/sign-server.log
 #  echo ${sign_server_log}

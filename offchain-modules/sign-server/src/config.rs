@@ -5,7 +5,6 @@ use shellexpand::tilde;
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct SignServerConfig {
-    pub db_path: String,
     pub ckb_private_key_path: String,
     pub eth_private_key_path: String,
     pub cell_script: String,
