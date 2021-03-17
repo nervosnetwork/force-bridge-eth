@@ -48,9 +48,10 @@ start_indexer() {
 start_sign_server() {
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   rm -rf conf/rocksdb
-  RUST_LOG=info cargo run server > ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  cargo run server > ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
   sleep 8
-  cat ${FORCE_LOG_PATH}/sign-server.log
+  lock_eth_hash=`cat ${FORCE_LOG_PATH}/sign-server.log`
+  echo $lock_eth_hash
 }
 
 start_sign_server
