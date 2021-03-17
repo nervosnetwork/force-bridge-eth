@@ -79,7 +79,7 @@ start_tx_relay(){
   ${FORCE_CLI} dapp ckb-indexer --db-path ${DB_PATH} > /home/runner/work/force-bridge-eth/ckb-indexer.log 2>&1 &
   ${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH} > /home/runner/work/force-bridge-eth/eth-indexer.log 2>&1 &
   ${FORCE_CLI} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY} > /home/runner/work/force-bridge-eth/ckb-tx-relayer.log 2>&1 &
-  ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > /home/runner/work/force-bridge-eths/eth-tx-relayer.log 2>&1 &
+  ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > /home/runner/work/force-bridge-eth/eth-tx-relayer.log 2>&1 &
 }
 
 start_rocksdb_relay() {
