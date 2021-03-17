@@ -49,6 +49,8 @@ start_sign_server() {
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   rm -rf conf/rocksdb
   RUST_LOG=info cargo run server > ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  sleep 8
+  cat ${FORCE_LOG_PATH}/sign-server.log
 }
 
 start_sign_server
