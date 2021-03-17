@@ -12,6 +12,7 @@ export FORCE_CONFIG_PATH=~/.force-bridge/config.toml
 
 PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 FORCE_CLI=${PROJECT_DIR}/offchain-modules/target/debug/force-eth-cli
+SIGN_CLI=${PROJECT_DIR}/offchain-modules/target/debug/sign-server
 FORCE_LOG_PATH=~/.force-bridge/logs
 SQL_PATH="$PROJECT_DIR"/offchain-modules/lib/src/dapp/db/source/
 DB_NAME=forcedb
@@ -50,9 +51,10 @@ start_sign_server() {
   cell_script=`cat ${FORCE_CONFIG_PATH}|grep "cell_script" | awk '{print $3}'`
   echo ${cell_script}
   cd ${PROJECT_DIR}/offchain-modules/sign-server
+  cp ${PROJECT_DIR}/offchain-modules/target/debug/sign-server .
   rm -rf conf/rocksdb
-  RUST_LOG=info cargo run server --cell_script "${cell_script}"> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
-  sleep 30
+  sign-server server --cell_script "${cell_script}"> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  sleep 5
   cat ${FORCE_LOG_PATH}/sign-server.log
 #  echo ${sign_server_log}
 }
