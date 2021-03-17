@@ -92,7 +92,7 @@ else
   ${FORCE_CLI} eth-relay --network "${FORCE_NETWORK}" -k 1 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 fi
 
-sleep 30
+sleep 60
 cat ${FORCE_LOG_PATH}/eth-relayer.log
 #echo ${eth_relayer_log}
 cat ${FORCE_LOG_PATH}/sign-server.log
