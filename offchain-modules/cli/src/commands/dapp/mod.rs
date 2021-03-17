@@ -1,8 +1,10 @@
 use anyhow::Result;
 use force_eth_lib::dapp::indexer::DexFilter;
 use force_eth_lib::dapp::server::start;
+use force_eth_lib::dapp::CkbHeaderIndexer;
 use force_eth_lib::dapp::CkbIndexer;
 use force_eth_lib::dapp::CkbTxRelay;
+use force_eth_lib::dapp::EthHeaderIndexer;
 use force_eth_lib::dapp::EthIndexer;
 use force_eth_lib::dapp::EthTxRelayer;
 use types::*;
@@ -16,6 +18,8 @@ pub async fn dapp_handle(command: DappCommand) -> Result<()> {
         DappCommand::CKBIndexer(args) => ckb_indexer(args).await,
         DappCommand::CkbTxRelayer(args) => ckb_tx_relay(args).await,
         DappCommand::EthTxRelayer(args) => eth_tx_relay(args).await,
+        DappCommand::CkbHeaderIndexer(args) => ckb_header_indexer(args).await,
+        DappCommand::EthHeaderIndexer(args) => eth_header_indexer(args).await,
     }
 }
 
@@ -85,7 +89,38 @@ async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
         args.mint_concurrency,
         args.minimum_cell_capacity,
         args.db_path,
+        args.rocksdb_path,
     )
     .await?;
     eth_tx_relayer.start().await
+}
+
+async fn ckb_header_indexer(args: CkbHeaderIndexerArgs) -> Result<()> {
+    let mut ckb_header_indexer =
+        CkbHeaderIndexer::new(args.config_path, args.network, args.rocksdb_path).await?;
+    loop {
+        let res = ckb_header_indexer.loop_relay_rocksdb().await;
+        if let Err(err) = res {
+            log::error!(
+                "An error occurred during the ckb_header_indexer. Err: {:?}",
+                err
+            )
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+    }
+}
+
+async fn eth_header_indexer(args: EthHeaderIndexerArgs) -> Result<()> {
+    let mut eth_header_indexer =
+        EthHeaderIndexer::new(args.config_path, args.network, args.rocksdb_path).await?;
+    loop {
+        let res = eth_header_indexer.loop_relay_rocksdb().await;
+        if let Err(err) = res {
+            log::error!(
+                "An error occurred during the eth_header_indexer. Err: {:?}",
+                err
+            )
+        }
+        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+    }
 }

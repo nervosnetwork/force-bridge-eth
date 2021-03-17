@@ -7,6 +7,8 @@ pub enum DappCommand {
     CKBIndexer(CkbIndexerArgs),
     CkbTxRelayer(CkbTxRelayerArgs),
     EthTxRelayer(EthTxRelayerArgs),
+    CkbHeaderIndexer(CkbHeaderIndexerArgs),
+    EthHeaderIndexer(EthHeaderIndexerArgs),
 }
 
 #[derive(Clap, Clone, Debug)]
@@ -66,7 +68,7 @@ pub struct CkbTxRelayerArgs {
     pub private_key_path: String,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
     pub db_path: String,
-    #[clap(long, default_value = "~/.force-bridge/ckb-rocksdb")]
+    #[clap(long, default_value = "~/.force-bridge/dapp-lib/ckb-rocksdb")]
     pub rocksdb_path: String,
 }
 
@@ -84,4 +86,26 @@ pub struct EthTxRelayerArgs {
     pub minimum_cell_capacity: u64,
     #[clap(long, default_value = "mysql://root:@127.0.0.1:3306/forcedb")]
     pub db_path: String,
+    #[clap(long, default_value = "~/.force-bridge/dapp-lib/eth-rocksdb")]
+    pub rocksdb_path: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct CkbHeaderIndexerArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(long, default_value = "~/.force-bridge/dapp-lib/ckb-rocksdb")]
+    pub rocksdb_path: String,
+}
+
+#[derive(Clap, Clone, Debug)]
+pub struct EthHeaderIndexerArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(long, default_value = "~/.force-bridge/dapp-lib/eth-rocksdb")]
+    pub rocksdb_path: String,
 }
