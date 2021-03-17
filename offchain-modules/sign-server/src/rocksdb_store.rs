@@ -42,23 +42,6 @@ pub struct DBLeafNode<V> {
 }
 
 impl<V: Clone + Serialize> RocksDBStore<V> {
-    // pub fn open_readonly(path: String) -> Self {
-    //     let db_dir = shellexpand::tilde(path.as_str()).into_owned();
-    //     let db_path = Path::new(db_dir.as_str());
-    //
-    //     if !db_path.exists() {
-    //         panic!("rocksdb path should exist when opening db");
-    //     }
-    //     let read_only_db = ReadOnlyDB::open_default(db_path).expect("open rocksdb");
-    //     let read_only_db = Arc::new(read_only_db);
-    //
-    //     RocksDBStore {
-    //         db: None,
-    //         read_only_db: Some(read_only_db),
-    //         branch_map: Map::default(),
-    //         leaves_map: Map::default(),
-    //     }
-    // }
     pub fn open(path: String) -> Self {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
@@ -95,34 +78,6 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
             leaves_map: Map::default(),
         }
     }
-
-    // pub fn commit(&mut self) {
-    //     let mut batch = WriteBatch::default();
-    //     for (key, branch) in &self.branch_map {
-    //         let db_branch_node = DBBranchNode {
-    //             fork_height: branch.fork_height,
-    //             key: branch.key.into(),
-    //             node: branch.node.into(),
-    //             sibling: branch.sibling.into(),
-    //         };
-    //         let db_branch_node_raw = serde_json::to_vec(&db_branch_node).unwrap();
-    //         batch
-    //             .put(get_db_key_for_branch(key.as_slice()), db_branch_node_raw)
-    //             .expect("put branch");
-    //     }
-    //     for (key, leaf) in &self.leaves_map {
-    //         let db_leaf_node = DBLeafNode {
-    //             key: leaf.key.into(),
-    //             value: leaf.value.clone(),
-    //         };
-    //         let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node).unwrap();
-    //         batch
-    //             .put(get_db_key_for_leaf(key.as_slice()), db_leaf_node_raw)
-    //             .expect("put leaf");
-    //     }
-    //     let db = self.db.as_ref().expect("write mode should use db");
-    //     db.write(&batch).expect("write batch rocksdb");
-    // }
 }
 
 impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
@@ -260,57 +215,3 @@ fn get_db_key_for_leaf(key: &[u8]) -> Vec<u8> {
     db_key.extend_from_slice(key);
     db_key
 }
-
-// pub fn open_rocksdb(path: String) -> Arc<DB> {
-//     let db_dir = shellexpand::tilde(path.as_str()).into_owned();
-//     let db_path = Path::new(db_dir.as_str());
-//
-//     if !db_path.exists() {
-//         std::fs::create_dir_all(db_path).expect("create db path dir");
-//     }
-//     let db = DB::open_default(db_path).expect("open rocksdb");
-//     Arc::new(db)
-// }
-
-// pub fn open_readonly_rocksdb(path: String) -> Arc<ReadOnlyDB> {
-//     let db_dir = shellexpand::tilde(path.as_str()).into_owned();
-//     let db_path = Path::new(db_dir.as_str());
-//
-//     if !db_path.exists() {
-//         std::fs::create_dir_all(db_path).expect("create db path dir");
-//     }
-//     let db = ReadOnlyDB::open_default(db_path).expect("open rocksdb");
-//     Arc::new(db)
-// }
-
-// #[test]
-// fn test_rocksdb() {
-//     let mut db = RocksDBStore::new("~/.force-bridge/test-rocksdb".to_string());
-//     for i in 1..100 {
-//         let branch = BranchNode {
-//             fork_height: i,
-//             key: [i; 32].into(),
-//             node: [i; 32].into(),
-//             sibling: [i; 32].into(),
-//         };
-//
-//         let leaf_value: RocksDBValue = [i; 32].into();
-//         let leaf = LeafNode {
-//             key: [i; 32].into(),
-//             value: leaf_value,
-//         };
-//         db.insert_branch([i; 32].into(), branch).unwrap();
-//         db.insert_leaf([i; 32].into(), leaf).unwrap();
-//     }
-//     db.commit();
-//
-//     db.remove_leaf(&[1u8; 32].into()).unwrap();
-//     db.remove_leaf(&[200u8; 32].into()).unwrap();
-//
-//     let v1 = db.get_leaf(&[1u8; 32].into()).unwrap();
-//     let v2 = db.get_leaf(&[200u8; 32].into()).unwrap();
-//     let v3 = db.get_leaf(&[2u8; 32].into()).unwrap();
-//     assert!(v1.is_none());
-//     assert!(v2.is_none());
-//     assert!(v3.is_some());
-// }
