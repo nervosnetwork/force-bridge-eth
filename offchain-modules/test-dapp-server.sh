@@ -17,8 +17,6 @@ export FORCE_CONFIG_PATH=~/.force-bridge/config.toml
 
 OFFCHAIN="$PROJECT_DIR"/offchain-modules
 
-CKB_URL=http://127.0.0.1:8114
-INDEXER_URL=http://127.0.0.1:8116
 HEADER_RELAY_PRIVKEY=1
 CKB_MINT_PRIVKY=2
 API_SERVER_PRIVKEY="4 5"
