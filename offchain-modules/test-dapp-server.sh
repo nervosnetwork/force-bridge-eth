@@ -17,8 +17,6 @@ export FORCE_CONFIG_PATH=~/.force-bridge/config.toml
 
 OFFCHAIN="$PROJECT_DIR"/offchain-modules
 
-CKB_URL=http://127.0.0.1:8114
-INDEXER_URL=http://127.0.0.1:8116
 HEADER_RELAY_PRIVKEY=1
 CKB_MINT_PRIVKY=2
 API_SERVER_PRIVKEY="4 5"
@@ -108,9 +106,7 @@ start_header_relay(){
 
 
 stress_test(){
-    cd ${PROJECT_DIR}/demo && rm -rf dex-crosschain-bot
-    git clone https://github.com/JacobDenver007/dex-crosschain-bot.git && cd dex-crosschain-bot  && yarn
-    yarn send && rm -rf dex-crosschain-bot
+    cd ${PROJECT_DIR}/offchain-modules/stress_test/ && yarn && yarn send
 }
 
 #stop_mysql
