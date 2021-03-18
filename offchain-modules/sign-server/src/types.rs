@@ -15,13 +15,15 @@ pub enum SubCommand {
 
 #[derive(Clap, Clone, Debug)]
 pub struct ServerArgs {
-    #[clap(short = 'c', default_value = "conf/ckb_key")]
-    pub ckb_private_key_path: String,
-    #[clap(short = 'e', default_value = "conf/eth_key")]
-    pub eth_private_key_path: String,
+    #[clap(long, default_value = "conf/config.toml")]
+    pub config_path: String,
+    #[clap(long, default_value = "conf/ckb_key")]
+    pub ckb_key_path: String,
+    #[clap(long, default_value = "conf/eth_key")]
+    pub eth_key_path: String,
     #[clap(
         long,
-        default_value = "59000000100000003000000031000000c24ed13d860852875f427a3fac56bc955ad3b83d06b33b12320d0378637c03e000240000005edca2d744b6eaa347de7ff0edcd2e6e88ab8f2836bcbd0df0940026956e5f8107000000"
+        default_value = "590000001000000030000000310000001313a0eaa571a9168e44ceba1a0d0a328840d9de43aab2388af7c860b57c9a0c01240000005edca2d744b6eaa347de7ff0edcd2e6e88ab8f2836bcbd0df0940026956e5f8107000000"
     )]
     pub cell_script: String,
     #[clap(long, default_value = "0.0.0.0:3031")]

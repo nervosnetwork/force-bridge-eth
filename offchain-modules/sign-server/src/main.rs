@@ -7,7 +7,7 @@ use crate::ckb_sign_util::{
     generate_from_lockscript, get_live_cell_with_cache, get_privkey_signer, parse_cell,
     parse_merkle_cell_data, to_multisig_congif, MultisigConf, TxHelper,
 };
-use crate::config::SignServerConfig;
+use crate::config::{get_config_path, SignServerConfig};
 use crate::eth_sign_util::{get_msg_signature, get_secret_key, Web3Client};
 use crate::types::{Opts, ServerArgs, SubCommand};
 use anyhow::{anyhow, Result};
@@ -31,7 +31,6 @@ use sparse_merkle_tree::H256;
 use std::collections::HashMap;
 use web3::types::U64;
 
-pub const CONFIG_PATH: &str = "conf/config.toml";
 type SMT = SparseMerkleTree<Blake2bHasher, H256, DefaultStore<H256>>;
 
 fn main() -> Result<()> {
@@ -55,14 +54,15 @@ pub async fn handler(opt: Opts) -> Result<()> {
 
 pub async fn server_handle(args: ServerArgs) -> Result<()> {
     let config = SignServerConfig {
-        ckb_private_key_path: args.ckb_private_key_path,
-        eth_private_key_path: args.eth_private_key_path,
+        config_path: args.config_path.clone(),
+        ckb_key_path: args.ckb_key_path,
+        eth_key_path: args.eth_key_path,
         cell_script: args.cell_script,
         eth_rpc_url: args.eth_rpc_url,
         ckb_rpc_url: args.ckb_rpc_url,
         ckb_indexer_url: args.ckb_indexer_url,
     };
-    let config_path = tilde(CONFIG_PATH).into_owned();
+    let config_path = tilde(args.config_path.as_str()).into_owned();
     config.write(config_path.as_str())?;
     let mut io = IoHandler::default();
     io.add_method("sign_ckb_tx", sign_ckb_tx);
@@ -80,8 +80,9 @@ pub async fn server_handle(args: ServerArgs) -> Result<()> {
 }
 
 fn sign_eth_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value> {
+    let config_path = get_config_path();
     log::info!("sign_eth_tx request params: {:?}", args);
-    let config_path = tilde(CONFIG_PATH).into_owned();
+    let config_path = tilde(config_path.as_str()).into_owned();
     let config =
         SignServerConfig::new(config_path.as_str()).map_err(|_| Error::internal_error())?;
     use jsonrpc_http_server::jsonrpc_core::Result;
@@ -95,12 +96,8 @@ fn sign_eth_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
                 return Err(Error::invalid_params("raw_tx_hash is invalid."));
             }
             raw_msg.copy_from_slice(&msg.as_slice());
-            let privkey = get_secret_key(
-                tilde(config.eth_private_key_path.as_str())
-                    .to_owned()
-                    .as_ref(),
-            )
-            .map_err(|_| Error::internal_error())?;
+            let privkey = get_secret_key(tilde(config.eth_key_path.as_str()).to_owned().as_ref())
+                .map_err(|_| Error::internal_error())?;
             let signature =
                 get_msg_signature(&raw_msg, privkey).map_err(|_| Error::internal_error())?;
             log::info!("signature: {:?}", hex::encode(signature.clone()));
@@ -115,7 +112,8 @@ fn sign_eth_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
 #[allow(clippy::mutable_key_type)]
 fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value> {
     log::info!("sign_ckb_tx request params: {:?}", args);
-    let config_path = tilde(CONFIG_PATH).into_owned();
+    let config_path = get_config_path();
+    let config_path = tilde(config_path.as_str()).into_owned();
     let config =
         SignServerConfig::new(config_path.as_str()).map_err(|_| Error::internal_error())?;
     use jsonrpc_http_server::jsonrpc_core::Result;
@@ -143,12 +141,8 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
             ))
             .unwrap()
         );
-        let privkey = get_secret_key(
-            tilde(config.ckb_private_key_path.as_str())
-                .into_owned()
-                .as_str(),
-        )
-        .map_err(|_| Error::internal_error())?;
+        let privkey = get_secret_key(tilde(config.ckb_key_path.as_str()).into_owned().as_str())
+            .map_err(|_| Error::internal_error())?;
         asset_security_verification(
             tx_view.clone(),
             privkey,
@@ -225,7 +219,7 @@ fn asset_security_verification(
             // check input output lockscript.
             let output = tx_view.outputs().get_unchecked(0);
             let expect_lockscript = output.lock();
-            log::info!("type script: {:?}", hex::encode(output.type_().as_slice()));
+
             if script.as_slice() != expect_lockscript.as_slice() {
                 log::warn!("the tx lockscript is invalid.");
                 anyhow::bail!("invalid params. the tx lockscript is invalid.");
@@ -235,6 +229,11 @@ fn asset_security_verification(
                 .clone()
                 .ok_or_else(|| anyhow!("typescript should exist."))?;
             let typescript = packed::Script::from(type_);
+            log::info!(
+                "type script: {:?}, expect_script: {:?}",
+                hex::encode(output.type_().as_slice()),
+                expect_script
+            );
             if typescript.as_slice() != output.type_().as_slice()
                 || hex::encode(output.type_().as_slice()) != expect_script
             {

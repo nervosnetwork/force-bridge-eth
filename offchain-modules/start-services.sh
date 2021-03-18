@@ -52,9 +52,10 @@ start_sign_server() {
   echo ${cell_script}
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   cp ${PROJECT_DIR}/offchain-modules/target/debug/sign-server .
-  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server.log 2>&1 &
+  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-0.log 2>&1 &
+  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --config-path conf_1/config.toml --listen-url 0.0.0.0:3032 --ckb-key-path conf_1/ckb_key --eth-key-path conf_1/eth_key --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-1.log 2>&1 &
+  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --config-path conf_2/config.toml --listen-url 0.0.0.0:3033 --ckb-key-path conf_2/ckb_key --eth-key-path conf_2/eth_key --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-2.log 2>&1 &
   sleep 5
-#  cat ${FORCE_LOG_PATH}/sign-server.log
 }
 
 start_sign_server
@@ -80,7 +81,7 @@ cd ${PROJECT_DIR}/offchain-modules
 if [ "${FORCE_NETWORK}" = "" ]
 then
 #  ${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
-  ${FORCE_CLI} ckb-relay -k 1 --per-amount 5  --max-tx-count 10 --hosts http://127.0.0.1:3031 > ${FORCE_LOG_PATH}/ckb-relayer.log 2>&1 &
+  ${FORCE_CLI} ckb-relay -k 1 --per-amount 5  --max-tx-count 10 --hosts http://127.0.0.1:3031 http://127.0.0.1:3032 http://127.0.0.1:3033 > ${FORCE_LOG_PATH}/ckb-relayer.log 2>&1 &
 #  ${FORCE_CLI} init-multi-sign-address -k 1 --multi-address  ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37
   ${FORCE_CLI} eth-relay -k 1 > ${FORCE_LOG_PATH}/eth-relayer.log 2>&1 &
 else
@@ -94,6 +95,6 @@ fi
 #cat ${FORCE_LOG_PATH}/eth-relayer.log
 ##echo ${eth_relayer_log}
 #cat ${FORCE_LOG_PATH}/sign-server.log
-#start_mysql
-#sleep 10
-#start_indexer
+start_mysql
+sleep 10
+start_indexer
