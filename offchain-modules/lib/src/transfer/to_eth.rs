@@ -143,6 +143,7 @@ pub async fn burn(
             token_addr,
             lock_contract_addr,
             receive_addr,
+            None,
         )
         .map_err(|e| anyhow!("failed to build burn tx : {}", e))?;
     generator

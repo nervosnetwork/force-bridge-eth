@@ -12,13 +12,17 @@ use crate::util::config::{DeployedContracts, ForceConfig};
 use crate::util::eth_util::Web3Client;
 use actix_web::{App, HttpServer};
 use anyhow::{anyhow, bail, Result};
+use chashmap::CHashMap;
+use ckb_jsonrpc_types::OutPoint;
 use ckb_sdk::{GenesisInfo, HttpRpcClient};
 use ckb_types::core::BlockView;
 use force_sdk::indexer::IndexerRpcClient;
 use handlers::*;
 use shellexpand::tilde;
 use sqlx::mysql::MySqlPool;
+use std::collections::VecDeque;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot, Mutex, RwLock};
 
 pub const REPLAY_RESIST_CELL_NUMBER: usize = 1000;
@@ -41,11 +45,28 @@ pub struct DappState {
     pub db: MySqlPool,
     pub replay_resist_sender: mpsc::Sender<ReplayResistTask>,
     pub init_token_mutex: Arc<Mutex<i32>>,
+    pub ckb_tx_cache: CHashMap<String, TxUsedCells>,
 }
 
 pub struct ReplayResistTask {
     token: String,
     resp: oneshot::Sender<Result<String>>,
+}
+
+#[derive(Clone)]
+pub struct TxUsedCells {
+    pub last_used: Instant,
+    pub used_cells: VecDeque<Vec<OutPoint>>,
+}
+
+impl TxUsedCells {
+    pub fn is_stale(&self) -> bool {
+        self.last_used.elapsed() > Duration::from_secs(300)
+    }
+
+    pub fn get_cells(&self) -> Vec<OutPoint> {
+        self.used_cells.clone().into_iter().flatten().collect()
+    }
 }
 
 impl DappState {
@@ -97,7 +118,52 @@ impl DappState {
             db,
             replay_resist_sender,
             init_token_mutex,
+            ckb_tx_cache: CHashMap::new(),
         })
+    }
+
+    pub fn get_used_cells(&self, address: &str) -> Option<Vec<OutPoint>> {
+        let used_cells = self.ckb_tx_cache.get(address);
+        if used_cells.is_none() || used_cells.as_deref().unwrap().is_stale() {
+            std::mem::drop(used_cells);
+            self.ckb_tx_cache.remove(address);
+            None
+        } else {
+            Some(used_cells.as_deref().unwrap().get_cells())
+        }
+    }
+
+    pub fn update_used_cells(&self, address: &str, cells: Vec<OutPoint>) {
+        let mut used_cells = self.ckb_tx_cache.get_mut(address);
+        if used_cells.is_none() {
+            std::mem::drop(used_cells);
+            if self.ckb_tx_cache.len() > 100 {
+                log::debug!("used cells cache exceed 100");
+                self.ckb_tx_cache.retain(|_, v| !v.is_stale());
+                log::debug!(
+                    "entries number after retain used cells cache: {}",
+                    self.ckb_tx_cache.len()
+                );
+            }
+            if self.ckb_tx_cache.len() <= 100 {
+                let mut used_cells = VecDeque::new();
+                used_cells.push_back(cells);
+                let tx_used_cells = TxUsedCells {
+                    last_used: Instant::now(),
+                    used_cells,
+                };
+                self.ckb_tx_cache.insert(address.to_string(), tx_used_cells);
+            } else {
+                log::warn!("used cells cache is full");
+            }
+        } else {
+            let mut tx_used_cells = used_cells.as_deref_mut().unwrap();
+            tx_used_cells.last_used = Instant::now();
+            if tx_used_cells.used_cells.len() > 10 {
+                tx_used_cells.used_cells.pop_front();
+            }
+            tx_used_cells.used_cells.push_back(cells);
+        }
     }
 
     pub async fn get_generator(&self) -> Result<Generator> {

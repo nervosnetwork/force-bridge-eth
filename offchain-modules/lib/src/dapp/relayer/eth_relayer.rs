@@ -228,6 +228,7 @@ impl EthTxRelayer {
                 lockscript,
                 &generator.genesis_info,
                 tx_fee,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
         let tx_hash = generator

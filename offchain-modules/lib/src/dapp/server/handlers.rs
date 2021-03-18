@@ -206,6 +206,8 @@ pub async fn burn(
         HumanCapacity::from_str(&args.tx_fee.clone().unwrap_or_else(|| "0.0001".to_string()))
             .map_err(|e| RpcError::BadRequest(format!("tx fee invalid: {}", e)))?
             .into();
+
+    let used_cells = data.get_used_cells(args.from_lockscript_addr.as_str());
     let tx = generator
         .burn(
             tx_fee,
@@ -215,9 +217,17 @@ pub async fn burn(
             token_address,
             lock_contract_address,
             recipient_address,
+            used_cells,
         )
         .map_err(|e| RpcError::ServerError(format!("generate burn tx error: {}", e)))?;
     let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
+    let used_cells = rpc_tx
+        .inner
+        .inputs
+        .iter()
+        .map(|v| v.previous_output.clone())
+        .collect();
+    data.update_used_cells(args.from_lockscript_addr.as_str(), used_cells);
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
 
