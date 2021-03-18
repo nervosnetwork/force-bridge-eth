@@ -1949,6 +1949,7 @@ dependencies = [
  "config",
  "env_logger",
  "failure",
+ "futures 0.3.8",
  "hex 0.4.2",
  "int-enum",
  "jsonrpc-core 14.2.0",

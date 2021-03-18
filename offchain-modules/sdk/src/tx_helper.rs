@@ -20,7 +20,9 @@ use ckb_sdk::constants::{
 };
 use ckb_sdk::HttpRpcClient;
 use ckb_sdk::{AddressPayload, AddressType, CodeHashIndex, GenesisInfo, Since};
+use futures::future::join_all;
 use secp256k1::SecretKey;
+use std::time::Instant;
 
 pub const CKB_UNITS: u64 = 100_000_000;
 pub const PUBLIC_BRIDGE_CELL: u64 = 1000 * CKB_UNITS;
@@ -658,15 +660,49 @@ impl TxHelper {
         threshold: u8,
     ) -> Result<TransactionView, String> {
         let mut signature_number = 0;
+        let raw_tx_str = hex::encode(self.transaction.data().as_bytes().to_vec());
+        let mut collect_signature_futures = vec![];
         for host in hosts.clone() {
-            if signature_number >= threshold {
-                break;
-            }
-            let result = self
-                .collect_signatures(host.clone(), multisig_conf.clone())
-                .await;
-            if result.is_ok() {
-                signature_number += 1;
+            let result =
+                collect_signatures(host.clone(), multisig_conf.clone(), raw_tx_str.clone());
+            collect_signature_futures.push(result);
+        }
+        if !collect_signature_futures.is_empty() {
+            let now = Instant::now();
+            let count = collect_signature_futures.len();
+            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(30));
+            let task_future = join_all(collect_signature_futures);
+            tokio::select! {
+                v = task_future => {
+                    for res in v.iter() {
+                       match res {
+                          Ok(res) =>
+                          {
+                              if signature_number >= threshold {
+                                 break;
+                              }
+                              for i in 0..res.len() / 2 {
+                                if res[i * 2].clone().len() != 40 || res[i * 2 + 1].clone().len() != 130 {
+                                    log::error!("wrong signature: {:?}", res[i * 2 + 1].clone());
+                                    continue;
+                                }
+                                let lock_arg: Bytes =
+                                    Bytes::from(hex::decode(res[i * 2].clone()).map_err(|err| err.to_string())?);
+                                let signature =
+                                    Bytes::from(hex::decode(res[i * 2 + 1].clone()).map_err(|err| err.to_string())?);
+                                self.add_signature(lock_arg, signature)?;
+                              }
+                              log::info!("collect signature success. index: {:?}", signature_number);
+                              signature_number += 1;
+                          },
+                          Err(error) => log::error!("collect signature error : {:?}", error),
+                        }
+                    }
+                    log::info!("collect {:?} signatures elapsed {:?}", count, now.elapsed());
+               }
+                _ = timeout_future => {
+                    log::error!("collect signatures timeout");
+                }
             }
         }
         if signature_number < threshold {
@@ -680,32 +716,21 @@ impl TxHelper {
             .build_tx(&mut get_live_cell_fn, true)
             .map_err(|err| err)?)
     }
+}
 
-    async fn collect_signatures(
-        &mut self,
-        host: String,
-        multisig_conf: String,
-    ) -> Result<(), String> {
-        let res = sign_ckb_tx(
-            host.clone(),
-            multisig_conf.clone(),
-            hex::encode(self.transaction.data().as_bytes().to_vec()),
-        )
+async fn collect_signatures(
+    host: String,
+    multisig_conf: String,
+    raw_tx_str: String,
+) -> Result<Vec<String>, String> {
+    let res = sign_ckb_tx(host.clone(), multisig_conf.clone(), raw_tx_str)
         .await
         .map_err(|err| err)?;
-        log::info!("get signature from {:?} : {:?}", host, res);
-        if res.len() < 2 {
-            return Err(String::from("invalid signatures"));
-        }
-        for i in 0..res.len() / 2 {
-            let lock_arg: Bytes =
-                Bytes::from(hex::decode(res[i * 2].clone()).map_err(|err| err.to_string())?);
-            let signature =
-                Bytes::from(hex::decode(res[i * 2 + 1].clone()).map_err(|err| err.to_string())?);
-            self.add_signature(lock_arg, signature)?;
-        }
-        Ok(())
+    log::info!("get signature from {:?} : {:?}", host, res);
+    if res.len() < 2 {
+        return Err(String::from("invalid signatures"));
     }
+    Ok(res)
 }
 
 async fn sign_ckb_tx(
