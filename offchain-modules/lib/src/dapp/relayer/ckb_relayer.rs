@@ -1,3 +1,4 @@
+use crate::dapp::relayer::{BATCH_UNLOCK_LIMIT, TOTAL_UNLOCK_LIMIT};
 use crate::transfer::to_eth::{get_ckb_proof_info, unlock};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{convert_eth_address, parse_private_key, Web3Client};
@@ -87,10 +88,23 @@ impl CkbTxRelay {
             .web3_client
             .get_eth_nonce(&self.eth_private_key)
             .await?;
-        for (i, tx_record) in unlock_tasks.iter().enumerate() {
-            info!("burn tx wait to unlock: {:?} ", tx_record.ckb_burn_tx_hash);
+        // let mut proofs = vec![];
+        if unlock_tasks.is_empty() {
+            return Ok(());
+        }
+        for i in 0..=unlock_tasks.len() / BATCH_UNLOCK_LIMIT {
+            let tasks: &[UnlockTask];
+            if BATCH_UNLOCK_LIMIT * (i + 1) > unlock_tasks.len() {
+                tasks = &unlock_tasks[i * BATCH_UNLOCK_LIMIT..unlock_tasks.len()];
+            } else {
+                tasks = &unlock_tasks[i * BATCH_UNLOCK_LIMIT..(i + 1) * BATCH_UNLOCK_LIMIT];
+            }
+            let tx_hash_vec = tasks
+                .iter()
+                .map(|task| task.ckb_burn_tx_hash.clone())
+                .collect();
             let proof_info = get_ckb_proof_info(
-                &tx_record.ckb_burn_tx_hash,
+                tx_hash_vec,
                 self.ckb_rpc_url.clone(),
                 String::from(self.web3_client.url()),
                 self.contract_addr,
@@ -140,11 +154,12 @@ pub async fn get_unlock_tasks(
     let sql = r#"
 SELECT id, ckb_burn_tx_hash, ckb_raw_tx
 FROM ckb_to_eth
-WHERE status = 'pending' AND ckb_block_number + ? < ?
+WHERE status = 'pending' AND ckb_block_number + ? < ? limit ?
     "#;
     let tasks = sqlx::query_as::<_, UnlockTask>(sql)
         .bind(confirm)
         .bind(height)
+        .bind(TOTAL_UNLOCK_LIMIT)
         .fetch_all(pool)
         .await?;
     Ok(tasks)

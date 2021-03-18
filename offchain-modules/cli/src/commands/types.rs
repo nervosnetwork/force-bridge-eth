@@ -32,6 +32,7 @@ pub enum SubCommand {
     CkbRelay(CkbRelayArgs),
     RelayerMonitor(RelayerMonitorArgs),
     RecycleBridgeCell(RecycleBridgeCellArgs),
+    RecycleRecipientCell(RecycleRecipientCellArgs),
     Dapp(DappCommand),
 }
 
@@ -74,7 +75,17 @@ pub struct RecycleBridgeCellArgs {
     #[clap(long, default_value = "5000")]
     pub max_recycle_count: usize,
 }
-
+#[derive(Clap, Clone, Debug)]
+pub struct RecycleRecipientCellArgs {
+    #[clap(long, default_value = "~/.force-bridge/config.toml")]
+    pub config_path: String,
+    #[clap(long)]
+    pub network: Option<String>,
+    #[clap(short = 'k', long)]
+    pub private_key_path: String,
+    #[clap(long, default_value = "0.1")]
+    pub tx_fee: String,
+}
 #[derive(Clap, Clone, Debug)]
 pub struct InitCkbLightContractArgs {
     #[clap(long, default_value = "~/.force-bridge/config.toml")]

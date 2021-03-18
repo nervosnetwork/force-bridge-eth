@@ -5,7 +5,7 @@ use force_eth_lib::header_relay::eth_relay::{wait_header_sync_success, ETHRelaye
 use force_eth_lib::monitor::relay_monitor::{AccountMonitorArgs, RelayMonitor};
 use force_eth_lib::transfer::to_ckb::{
     self, approve, generate_eth_spv_proof_json, get_or_create_bridge_cell, init_multi_sign_address,
-    lock_eth, lock_token, recycle_bridge_cell, send_eth_spv_proof_tx,
+    lock_eth, lock_token, recycle_bridge_cell, recycle_recipient_cell, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
     burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
@@ -56,6 +56,7 @@ pub async fn handler(opt: Opts) -> Result<()> {
         SubCommand::CkbRelay(args) => ckb_relay_handler(args).await,
         SubCommand::RelayerMonitor(args) => relayer_monitor(args).await,
         SubCommand::RecycleBridgeCell(args) => recycle_bridge_cell_handler(args).await,
+        SubCommand::RecycleRecipientCell(args) => recycle_recipient_cell_handler(args).await,
         SubCommand::Dapp(dapp_command) => dapp_handle(dapp_command).await,
     }
 }
@@ -266,6 +267,7 @@ pub async fn mint_handler(args: MintArgs) -> Result<()> {
         &eth_proof,
         from_privkey,
         None,
+        force_config.eth_rocksdb_path,
     )
     .await?;
     println!("mint erc20 token on ckb. tx_hash: {}", &tx_hash);
@@ -305,7 +307,7 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
     let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
     let ethereum_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
     let proof = get_ckb_proof_info(
-        &args.tx_hash,
+        vec![args.tx_hash],
         ckb_rpc_url,
         ethereum_rpc_url,
         eth_ckb_chain_addr,
@@ -370,7 +372,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     )
     .await?;
     let proof = get_ckb_proof_info(
-        &ckb_tx_hash,
+        vec![ckb_tx_hash],
         ckb_rpc_url.clone(),
         eth_rpc_url.clone(),
         light_client_addr,
@@ -379,7 +381,7 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
     .await?;
     let result = unlock(
         eth_private_key,
-        eth_rpc_url,
+        eth_rpc_url.clone(),
         deployed_contracts.eth_token_locker_addr.clone(),
         proof,
         args.gas_price,
@@ -522,4 +524,27 @@ pub async fn relayer_monitor(args: RelayerMonitorArgs) -> Result<()> {
         }
         tokio::time::delay_for(std::time::Duration::from_secs(args.minute_interval * 60)).await;
     }
+}
+
+pub async fn recycle_recipient_cell_handler(args: RecycleRecipientCellArgs) -> Result<()> {
+    let force_config = ForceConfig::new(args.config_path.as_str())?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let ckb_indexer_url = force_config.get_ckb_indexer_url(&args.network)?;
+    let private_key =
+        parse_privkey_path(&args.private_key_path, &force_config, &args.network.clone())?;
+    let tx_hash = recycle_recipient_cell(
+        deployed_contracts,
+        ckb_rpc_url,
+        ckb_indexer_url,
+        args.tx_fee,
+        private_key,
+    )
+    .await
+    .map_err(|e| anyhow!("Failed to recycle recipient cell. {:?}", e))?;
+    info!("recycle recipient cell successfully for {}", tx_hash,);
+    Ok(())
 }
