@@ -106,6 +106,12 @@ impl CkbHeaderIndexer {
                         None => [0u8; 32],
                     };
 
+                    log::info!(
+                        "chain_root {:?}, db_root {:?}, height {}",
+                        chain_root.to_vec(),
+                        db_root,
+                        index
+                    );
                     if chain_root.to_vec() != db_root {
                         db.put(index.to_le_bytes(), chain_root.to_vec())
                             .map_err(|err| anyhow!(err))?;
