@@ -149,7 +149,13 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
                 .as_str(),
         )
         .map_err(|_| Error::internal_error())?;
-        asset_security_verification(tx_view.clone(), privkey, &mut rpc_client).map_err(|_| {
+        asset_security_verification(
+            tx_view.clone(),
+            privkey,
+            &mut rpc_client,
+            config.cell_script.clone(),
+        )
+        .map_err(|_| {
             Error::invalid_params(
                 "invalid params. the current transaction is at risk of being attacked.",
             )
@@ -193,6 +199,7 @@ fn asset_security_verification(
     tx_view: TransactionView,
     privkey: SecretKey,
     rpc_client: &mut HttpRpcClient,
+    expect_script: String,
 ) -> Result<()> {
     for i in 0..tx_view.inputs().len() {
         let op = tx_view.inputs().get_unchecked(i).previous_output();
@@ -218,9 +225,21 @@ fn asset_security_verification(
             // check input output lockscript.
             let output = tx_view.outputs().get_unchecked(0);
             let expect_lockscript = output.lock();
+            log::info!("type script: {:?}", hex::encode(output.type_().as_slice()));
             if script.as_slice() != expect_lockscript.as_slice() {
                 log::warn!("the tx lockscript is invalid.");
                 anyhow::bail!("invalid params. the tx lockscript is invalid.");
+            }
+            let type_ = cell_output
+                .type_
+                .clone()
+                .ok_or_else(|| anyhow!("typescript should exist."))?;
+            let typescript = packed::Script::from(type_);
+            if typescript.as_slice() != output.type_().as_slice()
+                || hex::encode(output.type_().as_slice()) != expect_script
+            {
+                log::warn!("the tx typescript is invalid.");
+                anyhow::bail!("invalid params. the tx typescript is invalid.");
             }
         }
     }
