@@ -7,7 +7,7 @@ const {
     USDC_TOKEN_ADDRESS,
     ETH_TOKEN_ADDRESS,
 } = require("./config");
-
+const fs = require('fs');
 
 const getOrCreateBridgeCell = async (
     recipientCkbAddress,
@@ -124,6 +124,23 @@ const getLockStatus = async (ethLockTxHash) => {
                 console.log(ethLockTxHash,"mint success")
                 break
             }
+            if (i >= 20) {
+                fs.readFile('/home/runner/.force-bridge/eth-tx-relayer.log', 'utf8', (err, data) => {
+                    if (err) {
+                        console.error(err)
+                        return
+                    }
+                    console.log(data)
+                })
+                fs.readFile('/home/runner/.force-bridge/ckb-indexer.log', 'utf8', (err, data) => {
+                    if (err) {
+                        console.error(err)
+                        return
+                    }
+                    console.log(data)
+                })
+                break
+            }
         }catch (err){
             console.error("failed get_eth_to_ckb_status of lock ", ethLockTxHash," error : ",err.response.data)
             // break;
@@ -144,6 +161,23 @@ const getBurnStatus = async (ckb_burn_tx_hash) => {
             console.log("burn ",ckb_burn_tx_hash," retry : ", i," ckb_to_eth_status : ",res.data.status)
             if ( res.data.status === 'success'){
                 console.log(ckb_burn_tx_hash,"burn success")
+                break
+            }
+            if (i >= 20) {
+                fs.readFile('/home/runner/.force-bridge/ckb-tx-relayer.log', 'utf8', (err, data) => {
+                    if (err) {
+                        console.error(err)
+                        return
+                    }
+                    console.log(data)
+                })
+                fs.readFile('/home/runner/.force-bridge/eth-indexer.log', 'utf8', (err, data) => {
+                    if (err) {
+                        console.error(err)
+                        return
+                    }
+                    console.log(data)
+                })
                 break
             }
         }catch (err){
