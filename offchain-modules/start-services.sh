@@ -95,6 +95,6 @@ fi
 #cat ${FORCE_LOG_PATH}/eth-relayer.log
 ##echo ${eth_relayer_log}
 #cat ${FORCE_LOG_PATH}/sign-server.log
-start_mysql
-sleep 10
-start_indexer
+#start_mysql
+#sleep 10
+#start_indexer

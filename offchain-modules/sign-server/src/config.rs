@@ -44,14 +44,11 @@ impl SignServerConfig {
 pub fn get_config_path() -> String {
     let args_: Vec<String> = env::args().collect();
     for i in 0..args_.len() {
-        match args_[i].as_str() {
-            "--config-path" => {
-                if args_.clone().len() <= i + 1 || args_[i + 1].clone().starts_with("--") {
-                    return DEFAULT_CONFIG_PATH.to_string();
-                }
-                return args_[i + 1].clone();
+        if let "--config-path" = args_[i].as_str() {
+            if args_.clone().len() <= i + 1 || args_[i + 1].clone().starts_with("--") {
+                return DEFAULT_CONFIG_PATH.to_string();
             }
-            _ => {}
+            return args_[i + 1].clone();
         }
     }
     DEFAULT_CONFIG_PATH.to_string()
