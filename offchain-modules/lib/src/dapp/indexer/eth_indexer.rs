@@ -508,23 +508,27 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 CKBUnlockTokenParamReader::verify(raw_data, false).map_err(|err| anyhow!(err))?;
                 let ckb_tx_proof_reader = CKBUnlockTokenParamReader::new_unchecked(raw_data);
                 let ckb_tx_proof_vec = ckb_tx_proof_reader.tx_proofs();
-                let raw_tx = ckb_tx_proof_vec
-                    .get_unchecked(0)
-                    .raw_transaction()
-                    .raw_data();
-                let ckb_tx_hash = blake2b_256(raw_tx);
-                let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
-                if !is_ckb_to_eth_record_exist(&self.db, ckb_tx_hash_str.as_str()).await? {
-                    info!("the burn tx is not exist. waiting for ckb indexer reach sync status.");
-                    tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
-                    anyhow::bail!(
-                        "the burn tx is not exist. waiting for ckb indexer reach sync status."
-                    );
+                for i in 0..ckb_tx_proof_vec.len() {
+                    let raw_tx = ckb_tx_proof_vec
+                        .get_unchecked(i)
+                        .raw_transaction()
+                        .raw_data();
+                    let ckb_tx_hash = blake2b_256(raw_tx);
+                    let ckb_tx_hash_str = hex::encode(ckb_tx_hash);
+                    if !is_ckb_to_eth_record_exist(&self.db, ckb_tx_hash_str.as_str()).await? {
+                        info!(
+                            "the burn tx is not exist. waiting for ckb indexer reach sync status."
+                        );
+                        tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
+                        anyhow::bail!(
+                            "the burn tx is not exist. waiting for ckb indexer reach sync status."
+                        );
+                    }
+                    unlock_datas.push((
+                        ckb_tx_hash_str,
+                        String::from(clear_0x(tx_hash_str.clone().as_str())),
+                    ));
                 }
-                unlock_datas.push((
-                    ckb_tx_hash_str,
-                    String::from(clear_0x(tx_hash_str.clone().as_str())),
-                ));
             }
         }
         info!("handle lock event. unlock_datas: {:?}", unlock_datas);

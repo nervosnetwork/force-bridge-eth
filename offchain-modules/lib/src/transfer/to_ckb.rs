@@ -276,6 +276,7 @@ pub async fn to_eth_spv_proof_json(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn send_eth_spv_proof_tx_single(
     generator: &mut Generator,
     config_path: String,
@@ -284,12 +285,14 @@ pub async fn send_eth_spv_proof_tx_single(
     from_lockscript: Script,
     from_privkey: SecretKey,
     manual_capacity_cell: Option<OutPoint>,
+    rocksdb_path: String,
 ) -> Result<ckb_types::H256> {
     let unsigned_tx = generator.generate_eth_spv_tx(
         config_path.clone(),
         from_lockscript.clone(),
         eth_proof,
         manual_capacity_cell,
+        rocksdb_path,
     )?;
     let tx =
         sign(unsigned_tx, &mut generator.rpc_client, &from_privkey).map_err(|err| anyhow!(err))?;
@@ -318,6 +321,7 @@ pub async fn send_eth_spv_proof_tx(
     eth_proof: &ETHSPVProofJson,
     from_privkey: SecretKey,
     manual_capacity_cell: Option<OutPoint>,
+    rocksdb_path: String,
 ) -> Result<ckb_types::H256> {
     let from_public_key = secp256k1::PublicKey::from_secret_key(&SECP256K1, &from_privkey);
     let address_payload = AddressPayload::from_pubkey(&from_public_key);
@@ -332,6 +336,7 @@ pub async fn send_eth_spv_proof_tx(
             from_lockscript.clone(),
             from_privkey,
             manual_capacity_cell.clone(),
+            rocksdb_path.clone(),
         )
         .await;
         match result {
@@ -910,6 +915,33 @@ pub async fn recycle_bridge_cell(
     let unsigned_tx = generator
         .recycle_bridge_cell_tx(from_lockscript, outpoints, tx_fee)
         .map_err(|e| anyhow!("failed to build recycle bridge tx: {}", e))?;
+
+    generator
+        .sign_and_send_transaction(unsigned_tx, private_key)
+        .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn recycle_recipient_cell(
+    deployed_contracts: &DeployedContracts,
+    rpc_url: String,
+    indexer_url: String,
+    tx_fee: String,
+    private_key: SecretKey,
+) -> Result<String> {
+    let mut generator = Generator::new(rpc_url, indexer_url, deployed_contracts.clone())
+        .map_err(|e| anyhow!("failed to crate generator: {}", e))?;
+    ensure_indexer_sync(&mut generator.rpc_client, &mut generator.indexer_client, 60)
+        .await
+        .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
+
+    let from_lockscript = parse_privkey(&private_key);
+    let tx_fee: u64 = HumanCapacity::from_str(&tx_fee)
+        .map_err(|e| anyhow!(e))?
+        .into();
+    let unsigned_tx = generator
+        .recycle_eth_recipient_cell_tx(from_lockscript, tx_fee)
+        .map_err(|e| anyhow!("failed to build recycle recipient tx: {}", e))?;
 
     generator
         .sign_and_send_transaction(unsigned_tx, private_key)
