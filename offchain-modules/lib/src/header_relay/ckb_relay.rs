@@ -17,6 +17,7 @@ use force_sdk::constants::{
     TESTNET_CKB_WAITING_BLOCKS,
 };
 use force_sdk::indexer::SignServerRpcClient;
+use futures::future::join_all;
 use log::info;
 use rocksdb::ops::{Get, Put};
 use std::time::Instant;
@@ -207,14 +208,40 @@ impl CKBRelayer {
         // This can be optimized to collect signatures through multiple threads to improve efficiency.
         let mut signatures: Vec<u8> = vec![];
         let mut signature_number = 0;
+        let mut signature_futures = vec![];
         for host in self.hosts.clone() {
-            if signature_number >= self.threshold {
-                break;
-            }
-            let result = sign_eth_tx(host, hex::encode(&headers_msg_hash)).await;
-            if result.is_ok() {
-                signatures.append(&mut hex::decode(result.unwrap()).map_err(|err| anyhow!(err))?);
-                signature_number += 1;
+            signature_futures.push(sign_eth_tx(host, hex::encode(&headers_msg_hash)));
+        }
+        if !signature_futures.is_empty() {
+            let now = Instant::now();
+            let count = signature_futures.len();
+            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(30));
+            let task_future = join_all(signature_futures);
+            tokio::select! {
+                v = task_future => {
+                    for res in v.iter() {
+                       match res {
+                          Ok(res) =>
+                          {
+                              if signature_number >= self.threshold {
+                                 break;
+                              }
+                              if res.len() != 130 {
+                                log::error!("wrong signature: {:?}", res.clone());
+                                continue;
+                              }
+                              signatures.append(&mut hex::decode(res).map_err(|err| anyhow!(err))?);
+                              signature_number += 1;
+                              log::info!("collect eth signature success. index: {:?}", signature_number);
+                          },
+                          Err(error) => log::error!("collect eth signature error : {:?}", error),
+                        }
+                    }
+                    log::info!("collect {:?} eth signatures elapsed {:?}", count, now.elapsed());
+               }
+                _ = timeout_future => {
+                    log::error!("collect eth signatures timeout");
+                }
             }
         }
         if signature_number < self.threshold {
