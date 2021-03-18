@@ -9,7 +9,6 @@ use log::info;
 use rocksdb::ops::{Get, Put};
 use shellexpand::tilde;
 use sparse_merkle_tree::traits::Value;
-use std::ops::Add;
 use std::path::Path;
 use web3::types::U64;
 
@@ -27,7 +26,8 @@ impl EthHeaderIndexer {
     pub async fn new(
         config_path: String,
         network: Option<String>,
-        rocksdb_path: String,
+        header_rocksdb_path: String,
+        merkle_rocksdb_path: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -36,9 +36,6 @@ impl EthHeaderIndexer {
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let indexer_client = IndexerRpcClient::new(ckb_indexer_url);
 
-        let header_rocksdb_path = rocksdb_path.clone().add("/header");
-        let merkle_rocksdb_path = rocksdb_path.add("/merkle");
-        info!("path {} {}", header_rocksdb_path, merkle_rocksdb_path);
         Ok(EthHeaderIndexer {
             config_path,
             eth_client,

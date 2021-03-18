@@ -108,4 +108,6 @@ pub struct EthHeaderIndexerArgs {
     pub network: Option<String>,
     #[clap(long, default_value = "~/.force-bridge/dapp-lib/eth-rocksdb")]
     pub rocksdb_path: String,
+    #[clap(long, default_value = "~/.force-bridge/dapp-lib/merkle")]
+    pub merkle_path: String,
 }
