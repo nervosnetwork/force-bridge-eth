@@ -1,21 +1,26 @@
 use crate::util::ckb_util::{parse_cell, parse_merkle_cell_data};
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::Web3Client;
-use crate::util::rocksdb;
+use crate::util::rocksdb::{open_rocksdb, RocksDBStore, SMT};
 use anyhow::{anyhow, Result};
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::IndexerRpcClient;
 use log::info;
+use rocksdb::ops::{Get, Put};
 use shellexpand::tilde;
 use sparse_merkle_tree::traits::Value;
+use std::ops::Add;
 use std::path::Path;
 use web3::types::U64;
+
+const ROCKSDB_MERKLE_ROOT_KEY: u8 = 0;
 
 pub struct EthHeaderIndexer {
     pub config_path: String,
     pub eth_client: Web3Client,
     pub indexer_client: IndexerRpcClient,
-    pub rocksdb_path: String,
+    pub header_rocksdb_path: String,
+    pub merkle_rocksdb_path: String,
 }
 
 impl EthHeaderIndexer {
@@ -30,11 +35,16 @@ impl EthHeaderIndexer {
         let eth_client = Web3Client::new(eth_rpc_url);
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let indexer_client = IndexerRpcClient::new(ckb_indexer_url);
+
+        let header_rocksdb_path = rocksdb_path.clone().add("/header");
+        let merkle_rocksdb_path = rocksdb_path.add("/merkle");
+        info!("path {} {}", header_rocksdb_path, merkle_rocksdb_path);
         Ok(EthHeaderIndexer {
             config_path,
             eth_client,
             indexer_client,
-            rocksdb_path,
+            header_rocksdb_path,
+            merkle_rocksdb_path,
         })
     }
 
@@ -68,19 +78,46 @@ impl EthHeaderIndexer {
         anyhow::bail!("waiting for the block confirmed!")
     }
 
+    pub fn get_merkle_root(&mut self) -> Result<[u8; 32]> {
+        let merkle_rocksdb_path = self.merkle_rocksdb_path.clone();
+        let db_dir = tilde(merkle_rocksdb_path.as_str()).into_owned();
+        let db_path = Path::new(db_dir.as_str());
+        let merkle_root = match db_path.exists() {
+            false => [0u8; 32],
+            true => {
+                let db = open_rocksdb(self.merkle_rocksdb_path.clone());
+                let db_merkle_option = db
+                    .get(ROCKSDB_MERKLE_ROOT_KEY.to_le_bytes())
+                    .map_err(|err| anyhow!(err))?;
+                match db_merkle_option {
+                    Some(v) => {
+                        let mut db_root_raw = [0u8; 32];
+                        db_root_raw.copy_from_slice(v.as_ref());
+                        db_root_raw
+                    }
+                    None => [0u8; 32],
+                }
+            }
+        };
+        Ok(merkle_root)
+    }
+
     pub async fn loop_relay_rocksdb(&mut self) -> Result<()> {
         let mut latest_submit_height = 0;
+        let mut merkle_root = self.get_merkle_root()?;
         loop {
-            let (start_height, latest_height, merkle_root) = self.get_light_client_info().await?;
+            let (start_height, latest_height, _) = self.get_light_client_info().await?;
 
             if latest_height <= latest_submit_height {
                 log::info!("waiting for new block.");
                 tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
                 continue;
             }
-            latest_submit_height = self
+            let (new_latest_submit_height, new_merkle_root) = self
                 .relay_rocksdb(start_height, latest_height, merkle_root)
                 .await?;
+            latest_submit_height = new_latest_submit_height;
+            merkle_root = new_merkle_root;
         }
     }
 
@@ -89,18 +126,18 @@ impl EthHeaderIndexer {
         start_height: u64,
         latest_height: u64,
         merkle_root: [u8; 32],
-    ) -> Result<u64> {
-        let eth_rocksdb_path = self.rocksdb_path.clone();
+    ) -> Result<(u64, [u8; 32])> {
+        let eth_rocksdb_path = self.header_rocksdb_path.clone();
         let db_dir = tilde(eth_rocksdb_path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
         let mut smt_tree = match db_path.exists() {
             false => {
-                let rocksdb_store = rocksdb::RocksDBStore::new(eth_rocksdb_path.clone());
-                rocksdb::SMT::new(sparse_merkle_tree::H256::zero(), rocksdb_store)
+                let rocksdb_store = RocksDBStore::new(eth_rocksdb_path.clone());
+                SMT::new(sparse_merkle_tree::H256::zero(), rocksdb_store)
             }
             true => {
-                let rocksdb_store = rocksdb::RocksDBStore::open(eth_rocksdb_path.clone());
-                rocksdb::SMT::new(merkle_root.into(), rocksdb_store)
+                let rocksdb_store = RocksDBStore::open(eth_rocksdb_path.clone());
+                SMT::new(merkle_root.into(), rocksdb_store)
             }
         };
 
@@ -117,10 +154,19 @@ impl EthHeaderIndexer {
             let chain_block_hash = chain_block.hash.expect("block hash should not be none");
 
             let db_block_hash = smt_tree.get(&key.into()).expect("should return ok");
+
+            info!(
+                "chain_block_hash {:?}, db_block_hash {:?} height {}",
+                chain_block_hash.0.as_slice(),
+                db_block_hash.to_h256().as_slice(),
+                number
+            );
+
             if chain_block_hash.0.as_slice() != db_block_hash.to_h256().as_slice() {
                 smt_tree
                     .update(key.into(), chain_block_hash.0.into())
                     .expect("update smt tree");
+                info!("Successfully relayed header {}", number);
             } else {
                 break;
             }
@@ -134,6 +180,15 @@ impl EthHeaderIndexer {
             number + 1,
             latest_height
         );
-        Ok(latest_height)
+
+        let merkle_root = smt_tree.root();
+        let db = open_rocksdb(self.merkle_rocksdb_path.clone());
+        db.put(
+            ROCKSDB_MERKLE_ROOT_KEY.to_le_bytes(),
+            merkle_root.as_slice().to_vec(),
+        )
+        .map_err(|err| anyhow!(err))?;
+
+        Ok((latest_height, (*merkle_root).into()))
     }
 }
