@@ -76,10 +76,16 @@ start_server(){
 
 start_tx_relay(){
   cd ${OFFCHAIN}
-  ${FORCE_CLI} dapp ckb-indexer --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/ckb-indexer.log 2>&1 &
-  ${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/eth-indexer.log 2>&1 &
-  ${FORCE_CLI} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY} > ${FORCE_LOG_PATH}/ckb-tx-relayer.log 2>&1 &
-  ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > ${FORCE_LOG_PATH}/eth-tx-relayer.log 2>&1 &
+  ${FORCE_CLI} dapp ckb-indexer --db-path ${DB_PATH} > /home/runner/work/force-bridge-eth/ckb-indexer.log 2>&1 &
+  ${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH} > /home/runner/work/force-bridge-eth/eth-indexer.log 2>&1 &
+  ${FORCE_CLI} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY} > /home/runner/work/force-bridge-eth/ckb-tx-relayer.log 2>&1 &
+  ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > /home/runner/work/force-bridge-eth/eth-tx-relayer.log 2>&1 &
+}
+
+start_header_indexer_relay() {
+  cd ${OFFCHAIN}
+  ${FORCE_CLI} dapp ckb-header-indexer > ${FORCE_LOG_PATH}/ckb-header-indexer.log 2>&1 &
+  ${FORCE_CLI} dapp eth-header-indexer > ${FORCE_LOG_PATH}/eth-header-indexer.log 2>&1 &
 }
 
 #start_server(){
@@ -103,7 +109,7 @@ start_header_relay(){
 
 stress_test(){
     cd ${PROJECT_DIR}/demo && rm -rf dex-crosschain-bot
-    git clone https://github.com/fpChan/dex-crosschain-bot && cd dex-crosschain-bot  && git checkout local && yarn
+    git clone https://github.com/JacobDenver007/dex-crosschain-bot.git && cd dex-crosschain-bot  && yarn
     yarn send && rm -rf dex-crosschain-bot
 }
 
@@ -114,6 +120,8 @@ stress_test(){
 #start_header_relay
 start_server
 sleep 3
+start_header_indexer_relay
+sleep 10
 start_tx_relay
 
 
