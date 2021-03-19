@@ -71,7 +71,10 @@ impl CkbTxRelay {
 
     pub async fn start(&mut self) -> Result<()> {
         loop {
-            self.relay().await?;
+            let res = self.relay().await;
+            if let Err(e) = res {
+                log::error!("encountered an error when relay ckb tx: {:?}", e);
+            }
             tokio::time::delay_for(Duration::from_secs(60)).await
         }
     }

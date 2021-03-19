@@ -418,6 +418,7 @@ impl TxHelper {
     }
 
     #[allow(clippy::mutable_key_type)]
+    #[allow(clippy::too_many_arguments)]
     pub fn supply_sudt(
         &mut self,
         rpc_client: &mut HttpRpcClient,
@@ -426,6 +427,7 @@ impl TxHelper {
         genesis_info: &GenesisInfo,
         need_sudt_amount: u128,
         sudt_typescript: Script,
+        used_cells: Option<Vec<ckb_jsonrpc_types::OutPoint>>,
     ) -> Result<TransactionView, String> {
         let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> =
             Default::default();
@@ -438,6 +440,7 @@ impl TxHelper {
             lockscript.clone(),
             sudt_typescript.clone(),
             need_sudt_amount,
+            used_cells,
         )?;
         if collected_amount < need_sudt_amount {
             return Err(format!(
@@ -478,6 +481,7 @@ impl TxHelper {
         lockscript: Script,
         genesis_info: &GenesisInfo,
         tx_fee: u64,
+        used_cells: Option<Vec<ckb_jsonrpc_types::OutPoint>>,
     ) -> Result<TransactionView, String> {
         if tx_fee > ONE_CKB {
             return Err("Transaction fee can not be more than 1.0 CKB".to_string());
@@ -516,6 +520,7 @@ impl TxHelper {
                 lockscript.clone(),
                 to_capacity + tx_fee - from_capacity,
                 None,
+                used_cells,
             )?;
             from_capacity += cells.iter().map(|c| c.output.capacity.value()).sum::<u64>();
             if to_capacity + tx_fee > from_capacity {

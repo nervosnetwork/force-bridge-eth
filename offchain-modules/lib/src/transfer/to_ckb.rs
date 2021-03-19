@@ -774,6 +774,7 @@ pub fn deploy_with_typeid(
         lockscript,
         &genesis_info,
         99_999_999,
+        None,
     )?;
     let change_cell_output = tx.output(data.len());
     tx_helper.clear_outputs();
@@ -830,6 +831,7 @@ fn deploy_without_typeid(
         lockscript,
         &genesis_info,
         99_999_999,
+        None,
     )?;
     let tx = sign(tx, rpc_client, privkey)?;
     Ok((tx, type_code_hashes))
@@ -888,7 +890,7 @@ pub async fn recycle_bridge_cell(
                 )
                 .map_err(|e| {
                     anyhow!(
-                "irreparable error: wrong replay resist cell outpoint format in recycle bridge cell: {:?}",
+                "error: wrong replay resist cell outpoint format in recycle bridge cell: {:?}",
                 e
             )
                 })?;
