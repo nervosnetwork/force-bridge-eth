@@ -207,7 +207,9 @@ pub async fn burn(
             .map_err(|e| RpcError::BadRequest(format!("tx fee invalid: {}", e)))?
             .into();
 
+    log::debug!("used cache befor burn {:?}", data.ckb_tx_cache);
     let used_cells = data.get_used_cells(args.from_lockscript_addr.as_str());
+    log::debug!("address {} cached used cells: {}", args.from_lockscript_addr, serde_json::to_string_pretty(&used_cells).unwrap());
     let tx = generator
         .burn(
             tx_fee,
@@ -221,6 +223,7 @@ pub async fn burn(
         )
         .map_err(|e| RpcError::ServerError(format!("generate burn tx error: {}", e)))?;
     let rpc_tx = ckb_jsonrpc_types::TransactionView::from(tx);
+    log::debug!("burn tx: {}", serde_json::to_string_pretty(&rpc_tx).unwrap());
     let used_cells = rpc_tx
         .inner
         .inputs
@@ -228,6 +231,7 @@ pub async fn burn(
         .map(|v| v.previous_output.clone())
         .collect();
     data.update_used_cells(args.from_lockscript_addr.as_str(), used_cells);
+    log::debug!("used cells cache after burn: {:?}", data.ckb_tx_cache);
     Ok(HttpResponse::Ok().json(BurnResult { raw_tx: rpc_tx }))
 }
 
