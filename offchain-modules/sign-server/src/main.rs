@@ -48,7 +48,7 @@ fn main() -> Result<()> {
 
 pub async fn handler(opt: Opts) -> Result<()> {
     match opt.subcmd {
-        SubCommand::Server(args) => server_handle(args).await,
+        SubCommand::Run(args) => server_handle(args).await,
     }
 }
 

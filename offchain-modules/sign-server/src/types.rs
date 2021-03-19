@@ -9,7 +9,7 @@ pub struct Opts {
 
 #[derive(Clap, Clone, Debug)]
 pub enum SubCommand {
-    Server(ServerArgs),
+    Run(ServerArgs),
 }
 
 #[derive(Clap, Clone, Debug)]
