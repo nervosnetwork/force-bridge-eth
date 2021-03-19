@@ -333,6 +333,8 @@ pub struct EthRelayArgs {
     pub multisig_privkeys: Vec<String>,
     #[clap(long, default_value = "15")]
     pub confirm: u64,
+    #[clap(long, default_value = "300")]
+    pub delay: u64,
 }
 
 #[derive(Clap, Clone, Debug)]
