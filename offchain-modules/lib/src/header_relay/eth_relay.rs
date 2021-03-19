@@ -1,6 +1,6 @@
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{parse_cell, parse_merkle_cell_data, parse_privkey_path};
-use crate::util::config::{ForceConfig, MultisigConf};
+use crate::util::config::ForceConfig;
 use crate::util::eth_util::Web3Client;
 use crate::util::rocksdb;
 use anyhow::{anyhow, Result};
@@ -30,7 +30,6 @@ pub struct ETHRelayer {
     pub config_path: String,
     pub config: ForceConfig,
     pub multisig_config: MultisigConfig,
-    pub multisig_conf: MultisigConf,
     pub hosts: Vec<String>,
     pub secret_key: SecretKey,
     pub confirm: u64,
@@ -57,8 +56,6 @@ impl ETHRelayer {
             .map_err(|e| anyhow::anyhow!(e))?;
         let eth_client = Web3Client::new(eth_rpc_url);
         let mut addresses = vec![];
-        let mut multisig_conf = deployed_contracts.multisig_address.clone();
-        multisig_conf.hosts = vec![];
         for item in deployed_contracts.multisig_address.addresses.clone() {
             let address = Address::from_str(&item).unwrap();
             addresses.push(address);
@@ -82,7 +79,6 @@ impl ETHRelayer {
             generator,
             config_path,
             multisig_config,
-            multisig_conf,
             secret_key,
             hosts: deployed_contracts.multisig_address.hosts.clone(),
             config: force_config,
@@ -188,6 +184,14 @@ impl ETHRelayer {
         }
 
         let force_config = ForceConfig::new(self.config_path.as_str())?;
+        let mut multisig_address = force_config
+            .deployed_contracts
+            .ok_or_else(|| anyhow!("deployed_contracts should be exist."))?
+            .multisig_address
+            .clone();
+        multisig_address.hosts = vec![];
+        let multisig_conf_json =
+            serde_json::to_string(&multisig_address.clone()).map_err(|err| anyhow!(err))?;
         let db_path = force_config.eth_rocksdb_path;
         // make tx
         let cell =
@@ -270,13 +274,14 @@ impl ETHRelayer {
             ))
             .unwrap()
         );
+
         let tx = sign_from_multi_key(
             unsigned_tx,
             &mut self.generator.rpc_client,
             &self.secret_key,
             self.hosts.clone(),
             self.multisig_config.clone(),
-            serde_json::to_string(&self.multisig_conf.clone()).map_err(|err| anyhow!(err))?,
+            multisig_conf_json,
         )
         .await
         .map_err(|err| anyhow::anyhow!(err))?;

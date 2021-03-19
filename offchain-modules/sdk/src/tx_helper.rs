@@ -80,7 +80,7 @@ pub async fn sign_from_multi_key(
     privkey: &SecretKey,
     hosts: Vec<String>,
     multisig_config: MultisigConfig,
-    multisig_conf: String,
+    multisig_config_json: String,
 ) -> Result<TransactionView, String> {
     let mut live_cell_cache: HashMap<(OutPoint, bool), (CellOutput, Bytes)> = Default::default();
     let get_live_cell_fn = |out_point: OutPoint, with_data: bool| {
@@ -94,7 +94,7 @@ pub async fn sign_from_multi_key(
             get_live_cell_fn,
             privkey,
             hosts,
-            multisig_conf,
+            multisig_config_json,
             multisig_config.threshold,
         )
         .await
@@ -656,15 +656,18 @@ impl TxHelper {
         mut get_live_cell_fn: F,
         privkey: &SecretKey,
         hosts: Vec<String>,
-        multisig_conf: String,
+        multisig_config_json: String,
         threshold: u8,
     ) -> Result<TransactionView, String> {
         let mut signature_number = 0;
         let raw_tx_str = hex::encode(self.transaction.data().as_bytes().to_vec());
         let mut collect_signature_futures = vec![];
         for host in hosts.clone() {
-            let result =
-                collect_signatures(host.clone(), multisig_conf.clone(), raw_tx_str.clone());
+            let result = collect_signatures(
+                host.clone(),
+                multisig_config_json.clone(),
+                raw_tx_str.clone(),
+            );
             collect_signature_futures.push(result);
         }
         if !collect_signature_futures.is_empty() {
