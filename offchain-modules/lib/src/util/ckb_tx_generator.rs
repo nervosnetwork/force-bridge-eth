@@ -847,13 +847,6 @@ impl Generator {
             from_lockscript.clone(),
             used_cells.clone(),
         )?;
-        if all_recipient_capacity != 0 {
-            let recycle_recipient_output = CellOutput::new_builder()
-                .capacity(all_recipient_capacity.pack())
-                .lock(from_lockscript.clone())
-                .build();
-            helper.add_output(recycle_recipient_output, Default::default());
-        }
 
         // gen output of eth_recipient cell
         {
@@ -905,6 +898,14 @@ impl Generator {
                 .type_(Some(recipient_typescript).pack())
                 .build();
             helper.add_output_with_auto_capacity(eth_recipient_output, mol_eth_recipient_data);
+        }
+
+        if all_recipient_capacity != 0 {
+            let recycle_recipient_output = CellOutput::new_builder()
+                .capacity(all_recipient_capacity.pack())
+                .lock(from_lockscript.clone())
+                .build();
+            helper.add_output(recycle_recipient_output, Default::default());
         }
 
         helper
@@ -1074,11 +1075,7 @@ impl Generator {
                     true,
                 )
                 .map_err(|err| {
-                    if err.contains("Invalid cell status") {
-                        anyhow!("irreparable error: {:?}", err)
-                    } else {
                         anyhow!(err)
-                    }
                 })?;
             // add witness
             let outpoint_lock = output.lock();

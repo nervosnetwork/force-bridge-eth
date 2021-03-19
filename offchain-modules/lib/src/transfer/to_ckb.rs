@@ -890,7 +890,7 @@ pub async fn recycle_bridge_cell(
                 )
                 .map_err(|e| {
                     anyhow!(
-                "irreparable error: wrong replay resist cell outpoint format in recycle bridge cell: {:?}",
+                "error: wrong replay resist cell outpoint format in recycle bridge cell: {:?}",
                 e
             )
                 })?;

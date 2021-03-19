@@ -116,7 +116,7 @@ pub fn get_sudt_type_script(
     //     token_addr,
     //     lock_contract_addr,
     // )?;
-    log::info!(
+    log::debug!(
         "bridge lockscript: {}",
         serde_json::to_string(&ckb_jsonrpc_types::Script::from(bridge_lockscript.clone())).unwrap()
     );
