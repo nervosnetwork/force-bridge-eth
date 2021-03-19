@@ -4376,6 +4376,7 @@ name = "sign-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "blake2b-ref",
  "ckb-hash",
  "ckb-jsonrpc-types",
  "ckb-rocksdb",
@@ -4386,12 +4387,12 @@ dependencies = [
  "config",
  "env_logger",
  "failure",
- "force-eth-types",
  "futures 0.3.8",
  "hex 0.4.2",
  "jsonrpc-http-server",
  "log",
  "merkle-cbt",
+ "molecule",
  "reqwest 0.9.24",
  "secp256k1 0.17.2",
  "serde 1.0.118",
