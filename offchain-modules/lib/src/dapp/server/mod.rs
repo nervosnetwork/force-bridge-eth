@@ -128,7 +128,7 @@ impl DappState {
         if used_cells.is_none() || used_cells.as_deref().unwrap().is_stale() {
             std::mem::drop(used_cells);
             self.ckb_tx_cache.remove(address);
-            log::debug!("remove stale cached cells for address {}", address);
+            log::debug!("remove stale or none cached cells for address {}", address);
             None
         } else {
             Some(used_cells.as_deref().unwrap().get_cells())
@@ -139,7 +139,7 @@ impl DappState {
         let mut used_cells = self.ckb_tx_cache.get_mut(address);
         if used_cells.is_none() {
             std::mem::drop(used_cells);
-            if self.ckb_tx_cache.len() > 2 {
+            if self.ckb_tx_cache.len() > 100 {
                 log::debug!("used cells cache exceed 100");
                 self.ckb_tx_cache.retain(|_, v| !v.is_stale());
                 log::debug!(
@@ -147,7 +147,7 @@ impl DappState {
                     self.ckb_tx_cache.len()
                 );
             }
-            if self.ckb_tx_cache.len() <= 2 {
+            if self.ckb_tx_cache.len() <= 100 {
                 let mut used_cells = VecDeque::new();
                 used_cells.push_back(cells);
                 let tx_used_cells = TxUsedCells {
@@ -162,7 +162,7 @@ impl DappState {
         } else {
             let mut tx_used_cells = used_cells.as_deref_mut().unwrap();
             tx_used_cells.last_used = Instant::now();
-            if tx_used_cells.used_cells.len() > 2 {
+            if tx_used_cells.used_cells.len() > 10 {
                 tx_used_cells.used_cells.pop_front();
             }
             tx_used_cells.used_cells.push_back(cells);
@@ -413,13 +413,15 @@ pub async fn start(
         }
     });
 
+    let web_data = actix_web::web::Data::new(dapp_state);
     let local = tokio::task::LocalSet::new();
     let sys = actix_web::rt::System::run_in_tokio("server", &local);
     let _server_res = HttpServer::new(move || {
         let cors = actix_cors::Cors::permissive();
         App::new()
             .wrap(cors)
-            .data(dapp_state.clone())
+            // .data(dapp_state.clone())
+            .app_data(web_data.clone())
             .service(init_token)
             .service(lock)
             .service(burn)
