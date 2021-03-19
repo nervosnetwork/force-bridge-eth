@@ -106,7 +106,7 @@ start_header_relay(){
 
 
 stress_test(){
-    cd ${PROJECT_DIR}/offchain-modules/stress_test/ && yarn && yarn send
+    cd ${PROJECT_DIR}/offchain-modules/stress_test/ && yarn && yarn send github
 }
 
 #stop_mysql

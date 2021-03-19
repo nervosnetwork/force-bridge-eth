@@ -36,6 +36,7 @@ pub struct ETHRelayer {
     pub multisig_privkeys: Vec<SecretKey>,
     pub secret_key: SecretKey,
     pub confirm: u64,
+    pub delay: u64,
 }
 
 impl ETHRelayer {
@@ -45,6 +46,7 @@ impl ETHRelayer {
         priv_key_path: String,
         multisig_privkeys: Vec<String>,
         confirm: u64,
+        delay: u64,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -90,6 +92,7 @@ impl ETHRelayer {
                 .collect::<Result<Vec<SecretKey>>>()?,
             config: force_config,
             confirm,
+            delay,
         })
     }
 
@@ -321,7 +324,7 @@ impl ETHRelayer {
                     e
                 ),
             }
-            tokio::time::delay_for(std::time::Duration::from_secs(300)).await;
+            tokio::time::delay_for(std::time::Duration::from_secs(self.delay)).await;
         }
     }
 

@@ -9,6 +9,8 @@ const {
 } = require("./config");
 const fs = require('fs');
 
+const logFlag = process.argv[2];
+
 const getOrCreateBridgeCell = async (
     recipientCkbAddress,
     ethTokenAddress,
@@ -124,15 +126,15 @@ const getLockStatus = async (ethLockTxHash) => {
                 console.log(ethLockTxHash,"mint success")
                 break
             }
-            if (i >= 20) {
-                fs.readFile('/home/runner/.force-bridge/eth-tx-relayer.log', 'utf8', (err, data) => {
+            if (i >= 20 && logFlag == "github") {
+                fs.readFile('/home/runner/.force-bridge/logs/eth-tx-relayer.log', 'utf8', (err, data) => {
                     if (err) {
                         console.error(err)
                         return
                     }
                     console.log(data)
                 })
-                fs.readFile('/home/runner/.force-bridge/ckb-indexer.log', 'utf8', (err, data) => {
+                fs.readFile('/home/runner/.force-bridge/logs/ckb-indexer.log', 'utf8', (err, data) => {
                     if (err) {
                         console.error(err)
                         return
@@ -163,15 +165,15 @@ const getBurnStatus = async (ckb_burn_tx_hash) => {
                 console.log(ckb_burn_tx_hash,"burn success")
                 break
             }
-            if (i >= 20) {
-                fs.readFile('/home/runner/.force-bridge/ckb-tx-relayer.log', 'utf8', (err, data) => {
+            if (i >= 20 && logFlag == "github") {
+                fs.readFile('/home/runner/.force-bridge/logs/ckb-tx-relayer.log', 'utf8', (err, data) => {
                     if (err) {
                         console.error(err)
                         return
                     }
                     console.log(data)
                 })
-                fs.readFile('/home/runner/.force-bridge/eth-indexer.log', 'utf8', (err, data) => {
+                fs.readFile('/home/runner/.force-bridge/logs/eth-indexer.log', 'utf8', (err, data) => {
                     if (err) {
                         console.error(err)
                         return
