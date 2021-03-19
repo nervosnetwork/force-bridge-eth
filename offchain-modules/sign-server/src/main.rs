@@ -5,7 +5,7 @@ mod types;
 
 use crate::ckb_sign_util::{
     generate_from_lockscript, get_live_cell_with_cache, get_privkey_signer, parse_cell,
-    parse_merkle_cell_data, to_multisig_congif, MultisigConf, TxHelper,
+    parse_merkle_cell_data, to_multisig_config, MultisigConf, TxHelper,
 };
 use crate::config::{get_config_path, SignServerConfig};
 use crate::eth_sign_util::{get_msg_signature, get_secret_key, Web3Client};
@@ -97,9 +97,14 @@ fn sign_eth_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
             }
             raw_msg.copy_from_slice(&msg.as_slice());
             let privkey = get_secret_key(tilde(config.eth_key_path.as_str()).to_owned().as_ref())
-                .map_err(|_| Error::internal_error())?;
-            let signature =
-                get_msg_signature(&raw_msg, privkey).map_err(|_| Error::internal_error())?;
+                .map_err(|_| {
+                log::error!("invalid eth key path.");
+                Error::internal_error()
+            })?;
+            let signature = get_msg_signature(&raw_msg, privkey).map_err(|_| {
+                log::error!("failed to generate msg signature.");
+                Error::internal_error()
+            })?;
             log::info!("signature: {:?}", hex::encode(signature.clone()));
             return Ok(Value::String(hex::encode(signature)));
         }
@@ -125,16 +130,19 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
         let multi_conf_raw = params[0].clone();
         let multi_conf: MultisigConf = serde_json::from_str(&multi_conf_raw)
             .map_err(|_| Error::invalid_params("invalid multi_conf."))?;
-        let multi_config = to_multisig_congif(&multi_conf).map_err(|_| Error::internal_error())?;
+        let multi_config = to_multisig_config(&multi_conf).map_err(|_| Error::internal_error())?;
         log::info!("multi_config: {:?}", multi_conf);
         let tx: packed::Transaction = packed::Transaction::new_unchecked(
             hex::decode(params[1].clone())
-                .map_err(|_| Error::internal_error())?
+                .map_err(|_| {
+                    log::error!("invalid ckb_tx_raw_msg.");
+                    Error::internal_error()
+                })?
                 .into(),
         );
         let mut rpc_client = HttpRpcClient::new(config.ckb_rpc_url.clone());
         let tx_view = tx.into_view();
-        log::info!(
+        log::debug!(
             "tx: \n{}",
             serde_json::to_string_pretty(&ckb_jsonrpc_types::TransactionView::from(
                 tx_view.clone()
@@ -142,7 +150,10 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
             .unwrap()
         );
         let privkey = get_secret_key(tilde(config.ckb_key_path.as_str()).into_owned().as_str())
-            .map_err(|_| Error::internal_error())?;
+            .map_err(|_| {
+                log::error!("invalid ckb key path.");
+                Error::internal_error()
+            })?;
         asset_security_verification(
             tx_view.clone(),
             privkey,
@@ -158,7 +169,10 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
         let f = verify_merkle_root(config, tx_view.clone());
         use tokio::runtime::Runtime;
         let mut rt = Runtime::new().unwrap();
-        rt.block_on(f).map_err(|_| Error::internal_error())?;
+        rt.block_on(f).map_err(|err| {
+            log::error!("failed to verify merkle root. Err: {:?}", err);
+            Error::internal_error()
+        })?;
 
         // sign ckb transaction.
         let mut tx_helper = TxHelper::new(tx_view);
@@ -175,7 +189,10 @@ fn sign_ckb_tx(args: Params) -> jsonrpc_http_server::jsonrpc_core::Result<Value>
         let mut result = vec![];
         for (lock_args, signature) in tx_helper
             .sign_inputs(signer, &mut get_live_cell_fn, true)
-            .map_err(|_| Error::internal_error())?
+            .map_err(|err| {
+                log::error!("failed to sign inputs. Err: {:?}", err);
+                Error::internal_error()
+            })?
         {
             result.push(hex::encode(lock_args).into());
             result.push(hex::encode(signature).into());
@@ -219,7 +236,6 @@ fn asset_security_verification(
             // check input output lockscript.
             let output = tx_view.outputs().get_unchecked(0);
             let expect_lockscript = output.lock();
-
             if script.as_slice() != expect_lockscript.as_slice() {
                 log::warn!("the tx lockscript is invalid.");
                 anyhow::bail!("invalid params. the tx lockscript is invalid.");
@@ -234,6 +250,7 @@ fn asset_security_verification(
                 hex::encode(output.type_().as_slice()),
                 expect_script
             );
+            // check input output typescript.
             if typescript.as_slice() != output.type_().as_slice()
                 || hex::encode(output.type_().as_slice()) != expect_script
             {

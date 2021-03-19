@@ -74,7 +74,7 @@ pub fn sign(
 }
 
 #[allow(clippy::mutable_key_type)]
-pub async fn sign_from_multi_key(
+pub async fn sign_from_multi_server(
     tx: TransactionView,
     rpc_client: &mut HttpRpcClient,
     privkey: &SecretKey,
@@ -90,7 +90,7 @@ pub async fn sign_from_multi_key(
     let mut tx_helper = TxHelper::new(tx);
     tx_helper.add_multisig_config(multisig_config.clone());
     tx_helper
-        .sign_from_multi_key(
+        .sign_from_multi_server(
             get_live_cell_fn,
             privkey,
             hosts,
@@ -651,7 +651,7 @@ impl TxHelper {
         self.build_tx(&mut get_live_cell_fn, true)
     }
 
-    pub async fn sign_from_multi_key<F: FnMut(OutPoint, bool) -> Result<CellOutput, String>>(
+    pub async fn sign_from_multi_server<F: FnMut(OutPoint, bool) -> Result<CellOutput, String>>(
         &mut self,
         mut get_live_cell_fn: F,
         privkey: &SecretKey,

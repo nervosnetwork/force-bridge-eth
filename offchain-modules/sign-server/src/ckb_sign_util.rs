@@ -357,7 +357,7 @@ pub struct MultisigConf {
     pub threshold: u8,
 }
 
-pub fn to_multisig_congif(conf: &MultisigConf) -> Result<MultisigConfig> {
+pub fn to_multisig_config(conf: &MultisigConf) -> Result<MultisigConfig> {
     let mut addresses = vec![];
     for item in conf.addresses.clone() {
         let address = Address::from_str(&item).unwrap();

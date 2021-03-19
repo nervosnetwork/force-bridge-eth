@@ -11,7 +11,7 @@ use ethereum_types::H256;
 use force_eth_types::generated::eth_header_cell::ETHHeaderCellMerkleDataReader;
 use force_sdk::cell_collector::get_live_cell_by_typescript;
 use force_sdk::indexer::{Cell, IndexerRpcClient};
-use force_sdk::tx_helper::{sign_from_multi_key, MultisigConfig};
+use force_sdk::tx_helper::{sign_from_multi_server, MultisigConfig};
 use force_sdk::util::send_tx_sync_with_response;
 use log::{debug, info};
 use molecule::prelude::Reader;
@@ -275,7 +275,7 @@ impl ETHRelayer {
             .unwrap()
         );
 
-        let tx = sign_from_multi_key(
+        let tx = sign_from_multi_server(
             unsigned_tx,
             &mut self.generator.rpc_client,
             &self.secret_key,

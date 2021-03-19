@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use config::{Config, ConfigError, Environment, File};
+use config::{Config, ConfigError, File};
 use serde_derive::{Deserialize, Serialize};
 use shellexpand::tilde;
 use std::env;
@@ -22,18 +22,15 @@ impl SignServerConfig {
         let config_path = tilde(config_path).into_owned();
         let mut s = Config::new();
         s.merge(File::with_name(config_path.as_str()))?;
-        s.merge(Environment::with_prefix("app"))?;
+        // s.merge(Environment::with_prefix("app"))?;
         s.try_into()
     }
 
     pub fn write(&self, config_path: &str) -> Result<()> {
         let s = toml::to_string_pretty(self).map_err(|e| anyhow!("toml serde error: {}", e))?;
-        println!("{:?}", s);
-
         let parent_path = std::path::Path::new(config_path)
             .parent()
             .ok_or_else(|| anyhow!("invalid config file path: {}", config_path))?;
-        println!("{:?}", parent_path);
         std::fs::create_dir_all(parent_path)
             .map_err(|e| anyhow!("fail to create config path. err: {}", e))?;
         std::fs::write(config_path, &s)
