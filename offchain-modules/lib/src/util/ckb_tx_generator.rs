@@ -1074,9 +1074,7 @@ impl Generator {
                     &self.genesis_info.clone(),
                     true,
                 )
-                .map_err(|err| {
-                        anyhow!(err)
-                })?;
+                .map_err(|err| anyhow!(err))?;
             // add witness
             let outpoint_lock = output.lock();
             if outpoint_lock.as_slice() != outpoint_lock_tmp.as_slice() {
