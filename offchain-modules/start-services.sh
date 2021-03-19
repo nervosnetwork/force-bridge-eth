@@ -52,9 +52,9 @@ start_sign_server() {
   echo ${cell_script}
   cd ${PROJECT_DIR}/offchain-modules/sign-server
   cp ${PROJECT_DIR}/offchain-modules/target/debug/sign-server .
-  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-0.log 2>&1 &
-  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --config-path conf_1/config.toml --listen-url 0.0.0.0:3032 --ckb-key-path conf_1/ckb_key --eth-key-path conf_1/eth_key --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-1.log 2>&1 &
-  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server server --config-path conf_2/config.toml --listen-url 0.0.0.0:3033 --ckb-key-path conf_2/ckb_key --eth-key-path conf_2/eth_key --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-2.log 2>&1 &
+  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server run --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-0.log 2>&1 &
+  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server run --config-path conf_1/config.toml --listen-url 0.0.0.0:3032 --ckb-key-path conf_1/ckb_key --eth-key-path conf_1/eth_key --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-1.log 2>&1 &
+  ${PROJECT_DIR}/offchain-modules/sign-server/sign-server run --config-path conf_2/config.toml --listen-url 0.0.0.0:3033 --ckb-key-path conf_2/ckb_key --eth-key-path conf_2/eth_key --cell-script ${cell_script}> ${FORCE_LOG_PATH}/sign-server-2.log 2>&1 &
   sleep 5
 }
 
