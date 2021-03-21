@@ -133,6 +133,7 @@ local-ci:
 	make integration-ci
 
 github-ci:
+	git submodule update --init
 	rm -rf ~/.force-bridge/eth-rocksdb
 	rm -rf ~/.force-bridge/ckb-rocksdb
 	rm -rf ~/.force-bridge/dapp-lib/eth-rocksdb
