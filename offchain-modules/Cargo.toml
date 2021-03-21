@@ -3,5 +3,4 @@ members = [
     "cli",
     "lib",
     "sdk",
-    "sign-server",
 ]
