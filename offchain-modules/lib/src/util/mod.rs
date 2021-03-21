@@ -65,6 +65,7 @@ pub async fn transfer(
             from_lockscript,
             &generator.genesis_info,
             tx_fee,
+            None,
         )
         .map_err(|err| anyhow!(err))?;
     generator

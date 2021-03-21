@@ -74,10 +74,10 @@ start_server(){
 
 start_tx_relay(){
   cd ${OFFCHAIN}
-  ${FORCE_CLI} dapp ckb-indexer --db-path ${DB_PATH} > /home/runner/work/force-bridge-eth/ckb-indexer.log 2>&1 &
-  ${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH} > /home/runner/work/force-bridge-eth/eth-indexer.log 2>&1 &
-  ${FORCE_CLI} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY} > /home/runner/work/force-bridge-eth/ckb-tx-relayer.log 2>&1 &
-  ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > /home/runner/work/force-bridge-eth/eth-tx-relayer.log 2>&1 &
+#  ${FORCE_CLI} dapp ckb-indexer --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/ckb-indexer.log 2>&1 &
+#  ${FORCE_CLI} dapp eth-indexer --db-path ${DB_PATH} > ${FORCE_LOG_PATH}/eth-indexer.log 2>&1 &
+  ${FORCE_CLI} dapp ckb-tx-relayer --db-path ${DB_PATH} -k ${ETH_UNLOCK_PRIVKEY} > ${FORCE_LOG_PATH}/ckb-tx-relayer.log 2>&1 &
+  ${FORCE_CLI} dapp eth-tx-relayer --db-path ${DB_PATH} -p ${CKB_MINT_PRIVKY} > ${FORCE_LOG_PATH}/eth-tx-relayer.log 2>&1 &
 }
 
 start_header_indexer_relay() {
@@ -106,7 +106,7 @@ start_header_relay(){
 
 
 stress_test(){
-    cd ${PROJECT_DIR}/offchain-modules/stress_test/ && yarn && yarn send
+    cd ${PROJECT_DIR}/offchain-modules/stress_test/ && yarn && yarn send github
 }
 
 #stop_mysql
