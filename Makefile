@@ -135,6 +135,8 @@ local-ci:
 github-ci:
 	rm -rf ~/.force-bridge/eth-rocksdb
 	rm -rf ~/.force-bridge/ckb-rocksdb
+	rm -rf ~/.force-bridge/dapp-lib/eth-rocksdb
+	rm -rf ~/.force-bridge/dapp-lib/ckb-rocksdb
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci

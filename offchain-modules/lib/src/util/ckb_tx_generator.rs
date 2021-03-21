@@ -72,6 +72,22 @@ impl Generator {
         })
     }
 
+    pub fn with_genesis(
+        rpc_url: String,
+        indexer_url: String,
+        genesis_info: GenesisInfo,
+        settings: DeployedContracts,
+    ) -> Result<Self> {
+        let rpc_client = HttpRpcClient::new(rpc_url);
+        let indexer_client = IndexerRpcClient::new(indexer_url);
+        Ok(Self {
+            rpc_client,
+            indexer_client,
+            genesis_info,
+            deployed_contracts: settings,
+        })
+    }
+
     #[allow(clippy::mutable_key_type)]
     pub fn generate_eth_light_client_tx_naive(
         &mut self,
@@ -137,6 +153,7 @@ impl Generator {
                 from_lockscript,
                 &self.genesis_info,
                 tx_fee,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
@@ -185,6 +202,7 @@ impl Generator {
                 from_lockscript,
                 &self.genesis_info,
                 99_999,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
         let first_outpoint = unsigned_tx
@@ -390,6 +408,7 @@ impl Generator {
                 from_lockscript,
                 &self.genesis_info,
                 tx_fee,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
@@ -627,6 +646,7 @@ impl Generator {
                     from_lockscript,
                     &self.genesis_info,
                     tx_fee,
+                    None,
                 )
                 .map_err(|err| anyhow!(err))?
         };
@@ -773,6 +793,7 @@ impl Generator {
                 from_lockscript,
                 &self.genesis_info,
                 tx_fee,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
@@ -788,6 +809,7 @@ impl Generator {
         token_addr: H160,
         lock_contract_addr: H160,
         eth_receiver_addr: H160,
+        used_cells: Option<Vec<ckb_jsonrpc_types::OutPoint>>,
     ) -> Result<TransactionView> {
         let mut helper = TxHelper::default();
 
@@ -820,11 +842,11 @@ impl Generator {
             .copy_from_slice(cell_script.calc_script_hash().raw_data().as_ref());
 
         // add input
-        let all_recipient_capacity =
-            self.add_recipient_outpoint_to_input(&mut helper, from_lockscript.clone())?;
-        if all_recipient_capacity == 0 {
-            info!("there is no recipient cell")
-        }
+        let all_recipient_capacity = self.add_recipient_outpoint_to_input(
+            &mut helper,
+            from_lockscript.clone(),
+            used_cells.clone(),
+        )?;
 
         // gen output of eth_recipient cell
         {
@@ -878,6 +900,14 @@ impl Generator {
             helper.add_output_with_auto_capacity(eth_recipient_output, mol_eth_recipient_data);
         }
 
+        if all_recipient_capacity != 0 {
+            let recycle_recipient_output = CellOutput::new_builder()
+                .capacity(all_recipient_capacity.pack())
+                .lock(from_lockscript.clone())
+                .build();
+            helper.add_output(recycle_recipient_output, Default::default());
+        }
+
         helper
             .supply_sudt(
                 &mut self.rpc_client,
@@ -886,6 +916,7 @@ impl Generator {
                 &self.genesis_info,
                 burn_sudt_amount,
                 sudt_typescript,
+                used_cells.clone(),
             )
             .map_err(|err| anyhow!(err))?;
 
@@ -897,6 +928,7 @@ impl Generator {
                 from_lockscript,
                 &self.genesis_info,
                 tx_fee,
+                used_cells,
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
@@ -942,6 +974,7 @@ impl Generator {
                 &self.genesis_info,
                 sudt_amount,
                 sudt_typescript,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
 
@@ -953,6 +986,7 @@ impl Generator {
                 from_lockscript,
                 &self.genesis_info,
                 tx_fee,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
@@ -1040,13 +1074,7 @@ impl Generator {
                     &self.genesis_info.clone(),
                     true,
                 )
-                .map_err(|err| {
-                    if err.contains("Invalid cell status") {
-                        anyhow!("irreparable error: {:?}", err)
-                    } else {
-                        anyhow!(err)
-                    }
-                })?;
+                .map_err(|err| anyhow!(err))?;
             // add witness
             let outpoint_lock = output.lock();
             if outpoint_lock.as_slice() != outpoint_lock_tmp.as_slice() {
@@ -1087,6 +1115,7 @@ impl Generator {
                 from_lockscript,
                 &self.genesis_info,
                 tx_fee,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
@@ -1110,7 +1139,7 @@ impl Generator {
 
         // add input
         let all_recipient_capacity =
-            self.add_recipient_outpoint_to_input(&mut helper, from_lockscript.clone())?;
+            self.add_recipient_outpoint_to_input(&mut helper, from_lockscript.clone(), None)?;
         if all_recipient_capacity == 0 {
             bail!("there is no recipient cell to recycle")
         }
@@ -1130,6 +1159,7 @@ impl Generator {
                 from_lockscript,
                 &self.genesis_info,
                 tx_fee,
+                None,
             )
             .map_err(|err| anyhow!(err))?;
         Ok(tx)
@@ -1140,6 +1170,7 @@ impl Generator {
         &mut self,
         helper: &mut TxHelper,
         recipient_owner_lockscript: Script,
+        used_cells: Option<Vec<ckb_jsonrpc_types::OutPoint>>,
     ) -> Result<u64> {
         let recipient_typescript_code_hash =
             hex::decode(&self.deployed_contracts.recipient_typescript.code_hash)
@@ -1157,6 +1188,7 @@ impl Generator {
             &mut self.indexer_client,
             recipient_owner_lockscript,
             recipient_typescript,
+            used_cells,
         )
         .map_err(|err| anyhow!(err))?;
 
@@ -1178,13 +1210,7 @@ impl Generator {
                     &self.genesis_info.clone(),
                     true,
                 )
-                .map_err(|err| {
-                    if err.contains("Invalid cell status") {
-                        anyhow!("irreparable error: {:?}", err)
-                    } else {
-                        anyhow!(err)
-                    }
-                })?;
+                .map_err(|err| anyhow!(" recycle recipient cell add input error: {:?}", err))?;
         }
         Ok(all_recipient_capacity)
     }

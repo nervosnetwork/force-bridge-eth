@@ -53,6 +53,7 @@ pub fn get_live_cells_by_lock_and_capacity(
     lockscript: Script,
     capacity: u64,
     max_mature_number: Option<u64>,
+    used_cells: Option<Vec<ckb_jsonrpc_types::OutPoint>>,
 ) -> Result<Vec<Cell>, String> {
     let mut accumulated_capacity = 0;
     let terminator = |_, cell: &Cell| {
@@ -63,6 +64,7 @@ pub fn get_live_cells_by_lock_and_capacity(
             && max_mature_number
                 .map(|n| is_mature(cell, n))
                 .unwrap_or(true)
+            && (used_cells.is_none() || !used_cells.as_ref().unwrap().contains(&cell.out_point))
         {
             accumulated_capacity += cell.output.capacity.value();
             (accumulated_capacity > capacity, true)
@@ -110,9 +112,12 @@ pub fn get_recipient_cell(
     indexer_client: &mut IndexerRpcClient,
     lockscript: Script,
     recipient_typescript: Script,
+    used_cells: Option<Vec<ckb_jsonrpc_types::OutPoint>>,
 ) -> Result<Vec<Cell>, String> {
     let terminator = |_, cell: &Cell| {
-        if cell.output.lock == lockscript.clone().into() {
+        if cell.output.lock == lockscript.clone().into()
+            && (used_cells.is_none() || !used_cells.as_ref().unwrap().contains(&cell.out_point))
+        {
             return (false, true);
         }
         (false, false)
@@ -195,6 +200,7 @@ pub fn collect_sudt_cells_by_amout(
     lockscript: Script,
     sudt_typescript: Script,
     need_sudt_amount: u128,
+    used_cells: Option<Vec<ckb_jsonrpc_types::OutPoint>>,
 ) -> Result<(u128, Vec<Cell>), String> {
     let mut collected_amount = 0u128;
     let terminator = |_, cell: &Cell| {
@@ -203,6 +209,7 @@ pub fn collect_sudt_cells_by_amout(
         } else if cell.output.type_.is_some()
             && packed::Script::from(cell.output.type_.clone().unwrap()) == sudt_typescript
             && cell.output_data.len() >= UDT_LEN
+            && (used_cells.is_none() || !used_cells.as_ref().unwrap().contains(&cell.out_point))
         {
             collected_amount += {
                 let mut buf = [0u8; UDT_LEN];
