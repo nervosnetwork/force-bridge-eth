@@ -93,8 +93,12 @@ pub async fn init_config(args: InitConfigArgs) -> Result<()> {
 }
 
 pub async fn init_multisig_address_handler(args: InitMultiSignAddressArgs) -> Result<()> {
+    if args.multi_address.len() != args.hosts.len() {
+        anyhow::bail!("failed to init multisig address. the length of multi_address and the length of hosts are not equal.")
+    }
     let multi_sign_address = init_multi_sign_address(
         args.multi_address,
+        args.hosts,
         args.require_first_n,
         args.threshold,
         args.config_path,
@@ -433,7 +437,7 @@ pub async fn eth_relay_handler(args: EthRelayArgs) -> Result<()> {
         config_path,
         args.network,
         args.private_key_path,
-        args.multisig_privkeys,
+        // args.multisig_privkeys,
         args.confirm,
         args.delay,
     )?;
@@ -453,8 +457,8 @@ pub async fn ckb_relay_handler(args: CkbRelayArgs) -> Result<()> {
         config_path,
         args.network,
         args.private_key_path,
-        args.mutlisig_privkeys,
         args.gas_price,
+        args.hosts,
         args.confirm,
     )?;
 

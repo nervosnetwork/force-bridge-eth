@@ -66,7 +66,7 @@ init-light-client:
 	${FORCE_CLI} init-ckb-light-contract -k 0 -f 500 -c 40000 --wait
 
 init-multi-address:
-	${FORCE_CLI} init-multi-sign-address -k 1 --multi-address  ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37
+	${FORCE_CLI} init-multi-sign-address -k 1 --multi-address  ckt1qyqyph8v9mclls35p6snlaxajeca97tc062sa5gahk ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4 ckt1qyq2f0uwf3lk7e0nthfucvxgl3zu36v6zuwq6mlzps --threshold 2 --hosts http://127.0.0.1:3031 http://127.0.0.1:3032 http://127.0.0.1:3033
 
 ckb2eth-relay:
 	pm2 start --name ckb2eth-relay "${FORCE_CLI} ckb-relay -k 1 --per-amount 5"
@@ -126,12 +126,14 @@ local-ci:
 	make close-dev-env
 	rm -rf ~/.force-bridge/eth-rocksdb
 	rm -rf ~/.force-bridge/ckb-rocksdb
+	rm -rf ~/.force-bridge/ckb-rocksdb
 	test -f ~/.force-bridge/config.toml && mv ~/.force-bridge/config.toml ~/.force-bridge/config_bak_`date "+%Y%m%d-%H%M%S"`.toml || echo 'config not exist'
 	cd offchain-modules && cargo build
 	make init-config
 	make integration-ci
 
 github-ci:
+	git submodule update --init
 	rm -rf ~/.force-bridge/eth-rocksdb
 	rm -rf ~/.force-bridge/ckb-rocksdb
 	rm -rf ~/.force-bridge/dapp-lib/eth-rocksdb

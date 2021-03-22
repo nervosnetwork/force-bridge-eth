@@ -129,6 +129,7 @@ pub struct DeployedContracts {
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct MultisigConf {
     pub addresses: Vec<String>,
+    pub hosts: Vec<String>,
     pub require_first_n: u8,
     pub threshold: u8,
 }

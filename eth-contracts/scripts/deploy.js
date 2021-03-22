@@ -57,13 +57,13 @@ async function deploy() {
 
   // deploy ckbChain
   const validators = network_config.ethereum_private_keys
-    .slice(0, 2)
+    .slice(0, 4)
     .map((privateKey) => {
       let publicKey = EthUtil.privateToPublic(Buffer.from(privateKey, 'hex'));
       return '0x' + EthUtil.publicToAddress(publicKey).toString('hex');
     });
   console.error('validator validator: ', validators);
-  const multisigThreshold = 1;
+  const multisigThreshold = 2;
   let eth_network = await provider.getNetwork();
   const chainId = eth_network.chainId;
   console.error('chain id :', chainId);

@@ -1,10 +1,10 @@
-use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash, get_msg_signature};
+use crate::transfer::to_eth::{get_add_ckb_headers_func, get_msg_hash};
 use crate::util::ckb_proof_helper::CBMT;
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::covert_to_h256;
 use crate::util::config::ForceConfig;
 use crate::util::eth_util::{
-    convert_eth_address, parse_private_key, parse_secret_key, relay_header_transaction, Web3Client,
+    convert_eth_address, parse_private_key, relay_header_transaction, Web3Client,
 };
 use crate::util::rocksdb::open_rocksdb;
 use anyhow::{anyhow, bail, Result};
@@ -16,9 +16,10 @@ use force_sdk::constants::{
     BURN_TX_MAX_NUM, BURN_TX_MAX_WAITING_BLOCKS, MAINNET_CKB_WAITING_BLOCKS,
     TESTNET_CKB_WAITING_BLOCKS,
 };
+use force_sdk::indexer::SignServerRpcClient;
+use futures::future::join_all;
 use log::info;
 use rocksdb::ops::{Get, Put};
-use secp256k1::SecretKey;
 use std::time::Instant;
 use web3::types::{H160, H256};
 
@@ -29,7 +30,8 @@ pub struct CKBRelayer {
     pub ckb_client: Generator,
     pub web3_client: Web3Client,
     pub gas_price: U256,
-    pub multisig_privkeys: Vec<SecretKey>,
+    // pub multisig_privkeys: Vec<SecretKey>,
+    pub hosts: Vec<String>,
     pub ckb_rpc_url: String,
     pub eth_rpc_url: String,
     pub ckb_init_height: u64,
@@ -37,6 +39,7 @@ pub struct CKBRelayer {
     pub last_burn_tx_height: u64,
     pub last_submit_height: u64,
     pub waiting_burn_txs_count: u64,
+    pub threshold: usize,
     pub confirm: u64,
 }
 
@@ -45,8 +48,8 @@ impl CKBRelayer {
         config_path: String,
         network: Option<String>,
         priv_key_path: String,
-        multisig_privkeys: Vec<String>,
         gas_price: u64,
+        hosts: Vec<String>,
         confirm: u64,
     ) -> Result<CKBRelayer> {
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -55,11 +58,11 @@ impl CKBRelayer {
             .as_ref()
             .ok_or_else(|| anyhow!("contracts should be deployed"))?;
 
-        if multisig_privkeys.len() < deployed_contracts.ckb_relay_mutlisig_threshold.threshold {
+        if hosts.len() < deployed_contracts.ckb_relay_mutlisig_threshold.threshold {
             bail!(
-                "the mutlisig privkeys number is less. expect {}, actual {} ",
+                "the mutlisig number is less. expect {}, actual {} ",
                 deployed_contracts.ckb_relay_mutlisig_threshold.threshold,
-                multisig_privkeys.len()
+                hosts.len()
             );
         }
 
@@ -72,10 +75,10 @@ impl CKBRelayer {
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let priv_key = parse_private_key(&priv_key_path, &force_config, &network)?;
-        let multisig_privkeys = multisig_privkeys
-            .into_iter()
-            .map(|k| parse_private_key(&k, &force_config, &network))
-            .collect::<Result<Vec<H256>>>()?;
+        // let multisig_privkeys = multisig_privkeys
+        //     .into_iter()
+        //     .map(|k| parse_private_key(&k, &force_config, &network))
+        //     .collect::<Result<Vec<H256>>>()?;
 
         let contract_addr = convert_eth_address(&deployed_contracts.eth_ckb_chain_addr)?;
         let mut ckb_client =
@@ -111,12 +114,10 @@ impl CKBRelayer {
             ckb_client,
             web3_client,
             gas_price,
-            confirm,
+            hosts,
             network: net,
-            multisig_privkeys: multisig_privkeys
-                .iter()
-                .map(|&privkey| parse_secret_key(privkey))
-                .collect::<Result<Vec<SecretKey>>>()?,
+            threshold: deployed_contracts.ckb_relay_mutlisig_threshold.threshold,
+            confirm,
         })
     }
 
@@ -204,12 +205,75 @@ impl CKBRelayer {
             history_tx_root,
         )?;
 
+        // This can be optimized to collect signatures through multiple threads to improve efficiency.
         let mut signatures: Vec<u8> = vec![];
-        for &privkey in self.multisig_privkeys.iter() {
-            let mut signature = get_msg_signature(&headers_msg_hash, privkey)?;
-            signatures.append(&mut signature);
+        let mut signature_number = 0;
+        let mut signature_futures = vec![];
+        for host in self.hosts.clone() {
+            signature_futures.push(sign_eth_tx(host, hex::encode(&headers_msg_hash)));
         }
-        info!("msg signatures {}", hex::encode(&signatures));
+        if !signature_futures.is_empty() {
+            let now = Instant::now();
+            let count = signature_futures.len();
+            let timeout_future = tokio::time::delay_for(std::time::Duration::from_secs(30));
+            let task_future = join_all(signature_futures);
+            tokio::select! {
+                v = task_future => {
+                    for res in v.iter() {
+                       match res {
+                          Ok(res) =>
+                          {
+                              if signature_number >= self.threshold {
+                                 break;
+                              }
+                              if res.len() != 130 {
+                                log::error!("wrong signature: {:?}", res.clone());
+                                continue;
+                              }
+                              signatures.append(&mut hex::decode(res).map_err(|err| anyhow!(err))?);
+                              signature_number += 1;
+                              log::info!("collect eth signature success. index: {:?}", signature_number);
+                          },
+                          Err(error) => log::error!("collect eth signature error : {:?}", error),
+                        }
+                    }
+                    log::info!("collect {:?} eth signatures elapsed {:?}", count, now.elapsed());
+               }
+                _ = timeout_future => {
+                    log::error!("collect eth signatures timeout");
+                }
+            }
+        }
+        if signature_number < self.threshold {
+            log::error!(
+                "did not collect enough eth signatures. expect: {:?}, actual: {:?}",
+                self.threshold,
+                signature_number
+            );
+            anyhow::bail!("did not collect enough eth signatures");
+        }
+        // let m = Arc::new(Mutex::new(vec![]));
+        // for host in self.hosts.clone() {
+        //     thread::spawn(move || {
+        //         let mut signatures = m.lock().unwrap();
+        //         let signature = sign_eth_tx(host, hex::encode(&headers_msg_hash))
+        //             .await
+        //             .unwrap();
+        //         signatures.push(signature);
+        //     });
+        // }
+        // loop {
+        //     let signatures = m.lock().unwrap();
+        //     if signatures.len() >= 2 {
+        //         break;
+        //     }
+        //     info!(
+        //         "waiting to collect more signatures. expect: {:?}, current: {:?}",
+        //         2,
+        //         signatures.len()
+        //     );
+        //     tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+        // }
 
         let add_headers_abi = add_headers_func.encode_input(&[
             Token::Uint(init_block_number.into()),
@@ -347,4 +411,12 @@ impl CKBRelayer {
         );
         Ok(())
     }
+}
+
+async fn sign_eth_tx(host: String, raw_tx_str: String) -> Result<String> {
+    let mut client = SignServerRpcClient::new(host);
+    Ok(client
+        .sign_eth_tx(raw_tx_str)
+        .map_err(|err| anyhow!(err))?
+        .ok_or_else(|| anyhow!(""))?)
 }

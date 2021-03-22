@@ -497,6 +497,7 @@ pub async fn deploy_ckb(
 
 pub async fn init_multi_sign_address(
     multisig_address: Vec<String>,
+    hosts: Vec<String>,
     require_first_n: u8,
     threshold: u8,
     config_path: String,
@@ -523,6 +524,7 @@ pub async fn init_multi_sign_address(
         .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     deployed_contracts.multisig_address = MultisigConf {
         addresses: multisig_address,
+        hosts,
         require_first_n,
         threshold,
     };

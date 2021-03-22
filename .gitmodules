@@ -1,3 +1,6 @@
 [submodule "offchain-modules/eth-proof"]
 	path = offchain-modules/eth-proof
 	url = https://github.com/LeonLi000/eth-proof
+[submodule "offchain-modules/sign-server"]
+	path = offchain-modules/sign-server
+	url = https://github.com/LeonLi000/sign-server.git
