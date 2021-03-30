@@ -20,14 +20,16 @@ pub struct EthHeaderIndexer {
     pub config_path: String,
     pub eth_client: Web3Client,
     pub indexer_client: IndexerRpcClient,
-    pub rocksdb_path: String,
+    pub eth_rocksdb_path: String,
+    pub merkle_rocksdb_path: String,
 }
 
 impl EthHeaderIndexer {
     pub async fn new(
         config_path: String,
         network: Option<String>,
-        rocksdb_path: String,
+        eth_rocksdb_path: String,
+        merkle_rocksdb_path: String,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -40,7 +42,8 @@ impl EthHeaderIndexer {
             config_path,
             eth_client,
             indexer_client,
-            rocksdb_path,
+            eth_rocksdb_path,
+            merkle_rocksdb_path,
         })
     }
 
@@ -92,8 +95,8 @@ impl EthHeaderIndexer {
     pub async fn loop_relay_rocksdb(&mut self) -> Result<()> {
         let mut latest_submit_height = 0;
 
-        let db = open_rocksdb(self.rocksdb_path.clone());
-        let mut merkle_root = self.get_merkle_root(db.clone())?;
+        let merkle_db = open_rocksdb(self.merkle_rocksdb_path.clone());
+        let mut merkle_root = self.get_merkle_root(merkle_db.clone())?;
         loop {
             let (start_height, latest_height, _) = self.get_light_client_info().await?;
 
@@ -103,7 +106,7 @@ impl EthHeaderIndexer {
                 continue;
             }
             let (new_latest_submit_height, new_merkle_root) = self
-                .relay_rocksdb(db.clone(), start_height, latest_height, merkle_root)
+                .relay_rocksdb(merkle_db.clone(), start_height, latest_height, merkle_root)
                 .await?;
             latest_submit_height = new_latest_submit_height;
             merkle_root = new_merkle_root;
@@ -117,7 +120,7 @@ impl EthHeaderIndexer {
         latest_height: u64,
         merkle_root: [u8; 32],
     ) -> Result<(u64, [u8; 32])> {
-        let eth_rocksdb_path = self.rocksdb_path.clone();
+        let eth_rocksdb_path = self.eth_rocksdb_path.clone();
         let db_dir = tilde(eth_rocksdb_path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
         let mut smt_tree = match db_path.exists() {
