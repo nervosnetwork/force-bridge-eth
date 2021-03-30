@@ -80,7 +80,7 @@ impl EthHeaderIndexer {
             true => {
                 let rocksdb_store: RocksDBStore<RocksDBValue> =
                     RocksDBStore::open(eth_rocksdb_path);
-                let db = rocksdb_store.db.expect("db is none");
+                let db = rocksdb_store.db.ok_or_else(|| anyhow!("db is none"))?;
                 let db_merkle_option = db
                     .get(ROCKSDB_MERKLE_ROOT_KEY.to_vec())
                     .map_err(|err| anyhow!(err))?;
@@ -191,7 +191,10 @@ impl EthHeaderIndexer {
     pub async fn store_merkle_root(&mut self, merkle_root: [u8; 32]) -> Result<()> {
         let rocksdb_store: RocksDBStore<RocksDBValue> =
             RocksDBStore::open(self.rocksdb_path.clone());
-        let db = rocksdb_store.db.as_ref().expect("db is none");
+        let db = rocksdb_store
+            .db
+            .as_ref()
+            .ok_or_else(|| anyhow!("db is none"))?;
         db.put(
             ROCKSDB_MERKLE_ROOT_KEY.to_vec(),
             merkle_root.as_slice().to_vec(),
