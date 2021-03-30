@@ -282,7 +282,7 @@ impl ETHRelayer {
 
         // commit rocksdb before sending tx
         let rocksdb_store = smt_tree.store_mut();
-        rocksdb_store.commit();
+        rocksdb_store.commit()?;
 
         let send_tx_res =
             send_tx_sync_with_response(&mut self.generator.rpc_client, &tx, 180).await;

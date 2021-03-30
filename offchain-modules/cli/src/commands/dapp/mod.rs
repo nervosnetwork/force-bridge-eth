@@ -111,13 +111,8 @@ async fn ckb_header_indexer(args: CkbHeaderIndexerArgs) -> Result<()> {
 }
 
 async fn eth_header_indexer(args: EthHeaderIndexerArgs) -> Result<()> {
-    let mut eth_header_indexer = EthHeaderIndexer::new(
-        args.config_path,
-        args.network,
-        args.rocksdb_path,
-        args.merkle_path,
-    )
-    .await?;
+    let mut eth_header_indexer =
+        EthHeaderIndexer::new(args.config_path, args.network, args.rocksdb_path).await?;
     loop {
         let res = eth_header_indexer.loop_relay_rocksdb().await;
         if let Err(err) = res {

@@ -1,13 +1,17 @@
 use crate::header_relay::ckb_relay::CKBRelayer;
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::config::ForceConfig;
-use crate::util::eth_util::{convert_eth_address, Web3Client};
+use crate::util::eth_util::Web3Client;
 use crate::util::rocksdb::open_rocksdb;
 use anyhow::{anyhow, Result};
 use ckb_sdk::HttpRpcClient;
 use force_sdk::indexer::IndexerRpcClient;
 use rocksdb::ops::{Get, Put};
+use rocksdb::DB;
 use shellexpand::tilde;
+use std::sync::Arc;
+
+const CONFIRM: u64 = 15;
 
 pub struct CkbHeaderIndexer {
     pub config_path: String,
@@ -60,32 +64,26 @@ impl CkbHeaderIndexer {
     }
 
     pub async fn loop_relay_rocksdb(&mut self) -> Result<()> {
-        let config_path = tilde(self.config_path.as_str()).into_owned();
-        let force_config = ForceConfig::new(config_path.as_str())?;
-        let eth_contract_addr = force_config
-            .deployed_contracts
-            .ok_or_else(|| anyhow!("the deployed_contracts is not exist"))?
-            .eth_ckb_chain_addr;
-        let contract_addr = convert_eth_address(&eth_contract_addr)?;
-
         let mut latest_submit_height = 0;
+        let db = open_rocksdb(self.rocksdb_path.clone());
+
         loop {
-            let latest_height = self
-                .eth_client
-                .get_contract_height("latestBlockNumber", contract_addr)
-                .await?;
+            let ckb_current_height = self
+                .rpc_client
+                .get_tip_block_number()
+                .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
+            let latest_height = ckb_current_height - CONFIRM;
+
             if latest_height <= latest_submit_height {
                 log::info!("waiting for new block.");
                 tokio::time::delay_for(std::time::Duration::from_secs(10)).await;
                 continue;
             }
-            latest_submit_height = self.relay_rocksdb(latest_height).await?;
+            latest_submit_height = self.relay_rocksdb(db.clone(), latest_height).await?;
         }
     }
 
-    pub async fn relay_rocksdb(&mut self, latest_height: u64) -> Result<u64> {
-        let db = open_rocksdb(self.rocksdb_path.clone());
-
+    pub async fn relay_rocksdb(&mut self, db: Arc<DB>, latest_height: u64) -> Result<u64> {
         let mut index = latest_height;
         while index >= self.ckb_init_height {
             match self
@@ -125,6 +123,10 @@ impl CkbHeaderIndexer {
                         "cannot get the block transactions root, block_number = {}",
                         index
                     );
+                    return Err(anyhow!(
+                        "cannot get the block transactions root, block_number = {}",
+                        index,
+                    ));
                 }
             }
         }

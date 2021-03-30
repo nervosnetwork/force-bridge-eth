@@ -2,6 +2,7 @@ use force_eth_types::hasher::Blake2bHasher;
 use rocksdb::ops::{Delete, Get, Open, WriteOps};
 use rocksdb::{ReadOnlyDB, WriteBatch, DB};
 // use serde::export::{Clone, Into};
+use anyhow::{anyhow, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sparse_merkle_tree::error::Error;
 use sparse_merkle_tree::traits::{Store, Value};
@@ -96,7 +97,7 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
         }
     }
 
-    pub fn commit(&mut self) {
+    pub fn commit(&mut self) -> Result<()> {
         let mut batch = WriteBatch::default();
         for (key, branch) in &self.branch_map {
             let db_branch_node = DBBranchNode {
@@ -105,23 +106,27 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
                 node: branch.node.into(),
                 sibling: branch.sibling.into(),
             };
-            let db_branch_node_raw = serde_json::to_vec(&db_branch_node).unwrap();
+            let db_branch_node_raw = serde_json::to_vec(&db_branch_node)
+                .map_err(|e| anyhow!("serialize db_branch_node err: {:?}", e))?;
             batch
                 .put(get_db_key_for_branch(key.as_slice()), db_branch_node_raw)
-                .expect("put branch");
+                .map_err(|e| anyhow!("put branch err: {:?}", e))?;
         }
         for (key, leaf) in &self.leaves_map {
             let db_leaf_node = DBLeafNode {
                 key: leaf.key.into(),
                 value: leaf.value.clone(),
             };
-            let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node).unwrap();
+            let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node)
+                .map_err(|e| anyhow!("serialize db_leaf_node err: {:?}", e))?;
             batch
                 .put(get_db_key_for_leaf(key.as_slice()), db_leaf_node_raw)
-                .expect("put leaf");
+                .map_err(|e| anyhow!("put leaf err: {:?}", e))?;
         }
         let db = self.db.as_ref().expect("write mode should use db");
-        db.write(&batch).expect("write batch rocksdb");
+        db.write(&batch)
+            .map_err(|e| anyhow!("write batch commit err: {:?}", e))?;
+        Ok(())
     }
 }
 
@@ -137,20 +142,21 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             true => self
                 .db
                 .as_ref()
-                .unwrap()
+                .expect("db is none")
                 .get(get_db_key_for_branch(node.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?,
             false => self
                 .read_only_db
                 .as_ref()
                 .expect("should be read only db when db is none")
                 .get(get_db_key_for_branch(node.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?,
         };
 
         match db_value {
             Some(v) => {
-                let n: DBBranchNode = serde_json::from_slice(v.as_ref()).unwrap();
+                let n: DBBranchNode = serde_json::from_slice(v.as_ref())
+                    .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?;
                 let branch_node = BranchNode {
                     fork_height: n.fork_height,
                     key: n.key.into(),
@@ -172,20 +178,21 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             true => self
                 .db
                 .as_ref()
-                .unwrap()
+                .expect("db is none")
                 .get(get_db_key_for_leaf(leaf_hash.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?,
             false => self
                 .read_only_db
                 .as_ref()
                 .expect("should be read only db when db is none")
                 .get(get_db_key_for_leaf(leaf_hash.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?,
         };
 
         match db_value {
             Some(v) => {
-                let n: DBLeafNode<V> = serde_json::from_slice(v.as_ref()).unwrap();
+                let n: DBLeafNode<V> = serde_json::from_slice(v.as_ref())
+                    .map_err(|e| Error::Store(format!("get_leaf {:?}", e)))?;
                 let node = LeafNode {
                     key: n.key.clone().into(),
                     value: n.value,
@@ -209,7 +216,7 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             .as_ref()
             .expect("only db can delete")
             .delete(get_db_key_for_branch(node.as_slice()))
-            .unwrap();
+            .map_err(|e| Error::Store(format!("remove_branch {:?}", e)))?;
         Ok(())
     }
     fn remove_leaf(&mut self, leaf_hash: &H256) -> Result<(), Error> {
@@ -218,7 +225,7 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             .as_ref()
             .expect("only db can delete")
             .delete(get_db_key_for_leaf(leaf_hash.as_slice()))
-            .unwrap();
+            .map_err(|e| Error::Store(format!("remove_leaf {:?}", e)))?;
         Ok(())
     }
 }
