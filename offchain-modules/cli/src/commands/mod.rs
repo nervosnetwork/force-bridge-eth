@@ -328,7 +328,7 @@ pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
         ckb_rpc_url,
         args.burn_tx_hash,
         deployed_contracts.eth_ckb_chain_addr.clone(),
-        args.to.clone(),
+        deployed_contracts.eth_token_locker_addr.clone(),
         force_config.ckb_rocksdb_path,
         0,
         args.wait,

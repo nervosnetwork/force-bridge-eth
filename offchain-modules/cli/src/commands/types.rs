@@ -311,8 +311,6 @@ pub struct UnlockArgs {
     pub network: Option<String>,
     #[clap(short = 'k', long)]
     pub private_key_path: String,
-    #[clap(short, long)]
-    pub to: String,
     #[clap(long)]
     pub burn_tx_hash: String,
     #[clap(short, long, default_value = "0")]
