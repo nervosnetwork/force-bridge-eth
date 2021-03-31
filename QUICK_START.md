@@ -115,9 +115,9 @@ ${FORCE_CLI} eth-relay -k 1 --multisig-privkeys 0 1 --confirm 5 --delay 30
 We use ETH as an example to show the bridge process, you may bridge any erc-20 tokens if you prefer.
 
 ### ETH -> ckETH
-1.Create Bridge Cell
+#### 1.Create Bridge Cell
 
-The bridge cell can verify cross-chain message and mint sUDT, so we create our own bridge cell using the command below:
+The bridge cell can verify cross-chain message and mint sUDT, so let's create our own bridge cell using the command below:
    
 ```bash
 # ETH token address: 0x0000000000000000000000000000000000000000
@@ -126,7 +126,7 @@ ${FORCE_CLI} create-bridge-cell -k 2 -s --eth-token-address 0x000000000000000000
 
 Pay attention to the command output and note the `bridge_cell_outpiont` info, which will be used in next step.
 
-2.Lock ETH on Ethereum
+#### 2.Lock ETH on Ethereum
 
 ```bash
 ${FORCE_CLI} lock-eth --config-path -k 2 --ckb-recipient-address "${YOUR_RECIPIENT_ADDR}" --replay-resist-outpoint "${bridge_cell_outpoint}" --amount 100 --bridge-fee 0 --wait
@@ -134,7 +134,7 @@ ${FORCE_CLI} lock-eth --config-path -k 2 --ckb-recipient-address "${YOUR_RECIPIE
 
 Pay attention to the command output and note the `lock_eth_tx_hash` info, which will be used in next step.
 
-3.Mint ckETH on Ckb
+#### 3.Mint ckETH on Ckb
 
 ```bash
 ${FORCE_CLI} mint -k 2 --hash "${lock_eth_tx_hash}"
@@ -147,14 +147,14 @@ ${FORCE_CLI} query-sudt-blance --addr ${YOUR_RECIPIENT_ADDR} --token-addr 0x0000
 ```
 
 ### ckETH -> ETH
-1.Burn ckETH on Ckb
+#### 1.Burn ckETH on Ckb
 ```bash
 ${FORCE_CLI} burn -k 2 --token-addr 0x0000000000000000000000000000000000000000 --receive-addr "${YOUR_ETH_ADDRESS}" --burn-amount 100 --unlock-fee 0
 ```
 
 Pay attention to the command output and note the `burn_tx_hash` info, which will be used in next step.
 
-2.Unlock ETH on Ethereum
+#### 2.Unlock ETH on Ethereum
 ```bash
 ${FORCE_CLI} unlock -k 2 --burn-tx-hash "${burn_tx_hash}" --wait
 ```
