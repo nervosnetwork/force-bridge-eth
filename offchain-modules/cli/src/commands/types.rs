@@ -314,7 +314,7 @@ pub struct UnlockArgs {
     #[clap(short, long)]
     pub to: String,
     #[clap(long)]
-    pub proof: String,
+    pub burn_tx_hash: String,
     #[clap(short, long, default_value = "0")]
     pub gas_price: u64,
     #[clap(long)]

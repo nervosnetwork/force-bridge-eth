@@ -8,7 +8,7 @@ use force_eth_lib::transfer::to_ckb::{
     lock_eth, lock_token, recycle_bridge_cell, recycle_recipient_cell, send_eth_spv_proof_tx,
 };
 use force_eth_lib::transfer::to_eth::{
-    burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock,
+    burn, get_balance, get_ckb_proof_info, init_light_client, transfer_sudt, unlock_with_retry,
     wait_block_submit,
 };
 use force_eth_lib::util::ckb_tx_generator::Generator;
@@ -20,7 +20,6 @@ use log::{debug, error, info};
 use serde_json::json;
 use shellexpand::tilde;
 use types::*;
-use web3::types::U256;
 
 pub mod dapp;
 pub mod types;
@@ -316,21 +315,25 @@ pub async fn generate_ckb_proof_handler(args: GenerateCkbProofArgs) -> Result<()
 
 pub async fn unlock_handler(args: UnlockArgs) -> Result<()> {
     let force_config = ForceConfig::new(&args.config_path)?;
-    let eth_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let eth_rpc_url = force_config.get_ethereum_rpc_url(&args.network)?;
+    let ckb_rpc_url = force_config.get_ckb_rpc_url(&args.network)?;
+    let deployed_contracts = force_config
+        .deployed_contracts
+        .as_ref()
+        .ok_or_else(|| anyhow!("contracts should be deployed"))?;
     let eth_private_key = parse_private_key(&args.private_key_path, &force_config, &args.network)?;
-    debug!("unlock_handler args: {:?}", &args);
-    let result = unlock(
+    unlock_with_retry(
         eth_private_key,
-        eth_url,
-        args.to,
-        args.proof,
-        args.gas_price,
-        U256::zero(),
+        eth_rpc_url,
+        ckb_rpc_url,
+        args.burn_tx_hash,
+        deployed_contracts.eth_ckb_chain_addr.clone(),
+        args.to.clone(),
+        force_config.ckb_rocksdb_path,
+        0,
         args.wait,
     )
-    .await?;
-    println!("unlock tx hash : {:?}", result);
-    Ok(())
+    .await
 }
 
 pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> {
@@ -367,26 +370,19 @@ pub async fn transfer_from_ckb_handler(args: TransferFromCkbArgs) -> Result<()> 
         lock_contract_addr,
     )
     .await?;
-    let proof = get_ckb_proof_info(
-        vec![ckb_tx_hash],
-        ckb_rpc_url.clone(),
-        eth_rpc_url.clone(),
-        light_client_addr,
-        force_config.ckb_rocksdb_path,
-    )
-    .await?;
-    let result = unlock(
+
+    unlock_with_retry(
         eth_private_key,
-        eth_rpc_url.clone(),
+        eth_rpc_url,
+        ckb_rpc_url,
+        ckb_tx_hash,
+        deployed_contracts.eth_ckb_chain_addr.clone(),
         deployed_contracts.eth_token_locker_addr.clone(),
-        proof,
-        args.gas_price,
-        U256::zero(),
+        force_config.ckb_rocksdb_path,
+        0,
         args.wait,
     )
-    .await?;
-    println!("unlock tx hash : {:?}", result);
-    Ok(())
+    .await
 }
 
 pub async fn transfer_sudt_handler(args: TransferSudtArgs) -> Result<()> {

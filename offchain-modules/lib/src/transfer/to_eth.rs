@@ -210,6 +210,56 @@ pub async fn wait_block_submit(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub async fn unlock_with_retry(
+    eth_private_key: ethereum_types::H256,
+    eth_rpc_url: String,
+    ckb_rpc_url: String,
+    burn_tx_hash: String,
+    light_client_addr: String,
+    token_locker_addr: String,
+    ckb_rocksdb_path: String,
+    gas_price: u64,
+    wait: bool,
+) -> Result<()> {
+    let light_client_addr = convert_eth_address(&light_client_addr)?;
+    for i in 0..5 {
+        let proof = get_ckb_proof_info(
+            vec![burn_tx_hash.clone()],
+            ckb_rpc_url.clone(),
+            eth_rpc_url.clone(),
+            light_client_addr,
+            ckb_rocksdb_path.clone(),
+        )
+        .await;
+        if let Err(e) = proof {
+            log::error!("retry {} times get unlock proof error {}", i, e);
+            tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
+            continue;
+        }
+        let proof = proof.unwrap();
+
+        let result = unlock(
+            eth_private_key,
+            eth_rpc_url.clone(),
+            token_locker_addr.clone(),
+            proof,
+            gas_price,
+            U256::zero(),
+            wait,
+        )
+        .await;
+        if let Err(e) = result {
+            log::error!("retry {} times unlock error {}", i, e);
+            tokio::time::delay_for(std::time::Duration::from_secs(5)).await;
+            continue;
+        }
+        println!("unlock tx hash : {:?}", result.unwrap());
+        break;
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub async fn unlock(
     eth_private_key: ethereum_types::H256,
     eth_url: String,

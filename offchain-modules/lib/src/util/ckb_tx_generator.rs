@@ -504,7 +504,7 @@ impl Generator {
             )
             .map_err(|err| {
                 if err.contains("Invalid cell status") {
-                    anyhow!("irreparable error: {:?}", err)
+                    anyhow!("irreparable error: replay resist cell is used {:?}", err)
                 } else {
                     anyhow!(err)
                 }
@@ -569,15 +569,16 @@ impl Generator {
         }
         // 2 create new bridge cell for user
         helper.add_output(bridge_cell, bridge_cell_data);
+
         // add witness
         {
             let header: eth_spv_lib::eth_types::BlockHeader = rlp::decode(
                 hex::decode(eth_proof.header_data.as_str())
-                    .unwrap()
+                    .map_err(|e| anyhow!("hex decode eth proof header data error: {}", e))?
                     .to_vec()
                     .as_slice(),
             )
-            .unwrap();
+            .map_err(|e| anyhow!("rlp decode eth proof header data error: {}", e))?;
             let mut key = [0u8; 32];
             let mut height = [0u8; 8];
             height.copy_from_slice(header.number.to_le_bytes().as_ref());
@@ -609,7 +610,7 @@ impl Generator {
                 compiled_leaves.push((leaf_index.into(), leaf_value.into()));
                 if !compiled_merkle_proof
                     .verify::<Blake2bHasher>(&cell_merkle_root.into(), compiled_leaves)
-                    .expect("verify")
+                    .map_err(|e| anyhow!("get verify error: {}", e))?
                 {
                     return Err(anyhow!("pre merkle proof verify fail"));
                 }
