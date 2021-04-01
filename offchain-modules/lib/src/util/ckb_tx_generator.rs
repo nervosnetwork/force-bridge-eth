@@ -584,7 +584,7 @@ impl Generator {
             height.copy_from_slice(header.number.to_le_bytes().as_ref());
             key[..8].clone_from_slice(&height);
 
-            let rocksdb_store = rocksdb::RocksDBStore::open_readonly(rocksdb_path);
+            let rocksdb_store = rocksdb::RocksDBStore::open_readonly(rocksdb_path)?;
             let smt_tree = rocksdb::SMT::new(cell_merkle_root.into(), rocksdb_store);
 
             let block_hash: [u8; 32] = smt_tree

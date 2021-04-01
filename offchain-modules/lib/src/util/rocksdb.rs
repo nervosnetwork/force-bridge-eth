@@ -2,6 +2,7 @@ use force_eth_types::hasher::Blake2bHasher;
 use rocksdb::ops::{Delete, Get, Open, WriteOps};
 use rocksdb::{ReadOnlyDB, WriteBatch, DB};
 // use serde::export::{Clone, Into};
+use anyhow::{anyhow, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sparse_merkle_tree::error::Error;
 use sparse_merkle_tree::traits::{Store, Value};
@@ -42,61 +43,62 @@ pub struct DBLeafNode<V> {
 }
 
 impl<V: Clone + Serialize> RocksDBStore<V> {
-    pub fn open_readonly(path: String) -> Self {
+    pub fn open_readonly(path: String) -> Result<Self> {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
 
         if !db_path.exists() {
-            panic!("rocksdb path should exist when opening db");
+            return Err(anyhow!("db path should exist when open readonly db"));
         }
-        let read_only_db = ReadOnlyDB::open_default(db_path).expect("open rocksdb");
+        let read_only_db = ReadOnlyDB::open_default(db_path)
+            .map_err(|e| anyhow!("open readonly db err: {:?}", e))?;
         let read_only_db = Arc::new(read_only_db);
 
-        RocksDBStore {
+        Ok(RocksDBStore {
             db: None,
             read_only_db: Some(read_only_db),
             branch_map: Map::default(),
             leaves_map: Map::default(),
-        }
+        })
     }
-    pub fn open(path: String) -> Self {
+    pub fn open(path: String) -> Result<Self> {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
 
         if !db_path.exists() {
-            panic!("rocksdb path should exist when opening db");
+            return Err(anyhow!("db path should exist when open db"));
         }
-        let db = DB::open_default(db_path).expect("open rocksdb");
+        let db = DB::open_default(db_path).map_err(|e| anyhow!("open db err: {:?}", e))?;
         let db = Arc::new(db);
 
-        RocksDBStore {
+        Ok(RocksDBStore {
             db: Some(db),
             read_only_db: None,
             branch_map: Map::default(),
             leaves_map: Map::default(),
-        }
+        })
     }
-    pub fn new(path: String) -> Self {
+    pub fn new(path: String) -> Result<Self> {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
 
         if !db_path.exists() {
-            std::fs::create_dir_all(db_path).expect("create db path dir");
+            std::fs::create_dir_all(db_path).map_err(|e| anyhow!("create db path err: {:?}", e))?;
         } else {
-            panic!("rocksdb path should not exist when creating db");
+            return Err(anyhow!("db path should not exist when new db"));
         }
-        let db = DB::open_default(db_path).expect("open rocksdb");
+        let db = DB::open_default(db_path).map_err(|e| anyhow!("open db err: {:?}", e))?;
         let db = Arc::new(db);
 
-        RocksDBStore {
+        Ok(RocksDBStore {
             db: Some(db),
             read_only_db: None,
             branch_map: Map::default(),
             leaves_map: Map::default(),
-        }
+        })
     }
 
-    pub fn commit(&mut self) {
+    pub fn commit(&mut self) -> Result<()> {
         let mut batch = WriteBatch::default();
         for (key, branch) in &self.branch_map {
             let db_branch_node = DBBranchNode {
@@ -105,23 +107,27 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
                 node: branch.node.into(),
                 sibling: branch.sibling.into(),
             };
-            let db_branch_node_raw = serde_json::to_vec(&db_branch_node).unwrap();
+            let db_branch_node_raw = serde_json::to_vec(&db_branch_node)
+                .map_err(|e| anyhow!("serialize db_branch_node err: {:?}", e))?;
             batch
                 .put(get_db_key_for_branch(key.as_slice()), db_branch_node_raw)
-                .expect("put branch");
+                .map_err(|e| anyhow!("put branch err: {:?}", e))?;
         }
         for (key, leaf) in &self.leaves_map {
             let db_leaf_node = DBLeafNode {
                 key: leaf.key.into(),
                 value: leaf.value.clone(),
             };
-            let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node).unwrap();
+            let db_leaf_node_raw = serde_json::to_vec(&db_leaf_node)
+                .map_err(|e| anyhow!("serialize db_leaf_node err: {:?}", e))?;
             batch
                 .put(get_db_key_for_leaf(key.as_slice()), db_leaf_node_raw)
-                .expect("put leaf");
+                .map_err(|e| anyhow!("put leaf err: {:?}", e))?;
         }
         let db = self.db.as_ref().expect("write mode should use db");
-        db.write(&batch).expect("write batch rocksdb");
+        db.write(&batch)
+            .map_err(|e| anyhow!("write batch commit err: {:?}", e))?;
+        Ok(())
     }
 }
 
@@ -137,20 +143,21 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             true => self
                 .db
                 .as_ref()
-                .unwrap()
+                .expect("db is none")
                 .get(get_db_key_for_branch(node.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?,
             false => self
                 .read_only_db
                 .as_ref()
                 .expect("should be read only db when db is none")
                 .get(get_db_key_for_branch(node.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?,
         };
 
         match db_value {
             Some(v) => {
-                let n: DBBranchNode = serde_json::from_slice(v.as_ref()).unwrap();
+                let n: DBBranchNode = serde_json::from_slice(v.as_ref())
+                    .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?;
                 let branch_node = BranchNode {
                     fork_height: n.fork_height,
                     key: n.key.into(),
@@ -172,20 +179,21 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             true => self
                 .db
                 .as_ref()
-                .unwrap()
+                .expect("db is none")
                 .get(get_db_key_for_leaf(leaf_hash.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?,
             false => self
                 .read_only_db
                 .as_ref()
                 .expect("should be read only db when db is none")
                 .get(get_db_key_for_leaf(leaf_hash.as_slice()))
-                .unwrap(),
+                .map_err(|e| Error::Store(format!("get_branch {:?}", e)))?,
         };
 
         match db_value {
             Some(v) => {
-                let n: DBLeafNode<V> = serde_json::from_slice(v.as_ref()).unwrap();
+                let n: DBLeafNode<V> = serde_json::from_slice(v.as_ref())
+                    .map_err(|e| Error::Store(format!("get_leaf {:?}", e)))?;
                 let node = LeafNode {
                     key: n.key.clone().into(),
                     value: n.value,
@@ -209,7 +217,7 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             .as_ref()
             .expect("only db can delete")
             .delete(get_db_key_for_branch(node.as_slice()))
-            .unwrap();
+            .map_err(|e| Error::Store(format!("remove_branch {:?}", e)))?;
         Ok(())
     }
     fn remove_leaf(&mut self, leaf_hash: &H256) -> Result<(), Error> {
@@ -218,7 +226,7 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
             .as_ref()
             .expect("only db can delete")
             .delete(get_db_key_for_leaf(leaf_hash.as_slice()))
-            .unwrap();
+            .map_err(|e| Error::Store(format!("remove_leaf {:?}", e)))?;
         Ok(())
     }
 }
@@ -261,26 +269,26 @@ fn get_db_key_for_leaf(key: &[u8]) -> Vec<u8> {
     db_key
 }
 
-pub fn open_rocksdb(path: String) -> Arc<DB> {
+pub fn open_rocksdb(path: String) -> Result<Arc<DB>> {
     let db_dir = shellexpand::tilde(path.as_str()).into_owned();
     let db_path = Path::new(db_dir.as_str());
 
     if !db_path.exists() {
-        std::fs::create_dir_all(db_path).expect("create db path dir");
+        std::fs::create_dir_all(db_path).map_err(|e| anyhow!("create db path err: {:?}", e))?;
     }
-    let db = DB::open_default(db_path).expect("open rocksdb");
-    Arc::new(db)
+    let db = DB::open_default(db_path).map_err(|e| anyhow!("open db err: {:?}", e))?;
+    Ok(Arc::new(db))
 }
 
-pub fn open_readonly_rocksdb(path: String) -> Arc<ReadOnlyDB> {
+pub fn open_readonly_rocksdb(path: String) -> Result<Arc<ReadOnlyDB>> {
     let db_dir = shellexpand::tilde(path.as_str()).into_owned();
     let db_path = Path::new(db_dir.as_str());
 
     if !db_path.exists() {
-        std::fs::create_dir_all(db_path).expect("create db path dir");
+        std::fs::create_dir_all(db_path).map_err(|e| anyhow!("create db path err: {:?}", e))?;
     }
-    let db = ReadOnlyDB::open_default(db_path).expect("open rocksdb");
-    Arc::new(db)
+    let db = ReadOnlyDB::open_default(db_path).map_err(|e| anyhow!("open db err: {:?}", e))?;
+    Ok(Arc::new(db))
 }
 
 // #[test]

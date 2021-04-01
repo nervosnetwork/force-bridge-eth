@@ -642,7 +642,7 @@ pub fn generate_ckb_history_tx_root_proof(
     let mut tx_roots_indices: Vec<u32> = vec![];
     let mut proof_leaves: Vec<H256> = vec![];
 
-    let db = open_readonly_rocksdb(ckb_db_path);
+    let db = open_readonly_rocksdb(ckb_db_path)?;
     let mut all_tx_roots = vec![];
     for number in init_block_number..=latest_block_number {
         let db_root = db

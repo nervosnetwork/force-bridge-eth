@@ -266,7 +266,7 @@ impl CKBRelayer {
         latest_height: u64,
         db_path: String,
     ) -> Result<[u8; 32]> {
-        let db = open_rocksdb(db_path);
+        let db = open_rocksdb(db_path)?;
 
         let mut all_tx_roots = vec![];
         for number in start_height..=latest_height {
@@ -287,7 +287,7 @@ impl CKBRelayer {
         latest_height: u64,
         db_path: String,
     ) -> Result<()> {
-        let db = open_rocksdb(db_path);
+        let db = open_rocksdb(db_path)?;
         let mut rpc_client = HttpRpcClient::new(self.ckb_rpc_url.clone());
 
         let mut index = latest_height;
