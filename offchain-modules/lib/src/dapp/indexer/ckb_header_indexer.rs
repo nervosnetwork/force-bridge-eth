@@ -11,8 +11,6 @@ use rocksdb::DB;
 use shellexpand::tilde;
 use std::sync::Arc;
 
-const CONFIRM: u64 = 15;
-
 pub struct CkbHeaderIndexer {
     pub config_path: String,
     pub rpc_client: HttpRpcClient,
@@ -20,6 +18,7 @@ pub struct CkbHeaderIndexer {
     pub eth_client: Web3Client,
     pub ckb_init_height: u64,
     pub rocksdb_path: String,
+    pub confirm: u64,
 }
 
 impl CkbHeaderIndexer {
@@ -27,6 +26,7 @@ impl CkbHeaderIndexer {
         config_path: String,
         network: Option<String>,
         rocksdb_path: String,
+        confirm: u64,
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
@@ -60,19 +60,20 @@ impl CkbHeaderIndexer {
             eth_client,
             rocksdb_path,
             ckb_init_height,
+            confirm,
         })
     }
 
     pub async fn loop_relay_rocksdb(&mut self) -> Result<()> {
         let mut latest_submit_height = 0;
-        let db = open_rocksdb(self.rocksdb_path.clone());
+        let db = open_rocksdb(self.rocksdb_path.clone())?;
 
         loop {
             let ckb_current_height = self
                 .rpc_client
                 .get_tip_block_number()
                 .map_err(|e| anyhow!("failed to get ckb current height : {}", e))?;
-            let latest_height = ckb_current_height - CONFIRM;
+            let latest_height = ckb_current_height - self.confirm;
 
             if latest_height <= latest_submit_height {
                 log::info!("waiting for new block.");

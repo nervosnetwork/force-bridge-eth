@@ -79,7 +79,7 @@ impl EthHeaderIndexer {
         let merkle_root = match db_path.exists() {
             true => {
                 let rocksdb_store: RocksDBStore<RocksDBValue> =
-                    RocksDBStore::open(eth_rocksdb_path);
+                    RocksDBStore::open(eth_rocksdb_path)?;
                 let db = rocksdb_store.db.ok_or_else(|| anyhow!("db is none"))?;
                 let db_merkle_option = db
                     .get(ROCKSDB_MERKLE_ROOT_KEY.to_vec())
@@ -131,11 +131,11 @@ impl EthHeaderIndexer {
         let db_path = Path::new(db_dir.as_str());
         let mut smt_tree = match db_path.exists() {
             false => {
-                let rocksdb_store = RocksDBStore::new(eth_rocksdb_path.clone());
+                let rocksdb_store = RocksDBStore::new(eth_rocksdb_path.clone())?;
                 SMT::new(sparse_merkle_tree::H256::zero(), rocksdb_store)
             }
             true => {
-                let rocksdb_store = RocksDBStore::open(eth_rocksdb_path.clone());
+                let rocksdb_store = RocksDBStore::open(eth_rocksdb_path.clone())?;
                 SMT::new(merkle_root.into(), rocksdb_store)
             }
         };
@@ -190,7 +190,7 @@ impl EthHeaderIndexer {
 
     pub async fn store_merkle_root(&mut self, merkle_root: [u8; 32]) -> Result<()> {
         let rocksdb_store: RocksDBStore<RocksDBValue> =
-            RocksDBStore::open(self.rocksdb_path.clone());
+            RocksDBStore::open(self.rocksdb_path.clone())?;
         let db = rocksdb_store
             .db
             .as_ref()

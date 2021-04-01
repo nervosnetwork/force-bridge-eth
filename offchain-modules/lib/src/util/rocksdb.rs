@@ -43,58 +43,59 @@ pub struct DBLeafNode<V> {
 }
 
 impl<V: Clone + Serialize> RocksDBStore<V> {
-    pub fn open_readonly(path: String) -> Self {
+    pub fn open_readonly(path: String) -> Result<Self> {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
 
         if !db_path.exists() {
-            panic!("rocksdb path should exist when opening db");
+            return Err(anyhow!("db path should exist when open readonly db"));
         }
-        let read_only_db = ReadOnlyDB::open_default(db_path).expect("open rocksdb");
+        let read_only_db = ReadOnlyDB::open_default(db_path)
+            .map_err(|e| anyhow!("open readonly db err: {:?}", e))?;
         let read_only_db = Arc::new(read_only_db);
 
-        RocksDBStore {
+        Ok(RocksDBStore {
             db: None,
             read_only_db: Some(read_only_db),
             branch_map: Map::default(),
             leaves_map: Map::default(),
-        }
+        })
     }
-    pub fn open(path: String) -> Self {
+    pub fn open(path: String) -> Result<Self> {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
 
         if !db_path.exists() {
-            panic!("rocksdb path should exist when opening db");
+            return Err(anyhow!("db path should exist when open db"));
         }
-        let db = DB::open_default(db_path).expect("open rocksdb");
+        let db = DB::open_default(db_path).map_err(|e| anyhow!("open db err: {:?}", e))?;
         let db = Arc::new(db);
 
-        RocksDBStore {
+        Ok(RocksDBStore {
             db: Some(db),
             read_only_db: None,
             branch_map: Map::default(),
             leaves_map: Map::default(),
-        }
+        })
     }
-    pub fn new(path: String) -> Self {
+    pub fn new(path: String) -> Result<Self> {
         let db_dir = shellexpand::tilde(path.as_str()).into_owned();
         let db_path = Path::new(db_dir.as_str());
 
         if !db_path.exists() {
-            std::fs::create_dir_all(db_path).expect("create db path dir");
+            std::fs::create_dir_all(db_path).map_err(|e| anyhow!("create db path err: {:?}", e))?;
         } else {
-            panic!("rocksdb path should not exist when creating db");
+            return Err(anyhow!("db path should not exist when new db"));
         }
-        let db = DB::open_default(db_path).expect("open rocksdb");
+        let db = DB::open_default(db_path).map_err(|e| anyhow!("open db err: {:?}", e))?;
         let db = Arc::new(db);
 
-        RocksDBStore {
+        Ok(RocksDBStore {
             db: Some(db),
             read_only_db: None,
             branch_map: Map::default(),
             leaves_map: Map::default(),
-        }
+        })
     }
 
     pub fn commit(&mut self) -> Result<()> {
@@ -268,26 +269,26 @@ fn get_db_key_for_leaf(key: &[u8]) -> Vec<u8> {
     db_key
 }
 
-pub fn open_rocksdb(path: String) -> Arc<DB> {
+pub fn open_rocksdb(path: String) -> Result<Arc<DB>> {
     let db_dir = shellexpand::tilde(path.as_str()).into_owned();
     let db_path = Path::new(db_dir.as_str());
 
     if !db_path.exists() {
-        std::fs::create_dir_all(db_path).expect("create db path dir");
+        std::fs::create_dir_all(db_path).map_err(|e| anyhow!("create db path err: {:?}", e))?;
     }
-    let db = DB::open_default(db_path).expect("open rocksdb");
-    Arc::new(db)
+    let db = DB::open_default(db_path).map_err(|e| anyhow!("open db err: {:?}", e))?;
+    Ok(Arc::new(db))
 }
 
-pub fn open_readonly_rocksdb(path: String) -> Arc<ReadOnlyDB> {
+pub fn open_readonly_rocksdb(path: String) -> Result<Arc<ReadOnlyDB>> {
     let db_dir = shellexpand::tilde(path.as_str()).into_owned();
     let db_path = Path::new(db_dir.as_str());
 
     if !db_path.exists() {
-        std::fs::create_dir_all(db_path).expect("create db path dir");
+        std::fs::create_dir_all(db_path).map_err(|e| anyhow!("create db path err: {:?}", e))?;
     }
-    let db = ReadOnlyDB::open_default(db_path).expect("open rocksdb");
-    Arc::new(db)
+    let db = ReadOnlyDB::open_default(db_path).map_err(|e| anyhow!("open db err: {:?}", e))?;
+    Ok(Arc::new(db))
 }
 
 // #[test]

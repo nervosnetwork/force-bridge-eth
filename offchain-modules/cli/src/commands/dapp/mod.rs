@@ -96,8 +96,13 @@ async fn eth_tx_relay(args: EthTxRelayerArgs) -> Result<()> {
 }
 
 async fn ckb_header_indexer(args: CkbHeaderIndexerArgs) -> Result<()> {
-    let mut ckb_header_indexer =
-        CkbHeaderIndexer::new(args.config_path, args.network, args.rocksdb_path).await?;
+    let mut ckb_header_indexer = CkbHeaderIndexer::new(
+        args.config_path,
+        args.network,
+        args.rocksdb_path,
+        args.confirm,
+    )
+    .await?;
     loop {
         let res = ckb_header_indexer.loop_relay_rocksdb().await;
         if let Err(err) = res {

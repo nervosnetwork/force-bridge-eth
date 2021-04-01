@@ -98,6 +98,8 @@ pub struct CkbHeaderIndexerArgs {
     pub network: Option<String>,
     #[clap(long, default_value = "~/.force-bridge/dapp-lib/ckb-rocksdb")]
     pub rocksdb_path: String,
+    #[clap(long, default_value = "15")]
+    pub confirm: u64,
 }
 
 #[derive(Clap, Clone, Debug)]

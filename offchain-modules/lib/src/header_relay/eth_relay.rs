@@ -207,7 +207,7 @@ impl ETHRelayer {
 
         let (start_height, mut smt_tree) = match last_cell_output_data.len() {
             0 => {
-                let rocksdb_store = rocksdb::RocksDBStore::new(db_path.clone());
+                let rocksdb_store = rocksdb::RocksDBStore::new(db_path.clone())?;
                 (
                     tip_header_number - self.confirm,
                     rocksdb::SMT::new(sparse_merkle_tree::H256::zero(), rocksdb_store),
@@ -217,7 +217,7 @@ impl ETHRelayer {
                 let (start_height, latest_height, merkle_root) =
                     parse_merkle_cell_data(last_cell_output_data.to_vec())?;
                 last_cell_latest_height = latest_height;
-                let rocksdb_store = rocksdb::RocksDBStore::open(db_path.clone());
+                let rocksdb_store = rocksdb::RocksDBStore::open(db_path.clone())?;
                 (
                     start_height,
                     rocksdb::SMT::new(merkle_root.into(), rocksdb_store),
