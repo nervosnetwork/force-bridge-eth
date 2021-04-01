@@ -12,7 +12,6 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 
 use crate::cell_collector::{collect_sudt_cells_by_amout, get_live_cells_by_lock_and_capacity};
-use crate::constants::XT_CELL_CAPACITY;
 use crate::indexer::IndexerRpcClient;
 use crate::util::{get_live_cell_with_cache, get_privkey_signer};
 use ckb_sdk::constants::{
@@ -459,7 +458,6 @@ impl TxHelper {
         }
         if collected_amount - need_sudt_amount > 0 {
             let sudt_change_output = CellOutput::new_builder()
-                .capacity(Capacity::shannons(XT_CELL_CAPACITY).pack())
                 .lock(lockscript)
                 .type_(Some(sudt_typescript).pack())
                 .build();
@@ -467,7 +465,7 @@ impl TxHelper {
                 .to_le_bytes()
                 .to_vec()
                 .into();
-            self.add_output(sudt_change_output, sudt_change_data);
+            self.add_output_with_auto_capacity(sudt_change_output, sudt_change_data);
         }
 
         Ok(self.transaction.clone())
