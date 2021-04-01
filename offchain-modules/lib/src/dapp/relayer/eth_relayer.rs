@@ -60,6 +60,7 @@ impl EthTxRelayer {
             .expect("contracts deployed")
             .eth_token_locker_addr
             .clone();
+        let token_locker_addr = clear_0x(token_locker_addr.as_str()).to_string();
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
         let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
@@ -157,9 +158,10 @@ impl EthTxRelayer {
     }
 
     async fn update_mint_task(&self, task: MintTask) -> Result<MintTask> {
+        let tx_hash = "0x".to_string() + task.lock_tx_hash.as_str();
         for retry in 0..5 {
             let ret = generate_eth_proof(
-                task.lock_tx_hash.clone(),
+                tx_hash.clone(),
                 self.eth_rpc_url.clone(),
                 self.token_locker_addr.clone(),
             );
@@ -190,7 +192,7 @@ impl EthTxRelayer {
         }
         Err(anyhow!(
             "Failed to generate eth proof for lock tx:{}, after retry 5 times",
-            task.lock_tx_hash.as_str()
+            tx_hash.as_str()
         ))
     }
 
@@ -363,5 +365,13 @@ impl EthTxRelayer {
             .await
             .map_err(|e| anyhow!("failed to ensure indexer sync : {}", e))?;
         Ok(generator)
+    }
+}
+
+pub fn clear_0x(s: &str) -> &str {
+    if &s[..2] == "0x" || &s[..2] == "0X" {
+        &s[2..]
+    } else {
+        s
     }
 }
