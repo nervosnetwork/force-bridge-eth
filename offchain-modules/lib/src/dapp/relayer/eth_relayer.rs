@@ -2,7 +2,7 @@ use crate::dapp::db::eth_relayer::{
     delete_relayed_tx, get_mint_tasks, get_retry_tasks, last_relayed_number, latest_index_number,
     store_mint_tasks, update_relayed_tx, MintTask,
 };
-use crate::transfer::to_ckb::send_eth_spv_proof_tx;
+use crate::transfer::to_ckb::{send_eth_spv_proof_tx, to_eth_spv_proof_json};
 use crate::util::ckb_tx_generator::Generator;
 use crate::util::ckb_util::{get_eth_client_tip_number, parse_privkey_path, ETHSPVProofJson};
 use crate::util::config::ForceConfig;
@@ -18,7 +18,9 @@ use force_sdk::cell_collector::get_capacity_cells_for_mint;
 use force_sdk::tx_helper::TxHelper;
 use force_sdk::util::ensure_indexer_sync;
 use futures::future::join_all;
+use futures::stream::{FuturesOrdered, StreamExt};
 use molecule::prelude::{Builder, Entity};
+use rusty_receipt_proof_maker::generate_eth_proof;
 use secp256k1::SecretKey;
 use shellexpand::tilde;
 use sqlx::MySqlPool;
@@ -31,6 +33,8 @@ pub struct EthTxRelayer {
     pub network: Option<String>,
     pub ckb_rpc_url: String,
     pub ckb_indexer_url: String,
+    pub eth_rpc_url: String,
+    pub token_locker_addr: String,
     pub private_key: SecretKey,
     pub db_pool: MySqlPool,
     pub mint_concurrency: u64,
@@ -50,7 +54,14 @@ impl EthTxRelayer {
     ) -> Result<Self> {
         let config_path = tilde(config_path.as_str()).into_owned();
         let force_config = ForceConfig::new(config_path.as_str())?;
+        let token_locker_addr = force_config
+            .deployed_contracts
+            .as_ref()
+            .expect("contracts deployed")
+            .eth_token_locker_addr
+            .clone();
         let ckb_rpc_url = force_config.get_ckb_rpc_url(&network)?;
+        let eth_rpc_url = force_config.get_ethereum_rpc_url(&network)?;
         let ckb_indexer_url = force_config.get_ckb_indexer_url(&network)?;
         let private_key = parse_privkey_path(private_key.as_str(), &force_config, &network)?;
         let db_pool = MySqlPool::connect(db_url.as_str()).await?;
@@ -60,6 +71,8 @@ impl EthTxRelayer {
             network,
             ckb_rpc_url,
             ckb_indexer_url,
+            eth_rpc_url,
+            token_locker_addr,
             private_key,
             db_pool,
             mint_concurrency,
@@ -98,8 +111,9 @@ impl EthTxRelayer {
         let relay_to_number = std::cmp::min(client_confirmed_number, latest_index_number);
         let retry_tasks = get_retry_tasks(&self.db_pool).await?;
         log::info!("total retry tasks: {}", retry_tasks.len());
-        let mut mint_tasks =
+        let mint_tasks =
             get_mint_tasks(&self.db_pool, last_relayed_number, relay_to_number).await?;
+        let mut mint_tasks = self.update_mint_tasks(mint_tasks).await?;
         log::info!("total mint tasks: {}", mint_tasks.len());
         store_mint_tasks(&self.db_pool, &mint_tasks).await?;
         mint_tasks.extend(retry_tasks);
@@ -121,6 +135,63 @@ impl EthTxRelayer {
             log::info!("mint {} txs elapsed {:?}", mint_count, now.elapsed());
         }
         Ok(relay_to_number)
+    }
+
+    async fn update_mint_tasks(&self, tasks: Vec<MintTask>) -> Result<Vec<MintTask>> {
+        let tasks: Vec<Result<MintTask>> = tasks
+            .into_iter()
+            .map(|t| self.update_mint_task(t))
+            .collect::<FuturesOrdered<_>>()
+            .collect()
+            .await;
+        let length = tasks.len();
+        let succeed_tasks = tasks
+            .into_iter()
+            .filter_map(|t| t.ok())
+            .collect::<Vec<MintTask>>();
+        if length != succeed_tasks.len() {
+            bail!("update mint tasks error")
+        } else {
+            Ok(succeed_tasks)
+        }
+    }
+
+    async fn update_mint_task(&self, task: MintTask) -> Result<MintTask> {
+        for retry in 0..5 {
+            let ret = generate_eth_proof(
+                task.lock_tx_hash.clone(),
+                self.eth_rpc_url.clone(),
+                self.token_locker_addr.clone(),
+            );
+            match ret {
+                Ok(proof) => {
+                    let proof_json = to_eth_spv_proof_json(
+                        proof,
+                        self.token_locker_addr.clone(),
+                        self.eth_rpc_url.clone(),
+                    )
+                    .await?;
+                    let proof_json_string = serde_json::to_string(&proof_json)?;
+                    let mint_task = MintTask {
+                        block_number: task.block_number,
+                        lock_tx_hash: task.lock_tx_hash.clone(),
+                        lock_tx_proof: proof_json_string,
+                    };
+                    return Ok(mint_task);
+                }
+                Err(e) => {
+                    log::error!(
+                        "get eth receipt proof failed, retried {} times, err: {}",
+                        retry,
+                        e
+                    );
+                }
+            }
+        }
+        Err(anyhow!(
+            "Failed to generate eth proof for lock tx:{}, after retry 5 times",
+            task.lock_tx_hash.as_str()
+        ))
     }
 
     async fn mint(&self, task: &MintTask, capacity_cell: &OutPoint) -> Result<()> {
