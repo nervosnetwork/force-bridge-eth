@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use sqlx::mysql::MySqlPool;
 use sqlx::Done;
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct MintTask {
     pub lock_tx_hash: String,
     pub lock_tx_proof: String,

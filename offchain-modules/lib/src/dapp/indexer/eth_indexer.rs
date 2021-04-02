@@ -387,7 +387,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
             String::from(self.eth_client.url()),
         )
         .await?;
-        let proof_json = serde_json::to_string(&eth_proof_json)?;
+        // let proof_json = serde_json::to_string(&eth_proof_json)?;
         let recipient_lockscript = hex::encode(eth_proof_json.recipient_lockscript);
         if self.indexer_filter.filter(recipient_lockscript.clone()) {
             let record = EthToCkbRecord {
@@ -396,7 +396,7 @@ impl<T: IndexerFilter> EthIndexer<T> {
                 token_addr: hex::encode(eth_spv_proof.token.as_bytes()),
                 ckb_recipient_lockscript: recipient_lockscript,
                 locked_amount: Uint128::from(eth_spv_proof.lock_amount).to_string(),
-                eth_spv_proof: Some(proof_json),
+                eth_spv_proof: Some("".to_string()),
                 replay_resist_outpoint: hex::encode(
                     eth_spv_proof.replay_resist_outpoint.as_slice(),
                 ),
