@@ -23,7 +23,17 @@ contract CKBChain is ICKBSpv {
     uint public constant SIGNATURE_SIZE = 65;
     uint public constant VALIDATORS_SIZE_LIMIT = 20;
     string public constant NAME_712 = "Force Bridge CKBChain";
-    bytes32 public DOMAIN_SEPARATOR;
+
+    /* solhint-disable var-name-mixedcase */
+    // Cache the domain separator as an immutable value, but also store the chain id that it corresponds to, in order to
+    // invalidate the cached domain separator if the chain id changes.
+    bytes32 private _CACHED_DOMAIN_SEPARATOR;
+    uint256 private _CACHED_CHAIN_ID;
+
+    bytes32 private _HASHED_NAME;
+    bytes32 private _HASHED_VERSION;
+    bytes32 private _TYPE_HASH;
+
     // if the number of verified signatures has reached `multisigThreshold_`, validators approve the tx
     uint public multisigThreshold_;
     address[] validators_;
@@ -31,6 +41,8 @@ contract CKBChain is ICKBSpv {
     // CKBChainV3-----------------------------
     // ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256("AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)");
     bytes32 public constant ADD_HISTORY_TX_ROOT_TYPEHASH = 0x0eeee1be1069b2c737b19f6c3510ceeed099af9ee1f5985109f117ce0524ca10;
+    // SET_NEW_VALIDATORS_TYPEHASH = keccak256("SetNewValidators(address[] validators, uint256 multisigThreshold)");
+    bytes32 public constant SET_NEW_VALIDATORS_TYPEHASH = 0x2dbb88776b74460392119c32a74db39f2a5cd7dd954f3934412fcadb945fdab3;
     bytes32 public historyTxRoot;
     mapping(bytes32 => bytes32) verifiedTxRoots;
 
@@ -58,12 +70,12 @@ contract CKBChain is ICKBSpv {
      * @notice             @dev signatures are a multiple of 65 bytes and are densely packed.
      * @param signatures   The signatures bytes array
      */
-    function validatorsApprove(bytes32 msgHash, bytes memory signatures, uint threshold) public view {
+    function validatorsApprove(bytes32 msgHash, bytes memory signatures) public view {
         require(signatures.length % SIGNATURE_SIZE == 0, "invalid signatures");
 
         // 1. check length of signature
         uint length = signatures.length / SIGNATURE_SIZE;
-        require(length >= threshold, "length of signatures must greater than threshold");
+        require(length >= multisigThreshold_, "length of signatures must greater than threshold");
 
         // 3. check number of verified signatures >= threshold
         uint verifiedNum = 0;
@@ -94,12 +106,12 @@ contract CKBChain is ICKBSpv {
             // recoveredAddress verified
             validatorIndexVisited[validatorIndex] = true;
             verifiedNum++;
-            if (verifiedNum >= threshold) {
+            if (verifiedNum >= multisigThreshold_) {
                 return;
             }
         }
 
-        require(verifiedNum >= threshold, "signatures not verified");
+        require(verifiedNum >= multisigThreshold_, "signatures not verified");
     }
 
     function initialize(
@@ -110,42 +122,57 @@ contract CKBChain is ICKBSpv {
         initialized = true;
 
         // set DOMAIN_SEPARATOR
-        uint chainId;
-        assembly {
-            chainId := chainid()
-        }
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes(NAME_712)),
-                keccak256(bytes("1")),
-                chainId,
-                address(this)
+        bytes32 hashedName = keccak256(bytes(NAME_712));
+        bytes32 hashedVersion = keccak256(bytes("1"));
+        bytes32 typeHash = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+        _HASHED_NAME = hashedName;
+        _HASHED_VERSION = hashedVersion;
+        _CACHED_CHAIN_ID = _getChainId();
+        _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(typeHash, hashedName, hashedVersion);
+        _TYPE_HASH = typeHash;
+
+        // set validators
+        _setNewValidators(validators, multisigThreshold);
+    }
+
+    function setNewValidators(
+        address[] calldata validators,
+        uint256 multisigThreshold,
+        bytes calldata signatures
+    ) external {
+        // 1. calc msgHash
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01", // solium-disable-line
+                _domainSeparatorV4(),
+                keccak256(abi.encode(SET_NEW_VALIDATORS_TYPEHASH, validators, multisigThreshold))
             )
         );
 
-        // set validators
-        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
-        validators_ = validators;
-        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
-        multisigThreshold_ = multisigThreshold;
+        // 2. validatorsApprove
+        validatorsApprove(msgHash, signatures);
+
+        // 3. _setNewValidators
+        _setNewValidators(validators, multisigThreshold);
     }
 
     // CKBChainV3-----------------------------
     function addHistoryTxRoot(uint64 _initBlockNumber, uint64 _latestBlockNumber, bytes32 _historyTxRoot, bytes calldata signatures)
     external
     {
+        require(_latestBlockNumber > latestBlockNumber, "latestBlockNumber should be strictly incremental");
+
         // 1. calc msgHash
         bytes32 msgHash = keccak256(
             abi.encodePacked(
                 "\x19\x01", // solium-disable-line
-                DOMAIN_SEPARATOR,
+                _domainSeparatorV4(),
                 keccak256(abi.encode(ADD_HISTORY_TX_ROOT_TYPEHASH, _initBlockNumber, _latestBlockNumber, _historyTxRoot))
             )
         );
 
         // 2. validatorsApprove
-        validatorsApprove(msgHash, signatures, multisigThreshold_);
+        validatorsApprove(msgHash, signatures);
 
         initBlockNumber = _initBlockNumber;
         latestBlockNumber = _latestBlockNumber;
@@ -157,5 +184,51 @@ contract CKBChain is ICKBSpv {
 
     function getHistoryTxRootInfo() override external view returns (uint64, uint64, bytes32) {
         return (initBlockNumber, latestBlockNumber, historyTxRoot);
+    }
+
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
+    function _setNewValidators(
+        address[] memory validators,
+        uint multisigThreshold
+    ) internal {
+        // set validators
+        require(validators.length <= VALIDATORS_SIZE_LIMIT, "number of validators exceeds the limit");
+        require(multisigThreshold <= validators.length, "invalid multisigThreshold");
+        validators_ = validators;
+        multisigThreshold_ = multisigThreshold;
+    }
+
+    function _buildDomainSeparator(bytes32 typeHash, bytes32 name, bytes32 version) private view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                typeHash,
+                name,
+                version,
+                _getChainId(),
+                address(this)
+            )
+        );
+    }
+
+    /**
+     * @dev Returns the domain separator for the current chain.
+     */
+    function _domainSeparatorV4() internal view virtual returns (bytes32) {
+        if (_getChainId() == _CACHED_CHAIN_ID) {
+            return _CACHED_DOMAIN_SEPARATOR;
+        } else {
+            return _buildDomainSeparator(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION);
+        }
+    }
+
+    function _getChainId() private view returns (uint256 chainId) {
+        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            chainId := chainid()
+        }
     }
 }

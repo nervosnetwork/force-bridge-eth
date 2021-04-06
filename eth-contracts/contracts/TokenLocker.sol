@@ -168,6 +168,7 @@ contract TokenLocker {
             (uint256 bridgeAmount, uint256 bridgeFee, address tokenAddress, address recipientAddress) = decodeBurnResult(rawTx);
             require(bridgeAmount > bridgeFee, "fee should not exceed bridge amount");
             uint256 receivedAmount = bridgeAmount - bridgeFee;
+
             // address(0) means `ether` here
             if (tokenAddress == address(0)) {
                 payable(recipientAddress).transfer(receivedAmount);
@@ -294,6 +295,12 @@ contract TokenLocker {
             front = (front + 1) % queueLength;
 
             if (currentIndex == 0) {
+                // ensure that all lemmas and leaves are consumed
+                require(
+                    lemmasPosition == lemmasLength && front == end,
+                    "invalid historyTxRootProof, Not all of lemmas and leaves are consumed"
+                );
+
                 break;
             }
 

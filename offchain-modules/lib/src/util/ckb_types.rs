@@ -79,7 +79,7 @@ impl From<CKBHistoryTxProof> for ckb_tx_proof::CKBHistoryTxProof {
             .block_number(block_number.into())
             .witnesses_root(witnesses_root.pack().into())
             .lemmas(mol_lemmas)
-            .raw_transaction(raw_transaction.into())
+            .raw_transaction(raw_transaction.pack().as_bytes().into())
             .build()
     }
 }

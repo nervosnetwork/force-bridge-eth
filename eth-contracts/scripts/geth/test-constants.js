@@ -14,13 +14,27 @@ async function main() {
   );
   const contract = await factory.deploy();
   await contract.deployed();
-  const typeHash = await contract.callStatic.calcSetNewCkbSpvTypehash();
+  const [
+    history_typehash,
+    validators_typehash,
+  ] = await contract.callStatic.calcTypehash();
 
-  const SET_NEW_CKB_SPV_TYPEHASH = keccak256(
-    toUtf8Bytes('SetNewCkbSpv(address newSpvAddress,uint256 nonce)')
+  const ADD_HISTORY_TX_ROOT_TYPEHASH = keccak256(
+    toUtf8Bytes(
+      'AddHistoryTxRoot(uint64 startBlockNumber, uint64 endBlockNumber, bytes32 historyTxRoot)'
+    )
+  );
+  const SET_NEW_VALIDATORS_TYPEHASH = keccak256(
+    toUtf8Bytes(
+      'SetNewValidators(address[] validators, uint256 multisigThreshold)'
+    )
   );
 
-  expect(typeHash).to.eq(SET_NEW_CKB_SPV_TYPEHASH);
+  log(`ADD_HISTORY_TX_ROOT_TYPEHASH: `, ADD_HISTORY_TX_ROOT_TYPEHASH);
+  log(`SET_NEW_VALIDATORS_TYPEHASH: `, SET_NEW_VALIDATORS_TYPEHASH);
+
+  expect(history_typehash).to.eq(ADD_HISTORY_TX_ROOT_TYPEHASH);
+  expect(validators_typehash).to.eq(SET_NEW_VALIDATORS_TYPEHASH);
 }
 
 main()
