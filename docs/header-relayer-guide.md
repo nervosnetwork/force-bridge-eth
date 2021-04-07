@@ -35,3 +35,9 @@ What a Verifier has to do is run a HTTP web service to verify light client trans
     - The server should be capable of visited with public IP address or domain.
 - hardware requirements
     - The header relay process is not resource consuming, 2 Core CPU and 4G Ram should be enough.
+
+You can run the sign server with a simple command. There are no other dependencies. You can start it with process monitor tools like `systemd`, `pm2` to make it more robust.
+
+```
+sign-server run --config-path conf/config.toml --listen-url 0.0.0.0:3031 --ckb-key-path conf/ckb_key --eth-key-path conf/eth_key --cell-script 590000001000000030000000310000001313a0eaa571a9168e44ceba1a0d0a328840d9de43aab2388af7c860b57c9a0c01240000005edca2d744b6eaa347de7ff0edcd2e6e88ab8f2836bcbd0df0940026956e5f8107000000
+```
