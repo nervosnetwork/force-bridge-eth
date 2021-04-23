@@ -240,23 +240,11 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
     fn remove_branch(&mut self, node: &H256) -> Result<(), Error> {
         self.removed_branch_set.insert(*node);
         self.inserted_branch_map.remove(node);
-        // self.inserted_branch_map.remove(node);
-        // self.db
-        //     .as_ref()
-        //     .expect("only db can delete")
-        //     .delete(get_db_key_for_branch(node.as_slice()))
-        //     .map_err(|e| Error::Store(format!("remove_branch {:?}", e)))?;
         Ok(())
     }
     fn remove_leaf(&mut self, leaf_hash: &H256) -> Result<(), Error> {
         self.removed_leaves_set.insert(*leaf_hash);
         self.inserted_leaves_map.remove(leaf_hash);
-        // self.inserted_leaves_map.remove(leaf_hash);
-        // self.db
-        //     .as_ref()
-        //     .expect("only db can delete")
-        //     .delete(get_db_key_for_leaf(leaf_hash.as_slice()))
-        //     .map_err(|e| Error::Store(format!("remove_leaf {:?}", e)))?;
         Ok(())
     }
 }

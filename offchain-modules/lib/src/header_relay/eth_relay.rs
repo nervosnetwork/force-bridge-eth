@@ -235,10 +235,6 @@ impl ETHRelayer {
             height.copy_from_slice(index.to_le_bytes().as_ref());
             key[..8].clone_from_slice(&height);
 
-            if index == 100 && tip_header_number < 150 {
-                return Err(anyhow::anyhow!("test error"));
-            }
-
             let chain_block = self.eth_client.get_block(block_number.into()).await?;
             let chain_block_hash = chain_block
                 .hash
