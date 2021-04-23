@@ -1,8 +1,7 @@
-use force_eth_types::hasher::Blake2bHasher;
-use rocksdb::ops::{Delete, Get, Open, WriteOps};
-use rocksdb::{ReadOnlyDB, WriteBatch, DB};
-// use serde::export::{Clone, Into};
 use anyhow::{anyhow, Result};
+use force_eth_types::hasher::Blake2bHasher;
+use rocksdb::ops::{Get, Open, WriteOps};
+use rocksdb::{ReadOnlyDB, WriteBatch, DB};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sparse_merkle_tree::error::Error;
 use sparse_merkle_tree::traits::{Store, Value};
@@ -18,14 +17,17 @@ pub type SMT =
     sparse_merkle_tree::SparseMerkleTree<Blake2bHasher, RocksDBValue, RocksDBStore<RocksDBValue>>;
 
 type Map<K, V> = std::collections::HashMap<K, V>;
+type Set<K> = std::collections::HashSet<K>;
 
 // write process only use db, read process only use read_only_db
 #[derive(Clone)]
 pub struct RocksDBStore<V> {
     pub db: Option<Arc<DB>>,
     pub read_only_db: Option<Arc<ReadOnlyDB>>,
-    pub branch_map: Map<H256, BranchNode>,
-    pub leaves_map: Map<H256, LeafNode<V>>,
+    pub inserted_branch_map: Map<H256, BranchNode>,
+    pub inserted_leaves_map: Map<H256, LeafNode<V>>,
+    pub removed_branch_set: Set<H256>,
+    pub removed_leaves_set: Set<H256>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
@@ -57,8 +59,10 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
         Ok(RocksDBStore {
             db: None,
             read_only_db: Some(read_only_db),
-            branch_map: Map::default(),
-            leaves_map: Map::default(),
+            inserted_branch_map: Map::default(),
+            inserted_leaves_map: Map::default(),
+            removed_branch_set: Set::default(),
+            removed_leaves_set: Set::default(),
         })
     }
     pub fn open(path: String) -> Result<Self> {
@@ -74,8 +78,10 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
         Ok(RocksDBStore {
             db: Some(db),
             read_only_db: None,
-            branch_map: Map::default(),
-            leaves_map: Map::default(),
+            inserted_branch_map: Map::default(),
+            inserted_leaves_map: Map::default(),
+            removed_branch_set: Set::default(),
+            removed_leaves_set: Set::default(),
         })
     }
     pub fn new(path: String) -> Result<Self> {
@@ -93,14 +99,16 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
         Ok(RocksDBStore {
             db: Some(db),
             read_only_db: None,
-            branch_map: Map::default(),
-            leaves_map: Map::default(),
+            inserted_branch_map: Map::default(),
+            inserted_leaves_map: Map::default(),
+            removed_branch_set: Set::default(),
+            removed_leaves_set: Set::default(),
         })
     }
 
     pub fn commit(&mut self) -> Result<()> {
         let mut batch = WriteBatch::default();
-        for (key, branch) in &self.branch_map {
+        for (key, branch) in &self.inserted_branch_map {
             let db_branch_node = DBBranchNode {
                 fork_height: branch.fork_height,
                 key: branch.key.into(),
@@ -113,7 +121,12 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
                 .put(get_db_key_for_branch(key.as_slice()), db_branch_node_raw)
                 .map_err(|e| anyhow!("put branch err: {:?}", e))?;
         }
-        for (key, leaf) in &self.leaves_map {
+        for key in &self.removed_branch_set {
+            batch
+                .delete(get_db_key_for_branch(key.as_slice()))
+                .map_err(|e| anyhow!("put branch err: {:?}", e))?;
+        }
+        for (key, leaf) in &self.inserted_leaves_map {
             let db_leaf_node = DBLeafNode {
                 key: leaf.key.into(),
                 value: leaf.value.clone(),
@@ -123,6 +136,11 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
             batch
                 .put(get_db_key_for_leaf(key.as_slice()), db_leaf_node_raw)
                 .map_err(|e| anyhow!("put leaf err: {:?}", e))?;
+        }
+        for key in &self.removed_leaves_set {
+            batch
+                .delete(get_db_key_for_branch(key.as_slice()))
+                .map_err(|e| anyhow!("put branch err: {:?}", e))?;
         }
         let db = self.db.as_ref().expect("write mode should use db");
         db.write(&batch)
@@ -134,7 +152,10 @@ impl<V: Clone + Serialize> RocksDBStore<V> {
 impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
     // search key from cache first, if key not exists in cache, then search it from rocksdb.
     fn get_branch(&self, node: &H256) -> Result<Option<BranchNode>, Error> {
-        let cache_value = self.branch_map.get(node).map(Clone::clone);
+        if self.removed_branch_set.contains(node) {
+            return Ok(None);
+        }
+        let cache_value = self.inserted_branch_map.get(node).map(Clone::clone);
         if cache_value.is_some() {
             return Ok(cache_value);
         }
@@ -170,7 +191,10 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
         }
     }
     fn get_leaf(&self, leaf_hash: &H256) -> Result<Option<LeafNode<V>>, Error> {
-        let cache_value = self.leaves_map.get(leaf_hash).map(Clone::clone);
+        if self.removed_leaves_set.contains(leaf_hash) {
+            return Ok(None);
+        }
+        let cache_value = self.inserted_leaves_map.get(leaf_hash).map(Clone::clone);
         if cache_value.is_some() {
             return Ok(cache_value);
         }
@@ -204,29 +228,23 @@ impl<V: Clone + Serialize + DeserializeOwned> Store<V> for RocksDBStore<V> {
         }
     }
     fn insert_branch(&mut self, node: H256, branch: BranchNode) -> Result<(), Error> {
-        self.branch_map.insert(node, branch);
+        self.inserted_branch_map.insert(node, branch);
+        self.removed_branch_set.remove(&node);
         Ok(())
     }
     fn insert_leaf(&mut self, leaf_hash: H256, leaf: LeafNode<V>) -> Result<(), Error> {
-        self.leaves_map.insert(leaf_hash, leaf);
+        self.inserted_leaves_map.insert(leaf_hash, leaf);
+        self.removed_leaves_set.remove(&leaf_hash);
         Ok(())
     }
     fn remove_branch(&mut self, node: &H256) -> Result<(), Error> {
-        self.branch_map.remove(node);
-        self.db
-            .as_ref()
-            .expect("only db can delete")
-            .delete(get_db_key_for_branch(node.as_slice()))
-            .map_err(|e| Error::Store(format!("remove_branch {:?}", e)))?;
+        self.removed_branch_set.insert(*node);
+        self.inserted_branch_map.remove(node);
         Ok(())
     }
     fn remove_leaf(&mut self, leaf_hash: &H256) -> Result<(), Error> {
-        self.leaves_map.remove(leaf_hash);
-        self.db
-            .as_ref()
-            .expect("only db can delete")
-            .delete(get_db_key_for_leaf(leaf_hash.as_slice()))
-            .map_err(|e| Error::Store(format!("remove_leaf {:?}", e)))?;
+        self.removed_leaves_set.insert(*leaf_hash);
+        self.inserted_leaves_map.remove(leaf_hash);
         Ok(())
     }
 }
