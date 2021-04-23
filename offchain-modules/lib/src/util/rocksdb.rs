@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use force_eth_types::hasher::Blake2bHasher;
-use rocksdb::ops::{Delete, Get, Open, WriteOps};
+use rocksdb::ops::{Get, Open, WriteOps};
 use rocksdb::{ReadOnlyDB, WriteBatch, DB};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sparse_merkle_tree::error::Error;
